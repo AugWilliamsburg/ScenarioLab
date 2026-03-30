@@ -3991,3 +3991,704 @@ body {
   font-size: 11.5px; color: var(--text-muted);
   line-height: 1.7;
 }
+
+/* ================================================================
+   Phase 7: 統合ダッシュボード・フェーズバー・サイドバー強化
+   ================================================================ */
+
+/* ── フェーズトップバー ── */
+.phase-topbar {
+  background: var(--bg-white);
+  border-bottom: 1.5px solid var(--border);
+  position: sticky;
+  top: var(--topbar-h);
+  z-index: 40;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+.phase-topbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.phase-topbar-inner::-webkit-scrollbar { display: none; }
+.phase-topbar-divider {
+  width: 1px;
+  height: 28px;
+  background: var(--border);
+  flex-shrink: 0;
+  margin: 0 4px;
+}
+
+/* 作品トップボタン */
+.phase-top-home {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  background: var(--accent-bg);
+  border: 1.5px solid var(--accent-border);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+  font-size: 11.5px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all .14s ease;
+  font-family: 'Noto Serif JP', serif;
+  white-space: nowrap;
+}
+.phase-top-home:hover {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+.phase-top-home.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
+/* フェーズボタン共通 */
+.phase-top-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 8px;
+  background: transparent;
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all .14s ease;
+  white-space: nowrap;
+}
+.phase-top-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+.phase-top-btn.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: var(--accent-border);
+  font-weight: 700;
+}
+.phase-top-btn.done {
+  color: var(--matcha);
+  opacity: 0.75;
+}
+.phase-top-btn.done:hover { opacity: 1; }
+.phase-top-label { font-size: 10.5px; }
+.phase-top-check {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  width: 13px;
+  height: 13px;
+  background: var(--matcha);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid white;
+}
+.phase-top-check i { font-size: 7px; color: white; }
+
+/* コラボ・出力ボタン */
+.phase-top-collab,
+.phase-top-export {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  background: transparent;
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all .14s ease;
+}
+.phase-top-collab:hover, .phase-top-export:hover {
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+  border-color: var(--border);
+}
+.phase-top-collab.active, .phase-top-export.active {
+  background: var(--kogane-bg);
+  color: var(--kogane);
+  border-color: var(--kogane-border);
+}
+
+/* ── サイドバートグルボタン（トップバー内） ── */
+.sidebar-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all .14s;
+  font-size: 14px;
+}
+.sidebar-toggle-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-mid);
+  color: var(--text-primary);
+}
+
+/* ── サイドバー折りたたみ ── */
+.app-layout.sidebar-collapsed .sidebar {
+  transform: translateX(-100%);
+}
+.app-layout.sidebar-collapsed .main-content {
+  margin-left: 0;
+}
+/* デスクトップ：折りたたみ時も main-content を広げる */
+@media (min-width: 901px) {
+  .app-layout.sidebar-collapsed .sidebar {
+    transform: translateX(calc(-1 * var(--sidebar-w)));
+    pointer-events: none;
+  }
+  .app-layout.sidebar-collapsed .main-content {
+    margin-left: 0 !important;
+  }
+}
+
+/* ── サイドバーオーバーレイ（モバイル） ── */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.45);
+  z-index: 99;
+  transition: opacity .2s;
+}
+.sidebar-overlay.active { display: block; }
+
+/* ── サイドバー閉じるボタン ── */
+.sidebar-close-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: var(--radius-sm);
+  color: #f0e4d4;
+  cursor: pointer;
+  font-size: 13px;
+  flex-shrink: 0;
+  transition: background .14s;
+}
+.sidebar-close-btn:hover { background: rgba(255,255,255,0.2); }
+
+/* ── サイドバー作品ミニカード ── */
+.sidebar-proj-section {
+  padding: 8px 10px 4px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  margin-bottom: 4px;
+}
+.sidebar-proj-card {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  background: rgba(192,55,28,0.14);
+  border: 1px solid rgba(192,55,28,0.28);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background .14s;
+}
+.sidebar-proj-card:hover { background: rgba(192,55,28,0.24); }
+.sidebar-proj-card-icon {
+  width: 30px;
+  height: 30px;
+  background: var(--accent);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.sidebar-proj-card-body { flex: 1; min-width: 0; }
+.sidebar-proj-card-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #f0e4d4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sidebar-proj-card-phase {
+  font-size: 10px;
+  color: rgba(240,228,212,0.65);
+  margin-top: 1px;
+}
+.sidebar-proj-card-arrow {
+  color: rgba(240,228,212,0.45);
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+/* ── サイドバーセクションラベル（強化） ── */
+.sidebar-section-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px 5px;
+  font-size: 10px;
+  font-weight: 700;
+  color: rgba(240,228,212,0.75);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  user-select: none;
+  position: relative;
+}
+.sidebar-section-label span {
+  color: rgba(240,228,212,0.85);
+  font-size: 9.5px;
+}
+.sidebar-section-toggle {
+  margin-left: auto;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: rgba(240,228,212,0.45);
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all .14s;
+  font-size: 9px;
+  padding: 0;
+}
+.sidebar-section-toggle:hover {
+  background: rgba(255,255,255,0.1);
+  color: rgba(240,228,212,0.8);
+}
+.sidebar-section-toggle i {
+  transition: transform .2s ease;
+}
+.sidebar-section.section-collapsed .sidebar-section-items {
+  display: none;
+}
+.sidebar-section-items {
+  /* transition for smooth expand/collapse */
+  overflow: hidden;
+}
+
+/* ── nav-label のコントラスト強化 ── */
+.nav-label {
+  font-size: 12.5px;
+  color: rgba(240,228,212,0.88);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+}
+.nav-item:hover .nav-label { color: #f4ece0; }
+.nav-item.active .nav-label { color: #fff1e4; font-weight: 600; }
+
+/* ── nav-badge ── */
+.nav-badge {
+  margin-left: auto;
+  background: var(--accent);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+
+/* ── トップバー：作品情報エリア ── */
+.topbar-proj-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+.topbar-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: 'Noto Serif JP', serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.topbar-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.topbar-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.topbar-btn-label { font-size: 11.5px; }
+
+/* ── プロジェクトダッシュボード (pd-*) ── */
+
+/* ヒーローヘッダー */
+.pd-hero {
+  border-radius: var(--radius-lg);
+  padding: 20px 22px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+.pd-hero-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  flex: 1;
+  min-width: 0;
+}
+.pd-hero-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+.pd-hero-body { flex: 1; min-width: 0; }
+.pd-hero-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-family: 'Noto Serif JP', serif;
+  line-height: 1.3;
+  margin-bottom: 6px;
+}
+.pd-hero-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+.pd-hero-phase-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 20px;
+  border: 1px solid;
+}
+.pd-hero-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* 統計グリッド */
+.pd-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.pd-stat-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  border-top: 3px solid;
+  padding: 14px 12px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+.pd-stat-val {
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.1;
+  margin-bottom: 3px;
+}
+.pd-stat-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.pd-stat-bar {
+  margin-top: 8px;
+  height: 5px;
+  background: var(--bg-hover);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.pd-stat-bar > div {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .4s ease;
+}
+
+/* クイックナビカード */
+.pd-quicknav-card {
+  padding: 0;
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.pd-section-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: 'Noto Serif JP', serif;
+}
+.pd-quick-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 12px 14px;
+}
+.pd-quick-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  background: var(--ph-bg, var(--bg-subtle));
+  border: 1.5px solid var(--ph-border, var(--border));
+  border-radius: var(--radius-sm);
+  color: var(--ph-color, var(--text-secondary));
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .14s ease;
+  white-space: nowrap;
+  position: relative;
+}
+.pd-quick-btn:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+.pd-quick-btn.current {
+  box-shadow: 0 0 0 2px var(--ph-color);
+  font-weight: 700;
+}
+.pd-quick-now {
+  font-size: 9px;
+  padding: 1px 4px;
+  background: var(--ph-color);
+  color: white;
+  border-radius: 3px;
+  font-weight: 700;
+}
+
+/* メイングリッド（3カラム） */
+.pd-main-grid {
+  display: grid;
+  grid-template-columns: 1fr 260px 220px;
+  gap: 18px;
+  align-items: start;
+}
+.pd-col-left, .pd-col-mid, .pd-col-right { display: flex; flex-direction: column; }
+
+/* カードヘッダー */
+.pd-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: 'Noto Serif JP', serif;
+  border-left: 3px solid transparent;
+}
+
+/* フェーズステップリスト */
+.pd-phase-list {
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.pd-phase-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.pd-phase-step.current {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+}
+.pd-phase-step.done {
+  background: var(--bg-subtle);
+  border-color: var(--border);
+}
+.pd-phase-step:hover { opacity: 0.85; }
+.pd-phase-circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border: 2px solid var(--border);
+  background: var(--bg-hover);
+  transition: all .14s;
+}
+.pd-phase-step.done .pd-phase-circle {
+  background: var(--matcha);
+  border-color: var(--matcha);
+}
+.pd-phase-step.current .pd-phase-circle {
+  background: white;
+  border-color: var(--accent);
+}
+.pd-phase-info { flex: 1; min-width: 0; }
+.pd-phase-name {
+  font-size: 12px;
+  font-weight: 500;
+}
+.pd-phase-step.current .pd-phase-name { font-weight: 700; }
+.pd-phase-badge {
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* ================================================================
+   モバイル対応（d5）
+   ================================================================ */
+
+/* フェーズバー モバイル */
+@media (max-width: 768px) {
+  .phase-topbar-inner {
+    padding: 4px 10px;
+    gap: 1px;
+  }
+  .phase-top-btn {
+    padding: 4px 5px;
+    font-size: 9px;
+    gap: 2px;
+  }
+  .phase-top-label { display: none; }
+  .phase-top-btn i { font-size: 11px; }
+  .phase-top-home {
+    padding: 4px 8px;
+    font-size: 10px;
+    gap: 3px;
+  }
+  .phase-top-home span { display: none; }
+  .phase-top-collab, .phase-top-export {
+    padding: 4px 6px;
+    font-size: 9px;
+  }
+  .phase-top-collab span, .phase-top-export span { display: none; }
+}
+
+/* サイドバー モバイル */
+@media (max-width: 900px) {
+  .sidebar {
+    position: fixed;
+    transform: translateX(-100%);
+    transition: transform .2s ease;
+    z-index: 100;
+  }
+  .app-layout:not(.sidebar-collapsed) .sidebar {
+    transform: translateX(0);
+  }
+  .main-content {
+    margin-left: 0 !important;
+  }
+  .sidebar-close-btn {
+    display: flex !important;
+  }
+  .topbar-btn-label { display: none; }
+  .app-layout.sidebar-collapsed .main-content {
+    margin-left: 0;
+  }
+}
+
+/* プロジェクトダッシュボード モバイル */
+@media (max-width: 1100px) {
+  .pd-main-grid {
+    grid-template-columns: 1fr 240px;
+  }
+  .pd-col-right { display: none; }
+}
+@media (max-width: 860px) {
+  .pd-main-grid {
+    grid-template-columns: 1fr;
+  }
+  .pd-col-right { display: flex; }
+  .pd-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .pd-hero {
+    flex-direction: column;
+  }
+  .pd-hero-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+}
+@media (max-width: 600px) {
+  .pd-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .pd-hero-title { font-size: 16px; }
+  .pd-quick-grid { gap: 4px; }
+  .pd-quick-btn { font-size: 10px; padding: 4px 8px; }
+}
+
+/* グローバルダッシュボード モバイル */
+@media (max-width: 900px) {
+  /* dashboard の2カラムを1カラムに */
+  #page-content > div > div[style*="grid-template-columns:1fr 320px"] {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+}
+
+/* topbar スマホ */
+@media (max-width: 480px) {
+  .topbar-title { font-size: 12.5px; }
+  .topbar-subtitle { display: none; }
+}
+

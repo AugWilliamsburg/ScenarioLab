@@ -299,28 +299,6 @@ function render() {
 
 // ── Layout Shell ───────────────────────────────────────────────
 function renderLayout(content, proj = null) {
-  const phaseNav = proj ? PHASES.map(p => `
-    <div class="nav-item ${State.currentPage === p.nav ? 'active' : ''}" onclick="navigate('${p.nav}','${proj.id}')">
-      <span class="nav-icon"><i class="fas ${p.icon}" style="color:${p.color}"></i></span>
-      ${p.id}
-    </div>`).join('') : '';
-
-  const projectNav = proj ? `
-    <div class="sidebar-section">
-      <div class="sidebar-section-title">フェーズ</div>
-      <div class="nav-phase-divider"></div>
-      ${phaseNav}
-    </div>
-    <div class="sidebar-section">
-      <div class="sidebar-section-title">作品ツール</div>
-      <div class="nav-item ${cp==='proj-dash'?'active':''}" onclick="navigate('proj-dash','${proj.id}')">
-        <span class="nav-icon"><i class="fas fa-chart-pie" style="color:var(--fuji-lt)"></i></span> プロジェクト概要
-      </div>
-      <div class="nav-item ${cp==='collab'?'active':''}" onclick="navigate('collab','${proj.id}')">
-        <span class="nav-icon"><i class="fas fa-book-bookmark" style="color:var(--kogane-lt)"></i></span> コラボメモ
-      </div>
-    </div>` : '';
-
   const cp = State.currentPage;
   const isLearnPage = cp === 'learn' || cp === 'learn-guide' || cp === 'learn-articles' || (cp && cp.startsWith('article-'));
   const isToolsPage = cp === 'tools' || cp === 'tool-logline' || cp === 'tool-char-diag' || cp === 'tool-scene' || cp === 'tool-timer' || cp === 'tool-pitch' || cp === 'tool-tension' || cp === 'tool-name-gen';
@@ -371,94 +349,192 @@ function renderLayout(content, proj = null) {
   const cpKey = TOPBAR_PAGES[cp] ? cp : (cp && cp.startsWith('article-') ? 'learn' : null);
   const tbData = cpKey ? TOPBAR_PAGES[cpKey] : null;
 
+  // ── サイドバー折り畳み状態 ──
+  const sidebarCollapsed = DB.get('sidebar_collapsed', false);
+
+  // ── デュータスクバッジ ──
+  const dueBadge = (()=>{
+    const ts = DB.get('tasks',[]);
+    const due = ts.filter(t=>!t.done && t.dueDate === new Date().toISOString().slice(0,10)).length;
+    return due>0?`<span class="nav-badge">${due}</span>`:'';
+  })();
+
+  // ── フェーズバー（作品選択時：上部に横並びで表示） ──
+  const phaseBar = proj ? `
+  <div class="phase-topbar" id="phase-topbar">
+    <div class="phase-topbar-inner">
+      <button class="phase-top-home" onclick="navigate('proj-dash','${proj.id}')" title="作品トップページ">
+        <i class="fas fa-chart-pie"></i><span>作品概要</span>
+      </button>
+      <div class="phase-topbar-divider"></div>
+      ${PHASES.map((p, i) => {
+        const phaseIdx = { '着想':0,'リサーチ':1,'コンセプト設計':2,'プロット設計':3,'キャラクター':4,'アウトライン':5,'初稿':6,'大改稿':7,'精密推敲':8,'フィードバック':9,'最終稿':10,'共有・出力':11 };
+        const curIdx = phaseIdx[proj.phase] ?? 0;
+        const isCur = cp === p.nav;
+        const isDone = i < curIdx;
+        return `<button class="phase-top-btn ${isCur?'active':''} ${isDone?'done':''}" onclick="navigate('${p.nav}','${proj.id}')" title="${p.id}">
+          <i class="fas ${p.icon}"></i>
+          <span class="phase-top-label">${p.id}</span>
+          ${isDone?`<span class="phase-top-check"><i class="fas fa-check"></i></span>`:''}
+        </button>`;
+      }).join('')}
+      <div class="phase-topbar-divider"></div>
+      <button class="phase-top-collab ${cp==='collab'?'active':''}" onclick="navigate('collab','${proj.id}')" title="コラボメモ">
+        <i class="fas fa-book-bookmark"></i><span>メモ</span>
+      </button>
+      <button class="phase-top-export ${cp==='export'?'active':''}" onclick="navigate('export','${proj.id}')" title="共有・出力">
+        <i class="fas fa-share-nodes"></i><span>出力</span>
+      </button>
+    </div>
+  </div>` : '';
+
+  // ── トップバー ──
   const topbarContent = proj ? `
-    <div>
+    <button class="sidebar-toggle-btn" id="sidebar-toggle" onclick="toggleSidebar()" title="メニュー開閉">
+      <i class="fas fa-bars"></i>
+    </button>
+    <div class="topbar-proj-info" onclick="navigate('proj-dash','${proj.id}')" title="作品概要へ" style="cursor:pointer">
       <div class="topbar-title">${esc(proj.title)}</div>
-      <div class="topbar-subtitle">${esc(proj.genre)} / ${esc(proj.format)}</div>
+      <div class="topbar-subtitle">${esc(proj.genre)} / ${esc(proj.format)} — <span style="color:${(PHASE_COLORS_WA[proj.phase]||{color:'#999'}).color};font-weight:600">${esc(proj.phase)}</span></div>
     </div>
     <div class="topbar-actions">
-      <button class="btn btn-secondary btn-sm" onclick="navigate('dashboard')"><i class="fas fa-arrow-left"></i> 一覧</button>
-      <button class="btn btn-primary btn-sm" onclick="quickSaveProject('${proj.id}')"><i class="fas fa-floppy-disk"></i> 保存</button>
+      <button class="btn btn-secondary btn-sm" onclick="navigate('dashboard')"><i class="fas fa-house"></i><span class="topbar-btn-label"> 一覧</span></button>
+      <button class="btn btn-primary btn-sm" onclick="quickSaveProject('${proj.id}')"><i class="fas fa-floppy-disk"></i><span class="topbar-btn-label"> 保存</span></button>
     </div>` : tbData ? `
+    <button class="sidebar-toggle-btn" id="sidebar-toggle" onclick="toggleSidebar()" title="メニュー開閉">
+      <i class="fas fa-bars"></i>
+    </button>
     <div>
       <div class="topbar-title"><i class="fas ${tbData.icon}" style="color:${tbData.color};margin-right:7px"></i>${tbData.title}</div>
       <div class="topbar-subtitle">${tbData.sub}</div>
     </div>
     <div class="topbar-actions">
-      <button class="btn btn-secondary btn-sm" onclick="navigate('dashboard')"><i class="fas fa-house"></i> ホーム</button>
+      <button class="btn btn-secondary btn-sm" onclick="navigate('dashboard')"><i class="fas fa-house"></i><span class="topbar-btn-label"> ホーム</span></button>
     </div>` : `
+    <button class="sidebar-toggle-btn" id="sidebar-toggle" onclick="toggleSidebar()" title="メニュー開閉">
+      <i class="fas fa-bars"></i>
+    </button>
     <div>
       <div class="topbar-title">シナリオラボ</div>
       <div class="topbar-subtitle">脚本執筆支援ツール</div>
     </div>
     <div class="topbar-actions">
-      <button class="btn btn-primary btn-sm" onclick="openNewProjectModal()"><i class="fas fa-plus"></i> 新規作品</button>
+      <button class="btn btn-primary btn-sm" onclick="openNewProjectModal()"><i class="fas fa-plus"></i><span class="topbar-btn-label"> 新規作品</span></button>
     </div>`;
 
+  // ── サイドバー内の作品ミニカード（作品選択中のみ） ──
+  const sidebarProjectCard = proj ? `
+  <div class="sidebar-proj-card" onclick="navigate('proj-dash','${proj.id}')">
+    <div class="sidebar-proj-card-icon"><i class="fas fa-film"></i></div>
+    <div class="sidebar-proj-card-body">
+      <div class="sidebar-proj-card-title">${esc(proj.title)}</div>
+      <div class="sidebar-proj-card-phase">${esc(proj.phase)}</div>
+    </div>
+    <i class="fas fa-chevron-right sidebar-proj-card-arrow"></i>
+  </div>` : '';
+
   return `
-  <div class="app-layout">
+  <div class="app-layout ${sidebarCollapsed?'sidebar-collapsed':''}">
+    <!-- オーバーレイ（モバイル） -->
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
     <nav class="sidebar" id="sidebar">
+      <!-- ロゴ + トグル -->
       <div class="sidebar-logo">
         <div class="logo-main">
           <div class="logo-icon"><i class="fas fa-clapperboard"></i></div>
-          <div>
+          <div class="logo-texts">
             <div class="logo-text">シナリオラボ</div>
             <div class="logo-sub">Scenario Lab</div>
           </div>
         </div>
+        <button class="sidebar-close-btn" onclick="closeSidebar()" title="メニューを閉じる">
+          <i class="fas fa-xmark"></i>
+        </button>
       </div>
+
       <div class="sidebar-nav">
+        <!-- 作品カード（選択中のみ） -->
+        ${sidebarProjectCard ? `<div class="sidebar-proj-section">${sidebarProjectCard}</div>` : ''}
+
+        <!-- メインメニュー -->
         <div class="sidebar-section">
-          <div class="sidebar-section-title">メインメニュー</div>
-          <div class="nav-item ${(!proj && cp==='dashboard')?'active':''}" onclick="navigate('dashboard')">
-            <span class="nav-icon"><i class="fas fa-house"></i></span> ダッシュボード
+          <div class="sidebar-section-label">
+            <i class="fas fa-house" style="font-size:9px;opacity:0.7"></i>
+            <span>メインメニュー</span>
+            <button class="sidebar-section-toggle" onclick="toggleSidebarSection(this)" title="折りたたむ">
+              <i class="fas fa-chevron-down"></i>
+            </button>
           </div>
-          <div class="nav-item ${isJournalPage?'active':''}" onclick="navigate('journal')">
-            <span class="nav-icon"><i class="fas fa-book" style="color:var(--matcha-lt)"></i></span> 執筆日誌
-          </div>
-          <div class="nav-item ${isInspirationPage?'active':''}" onclick="navigate('inspiration')">
-            <span class="nav-icon"><i class="fas fa-bolt" style="color:var(--kogane-lt)"></i></span> インスピレーション
-          </div>
-          <div class="nav-item ${ (cp==='board'||cp==='storymap')?'active':''}" onclick="navigate('board')">
-            <span class="nav-icon"><i class="fas fa-film" style="color:var(--fuji-lt)"></i></span> ストーリーボード
-          </div>
-          <div class="nav-item ${ cp==='tasks'?'active':''}" onclick="navigate('tasks')">
-            <span class="nav-icon"><i class="fas fa-calendar-check" style="color:var(--matcha-lt)"></i></span> タスク管理
-            ${(()=>{ const ts = DB.get('tasks',[]); const due = ts.filter(t=>!t.done && t.dueDate === new Date().toISOString().slice(0,10)).length; return due>0?`<span style="margin-left:auto;background:var(--accent);color:white;border-radius:10px;font-size:9px;padding:1px 6px;font-weight:700">${due}</span>`:''})()}
+          <div class="sidebar-section-items">
+            <div class="nav-item ${(!proj && cp==='dashboard')?'active':''}" onclick="navigate('dashboard')">
+              <span class="nav-icon"><i class="fas fa-house" style="color:#f5d9c8"></i></span><span class="nav-label">ダッシュボード</span>
+            </div>
+            <div class="nav-item ${isJournalPage?'active':''}" onclick="navigate('journal')">
+              <span class="nav-icon"><i class="fas fa-book" style="color:#7de08a"></i></span><span class="nav-label">執筆日誌</span>
+            </div>
+            <div class="nav-item ${isInspirationPage?'active':''}" onclick="navigate('inspiration')">
+              <span class="nav-icon"><i class="fas fa-bolt" style="color:#f7d07a"></i></span><span class="nav-label">インスピレーション</span>
+            </div>
+            <div class="nav-item ${ (cp==='board'||cp==='storymap')?'active':''}" onclick="navigate('board')">
+              <span class="nav-icon"><i class="fas fa-film" style="color:#bbb4ff"></i></span><span class="nav-label">ストーリーボード</span>
+            </div>
+            <div class="nav-item ${ cp==='tasks'?'active':''}" onclick="navigate('tasks')">
+              <span class="nav-icon"><i class="fas fa-calendar-check" style="color:#7de08a"></i></span><span class="nav-label">タスク管理</span>${dueBadge}
+            </div>
           </div>
         </div>
+
+        <!-- 執筆サポート -->
         <div class="sidebar-section">
-          <div class="sidebar-section-title">執筆サポート</div>
-          <div class="nav-item ${isLearnPage?'active':''}" onclick="navigate('learn')">
-            <span class="nav-icon"><i class="fas fa-graduation-cap" style="color:var(--fuji-lt)"></i></span> 学習センター
+          <div class="sidebar-section-label">
+            <i class="fas fa-pen-nib" style="font-size:9px;opacity:0.7"></i>
+            <span>執筆サポート</span>
+            <button class="sidebar-section-toggle" onclick="toggleSidebarSection(this)" title="折りたたむ">
+              <i class="fas fa-chevron-down"></i>
+            </button>
           </div>
-          <div class="nav-item ${isToolsPage?'active':''}" onclick="navigate('tools')">
-            <span class="nav-icon"><i class="fas fa-toolbox" style="color:var(--asagi-lt)"></i></span> ツール
-          </div>
-          <div class="nav-item ${isTemplatesPage?'active':''}" onclick="navigate('templates')">
-            <span class="nav-icon"><i class="fas fa-copy" style="color:var(--kogane-lt)"></i></span> テンプレート
+          <div class="sidebar-section-items">
+            <div class="nav-item ${isLearnPage?'active':''}" onclick="navigate('learn')">
+              <span class="nav-icon"><i class="fas fa-graduation-cap" style="color:#c0b8ff"></i></span><span class="nav-label">学習センター</span>
+            </div>
+            <div class="nav-item ${isToolsPage?'active':''}" onclick="navigate('tools')">
+              <span class="nav-icon"><i class="fas fa-toolbox" style="color:#6ddede"></i></span><span class="nav-label">ツール</span>
+            </div>
+            <div class="nav-item ${isTemplatesPage?'active':''}" onclick="navigate('templates')">
+              <span class="nav-icon"><i class="fas fa-copy" style="color:#f7d07a"></i></span><span class="nav-label">テンプレート</span>
+            </div>
           </div>
         </div>
+
+        <!-- 設計・資料 -->
         <div class="sidebar-section">
-          <div class="sidebar-section-title">設計・資料</div>
-          <div class="nav-item ${isNameDictPage?'active':''}" onclick="navigate('namedict')">
-            <span class="nav-icon"><i class="fas fa-spell-check" style="color:var(--kon-lt)"></i></span> 名前辞典
+          <div class="sidebar-section-label">
+            <i class="fas fa-folder" style="font-size:9px;opacity:0.7"></i>
+            <span>設計・資料</span>
+            <button class="sidebar-section-toggle" onclick="toggleSidebarSection(this)" title="折りたたむ">
+              <i class="fas fa-chevron-down"></i>
+            </button>
           </div>
-          <div class="nav-item ${isWorldPage?'active':''}" onclick="navigate('worldbuilding')">
-            <span class="nav-icon"><i class="fas fa-globe" style="color:var(--asagi-lt)"></i></span> 世界観設計
-          </div>
-          <div class="nav-item ${isSettingsPage?'active':''}" onclick="navigate('settings')">
-            <span class="nav-icon"><i class="fas fa-gear" style="color:var(--text-sidebar)"></i></span> 設定
+          <div class="sidebar-section-items">
+            <div class="nav-item ${isNameDictPage?'active':''}" onclick="navigate('namedict')">
+              <span class="nav-icon"><i class="fas fa-spell-check" style="color:#90c8f8"></i></span><span class="nav-label">名前辞典</span>
+            </div>
+            <div class="nav-item ${isWorldPage?'active':''}" onclick="navigate('worldbuilding')">
+              <span class="nav-icon"><i class="fas fa-globe" style="color:#6ddede"></i></span><span class="nav-label">世界観設計</span>
+            </div>
+            <div class="nav-item ${isSettingsPage?'active':''}" onclick="navigate('settings')">
+              <span class="nav-icon"><i class="fas fa-gear" style="color:#d8cec4"></i></span><span class="nav-label">設定</span>
+            </div>
           </div>
         </div>
-        ${projectNav}
       </div>
-      ${projectFooter}
     </nav>
+
     <div class="main-content">
       <div class="topbar">
         ${topbarContent}
-        <!-- グローバルタイマーウィジェット (常時表示) -->
+        <!-- グローバルタイマーウィジェット -->
         <div class="global-timer-widget" id="global-timer-widget" onclick="toggleTimerPopup()" title="執筆タイマー">
           <div class="gtimer-icon ${TimerState.isRunning ? (TimerState.isBreak ? 'break' : 'running') : ''}">
             <i class="fas fa-stopwatch"></i>
@@ -467,6 +543,9 @@ function renderLayout(content, proj = null) {
           ${TimerState.isRunning ? `<div class="gtimer-dot ${TimerState.isBreak?'break':'work'}"></div>` : ''}
         </div>
       </div>
+
+      ${phaseBar}
+
       <!-- タイマーポップアップ -->
       <div class="timer-popup" id="timer-popup" style="display:none">
         <div class="timer-popup-header">
@@ -510,6 +589,48 @@ function renderLayout(content, proj = null) {
     </div>
   </div>
   <div id="toast-container" class="toast-container"></div>`;
+}
+
+// ── サイドバートグル ────────────────────────────────────────────
+function toggleSidebar() {
+  const app = document.querySelector('.app-layout');
+  const overlay = document.getElementById('sidebar-overlay');
+  if (!app) return;
+  const isCollapsed = app.classList.toggle('sidebar-collapsed');
+  DB.set('sidebar_collapsed', isCollapsed);
+  if (overlay) overlay.classList.toggle('active', !isCollapsed && window.innerWidth <= 900);
+}
+function closeSidebar() {
+  const app = document.querySelector('.app-layout');
+  const overlay = document.getElementById('sidebar-overlay');
+  if (!app) return;
+  // モバイルは常に閉じる。デスクトップはトグル
+  if (window.innerWidth <= 900) {
+    app.classList.add('sidebar-collapsed');
+    if (overlay) overlay.classList.remove('active');
+  } else {
+    app.classList.add('sidebar-collapsed');
+    DB.set('sidebar_collapsed', true);
+  }
+}
+function openSidebar() {
+  const app = document.querySelector('.app-layout');
+  const overlay = document.getElementById('sidebar-overlay');
+  if (!app) return;
+  app.classList.remove('sidebar-collapsed');
+  DB.set('sidebar_collapsed', false);
+  if (overlay && window.innerWidth <= 900) overlay.classList.add('active');
+}
+
+// ── サイドバーセクション個別折りたたみ ──────────────────────────
+function toggleSidebarSection(btn) {
+  const section = btn.closest('.sidebar-section');
+  if (!section) return;
+  const items = section.querySelector('.sidebar-section-items');
+  const icon = btn.querySelector('i');
+  if (!items) return;
+  const isCollapsed = section.classList.toggle('section-collapsed');
+  if (icon) icon.style.transform = isCollapsed ? 'rotate(-90deg)' : '';
 }
 
 // ================================================================
@@ -12262,6 +12383,23 @@ function renderProjectDash(proj) {
   const overdueTasks = allTasks.filter(t => !t.done && t.dueDate && t.dueDate < new Date().toISOString().slice(0,10)).length;
   const taskPct = allTasks.length > 0 ? Math.round(doneTasks / allTasks.length * 100) : 0;
 
+  // 執筆目標・週間データ（グローバルダッシュボードから統合）
+  const journalEntries = DB.get('journal_entries', []);
+  const today = new Date();
+  const weekDays = Array.from({length:7}, (_,i) => {
+    const d = new Date(today); d.setDate(today.getDate()-6+i);
+    return d.toISOString().slice(0,10);
+  });
+  const weekData = weekDays.map(day => {
+    const e = journalEntries.find(e => e.date === day);
+    return { day: day.slice(5), wc: e?.wordCount||0 };
+  });
+  const weekMax = Math.max(...weekData.map(d=>d.wc), 1);
+  const writingGoal = DB.get('writing_goal', { daily: 500, weekly: 2000 });
+  const todayWc = journalEntries.find(e=>e.date===today.toISOString().slice(0,10))?.wordCount||0;
+  const weekWc = weekData.reduce((a,d)=>a+d.wc,0);
+  const goalPct = Math.min(100, Math.round(todayWc / writingGoal.daily * 100));
+
   // 12フェーズの詳細進捗
   const phaseProgress = PHASES.map((ph, i) => {
     let status = 'pending';
@@ -12272,16 +12410,16 @@ function renderProjectDash(proj) {
   });
 
   const phaseSteps = phaseProgress.map(({ph, i, status, phC}) => `
-  <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-sm);background:${status==='current'?phC.bg:status==='done'?'var(--bg-subtle)':'transparent'};border:1px solid ${status==='current'?phC.border:status==='done'?'var(--border)':'transparent'};cursor:pointer" onclick="navigate('${ph.nav}','${proj.id}')">
-    <div style="width:28px;height:28px;border-radius:50%;background:${status==='done'?phC.color:status==='current'?'white':'var(--bg-hover)'};border:2px solid ${status==='done'?phC.color:status==='current'?phC.color:'var(--border)'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+  <div class="pd-phase-step ${status}" onclick="navigate('${ph.nav}','${proj.id}')">
+    <div class="pd-phase-circle">
       ${status==='done'
-        ? `<i class="fas fa-check" style="color:white;font-size:11px"></i>`
+        ? `<i class="fas fa-check" style="color:white;font-size:10px"></i>`
         : `<i class="fas ${ph.icon}" style="color:${status==='current'?phC.color:'var(--text-muted)'};font-size:10px"></i>`}
     </div>
-    <div style="flex:1;min-width:0">
-      <div style="font-size:12.5px;font-weight:${status==='current'?700:500};color:${status==='current'?phC.color:status==='done'?'var(--text-secondary)':'var(--text-muted)'}">${ph.id}</div>
+    <div class="pd-phase-info">
+      <span class="pd-phase-name" style="color:${status==='current'?phC.color:status==='done'?'var(--text-secondary)':'var(--text-muted)'}">${ph.id}</span>
     </div>
-    <span style="font-size:9px;padding:2px 6px;border-radius:6px;background:${status==='done'?'var(--matcha-bg)':status==='current'?phC.bg:'transparent'};color:${status==='done'?'var(--matcha)':status==='current'?phC.color:'transparent'};border:1px solid ${status==='done'?'var(--matcha-border)':status==='current'?phC.border:'transparent'};font-weight:600">${status==='done'?'完了':status==='current'?'現在':''}</span>
+    <span class="pd-phase-badge" style="background:${status==='done'?'var(--matcha-bg)':status==='current'?phC.bg:'transparent'};color:${status==='done'?'var(--matcha)':status==='current'?phC.color:'transparent'};border-color:${status==='done'?'var(--matcha-border)':status==='current'?phC.border:'transparent'}">${status==='done'?'完了':status==='current'?'現在':''}</span>
   </div>`).join('');
 
   // 最近タスク
@@ -12289,20 +12427,20 @@ function renderProjectDash(proj) {
     const isOverdue = t.dueDate && t.dueDate < new Date().toISOString().slice(0,10);
     const PRIO = { urgent:'var(--accent)', high:'var(--momo)', medium:'var(--kogane)', low:'var(--matcha)' };
     return `
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
       <div style="width:8px;height:8px;border-radius:50%;background:${PRIO[t.priority]||'var(--fuji)'};flex-shrink:0"></div>
       <div style="flex:1;min-width:0">
         <div style="font-size:12.5px;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.title)}</div>
-        ${t.dueDate?`<div style="font-size:10px;color:${isOverdue?'var(--accent)':'var(--text-muted)'};font-weight:${isOverdue?600:400}">${isOverdue?'⚠ 期限切れ':'期限: '}${fmtDate(t.dueDate)}</div>`:''}
+        ${t.dueDate?`<div style="font-size:10px;color:${isOverdue?'var(--accent)':'var(--text-muted)'};font-weight:${isOverdue?600:400}">${isOverdue?'⚠ 期限切れ — ':'期限: '}${fmtDate(t.dueDate)}</div>`:''}
       </div>
     </div>`;
-  }).join('') || `<div style="text-align:center;padding:16px;color:var(--text-muted);font-size:12px"><i class="fas fa-check-circle" style="color:var(--matcha)"></i> すべてのタスクが完了</div>`;
+  }).join('') || `<div style="text-align:center;padding:16px;color:var(--text-muted);font-size:12px"><i class="fas fa-check-circle" style="color:var(--matcha);margin-right:4px"></i>すべてのタスクが完了</div>`;
 
   // 改稿履歴
   const draftHistory = drafts.map((d, i) => {
     const wc = countWords(d.content||'');
     return `
-    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
       <div style="width:26px;height:26px;border-radius:50%;background:var(--fuji-bg);border:1.5px solid var(--fuji-border);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;font-weight:700;color:var(--fuji)">${i+1}</div>
       <div style="flex:1">
         <div style="font-size:12.5px;font-weight:600;color:var(--text-primary)">${esc(d.label||`第${i+1}稿`)}</div>
@@ -12310,78 +12448,191 @@ function renderProjectDash(proj) {
       </div>
       ${i === drafts.length-1?`<span style="font-size:10px;padding:2px 7px;background:var(--fuji-bg);color:var(--fuji);border:1px solid var(--fuji-border);border-radius:8px;font-weight:600">最新稿</span>`:''}
     </div>`;
-  }).join('') || `<div style="text-align:center;padding:16px;color:var(--text-muted);font-size:12px">まだ稿がありません</div>`;
+  }).join('') || `<div style="text-align:center;padding:16px;color:var(--text-muted);font-size:12px">まだ稿がありません。<button class="btn btn-ghost btn-sm" onclick="navigate('editor','${proj.id}')">執筆を開始</button></div>`;
+
+  // キャラクタープレビュー（最大3人）
+  const charPreview = chars.slice(0,3).map(ch => `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">
+      <div style="width:30px;height:30px;border-radius:50%;background:${ch.color||'var(--fuji-bg)'};display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">${ch.emoji||'👤'}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:12.5px;font-weight:600;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(ch.name)}</div>
+        <div style="font-size:10.5px;color:var(--text-muted)">${esc(ch.role||'')}${ch.age?` · ${ch.age}歳`:''}</div>
+      </div>
+    </div>`).join('') || `<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:12px"><i class="fas fa-users" style="opacity:.4;display:block;font-size:20px;margin-bottom:4px"></i>キャラクター未登録</div>`;
+
+  // クイックアクションボタン一覧（全フェーズへのアクセス）
+  const quickPhaseButtons = PHASES.map(ph => {
+    const phC = PHASE_COLORS_WA[ph.id] || { bg:'#f8f6f1', color:'#7a6e5e', border:'#e4ddd3' };
+    const isCurrentPh = ph.id === proj.phase;
+    return `<button class="pd-quick-btn ${isCurrentPh?'current':''}" onclick="navigate('${ph.nav}','${proj.id}')" style="--ph-color:${phC.color};--ph-bg:${phC.bg};--ph-border:${phC.border}">
+      <i class="fas ${ph.icon}"></i>
+      <span>${ph.id}</span>
+      ${isCurrentPh?`<span class="pd-quick-now">現在</span>`:''}
+    </button>`;
+  }).join('');
 
   return `
-  <div class="section-header">
-    <div class="section-title"><i class="fas fa-chart-pie" style="color:var(--fuji)"></i> プロジェクト概要 <span class="phase-badge-lg" style="background:${waColor.bg};color:${waColor.color};border-color:${waColor.border}">${esc(proj.phase)}</span></div>
-    <div class="section-desc">${esc(proj.title)} — 詳細進捗・統計・タスク一覧</div>
-  </div>
-
-  <!-- 上部統計 -->
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px">
-    <div class="card" style="text-align:center;padding:16px 10px;border-top:3px solid ${waColor.color}">
-      <div style="font-size:28px;font-weight:800;color:${waColor.color}">${progressPct}%</div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:2px">全体進捗</div>
-      <div style="margin-top:8px;height:6px;background:var(--bg-hover);border-radius:3px;overflow:hidden">
-        <div style="height:100%;width:${progressPct}%;background:${waColor.color};border-radius:3px;transition:width .4s ease"></div>
+  <!-- ヒーローヘッダー（作品トップ） -->
+  <div class="pd-hero" style="background:linear-gradient(135deg,${waColor.bg} 0%,var(--bg-white) 60%);border:1.5px solid ${waColor.border};border-left:4px solid ${waColor.color}">
+    <div class="pd-hero-main">
+      <div class="pd-hero-icon" style="background:${waColor.bg};border:2px solid ${waColor.border};color:${waColor.color}">
+        <i class="fas fa-film"></i>
+      </div>
+      <div class="pd-hero-body">
+        <div class="pd-hero-title">${esc(proj.title)}</div>
+        <div class="pd-hero-meta">
+          <span style="color:var(--text-muted)">${esc(proj.genre)} / ${esc(proj.format)}</span>
+          <span class="pd-hero-phase-badge" style="background:${waColor.bg};color:${waColor.color};border-color:${waColor.border}">
+            <i class="fas ${PHASES[curPhaseIdx]?.icon||'fa-circle'}" style="font-size:9px"></i> ${esc(proj.phase)}
+          </span>
+          ${overdueTasks > 0 ? `<span style="font-size:11px;color:var(--accent);font-weight:600"><i class="fas fa-triangle-exclamation"></i> ${overdueTasks}件遅延</span>` : ''}
+        </div>
+        ${proj.logline ? `<div style="margin-top:8px;font-size:12.5px;color:var(--text-secondary);line-height:1.7;font-style:italic;border-left:3px solid ${waColor.border};padding-left:10px">${esc(proj.logline)}</div>` : ''}
       </div>
     </div>
-    <div class="card" style="text-align:center;padding:16px 10px;border-top:3px solid var(--fuji)">
-      <div style="font-size:28px;font-weight:800;color:var(--fuji)">${latestWords >= 1000 ? (latestWords/1000).toFixed(1)+'k' : latestWords.toLocaleString()}</div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:2px">最新稿の文字数</div>
-      <div style="font-size:10px;color:var(--text-muted);margin-top:4px">全稿合計: ${totalWords >= 1000 ? (totalWords/1000).toFixed(1)+'k' : totalWords.toLocaleString()}字</div>
-    </div>
-    <div class="card" style="text-align:center;padding:16px 10px;border-top:3px solid var(--matcha)">
-      <div style="font-size:28px;font-weight:800;color:var(--matcha)">${taskPct}%</div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:2px">タスク完了率</div>
-      <div style="font-size:10px;color:var(--text-muted);margin-top:4px">${doneTasks}/${allTasks.length}件 ${overdueTasks>0?`<span style="color:var(--accent)">⚠${overdueTasks}件遅延</span>`:''}</div>
-    </div>
-    <div class="card" style="text-align:center;padding:16px 10px;border-top:3px solid var(--momo)">
-      <div style="font-size:28px;font-weight:800;color:var(--momo)">${chars.length}</div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:2px">登場人物</div>
-      <div style="font-size:10px;color:var(--text-muted);margin-top:4px">${plots.length}シーン設計済み</div>
+    <div class="pd-hero-actions">
+      <button class="btn btn-primary btn-sm" onclick="navigate('${PHASES[curPhaseIdx]?.nav||'ideas'}','${proj.id}')">
+        <i class="fas fa-pen-nib"></i> 現在のフェーズへ
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="navigate('editor','${proj.id}')">
+        <i class="fas fa-file-lines"></i> 執筆
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="navigate('collab','${proj.id}')">
+        <i class="fas fa-book-bookmark"></i> メモ
+      </button>
+      <button class="btn btn-secondary btn-sm" onclick="openEditProjectModal('${proj.id}')">
+        <i class="fas fa-pen"></i> 編集
+      </button>
     </div>
   </div>
 
-  <!-- メインコンテンツ -->
-  <div style="display:grid;grid-template-columns:1fr 320px;gap:20px">
-    <!-- 左: フェーズ進捗 -->
-    <div style="display:flex;flex-direction:column;gap:16px">
+  <!-- 統計カード（4列） -->
+  <div class="pd-stat-grid">
+    <div class="pd-stat-card" style="border-top-color:${waColor.color}">
+      <div class="pd-stat-val" style="color:${waColor.color}">${progressPct}%</div>
+      <div class="pd-stat-label">全体進捗</div>
+      <div class="pd-stat-bar"><div style="width:${progressPct}%;background:${waColor.color}"></div></div>
+    </div>
+    <div class="pd-stat-card" style="border-top-color:var(--fuji)">
+      <div class="pd-stat-val" style="color:var(--fuji)">${latestWords >= 1000 ? (latestWords/1000).toFixed(1)+'k' : latestWords.toLocaleString()}<span style="font-size:12px">字</span></div>
+      <div class="pd-stat-label">最新稿の文字数</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:2px">全稿合計 ${totalWords >= 1000 ? (totalWords/1000).toFixed(1)+'k' : totalWords.toLocaleString()}字</div>
+    </div>
+    <div class="pd-stat-card" style="border-top-color:var(--matcha)">
+      <div class="pd-stat-val" style="color:var(--matcha)">${taskPct}%</div>
+      <div class="pd-stat-label">タスク完了率</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${doneTasks}/${allTasks.length}件${overdueTasks>0?` <span style="color:var(--accent)">⚠${overdueTasks}件遅延</span>`:''}</div>
+    </div>
+    <div class="pd-stat-card" style="border-top-color:var(--momo)">
+      <div class="pd-stat-val" style="color:var(--momo)">${chars.length}<span style="font-size:12px">人</span></div>
+      <div class="pd-stat-label">登場人物</div>
+      <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${plots.length}シーン · ${drafts.length}稿</div>
+    </div>
+  </div>
+
+  <!-- クイックナビ（全フェーズへのアクセス） -->
+  <div class="card pd-quicknav-card">
+    <div class="pd-section-head">
+      <i class="fas fa-bolt" style="color:var(--kogane)"></i>
+      <span>全フェーズへのクイックアクセス</span>
+      <span style="font-size:10px;color:var(--text-muted);margin-left:auto">クリックで各ページへ移動</span>
+    </div>
+    <div class="pd-quick-grid">
+      ${quickPhaseButtons}
+      <button class="pd-quick-btn" onclick="navigate('collab','${proj.id}')" style="--ph-color:var(--kogane);--ph-bg:var(--kogane-bg);--ph-border:var(--kogane-border)">
+        <i class="fas fa-book-bookmark"></i><span>コラボメモ</span>
+      </button>
+      <button class="pd-quick-btn" onclick="navigate('export','${proj.id}')" style="--ph-color:var(--fuji);--ph-bg:var(--fuji-bg);--ph-border:var(--fuji-border)">
+        <i class="fas fa-share-nodes"></i><span>共有・出力</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- メインコンテンツ：3カラム -->
+  <div class="pd-main-grid">
+    <!-- 左: フェーズ進捗 + 改稿履歴 -->
+    <div class="pd-col-left">
+      <!-- フェーズ進捗 -->
       <div class="card" style="padding:0;overflow:hidden">
-        <div style="padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg-subtle);display:flex;align-items:center;justify-content:space-between">
-          <div style="display:flex;align-items:center;gap:8px">
-            <i class="fas fa-map" style="color:${waColor.color}"></i>
-            <span style="font-size:13px;font-weight:700;font-family:'Noto Serif JP',serif">フェーズ進捗 (${curPhaseIdx+1}/12)</span>
-          </div>
-          <span style="font-size:11px;color:var(--text-muted)">${progressPct}% 完了</span>
+        <div class="pd-card-head" style="border-left:3px solid ${waColor.color}">
+          <i class="fas fa-map" style="color:${waColor.color}"></i>
+          <span>フェーズ進捗 (${curPhaseIdx+1}/12)</span>
+          <span style="font-size:11px;color:var(--text-muted);margin-left:auto">${progressPct}% 完了</span>
         </div>
-        <div style="padding:12px 16px;display:flex;flex-direction:column;gap:2px">${phaseSteps}</div>
+        <div class="pd-phase-list">${phaseSteps}</div>
       </div>
 
       <!-- 改稿履歴 -->
-      <div class="card" style="padding:0;overflow:hidden">
-        <div style="padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg-subtle);display:flex;align-items:center;justify-content:space-between">
-          <div style="display:flex;align-items:center;gap:8px">
-            <i class="fas fa-file-lines" style="color:var(--fuji)"></i>
-            <span style="font-size:13px;font-weight:700;font-family:'Noto Serif JP',serif">改稿履歴（${drafts.length}稿）</span>
-          </div>
-          <button class="btn btn-ghost btn-sm" onclick="navigate('editor','${proj.id}')"><i class="fas fa-pen"></i> 執筆へ</button>
+      <div class="card" style="padding:0;overflow:hidden;margin-top:16px">
+        <div class="pd-card-head" style="border-left:3px solid var(--fuji)">
+          <i class="fas fa-file-lines" style="color:var(--fuji)"></i>
+          <span>改稿履歴（${drafts.length}稿）</span>
+          <button class="btn btn-ghost btn-sm" onclick="navigate('editor','${proj.id}')" style="margin-left:auto"><i class="fas fa-pen"></i> 執筆へ</button>
         </div>
-        <div style="padding:12px 16px">${draftHistory}</div>
+        <div style="padding:10px 16px">${draftHistory}</div>
       </div>
     </div>
 
-    <!-- 右: タスク・メモ -->
-    <div style="display:flex;flex-direction:column;gap:16px">
-      <!-- タスク一覧 -->
+    <!-- 中: 執筆目標 + キャラクター + タスク -->
+    <div class="pd-col-mid">
+      <!-- 今日の執筆目標（グローバルダッシュボードから統合） -->
       <div class="card" style="padding:0;overflow:hidden;border-top:3px solid var(--matcha)">
-        <div style="padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg-subtle);display:flex;align-items:center;justify-content:space-between">
-          <div style="display:flex;align-items:center;gap:8px">
-            <i class="fas fa-calendar-check" style="color:var(--matcha)"></i>
-            <span style="font-size:13px;font-weight:700;font-family:'Noto Serif JP',serif">タスク</span>
+        <div class="pd-card-head" style="border-left:3px solid var(--matcha)">
+          <i class="fas fa-bullseye" style="color:var(--matcha)"></i>
+          <span>今日の執筆目標</span>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="openGoalSettingModal()" title="目標設定" style="margin-left:auto"><i class="fas fa-pen" style="font-size:10px"></i></button>
+        </div>
+        <div style="padding:12px 14px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+            <div style="text-align:center;padding:8px;background:var(--matcha-bg);border-radius:var(--radius-sm);border:1px solid var(--matcha-border)">
+              <div style="font-size:20px;font-weight:700;color:var(--matcha)">${todayWc.toLocaleString()}</div>
+              <div style="font-size:9.5px;color:var(--text-muted)">今日 / 目標${writingGoal.daily.toLocaleString()}字</div>
+            </div>
+            <div style="text-align:center;padding:8px;background:var(--kogane-bg);border-radius:var(--radius-sm);border:1px solid var(--kogane-border)">
+              <div style="font-size:20px;font-weight:700;color:var(--kogane)">${weekWc.toLocaleString()}</div>
+              <div style="font-size:9.5px;color:var(--text-muted)">今週 / 目標${writingGoal.weekly.toLocaleString()}字</div>
+            </div>
           </div>
-          <button class="btn btn-ghost btn-sm" onclick="navigate('tasks')" style="font-size:11px">すべて見る</button>
+          <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+            <span style="font-size:11px;color:var(--text-secondary)">今日の進捗</span>
+            <span style="font-size:11px;font-weight:600;color:${goalPct>=100?'var(--matcha)':'var(--text-secondary)'}">${goalPct}%${goalPct>=100?' 🎉':''}</span>
+          </div>
+          <div style="height:7px;background:var(--bg-hover);border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:${goalPct}%;background:${goalPct>=100?'var(--matcha)':'linear-gradient(90deg,var(--matcha),var(--kogane))'};border-radius:4px;transition:width .4s"></div>
+          </div>
+          <!-- 週間チャート（小） -->
+          <div style="margin-top:12px;display:flex;align-items:flex-end;gap:3px;height:44px">
+            ${weekData.map(d => {
+              const h = Math.round((d.wc / weekMax) * 36) + 4;
+              const isToday2 = d.day === today.toISOString().slice(5,10);
+              return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:2px">
+                <div style="width:100%;height:${h}px;background:${isToday2?'var(--fuji)':'var(--fuji-bg)'};border:1px solid ${isToday2?'var(--fuji)':'var(--fuji-border)'};border-radius:2px 2px 0 0" title="${d.day}: ${d.wc}字"></div>
+                <div style="font-size:8.5px;color:${isToday2?'var(--fuji)':'var(--text-muted)'};font-weight:${isToday2?700:400}">${d.day.slice(3)}</div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- キャラクタープレビュー -->
+      <div class="card" style="padding:0;overflow:hidden;margin-top:16px">
+        <div class="pd-card-head" style="border-left:3px solid var(--momo)">
+          <i class="fas fa-users" style="color:var(--momo)"></i>
+          <span>登場人物 (${chars.length}人)</span>
+          <button class="btn btn-ghost btn-sm" onclick="navigate('characters','${proj.id}')" style="margin-left:auto;font-size:11px">詳細 <i class="fas fa-arrow-right" style="font-size:9px"></i></button>
+        </div>
+        <div style="padding:8px 14px">${charPreview}</div>
+      </div>
+    </div>
+
+    <!-- 右: タスク -->
+    <div class="pd-col-right">
+      <!-- タスク -->
+      <div class="card" style="padding:0;overflow:hidden;border-top:3px solid var(--matcha)">
+        <div class="pd-card-head" style="border-left:3px solid var(--matcha)">
+          <i class="fas fa-calendar-check" style="color:var(--matcha)"></i>
+          <span>タスク (${pendingTasks}件)</span>
+          <button class="btn btn-ghost btn-sm" onclick="navigate('tasks')" style="margin-left:auto;font-size:11px">すべて見る</button>
         </div>
         <div style="padding:10px 14px">
           ${allTasks.length > 0 ? `
@@ -12395,25 +12646,29 @@ function renderProjectDash(proj) {
             </div>
           </div>` : ''}
           ${recentTasks}
-          ${pendingTasks > 5 ? `<div style="text-align:center;margin-top:8px;font-size:11px;color:var(--text-muted)">他 ${pendingTasks-5} 件...</div>` : ''}
+          ${pendingTasks > 5 ? `<div style="text-align:center;margin-top:6px;font-size:11px;color:var(--text-muted)">他 ${pendingTasks-5} 件</div>` : ''}
         </div>
       </div>
 
-      <!-- クイックナビ -->
-      <div class="card" style="padding:14px">
-        <div style="font-size:13px;font-weight:700;font-family:'Noto Serif JP',serif;margin-bottom:10px"><i class="fas fa-bolt" style="color:var(--kogane);margin-right:6px"></i>クイックナビ</div>
-        <div style="display:flex;flex-direction:column;gap:6px">
-          ${PHASES.map(ph => {
-            const phC = PHASE_COLORS_WA[ph.id] || waColor;
-            return `<button class="btn btn-ghost btn-sm" onclick="navigate('${ph.nav}','${proj.id}')" style="justify-content:flex-start;font-size:11.5px;padding:5px 10px">
-              <i class="fas ${ph.icon}" style="color:${phC.color};width:14px"></i> ${ph.id}
-            </button>`;
-          }).join('')}
-          <button class="btn btn-ghost btn-sm" onclick="navigate('collab','${proj.id}')" style="justify-content:flex-start;font-size:11.5px;padding:5px 10px">
-            <i class="fas fa-book-bookmark" style="color:var(--kogane);width:14px"></i> コラボメモ
+      <!-- 関連リンク -->
+      <div class="card" style="padding:14px;margin-top:16px">
+        <div style="font-size:12.5px;font-weight:700;font-family:'Noto Serif JP',serif;margin-bottom:10px;color:var(--text-primary)"><i class="fas fa-compass" style="color:var(--accent);margin-right:6px"></i>ツール・設定</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          ${[
+            { icon:'fa-book', label:'執筆日誌', page:'journal', color:'var(--matcha)' },
+            { icon:'fa-table-cells-large', label:'ストーリーボード', page:'board', color:'var(--fuji)' },
+            { icon:'fa-calendar-check', label:'タスク管理', page:'tasks', color:'var(--matcha)' },
+            { icon:'fa-graduation-cap', label:'学習センター', page:'learn', color:'var(--fuji)' },
+            { icon:'fa-toolbox', label:'ツール集', page:'tools', color:'var(--asagi)' },
+          ].map(l => `<button class="btn btn-ghost btn-sm" onclick="navigate('${l.page}')" style="justify-content:flex-start;gap:8px;font-size:12px">
+            <i class="fas ${l.icon}" style="color:${l.color};width:14px"></i>${l.label}
+          </button>`).join('')}
+          <div style="height:1px;background:var(--border);margin:4px 0"></div>
+          <button class="btn btn-ghost btn-sm" onclick="openEditProjectModal('${proj.id}')" style="justify-content:flex-start;gap:8px;font-size:12px">
+            <i class="fas fa-pen" style="color:var(--text-muted);width:14px"></i>作品情報を編集
           </button>
-          <button class="btn btn-ghost btn-sm" onclick="navigate('export','${proj.id}')" style="justify-content:flex-start;font-size:11.5px;padding:5px 10px">
-            <i class="fas fa-share-nodes" style="color:var(--text-muted);width:14px"></i> 共有・出力
+          <button class="btn btn-ghost btn-sm" onclick="confirmDeleteProject('${proj.id}')" style="justify-content:flex-start;gap:8px;font-size:12px;color:var(--accent)">
+            <i class="fas fa-trash" style="color:var(--accent);width:14px"></i>この作品を削除
           </button>
         </div>
       </div>
