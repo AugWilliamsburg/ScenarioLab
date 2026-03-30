@@ -193,12 +193,34 @@ function render() {
   const app = $('#app');
   if (!app) return;
 
-  if (State.currentPage === 'learn' || State.currentPage === 'learn-guide' || State.currentPage === 'learn-articles' || (State.currentPage && State.currentPage.startsWith('article-'))) {
+  const p = State.currentPage;
+
+  // 学習センター
+  if (p === 'learn' || p === 'learn-guide' || p === 'learn-articles' || (p && p.startsWith('article-'))) {
     app.innerHTML = renderLayout(renderLearnPage());
     return;
   }
 
-  if (State.currentPage === 'dashboard' || !State.currentProjectId) {
+  // ツールページ
+  if (p === 'tools' || p === 'tool-logline' || p === 'tool-char-diag' || p === 'tool-scene' || p === 'tool-timer') {
+    app.innerHTML = renderLayout(renderToolsPage());
+    bindToolsPage();
+    return;
+  }
+
+  // テンプレートページ
+  if (p === 'templates' || (p && p.startsWith('template-'))) {
+    app.innerHTML = renderLayout(renderTemplatesPage());
+    return;
+  }
+
+  // 設定ページ
+  if (p === 'settings') {
+    app.innerHTML = renderLayout(renderSettingsPage());
+    return;
+  }
+
+  if (p === 'dashboard' || !State.currentProjectId) {
     app.innerHTML = renderLayout(renderDashboard());
     bindDashboard();
   } else {
@@ -239,7 +261,12 @@ function renderLayout(content, proj = null) {
       ${phaseNav}
     </div>` : '';
 
-  const isLearnPage = State.currentPage === 'learn' || State.currentPage === 'learn-guide' || State.currentPage === 'learn-articles' || (State.currentPage && State.currentPage.startsWith('article-'));
+  const cp = State.currentPage;
+  const isLearnPage = cp === 'learn' || cp === 'learn-guide' || cp === 'learn-articles' || (cp && cp.startsWith('article-'));
+  const isToolsPage = cp === 'tools' || cp === 'tool-logline' || cp === 'tool-char-diag' || cp === 'tool-scene' || cp === 'tool-timer';
+  const isTemplatesPage = cp === 'templates' || (cp && cp.startsWith('template-'));
+  const isSettingsPage = cp === 'settings';
+  const isSpecialPage = isLearnPage || isToolsPage || isTemplatesPage || isSettingsPage;
 
   const projectFooter = proj ? `
     <div class="sidebar-footer">
@@ -252,6 +279,21 @@ function renderLayout(content, proj = null) {
       </div>
     </div>` : '';
 
+  const TOPBAR_PAGES = {
+    learn:            { icon:'fa-book-open', color:'var(--fuji)',   title:'学習センター',       sub:'脚本執筆の理論・テクニックを学ぶ' },
+    'learn-guide':    { icon:'fa-book-open', color:'var(--fuji)',   title:'学習センター',       sub:'ステップバイステップガイド' },
+    'learn-articles': { icon:'fa-book-open', color:'var(--fuji)',   title:'学習センター',       sub:'構成理論・詳細記事' },
+    tools:            { icon:'fa-toolbox',   color:'var(--asagi)',  title:'ライターズツール',   sub:'執筆を助けるツール集' },
+    'tool-logline':   { icon:'fa-quote-left',color:'var(--accent)', title:'ログラインメーカー', sub:'一文でプロの物語を設計' },
+    'tool-char-diag': { icon:'fa-user-check',color:'var(--fuji)',   title:'キャラクター診断',   sub:'Want/Need・アーク設計' },
+    'tool-scene':     { icon:'fa-film',      color:'var(--momo)',   title:'シーン分析',         sub:'1シーンの構造を分析' },
+    'tool-timer':     { icon:'fa-stopwatch', color:'var(--kogane)', title:'執筆タイマー',       sub:'集中執筆セッション' },
+    templates:        { icon:'fa-copy',      color:'var(--kogane)', title:'テンプレート集',     sub:'すぐに使えるフォーマット' },
+    settings:         { icon:'fa-gear',      color:'var(--text-muted)', title:'設定',           sub:'アプリの設定' },
+  };
+  const cpKey = TOPBAR_PAGES[cp] ? cp : (cp && cp.startsWith('article-') ? 'learn' : null);
+  const tbData = cpKey ? TOPBAR_PAGES[cpKey] : null;
+
   const topbarContent = proj ? `
     <div>
       <div class="topbar-title">${esc(proj.title)}</div>
@@ -260,13 +302,13 @@ function renderLayout(content, proj = null) {
     <div class="topbar-actions">
       <button class="btn btn-secondary btn-sm" onclick="navigate('dashboard')"><i class="fas fa-arrow-left"></i> 一覧</button>
       <button class="btn btn-primary btn-sm" onclick="quickSaveProject('${proj.id}')"><i class="fas fa-floppy-disk"></i> 保存</button>
-    </div>` : isLearnPage ? `
+    </div>` : tbData ? `
     <div>
-      <div class="topbar-title"><i class="fas fa-book-open" style="color:var(--fuji);margin-right:7px"></i>学習センター</div>
-      <div class="topbar-subtitle">脚本執筆の理論・テクニックを学ぶ</div>
+      <div class="topbar-title"><i class="fas ${tbData.icon}" style="color:${tbData.color};margin-right:7px"></i>${tbData.title}</div>
+      <div class="topbar-subtitle">${tbData.sub}</div>
     </div>
     <div class="topbar-actions">
-      <button class="btn btn-secondary btn-sm" onclick="navigate('dashboard')"><i class="fas fa-arrow-left"></i> ダッシュボード</button>
+      <button class="btn btn-secondary btn-sm" onclick="navigate('dashboard')"><i class="fas fa-house"></i> ホーム</button>
     </div>` : `
     <div>
       <div class="topbar-title">シナリオラボ</div>
@@ -290,12 +332,21 @@ function renderLayout(content, proj = null) {
       </div>
       <div class="sidebar-nav">
         <div class="sidebar-section">
-          <div class="sidebar-section-title">ナビゲーション</div>
-          <div class="nav-item ${(!proj && State.currentPage==='dashboard')?'active':''}" onclick="navigate('dashboard')">
+          <div class="sidebar-section-title">メニュー</div>
+          <div class="nav-item ${(!proj && cp==='dashboard')?'active':''}" onclick="navigate('dashboard')">
             <span class="nav-icon"><i class="fas fa-house"></i></span> ダッシュボード
           </div>
           <div class="nav-item ${isLearnPage?'active':''}" onclick="navigate('learn')">
-            <span class="nav-icon"><i class="fas fa-book-open" style="color:var(--fuji-lt)"></i></span> 学習センター
+            <span class="nav-icon"><i class="fas fa-graduation-cap" style="color:var(--fuji-lt)"></i></span> 学習センター
+          </div>
+          <div class="nav-item ${isToolsPage?'active':''}" onclick="navigate('tools')">
+            <span class="nav-icon"><i class="fas fa-toolbox" style="color:var(--asagi-lt)"></i></span> ツール
+          </div>
+          <div class="nav-item ${isTemplatesPage?'active':''}" onclick="navigate('templates')">
+            <span class="nav-icon"><i class="fas fa-copy" style="color:var(--kogane-lt)"></i></span> テンプレート
+          </div>
+          <div class="nav-item ${isSettingsPage?'active':''}" onclick="navigate('settings')">
+            <span class="nav-icon"><i class="fas fa-gear" style="color:var(--text-sidebar)"></i></span> 設定
           </div>
         </div>
         ${projectNav}
@@ -4159,6 +4210,841 @@ function renderGuideProcess() {
   <div class="article-callout kogane">
     <strong>重要：</strong>フェーズは必ずしも線形に進む必要はありません。書いている途中でキャラクターを設計し直したり、リサーチに戻ることも普通です。ただし、各フェーズの「ゴール」は意識しておきましょう。
   </div>`;
+}
+
+// ================================================================
+//  PAGE: ツール
+// ================================================================
+function renderToolsPage() {
+  const cp = State.currentPage;
+
+  if (cp === 'tool-logline') return renderToolLogline();
+  if (cp === 'tool-char-diag') return renderToolCharDiag();
+  if (cp === 'tool-scene') return renderToolScene();
+  if (cp === 'tool-timer') return renderToolTimer();
+
+  // ツール一覧
+  const TOOL_LIST = [
+    {
+      id: 'tool-logline',
+      title: 'ログラインメーカー',
+      icon: 'fa-quote-left',
+      color: 'beni',
+      desc: '主人公・ゴール・障害・テーマの4要素を入力するだけでプロ品質のログラインを生成。何パターンも試せます。',
+      badge: 'おすすめ',
+    },
+    {
+      id: 'tool-char-diag',
+      title: 'キャラクター診断シート',
+      icon: 'fa-user-check',
+      color: 'fuji',
+      desc: 'Want/Need・バックストーリー・口癖・性格特徴を整理してキャラクターの深みを診断。アーク設計のヒントも。',
+    },
+    {
+      id: 'tool-scene',
+      title: 'シーン構造チェッカー',
+      icon: 'fa-film',
+      color: 'momo',
+      desc: '1シーンを分析して「入口・目的・対立・出口」の4要素が機能しているか診断。シーンの問題点を発見。',
+    },
+    {
+      id: 'tool-timer',
+      title: '執筆タイマー（ポモドーロ）',
+      icon: 'fa-stopwatch',
+      color: 'kogane',
+      desc: '25分執筆＋5分休憩のポモドーロテクニック。執筆セッション数・文字数目標を管理して集中力を高めます。',
+    },
+  ];
+
+  const toolCards = TOOL_LIST.map(t => {
+    const c = { beni:'var(--accent)', fuji:'var(--fuji)', momo:'var(--momo)', kogane:'var(--kogane)', asagi:'var(--asagi)' };
+    const bg = { beni:'var(--accent-bg)', fuji:'var(--fuji-bg)', momo:'var(--momo-bg)', kogane:'var(--kogane-bg)', asagi:'var(--asagi-bg)' };
+    return `
+    <div class="guide-card" style="cursor:pointer" onclick="navigate('${t.id}')">
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:10px">
+        <div style="width:48px;height:48px;border-radius:var(--radius-md);background:${bg[t.color]||'var(--bg-hover)'};color:${c[t.color]||'var(--text-muted)'};display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">
+          <i class="fas ${t.icon}"></i>
+        </div>
+        <div style="flex:1">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">
+            <div class="guide-card-title" style="margin-bottom:0">${esc(t.title)}</div>
+            ${t.badge ? `<span class="tag tag-beni" style="font-size:9.5px">${t.badge}</span>` : ''}
+          </div>
+          <div class="guide-card-desc">${esc(t.desc)}</div>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end">
+        <span style="font-size:11.5px;color:${c[t.color]||'var(--text-muted)'};font-weight:600">開く <i class="fas fa-arrow-right" style="font-size:10px"></i></span>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div style="background:linear-gradient(135deg,var(--asagi-bg) 0%,var(--bg-subtle) 60%);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:24px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:24px;top:50%;transform:translateY(-50%);font-size:80px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--asagi);opacity:0.05;pointer-events:none">道具</div>
+    <div style="width:28px;height:2.5px;background:linear-gradient(90deg,var(--asagi),var(--kon-lt));border-radius:2px;margin-bottom:10px"></div>
+    <div style="font-size:22px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:6px">
+      <i class="fas fa-toolbox" style="color:var(--asagi);margin-right:8px"></i>ライターズツール
+    </div>
+    <div style="font-size:13px;color:var(--text-muted)">執筆プロセスを加速する専用ツール集。アイデア出しから推敲まで、あらゆる場面をサポートします。</div>
+  </div>
+  <div class="guide-grid">${toolCards}</div>`;
+}
+
+function renderToolLogline() {
+  return `
+  <div class="article-back-btn" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</div>
+  <div class="section-header">
+    <div class="section-title"><i class="fas fa-quote-left" style="color:var(--accent)"></i> ログラインメーカー</div>
+    <div class="section-desc">4要素を入力するだけでプロ品質のログラインを複数生成します</div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+    <div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-pencil icon" style="color:var(--accent)"></i> 4要素を入力</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">主人公 <span style="color:var(--accent)">*</span></label>
+          <input class="form-input" id="ll-protagonist" placeholder="例：末期がんを宣告された刑事">
+        </div>
+        <div class="form-group">
+          <label class="form-label">ゴール <span style="color:var(--accent)">*</span></label>
+          <input class="form-input" id="ll-goal" placeholder="例：20年前の未解決事件を解決すること">
+        </div>
+        <div class="form-group">
+          <label class="form-label">障害・敵対勢力 <span style="color:var(--accent)">*</span></label>
+          <input class="form-input" id="ll-obstacle" placeholder="例：犯人が自分の元上司と知り、友情と正義の間で引き裂かれる">
+        </div>
+        <div class="form-group">
+          <label class="form-label">テーマ・問い（任意）</label>
+          <input class="form-input" id="ll-theme" placeholder="例：正義と友情のどちらを選ぶか">
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="generateLoglines()">
+          <i class="fas fa-magic"></i> ログラインを生成する
+        </button>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-title" style="margin-bottom:12px"><i class="fas fa-circle-info icon" style="color:var(--kon-lt)"></i> 良いログラインの4条件</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${[
+            ['具体的な主人公','「警察官」より「末期がんの元刑事」'],
+            ['明確なゴール','測定可能・外から見てわかる目標'],
+            ['感情的な障害','単なる物理的障害より感情的葛藤'],
+            ['テーマの匂い','「何を問う話か」が透けて見える'],
+          ].map(([t,d]) => `<div style="display:flex;gap:10px;padding:8px;background:var(--bg-subtle);border-radius:var(--radius-sm);border:1px solid var(--border)">
+            <i class="fas fa-check" style="color:var(--matcha);font-size:12px;margin-top:2px;flex-shrink:0"></i>
+            <div><div style="font-size:12.5px;font-weight:600;color:var(--text-primary)">${t}</div><div style="font-size:11.5px;color:var(--text-muted)">${d}</div></div>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card" style="min-height:400px">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-list icon" style="color:var(--matcha)"></i> 生成されたログライン</div>
+          <button class="btn btn-ghost btn-sm" id="ll-copy-all" style="display:none" onclick="copyAllLoglines()"><i class="fas fa-copy"></i> 全コピー</button>
+        </div>
+        <div id="ll-results">
+          <div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
+            <i class="fas fa-quote-left" style="font-size:36px;display:block;margin-bottom:12px;opacity:0.25"></i>
+            <div style="font-size:13.5px">4要素を入力してボタンを押すと<br>ここに複数パターンのログラインが生成されます</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-title" style="margin-bottom:12px"><i class="fas fa-book icon" style="color:var(--kogane)"></i> ログライン例（参考）</div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          ${[
+            '「命がけで証言台に立つ証人が、証人保護プログラムの担当官が実は自分を消そうとしていると気づく」',
+            '「失業した元刑事が息子の行方不明を調査するうちに、息子が自分の過去の事件の被害者だったと知る」',
+            '「宇宙初の民間火星移住計画に携わるエンジニアが、救命装置に致命的な欠陥を発見し、会社の隠蔽工作と戦う」',
+          ].map(ex => `<div style="font-size:12.5px;color:var(--text-secondary);padding:10px 12px;background:var(--bg-subtle);border-radius:var(--radius-sm);border-left:3px solid var(--accent-border);line-height:1.6;font-style:italic">${ex}</div>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function generateLoglines() {
+  const protagonist = $('#ll-protagonist')?.value?.trim();
+  const goal = $('#ll-goal')?.value?.trim();
+  const obstacle = $('#ll-obstacle')?.value?.trim();
+  const theme = $('#ll-theme')?.value?.trim();
+
+  if (!protagonist || !goal || !obstacle) {
+    toast('主人公・ゴール・障害は必須です', 'error');
+    return;
+  }
+
+  const patterns = [
+    `${protagonist}は${goal}ために立ち上がるが、${obstacle}。`,
+    `${goal}を目指す${protagonist}は、${obstacle}という試練に直面する。`,
+    `${protagonist}にとって、${goal}ことが人生最後の使命となる。しかし${obstacle}。`,
+    `${obstacle}——その中で${protagonist}は、なおも${goal}ために戦い続けることを選ぶ。`,
+    theme ? `「${theme}」——${protagonist}が${goal}ために${obstacle}に立ち向かう物語。` : null,
+  ].filter(Boolean);
+
+  const resultsEl = $('#ll-results');
+  if (!resultsEl) return;
+
+  resultsEl.innerHTML = patterns.map((p, i) => `
+    <div style="padding:13px 14px;background:var(--bg-subtle);border-radius:var(--radius-md);border:1px solid var(--border);margin-bottom:8px;position:relative;transition:all .14s">
+      <div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:0.08em;margin-bottom:6px">パターン ${i+1}</div>
+      <div style="font-size:13.5px;color:var(--text-primary);line-height:1.8;font-family:'Noto Serif JP',serif" id="ll-p-${i}">${esc(p)}</div>
+      <button class="btn btn-ghost btn-sm" style="position:absolute;top:8px;right:8px;font-size:10.5px" onclick="copyLogline(${i})">
+        <i class="fas fa-copy"></i> コピー
+      </button>
+    </div>`).join('');
+
+  const copyBtn = $('#ll-copy-all');
+  if (copyBtn) copyBtn.style.display = '';
+
+  window._ll_patterns = patterns;
+  toast('ログラインを生成しました！', 'success');
+}
+
+function copyLogline(idx) {
+  const el = $(`#ll-p-${idx}`);
+  if (!el) return;
+  navigator.clipboard?.writeText(el.textContent || '').then(() => toast('コピーしました', 'success'));
+}
+
+function copyAllLoglines() {
+  const patterns = window._ll_patterns || [];
+  if (!patterns.length) return;
+  navigator.clipboard?.writeText(patterns.join('\n\n')).then(() => toast('全パターンをコピーしました', 'success'));
+}
+
+function renderToolCharDiag() {
+  return `
+  <div class="article-back-btn" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</div>
+  <div class="section-header">
+    <div class="section-title"><i class="fas fa-user-check" style="color:var(--fuji)"></i> キャラクター診断シート</div>
+    <div class="section-desc">Want/Need・内的葛藤・バックストーリーを分析してキャラクターの深みを測定します</div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-user icon" style="color:var(--fuji)"></i> 基本情報</div></div>
+        <div class="form-group"><label class="form-label">キャラクター名</label><input class="form-input" id="cd-name" placeholder="例：木村 拓也"></div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">役割</label>
+            <select class="form-select" id="cd-role">
+              <option>主人公</option><option>ヒロイン/ヒーロー</option><option>antagonist（敵）</option>
+              <option>相棒</option><option>メンター</option><option>サブキャラ</option>
+            </select>
+          </div>
+          <div class="form-group"><label class="form-label">年齢</label><input class="form-input" id="cd-age" placeholder="38"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-arrows-alt-v icon" style="color:var(--accent)"></i> Want vs. Need</div></div>
+        <div class="form-group">
+          <label class="form-label" style="color:var(--accent)">Want（表面的な欲求）</label>
+          <textarea class="form-textarea" id="cd-want" rows="3" placeholder="意識的に求めるもの。外的な目標。例：犯人を捕まえること"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="color:var(--matcha)">Need（内面に必要なもの）</label>
+          <textarea class="form-textarea" id="cd-need" rows="3" placeholder="無意識に必要なもの。内的な成長。例：自分を許すこと"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">欠如（ウーンド）— 過去のトラウマ・傷</label>
+          <textarea class="form-textarea" id="cd-wound" rows="3" placeholder="主人公の行動を歪めている過去の出来事や信念"></textarea>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-comment-dots icon" style="color:var(--momo)"></i> 口癖・話し方</div></div>
+        <input class="form-input" id="cd-speech" placeholder="例：語尾に「…そうか？」が多い、断定を避ける話し方">
+        <div style="margin-top:8px;font-size:11.5px;color:var(--text-muted)">口癖はキャラクターの価値観や不安を反映します</div>
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="runCharDiag()">
+        <i class="fas fa-stethoscope"></i> キャラクターを診断する
+      </button>
+    </div>
+    <div>
+      <div class="card" style="min-height:500px">
+        <div class="card-header"><div class="card-title"><i class="fas fa-chart-radar icon" style="color:var(--fuji)"></i> 診断結果</div></div>
+        <div id="cd-results">
+          <div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
+            <i class="fas fa-user-check" style="font-size:40px;display:block;margin-bottom:14px;opacity:0.2"></i>
+            <div style="font-size:13px">情報を入力して診断ボタンを押すと<br>キャラクターの深みと課題が表示されます</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function runCharDiag() {
+  const name   = $('#cd-name')?.value?.trim() || 'キャラクター';
+  const want   = $('#cd-want')?.value?.trim();
+  const need   = $('#cd-need')?.value?.trim();
+  const wound  = $('#cd-wound')?.value?.trim();
+  const speech = $('#cd-speech')?.value?.trim();
+
+  const scores = {
+    want:   want   ? 100 : 0,
+    need:   need   ? 100 : 0,
+    wound:  wound  ? 100 : 0,
+    speech: speech ? 100 : 0,
+  };
+
+  const avg = Math.round(Object.values(scores).reduce((a,b)=>a+b,0) / 4);
+  const arcType = (want && need) ? (want !== need ? 'ポジティブアーク（成長）' : 'フラットアーク（不変）') : '未確定';
+
+  const tips = [];
+  if (!want) tips.push({ color:'var(--accent)', icon:'fa-arrow-up', text:'Wantを設定しましょう。主人公が意識的に追い求める外的な目標です。' });
+  if (!need) tips.push({ color:'var(--matcha)', icon:'fa-heart', text:'Needを設定しましょう。Wantを追うことで気づく、本当に必要なものです。WantとNeedの対立がドラマを生みます。' });
+  if (!wound) tips.push({ color:'var(--momo)', icon:'fa-bandage', text:'欠如（ウーンド）を設定しましょう。主人公の行動を歪めている過去の傷です。' });
+  if (!speech) tips.push({ color:'var(--fuji)', icon:'fa-comment', text:'口癖を設定しましょう。台詞を読んで「誰が言ったかわかる」個性を作ります。' });
+
+  const resultsEl = $('#cd-results');
+  if (!resultsEl) return;
+
+  resultsEl.innerHTML = `
+  <div style="text-align:center;margin-bottom:20px;padding:18px;background:${avg>=80?'var(--matcha-bg)':avg>=50?'var(--kogane-bg)':'var(--accent-bg)'};border-radius:var(--radius-md);border:1px solid ${avg>=80?'var(--matcha-border)':avg>=50?'var(--kogane-border)':'var(--accent-border)'}">
+    <div style="font-size:38px;font-weight:700;font-family:'Noto Serif JP',serif;color:${avg>=80?'var(--matcha)':avg>=50?'var(--kogane)':'var(--accent)'}">${avg}<span style="font-size:18px">点</span></div>
+    <div style="font-size:12.5px;color:var(--text-muted)">キャラクター深度スコア</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
+    ${Object.entries({Want:scores.want,Need:scores.need,'ウーンド':scores.wound,'口癖・声':scores.speech}).map(([k,v]) => `
+    <div style="padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-subtle)">
+      <div style="font-size:10.5px;font-weight:600;color:var(--text-muted);margin-bottom:4px">${k}</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="flex:1;height:4px;background:var(--bg-hover);border-radius:99px;overflow:hidden">
+          <div style="height:100%;width:${v}%;background:${v===100?'var(--matcha)':'var(--border-mid)'};transition:width .5s"></div>
+        </div>
+        <span style="font-size:11px;color:${v===100?'var(--matcha)':'var(--text-muted)'}">${v===100?'✅ OK':'❌ 未入力'}</span>
+      </div>
+    </div>`).join('')}
+  </div>
+
+  <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px;margin-bottom:14px">
+    <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:5px">推定アークタイプ</div>
+    <div style="font-size:14px;font-weight:700;color:var(--fuji);font-family:'Noto Serif JP',serif">${arcType}</div>
+  </div>
+
+  ${tips.length > 0 ? `<div style="font-size:12.5px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">改善提案</div>
+  ${tips.map(t=>`<div style="display:flex;gap:10px;padding:10px;background:white;border:1px solid var(--border);border-radius:var(--radius-sm);border-left:3px solid ${t.color};margin-bottom:6px">
+    <i class="fas ${t.icon}" style="color:${t.color};flex-shrink:0;margin-top:2px"></i>
+    <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6">${t.text}</div>
+  </div>`).join('')}` : `<div class="success-box"><i class="fas fa-circle-check"></i><div>全要素が設定されています！このキャラクターは立体的な設計ができています。</div></div>`}`;
+
+  toast('診断完了！', 'success');
+}
+
+function renderToolScene() {
+  return `
+  <div class="article-back-btn" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</div>
+  <div class="section-header">
+    <div class="section-title"><i class="fas fa-film" style="color:var(--momo)"></i> シーン構造チェッカー</div>
+    <div class="section-desc">1シーンを入力して「入口・目的・対立・出口」の4要素を分析します</div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-pen-nib icon" style="color:var(--momo)"></i> シーン情報</div></div>
+        <div class="form-group">
+          <label class="form-label">場所・時間</label>
+          <input class="form-input" id="sc-location" placeholder="例：警察署 取調室・夜">
+        </div>
+        <div class="form-group">
+          <label class="form-label">登場キャラクター</label>
+          <input class="form-input" id="sc-chars" placeholder="例：木村、田中教授">
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-door-open icon" style="color:var(--matcha)"></i> 4要素の分析</div></div>
+        <div class="form-group">
+          <label class="form-label" style="color:var(--matcha)">① 入口（シーン開始前の状況）</label>
+          <textarea class="form-textarea" id="sc-entry" rows="2" placeholder="このシーンが始まる前、何が起きているか"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="color:var(--kon-lt)">② 目的（このシーンで達成したいこと）</label>
+          <textarea class="form-textarea" id="sc-goal" rows="2" placeholder="主人公がこのシーンで何を達成しようとするか"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="color:var(--accent)">③ 対立（目的を阻むもの）</label>
+          <textarea class="form-textarea" id="sc-conflict" rows="2" placeholder="何が目的の達成を妨げるか（人物・情報・感情）"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="color:var(--fuji)">④ 出口（シーン終了後の状況の変化）</label>
+          <textarea class="form-textarea" id="sc-exit" rows="2" placeholder="このシーンの結果、何がどう変わったか（良くなった/悪くなった）"></textarea>
+        </div>
+        <button class="btn btn-primary" style="width:100%;margin-top:4px" onclick="analyzeScene()">
+          <i class="fas fa-magnifying-glass"></i> シーンを分析する
+        </button>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="min-height:500px">
+        <div class="card-header"><div class="card-title"><i class="fas fa-chart-bar icon" style="color:var(--momo)"></i> 分析結果</div></div>
+        <div id="sc-results">
+          <div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
+            <i class="fas fa-film" style="font-size:40px;display:block;margin-bottom:14px;opacity:0.2"></i>
+            <div style="font-size:13px">4要素を入力して分析ボタンを押すと<br>シーンの構造分析が表示されます</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function analyzeScene() {
+  const entry    = $('#sc-entry')?.value?.trim();
+  const goal     = $('#sc-goal')?.value?.trim();
+  const conflict = $('#sc-conflict')?.value?.trim();
+  const exit_    = $('#sc-exit')?.value?.trim();
+  const location = $('#sc-location')?.value?.trim();
+
+  const checks = [
+    { label:'入口が設定されている', ok: !!entry, tip:'シーン開始前の状況を明確にすることで、観客はシーンのコンテキストを理解できます。' },
+    { label:'目的（ゴール）が明確', ok: !!goal, tip:'各シーンに明確な目的がないと、観客は「何を観ているか」が分からなくなります。' },
+    { label:'対立（コンフリクト）がある', ok: !!conflict, tip:'対立のないシーンは退屈です。目的を阻む何かが必ずあるべきです。' },
+    { label:'出口で何かが変わった', ok: !!exit_, tip:'シーン終了後、状況が変化（悪化・好転）していないと、物語が停滞します。' },
+  ];
+
+  const score = checks.filter(c => c.ok).length;
+  const hasConflictAndChange = !!conflict && !!exit_;
+
+  const resultsEl = $('#sc-results');
+  if (!resultsEl) return;
+
+  resultsEl.innerHTML = `
+  <div style="text-align:center;margin-bottom:18px;padding:16px;background:${score>=4?'var(--matcha-bg)':score>=3?'var(--kogane-bg)':'var(--accent-bg)'};border-radius:var(--radius-md)">
+    <div style="font-size:36px;font-weight:700;color:${score>=4?'var(--matcha)':score>=3?'var(--kogane)':'var(--accent)'};font-family:'Noto Serif JP',serif">${score}/4</div>
+    <div style="font-size:12px;color:var(--text-muted)">要素充足スコア</div>
+  </div>
+
+  ${checks.map(c => `
+  <div style="display:flex;gap:10px;padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:7px;background:${c.ok?'var(--matcha-bg)':'var(--accent-bg)'};border-left:3px solid ${c.ok?'var(--matcha)':'var(--accent)'}">
+    <i class="fas ${c.ok?'fa-check-circle':'fa-times-circle'}" style="color:${c.ok?'var(--matcha)':'var(--accent)'};flex-shrink:0;margin-top:2px"></i>
+    <div>
+      <div style="font-size:12.5px;font-weight:600;color:var(--text-primary)">${c.label}</div>
+      ${!c.ok ? `<div style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;line-height:1.5">${c.tip}</div>` : ''}
+    </div>
+  </div>`).join('')}
+
+  ${hasConflictAndChange ? `<div class="success-box" style="margin-top:12px"><i class="fas fa-star"></i><div><strong>対立と変化がある</strong>——このシーンは物語を前進させています！</div></div>` :
+    `<div class="warning-box" style="margin-top:12px"><i class="fas fa-exclamation-triangle"></i><div>対立と出口の変化を強化すると、シーンが物語を動かすようになります。</div></div>`}
+
+  <div style="margin-top:14px;padding:12px;background:var(--bg-subtle);border-radius:var(--radius-sm);border:1px solid var(--border)">
+    <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:5px;letter-spacing:0.06em">黄金律</div>
+    <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.7">「遅く入り、早く出る」——シーンは必要になった瞬間に始まり、必要がなくなったらすぐ終わる。</div>
+  </div>`;
+
+  toast('分析完了！', 'success');
+}
+
+function renderToolTimer() {
+  return `
+  <div class="article-back-btn" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</div>
+  <div class="section-header">
+    <div class="section-title"><i class="fas fa-stopwatch" style="color:var(--kogane)"></i> 執筆タイマー</div>
+    <div class="section-desc">ポモドーロテクニックで集中執筆セッションを管理します</div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+    <div>
+      <div class="card" style="text-align:center;padding:32px 20px">
+        <div id="timer-mode-label" style="font-size:13px;font-weight:600;color:var(--text-muted);letter-spacing:0.08em;margin-bottom:12px">執筆タイム</div>
+        <div id="timer-display" style="font-size:72px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);letter-spacing:0.04em;line-height:1;margin-bottom:24px">25:00</div>
+        <div style="display:flex;gap:10px;justify-content:center;margin-bottom:20px">
+          <button class="btn btn-primary btn-lg" id="timer-start-btn" onclick="timerToggle()"><i class="fas fa-play"></i> 開始</button>
+          <button class="btn btn-secondary" onclick="timerReset()"><i class="fas fa-rotate-left"></i> リセット</button>
+        </div>
+        <div style="display:flex;gap:16px;justify-content:center">
+          <div style="text-align:center">
+            <div style="font-size:22px;font-weight:700;color:var(--accent)" id="timer-session-count">0</div>
+            <div style="font-size:10.5px;color:var(--text-muted)">セッション</div>
+          </div>
+          <div style="text-align:center">
+            <div style="font-size:22px;font-weight:700;color:var(--matcha)" id="timer-total-min">0</div>
+            <div style="font-size:10.5px;color:var(--text-muted)">累計分</div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-header"><div class="card-title"><i class="fas fa-sliders icon" style="color:var(--kogane)"></i> タイマー設定</div></div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">執筆時間（分）</label>
+            <input class="form-input" id="timer-work-min" type="number" value="25" min="5" max="60">
+          </div>
+          <div class="form-group">
+            <label class="form-label">休憩時間（分）</label>
+            <input class="form-input" id="timer-break-min" type="number" value="5" min="1" max="30">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">セッションの目標</label>
+          <input class="form-input" id="timer-goal" placeholder="例：第3シーンを書ききる">
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-list icon" style="color:var(--kogane)"></i> ポモドーロ記録</div></div>
+        <div id="timer-log" style="font-size:12px;color:var(--text-muted)">セッションを開始すると記録が表示されます</div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-title" style="margin-bottom:10px"><i class="fas fa-lightbulb icon" style="color:var(--kogane)"></i> ポモドーロのコツ</div>
+        <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.9">
+          <div>🍅 25分は「完全に集中する」時間です</div>
+          <div>📵 SNS・メールは休憩まで完全にオフ</div>
+          <div>📝 書けない時も「書こうとする」だけで価値があります</div>
+          <div>🎯 セッションごとに小さな目標を設定</div>
+          <div>🏆 4セッション後は15〜30分の長休憩を</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// タイマー状態
+const TimerState = {
+  interval: null,
+  seconds: 25 * 60,
+  isRunning: false,
+  isBreak: false,
+  sessions: 0,
+  totalMinutes: 0,
+  logs: [],
+};
+
+function bindToolsPage() {
+  // タイマーページの場合は状態を維持
+}
+
+function timerToggle() {
+  if (TimerState.isRunning) {
+    clearInterval(TimerState.interval);
+    TimerState.isRunning = false;
+    const btn = $('#timer-start-btn');
+    if (btn) btn.innerHTML = '<i class="fas fa-play"></i> 再開';
+  } else {
+    if (!TimerState.seconds) {
+      const workMin = parseInt($('#timer-work-min')?.value || '25');
+      TimerState.seconds = workMin * 60;
+      TimerState.isBreak = false;
+    }
+    TimerState.isRunning = true;
+    const btn = $('#timer-start-btn');
+    if (btn) btn.innerHTML = '<i class="fas fa-pause"></i> 一時停止';
+    const startTime = Date.now();
+    const startSeconds = TimerState.seconds;
+    TimerState.interval = setInterval(() => {
+      TimerState.seconds--;
+      updateTimerDisplay();
+      if (TimerState.seconds <= 0) {
+        clearInterval(TimerState.interval);
+        TimerState.isRunning = false;
+        if (!TimerState.isBreak) {
+          TimerState.sessions++;
+          TimerState.totalMinutes += parseInt($('#timer-work-min')?.value || '25');
+          const goal = $('#timer-goal')?.value || '';
+          TimerState.logs.unshift({ type:'work', time: new Date().toLocaleTimeString('ja'), goal });
+          toast('執筆セッション完了！お疲れ様です 🎉', 'success');
+          TimerState.isBreak = true;
+          const breakMin = parseInt($('#timer-break-min')?.value || '5');
+          TimerState.seconds = breakMin * 60;
+          const btn = $('#timer-start-btn');
+          if (btn) btn.innerHTML = '<i class="fas fa-play"></i> 休憩開始';
+        } else {
+          TimerState.isBreak = false;
+          const workMin = parseInt($('#timer-work-min')?.value || '25');
+          TimerState.seconds = workMin * 60;
+          const btn = $('#timer-start-btn');
+          if (btn) btn.innerHTML = '<i class="fas fa-play"></i> 執筆開始';
+          toast('休憩終了！次のセッションを始めましょう', 'info');
+        }
+        updateTimerDisplay();
+        updateTimerLog();
+      }
+    }, 1000);
+  }
+}
+
+function updateTimerDisplay() {
+  const d = $('#timer-display');
+  const ml = $('#timer-mode-label');
+  const sc = $('#timer-session-count');
+  const tm = $('#timer-total-min');
+  if (d) {
+    const m = Math.floor(TimerState.seconds / 60);
+    const s = TimerState.seconds % 60;
+    d.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    d.style.color = TimerState.isBreak ? 'var(--matcha)' : (TimerState.seconds < 60 ? 'var(--accent)' : 'var(--text-primary)');
+  }
+  if (ml) ml.textContent = TimerState.isBreak ? '休憩タイム' : '執筆タイム';
+  if (sc) sc.textContent = String(TimerState.sessions);
+  if (tm) tm.textContent = String(TimerState.totalMinutes);
+}
+
+function timerReset() {
+  clearInterval(TimerState.interval);
+  TimerState.isRunning = false;
+  TimerState.isBreak = false;
+  const workMin = parseInt($('#timer-work-min')?.value || '25');
+  TimerState.seconds = workMin * 60;
+  const btn = $('#timer-start-btn');
+  if (btn) btn.innerHTML = '<i class="fas fa-play"></i> 開始';
+  updateTimerDisplay();
+}
+
+function updateTimerLog() {
+  const logEl = $('#timer-log');
+  if (!logEl) return;
+  if (TimerState.logs.length === 0) {
+    logEl.innerHTML = '<div style="font-size:12px;color:var(--text-muted)">セッションを開始すると記録が表示されます</div>';
+    return;
+  }
+  logEl.innerHTML = TimerState.logs.slice(0,10).map((l,i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:18px">${l.type==='work'?'🍅':'☕'}</span>
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:600;color:var(--text-primary)">${l.type==='work'?`セッション ${TimerState.sessions - i}`:'休憩'}</div>
+        ${l.goal ? `<div style="font-size:11px;color:var(--text-muted)">${esc(l.goal)}</div>` : ''}
+      </div>
+      <span style="font-size:10px;color:var(--text-muted)">${l.time}</span>
+    </div>`).join('');
+}
+
+// ================================================================
+//  PAGE: テンプレート
+// ================================================================
+function renderTemplatesPage() {
+  const cp = State.currentPage;
+
+  const TEMPLATE_CATS = [
+    {
+      id: 'structure',
+      title: '構成テンプレート',
+      icon: 'fa-diagram-project',
+      color: 'beni',
+      items: [
+        { id:'three-act', name:'三幕構成シート', desc:'Act1/Act2/Act3の主要ビートを埋めるだけ' },
+        { id:'save-cat', name:'Save the Cat 15ビートシート', desc:'ブレイク・スナイダー式の15ポイント' },
+        { id:'kishotenketsu', name:'起承転結設計シート', desc:'日本式四段構成の各フェーズを整理' },
+      ]
+    },
+    {
+      id: 'character',
+      title: 'キャラクターシート',
+      icon: 'fa-users',
+      color: 'fuji',
+      items: [
+        { id:'char-basic', name:'キャラクター基本シート', desc:'名前・年齢・役割・外見・性格' },
+        { id:'char-deep', name:'キャラクター深掘りシート', desc:'Want/Need/ウーンド/バックストーリー' },
+        { id:'char-arc', name:'キャラクターアーク設計', desc:'ポジティブ/ネガティブ/フラットアーク' },
+      ]
+    },
+    {
+      id: 'scene',
+      title: 'シーン・ト書き',
+      icon: 'fa-film',
+      color: 'momo',
+      items: [
+        { id:'scene-check', name:'シーンチェックリスト', desc:'1シーンの4要素確認' },
+        { id:'dialogue-check', name:'セリフ診断リスト', desc:'サブテキスト・キャラクターの声' },
+        { id:'format-sample', name:'脚本フォーマット見本', desc:'日本式フォーマットの記述例' },
+      ]
+    },
+    {
+      id: 'revision',
+      title: '改稿・推敲',
+      icon: 'fa-rotate',
+      color: 'kogane',
+      items: [
+        { id:'revision-sheet', name:'改稿チェックシート', desc:'大改稿で確認すべき全項目' },
+        { id:'polish-sheet', name:'精密推敲チェックシート', desc:'セリフ・ト書きの磨き方' },
+        { id:'feedback-form', name:'フィードバック記録フォーム', desc:'読み合わせ後の整理に' },
+      ]
+    },
+  ];
+
+  const colorMap = { beni:'var(--accent)', fuji:'var(--fuji)', momo:'var(--momo)', kogane:'var(--kogane)' };
+  const bgMap    = { beni:'var(--accent-bg)', fuji:'var(--fuji-bg)', momo:'var(--momo-bg)', kogane:'var(--kogane-bg)' };
+
+  const sections = TEMPLATE_CATS.map(cat => {
+    const col = colorMap[cat.color] || 'var(--text-muted)';
+    const bg = bgMap[cat.color] || 'var(--bg-hover)';
+    const cards = cat.items.map(item => `
+      <div class="guide-card" onclick="showTemplate('${item.id}')">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <i class="fas ${cat.icon}" style="color:${col};font-size:14px"></i>
+          <div class="guide-card-title" style="margin-bottom:0;font-size:13.5px">${esc(item.name)}</div>
+        </div>
+        <div class="guide-card-desc" style="font-size:11.5px">${esc(item.desc)}</div>
+        <div style="margin-top:10px;text-align:right"><span style="font-size:11px;color:${col};font-weight:600">コピーして使う <i class="fas fa-copy" style="font-size:10px"></i></span></div>
+      </div>`).join('');
+
+    return `
+    <div style="margin-bottom:26px">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:14px">
+        <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:${bg};color:${col};display:flex;align-items:center;justify-content:center;font-size:14px">
+          <i class="fas ${cat.icon}"></i>
+        </div>
+        <div style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${esc(cat.title)}</div>
+      </div>
+      <div class="guide-grid">${cards}</div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div style="background:linear-gradient(135deg,var(--kogane-bg),var(--bg-subtle));border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px 26px;margin-bottom:24px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:70px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--kogane);opacity:0.06;pointer-events:none">型</div>
+    <div style="width:28px;height:2.5px;background:linear-gradient(90deg,var(--kogane),var(--accent));border-radius:2px;margin-bottom:10px"></div>
+    <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:5px">
+      <i class="fas fa-copy" style="color:var(--kogane);margin-right:8px"></i>テンプレート集
+    </div>
+    <div style="font-size:13px;color:var(--text-muted)">プロが使う設計シート・チェックリストをそのままコピーして使えます</div>
+  </div>
+  ${sections}`;
+}
+
+function showTemplate(id) {
+  const TEMPLATES = {
+    'three-act': `【三幕構成シート】\n\n■ Act1 — 序幕（約25%）\n・オープニングイメージ：\n・主人公の日常・欠如：\n・発端事件：\n・ターニングポイント1：\n\n■ Act2a — 本幕前半（約25%）\n・新世界への適応：\n・Bストーリー（サブプロット）開始：\n・ミッドポイント（転換）：\n\n■ Act2b — 本幕後半（約25%）\n・悪役の迫来・状況悪化：\n・すべてを失う（最低点）：\n・暗闇の魂：\n\n■ Act3 — 終幕（約25%）\n・クライマックスへの突入：\n・クライマックス（主人公の変化した選択）：\n・クロージングイメージ：\n\n■ テーマ：\n■ ターニングポイント2（Act2→3の境界）：`,
+    'save-cat': `【Save the Cat — 15ビートシート】\n\n1. オープニングイメージ（p.1）：\n2. テーマの提示（p.5）：\n3. 設定（p.1〜10）：\n4. 触媒・発端（p.12）：\n5. 議論（p.12〜25）：\n6. 第二幕への突入（p.25）：\n7. Bストーリー（p.30）：\n8. 楽しみと遊び（p.30〜55）：\n9. ミッドポイント（p.55）：\n10. 悪役の迫来（p.55〜75）：\n11. すべてを失う（p.75）：\n12. 暗闇の魂（p.75〜85）：\n13. クライマックスへの突入（p.85）：\n14. クライマックス（p.85〜110）：\n15. クロージングイメージ（p.110）：`,
+    'kishotenketsu': `【起承転結 設計シート】\n\n■ 起（約15-25%）\n・主人公：\n・設定・世界：\n・問題の提示：\n・なぜ今始まるか：\n\n■ 承（約40-50%）\n・展開・発展：\n・障害の登場：\n・転への伏線：\n\n■ 転（約15-25%）\n・転換の内容：\n・なぜ驚きがあるか：\n・なぜ必然性があるか：\n・感情的インパクト：\n\n■ 結（約15-20%）\n・収束の内容：\n・余韻・余白：\n・最後に何が残るか：`,
+    'char-basic': `【キャラクター基本シート】\n\n■ 名前：\n■ ふりがな：\n■ 年齢：\n■ 性別：\n■ 役割（主人公・敵・相棒など）：\n■ 職業・立場：\n■ 外見・風貌：\n■ 性格（3〜5つの特徴）：\n■ 口癖・話し方：\n■ 趣味・特技：\n■ 弱点・コンプレックス：\n■ キャッチコピー（一言で言うなら）：`,
+    'char-deep': `【キャラクター深掘りシート】\n\n■ Want（表面的な欲求）：\n  → 意識的に追い求める外的目標\n\n■ Need（内面の必要）：\n  → 無意識に必要としている内的成長\n\n■ 欠如・ウーンド（過去のトラウマ）：\n  → 現在の行動を歪めている過去の出来事\n\n■ ゴースト（過去の出来事）：\n  → バックストーリーの核心\n\n■ 誤った信念（Lie the Character Believes）：\n  → キャラクターが信じている誤りや思い込み\n\n■ 真実（Truth）：\n  → 物語を通じて学ぶべき真実\n\n■ Wantを追うことでNeedを見つける過程：\n`,
+    'char-arc': `【キャラクターアーク設計シート】\n\nアークタイプ（◎を選ぶ）：\n[ ] ポジティブアーク（成長・変容）\n[ ] ネガティブアーク（堕落・悲劇）\n[ ] フラットアーク（信念・不変）\n\n■ 冒頭の状態：\n  欠如・誤信：\n  外的状況：\n\n■ 第一幕末（転換点1）での変化：\n\n■ ミッドポイントでの変化：\n\n■ 最低点での状態：\n\n■ クライマックスでの選択（変化の証明）：\n  以前なら→（旧来の選択）\n  今は→（変化後の選択）\n\n■ エピローグでの状態：\n`,
+    'scene-check': `【シーンチェックリスト】\n\nシーン番号：　　場所：　　時間帯：\n登場人物：\n\n□ 入口（シーン前の状況）：\n□ このシーンの目的（誰が何を達成しようとするか）：\n□ 対立・障害（何が目的を妨げるか）：\n□ 出口（シーン後に何が変わるか）：\n\n品質チェック：\n□ このシーンは物語を前進させているか？\n□ 主人公の感情・認識が変化するか？\n□ 「遅く入り、早く出る」を守っているか？\n□ このシーンを削ったとき物語に穴があくか？（穴がなければ削るべき）\n□ 1シーンに複数の役割があるか？（情報提供+感情描写など）`,
+    'dialogue-check': `【セリフ診断リスト】\n\nキャラクター名：\n\n□ このセリフに目的はあるか？（情報・感情・影響のどれか）\n□ このキャラクターらしいか？（名前を隠しても誰かわかる？）\n□ サブテキスト（言外の意味）はあるか？\n□ 直接的すぎないか？（嘘・隠す・遠回しにする）\n□ 説明的すぎないか？（セリフでテーマを直接言っていない？）\n□ 感情をラベリングしていないか？（「私は悲しい」はダメ）\n□ 声に出して読んで自然か？\n□ 長すぎないか？（3行以上は分割を検討）\n□ 沈黙・間を効果的に使っているか？`,
+    'format-sample': `【日本式脚本フォーマット見本】\n\n　○内・警察署・取調室・夜\n\n　　蛍光灯の光。木村（38）が椅子に座っている。\n　　向かいの椅子は空だ。\n\n\n\t\t　　木村\n　　「……先生？」\n\n　　ドアが開く。田中教授（64）が入ってくる。\n\n\n\t\t　　田中教授\n　　「久しぶりだな、木村」\n\n\n\t\t　　木村\n\t\t　　（震える声で）\n　　「なぜ……なぜここに」\n\n\t\t\t\t\t\tカット ＴＯ：\n\n　○外・渋谷・雑踏・昼\n\n　　人々が行き交う。木村が一人、立ちつくしている。`,
+    'revision-sheet': `【大改稿チェックシート】\n\n■ 構造レベル\n□ 第一幕で主人公・目標・障害が明確に提示されているか？\n□ ターニングポイント1・2・クライマックスが機能しているか？\n□ 各幕の長さバランスは適切か？（中弛みはないか？）\n□ ミッドポイントで主人公の立場・認識が変化しているか？\n□ キャラクターアークは完結しているか？（変化が証明されているか？）\n\n■ シーンレベル\n□ 不要なシーンを特定して削除したか？\n□ 各シーンが物語を前進させているか？\n□ 伏線とその回収を全て確認したか？\n□ サブプロットはメインと絡んでいるか？\n\n■ キャラクターレベル\n□ 主人公の動機・行動が一貫しているか？\n□ 敵役・障害の動機は理解できるか？\n□ テーマはセリフではなく行動で示されているか？`,
+    'polish-sheet': `【精密推敲チェックシート】\n\n■ セリフ全般\n□ すべてのセリフを声に出して読んだか？\n□ 「言わなくてもわかるセリフ」を削ったか？\n□ 各キャラクターの口調が一貫しているか？\n□ 感情を直接言っているセリフはないか？\n□ テーマを直接言っているセリフはないか？\n\n■ ト書き全般\n□ 4行以上の長いト書きを分割したか？\n□ カメラに映らないものを書いていないか？\n□ 「〜と思う」など内面描写を避けているか？\n□ 主語が明確か？\n□ 演技指定（括弧書き）を最小限にしたか？\n\n■ 全体\n□ 誤字・脱字・表記ゆれを確認したか？\n□ 冒頭3ページにフックがあるか？\n□ ラストシーンに余韻があるか？`,
+    'feedback-form': `【フィードバック記録フォーム】\n\n日時：　　　　出所（誰から）：\n\n■ 良い点（継続すべき）：\n1.\n2.\n3.\n\n■ 問題点（修正が必要）：\n1.　場所：　内容：　対応：\n2.　場所：　内容：　対応：\n3.　場所：　内容：　対応：\n\n■ 疑問・確認事項：\n1.\n2.\n\n■ その他メモ：\n\n対応優先度：\n□ 高（構造的問題）\n□ 中（シーン・キャラクター）\n□ 低（セリフ・細部）\n\n次の改稿で行うこと：\n`,
+  };
+
+  const content = TEMPLATES[id] || 'テンプレートが見つかりません';
+  const name = id.replace(/-/g, ' ');
+
+  openModal(
+    `<i class="fas fa-copy" style="color:var(--kogane)"></i> テンプレート`,
+    `<div style="white-space:pre-wrap;font-family:'Noto Serif JP',serif;font-size:12.5px;color:var(--text-secondary);line-height:1.9;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;max-height:450px;overflow-y:auto" id="template-content">${esc(content)}</div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">閉じる</button>
+     <button class="btn btn-primary" onclick="copyTemplate()"><i class="fas fa-copy"></i> クリップボードにコピー</button>`,
+    { size: 'modal-lg' }
+  );
+  window._currentTemplate = content;
+}
+
+function copyTemplate() {
+  const content = window._currentTemplate || '';
+  navigator.clipboard?.writeText(content).then(() => toast('テンプレートをコピーしました！', 'success'));
+}
+
+// ================================================================
+//  PAGE: 設定
+// ================================================================
+function renderSettingsPage() {
+  const projects = DB.getProjects();
+  const storageUsed = JSON.stringify(projects).length;
+  const storageKB = (storageUsed / 1024).toFixed(1);
+
+  return `
+  <div class="section-header">
+    <div class="section-title"><i class="fas fa-gear"></i> 設定</div>
+    <div class="section-desc">シナリオラボの設定・データ管理</div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-database icon" style="color:var(--kon-lt)"></i> データ管理</div></div>
+        <div style="font-size:13px;color:var(--text-secondary);line-height:2;margin-bottom:14px">
+          <div>プロジェクト数: <strong>${projects.length}件</strong></div>
+          <div>使用容量: <strong>約 ${storageKB} KB</strong></div>
+          <div>保存先: <strong>ブラウザ LocalStorage</strong></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-secondary" onclick="exportAllData()"><i class="fas fa-file-export"></i> 全データをエクスポート（JSON）</button>
+          <button class="btn btn-ghost btn-sm" onclick="confirmClearAllData()" style="color:var(--accent)"><i class="fas fa-trash"></i> 全データを削除</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-circle-info icon" style="color:var(--fuji)"></i> アプリ情報</div></div>
+        <div style="font-size:13px;color:var(--text-secondary);line-height:2.2">
+          <div>バージョン: <strong>v4.0.0</strong></div>
+          <div>名称: <strong>シナリオラボ</strong></div>
+          <div>最終更新: <strong>2025年</strong></div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-top:6px;line-height:1.6">
+            このアプリはブラウザのLocalStorageにデータを保存します。<br>
+            ブラウザのキャッシュをクリアするとデータが消えることがあります。<br>
+            定期的にエクスポートしてバックアップしてください。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-keyboard icon" style="color:var(--matcha)"></i> キーボードショートカット</div></div>
+        <div style="font-size:12.5px;line-height:2.2">
+          ${[
+            ['Ctrl/⌘ + S', 'プロジェクトを保存'],
+            ['Escape', 'モーダルを閉じる'],
+          ].map(([k,d]) => `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+            <code style="background:var(--bg-hover);padding:2px 7px;border-radius:4px;font-size:11.5px;border:1px solid var(--border)">${k}</code>
+            <span style="color:var(--text-muted)">${d}</span>
+          </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-lightbulb icon" style="color:var(--kogane)"></i> 使い方のヒント</div></div>
+        <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.9">
+          <div>💾 エディタは1.5秒後に自動保存されます</div>
+          <div>🔄 フェーズは上部「保存」ボタンで手動保存も可</div>
+          <div>📋 テンプレートページに各種設計シートがあります</div>
+          <div>📚 学習センターで脚本理論を体系的に学べます</div>
+          <div>🛠️ ツールページに便利なユーティリティがあります</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function exportAllData() {
+  const data = {
+    version: '4.0.0',
+    exportedAt: new Date().toISOString(),
+    projects: DB.getProjects(),
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `scenariolab_backup_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('エクスポートしました', 'success');
+}
+
+function confirmClearAllData() {
+  openModal(
+    `<i class="fas fa-triangle-exclamation" style="color:var(--accent)"></i> 全データを削除`,
+    `<p style="color:var(--text-secondary)">すべてのプロジェクトデータを削除します。<br><strong style="color:var(--accent)">この操作は元に戻せません。</strong></p>
+     <p style="font-size:12.5px;color:var(--text-muted);margin-top:8px">削除前に「全データをエクスポート」でバックアップすることをお勧めします。</p>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-danger" onclick="clearAllData()"><i class="fas fa-trash"></i> すべて削除する</button>`
+  );
+}
+
+function clearAllData() {
+  localStorage.clear();
+  closeModal();
+  toast('データを削除しました', 'info');
+  State.currentProjectId = null;
+  State.currentPage = 'dashboard';
+  render();
 }
 
 // ================================================================
