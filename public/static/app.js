@@ -247,6 +247,13 @@ function render() {
     return;
   }
 
+  // ストーリーボードページ
+  if (p === 'board') {
+    app.innerHTML = renderLayout(renderBoardPage());
+    bindBoardPage();
+    return;
+  }
+
   if (p === 'dashboard' || !State.currentProjectId) {
     app.innerHTML = renderLayout(renderDashboard());
     bindDashboard();
@@ -297,7 +304,8 @@ function renderLayout(content, proj = null) {
   const isNameDictPage = cp === 'namedict';
   const isWorldPage = cp === 'worldbuilding';
   const isInspirationPage = cp === 'inspiration';
-  const isSpecialPage = isLearnPage || isToolsPage || isTemplatesPage || isSettingsPage || isJournalPage || isNameDictPage || isWorldPage || isInspirationPage;
+  const isBoardPage = cp === 'board';
+  const isSpecialPage = isLearnPage || isToolsPage || isTemplatesPage || isSettingsPage || isJournalPage || isNameDictPage || isWorldPage || isInspirationPage || isBoardPage;
 
   const projectFooter = proj ? `
     <div class="sidebar-footer">
@@ -328,6 +336,7 @@ function renderLayout(content, proj = null) {
     namedict:         { icon:'fa-spell-check',color:'var(--kon-lt)',title:'キャラクター名辞典', sub:'登場人物の名前・読みを管理' },
     worldbuilding:    { icon:'fa-globe',     color:'var(--asagi)',  title:'世界観設計',         sub:'舞台・設定・世界観を構築' },
     inspiration:      { icon:'fa-bolt',      color:'var(--kogane)', title:'インスピレーション', sub:'アイデア・刺激・乱数プロンプト' },
+    board:            { icon:'fa-table-cells-large', color:'var(--fuji)',   title:'ストーリーボード',  sub:'カードで物語を視覚的に整理・設計' },
   };
   const cpKey = TOPBAR_PAGES[cp] ? cp : (cp && cp.startsWith('article-') ? 'learn' : null);
   const tbData = cpKey ? TOPBAR_PAGES[cpKey] : null;
@@ -379,6 +388,9 @@ function renderLayout(content, proj = null) {
           </div>
           <div class="nav-item ${isInspirationPage?'active':''}" onclick="navigate('inspiration')">
             <span class="nav-icon"><i class="fas fa-bolt" style="color:var(--kogane-lt)"></i></span> インスピレーション
+          </div>
+          <div class="nav-item ${ cp==='board'?'active':''}" onclick="navigate('board')">
+            <span class="nav-icon"><i class="fas fa-table-cells-large" style="color:var(--fuji-lt)"></i></span> ストーリーボード
           </div>
         </div>
         <div class="sidebar-section">
@@ -657,17 +669,33 @@ function renderDashboard() {
         </button>
       </div>
       ${projects.length > 0 ? `
-      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center">
         <div style="position:relative;flex:1;min-width:160px">
           <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:12px"></i>
           <input id="db-search" class="form-input" style="padding-left:30px;height:34px;font-size:12.5px" placeholder="作品を検索...">
         </div>
-        <div style="display:flex;gap:4px;flex-wrap:wrap">
-          <button class="phase-filter-btn active btn btn-ghost btn-sm" data-phase="all" style="font-size:11px">すべて</button>
-          ${['着想','リサーチ','コンセプト設計','プロット設計','キャラクター','アウトライン','初稿','大改稿','精密推敲','フィードバック','最終稿','共有・出力'].slice(0,6).map(ph => `<button class="phase-filter-btn btn btn-ghost btn-sm" data-phase="${ph}" style="font-size:11px">${ph}</button>`).join('')}
+        <!-- ソート・ビュー切替 -->
+        <div style="display:flex;gap:4px;align-items:center">
+          <select id="db-sort" class="form-select" style="height:34px;font-size:11.5px;padding:0 8px;width:auto" onchange="sortProjects(this.value)">
+            <option value="updated">更新順</option>
+            <option value="created">作成順</option>
+            <option value="title">タイトル順</option>
+            <option value="phase">フェーズ順</option>
+            <option value="progress">進捗順</option>
+          </select>
+          <button class="btn btn-ghost btn-icon btn-sm db-view-btn active" id="db-view-grid" onclick="setDashboardView('grid')" title="グリッド表示" style="width:34px;height:34px">
+            <i class="fas fa-th-large" style="font-size:12px"></i>
+          </button>
+          <button class="btn btn-ghost btn-icon btn-sm db-view-btn" id="db-view-list" onclick="setDashboardView('list')" title="リスト表示" style="width:34px;height:34px">
+            <i class="fas fa-list" style="font-size:12px"></i>
+          </button>
         </div>
+      </div>
+      <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px">
+        <button class="phase-filter-btn active btn btn-ghost btn-sm" data-phase="all" style="font-size:11px">すべて</button>
+        ${['着想','リサーチ','コンセプト設計','プロット設計','キャラクター','アウトライン','初稿','大改稿','精密推敲','フィードバック','最終稿','共有・出力'].slice(0,6).map(ph => `<button class="phase-filter-btn btn btn-ghost btn-sm" data-phase="${ph}" style="font-size:11px">${ph}</button>`).join('')}
       </div>` : ''}
-      <div class="project-grid">${projectCards}</div>
+      <div class="project-grid" id="project-cards-container">${projectCards}</div>
     </div>
 
     <!-- 右：サイドパネル -->
@@ -799,6 +827,9 @@ function renderDashboard() {
         </div>
       </div>
 
+      <!-- ストーリーボード ウィジェット -->
+      ${renderDashboardBoardWidget()}
+
       <!-- クイックリンク -->
       <div class="card" style="padding:14px">
         <div style="font-size:12.5px;font-weight:600;color:var(--text-secondary);margin-bottom:10px;font-family:'Noto Serif JP',serif"><i class="fas fa-compass" style="color:var(--accent);margin-right:6px"></i>クイックアクセス</div>
@@ -806,10 +837,10 @@ function renderDashboard() {
           ${[
             { icon:'fa-book', label:'執筆日誌', page:'journal', color:'var(--matcha)' },
             { icon:'fa-bolt', label:'インスピレーション', page:'inspiration', color:'var(--kogane)' },
+            { icon:'fa-table-cells-large', label:'ストーリーボード', page:'board', color:'var(--fuji)' },
             { icon:'fa-graduation-cap', label:'学習センター', page:'learn', color:'var(--fuji)' },
             { icon:'fa-toolbox', label:'ツール', page:'tools', color:'var(--asagi)' },
             { icon:'fa-globe', label:'世界観設計', page:'worldbuilding', color:'var(--asagi)' },
-            { icon:'fa-spell-check', label:'名前辞典', page:'namedict', color:'var(--kon-lt)' },
           ].map(l => `<button class="btn btn-ghost btn-sm" style="justify-content:flex-start;gap:7px;font-size:11.5px" onclick="navigate('${l.page}')">
             <i class="fas ${l.icon}" style="color:${l.color};width:14px"></i>${l.label}
           </button>`).join('')}
@@ -833,6 +864,49 @@ function bindDashboard() {
       filterProjectsByPhase(btn.dataset.phase);
     });
   });
+  // ビュー状態を復元
+  const savedView = DB.get('dashboard_view', 'grid');
+  if (savedView === 'list') setDashboardView('list', false);
+}
+
+// ── Dashboard View Toggle ───────────────────────────────────
+function setDashboardView(view, save = true) {
+  const container = document.getElementById('project-cards-container');
+  if (!container) return;
+  if (view === 'list') {
+    container.classList.remove('project-grid');
+    container.classList.add('project-list-view');
+    document.getElementById('db-view-grid')?.classList.remove('active');
+    document.getElementById('db-view-list')?.classList.add('active');
+  } else {
+    container.classList.add('project-grid');
+    container.classList.remove('project-list-view');
+    document.getElementById('db-view-grid')?.classList.add('active');
+    document.getElementById('db-view-list')?.classList.remove('active');
+  }
+  if (save) DB.set('dashboard_view', view);
+}
+
+// ── Dashboard Sort ───────────────────────────────────────────
+function sortProjects(sortKey) {
+  const container = document.getElementById('project-cards-container');
+  if (!container) return;
+  const cards = [...container.querySelectorAll('.project-card')];
+  const phaseOrder = {'着想':0,'リサーチ':1,'コンセプト設計':2,'プロット設計':3,'キャラクター':4,'アウトライン':5,'初稿':6,'大改稿':7,'精密推敲':8,'フィードバック':9,'最終稿':10,'共有・出力':11};
+  cards.sort((a, b) => {
+    const aTitle = a.querySelector('.project-card-title')?.textContent || '';
+    const bTitle = b.querySelector('.project-card-title')?.textContent || '';
+    const aPhaseTag = a.querySelector('.tag')?.textContent?.trim() || '';
+    const bPhaseTag = b.querySelector('.tag')?.textContent?.trim() || '';
+    const aPhase = Object.keys(phaseOrder).find(ph => aPhaseTag.includes(ph)) || '';
+    const bPhase = Object.keys(phaseOrder).find(ph => bPhaseTag.includes(ph)) || '';
+    if (sortKey === 'title') return aTitle.localeCompare(bTitle, 'ja');
+    if (sortKey === 'phase') return (phaseOrder[aPhase]||0) - (phaseOrder[bPhase]||0);
+    if (sortKey === 'progress') return (phaseOrder[bPhase]||0) - (phaseOrder[aPhase]||0);
+    return 0;
+  });
+  cards.forEach(c => container.appendChild(c));
+  toast('並び替えました', 'info');
 }
 
 function openGoalSettingModal() {
@@ -7951,6 +8025,1117 @@ function confirmSendLoglineToProject(text) {
   DB.saveProject(proj);
   closeModal();
   toast('ログラインを設定しました！', 'success');
+}
+
+// ================================================================
+//  STORY BOARD — Phase 3 スーパーボード機能
+// ================================================================
+
+// ── Board DB ──────────────────────────────────────────────────
+const BOARD_DB = {
+  getBoards() { return DB.get('boards', []); },
+  saveBoards(bs) { DB.set('boards', bs); },
+  getBoard(id) { return this.getBoards().find(b => b.id === id) || null; },
+  saveBoard(board) {
+    const bs = this.getBoards();
+    const idx = bs.findIndex(b => b.id === board.id);
+    if (idx >= 0) bs[idx] = board; else bs.unshift(board);
+    this.saveBoards(bs);
+  },
+  deleteBoard(id) { this.saveBoards(this.getBoards().filter(b => b.id !== id)); },
+  getCards(boardId) {
+    const b = this.getBoard(boardId);
+    return b ? (b.cards || []) : [];
+  },
+  saveCards(boardId, cards) {
+    const b = this.getBoard(boardId);
+    if (b) { b.cards = cards; b.updatedAt = now(); this.saveBoard(b); }
+  },
+};
+
+function newBoard(data = {}) {
+  return {
+    id: uid(),
+    title: data.title || '新しいボード',
+    description: data.description || '',
+    projectId: data.projectId || null,
+    color: data.color || '#7c6af7',
+    icon: data.icon || 'fa-table-cells-large',
+    columns: data.columns || ['アイデア','構成中','完成','保留'],
+    cards: data.cards || [],
+    connectors: data.connectors || [],
+    tags: data.tags || [],
+    createdAt: now(),
+    updatedAt: now(),
+  };
+}
+
+function newCard(data = {}) {
+  return {
+    id: uid(),
+    title: data.title || '新しいカード',
+    body: data.body || '',
+    column: data.column || 0,
+    color: data.color || '#ffffff',
+    label: data.label || '',
+    labelColor: data.labelColor || 'var(--fuji)',
+    priority: data.priority || 'medium', // low/medium/high/urgent
+    tags: data.tags || [],
+    // 裏面データ
+    back: {
+      notes: data.back?.notes || '',
+      characters: data.back?.characters || [],
+      emotion: data.back?.emotion || '',
+      tension: data.back?.tension || 5,
+      sceneDetail: data.back?.sceneDetail || '',
+      nextScenes: data.back?.nextScenes || [],
+      references: data.back?.references || '',
+      checklist: data.back?.checklist || [],
+      storyFunction: data.back?.storyFunction || '',
+    },
+    // メタ
+    pinned: data.pinned || false,
+    flipped: false,
+    order: data.order || 0,
+    createdAt: now(),
+    updatedAt: now(),
+    dueDate: data.dueDate || '',
+    attachedTo: data.attachedTo || null, // プロジェクトID
+    connectedCards: data.connectedCards || [],
+  };
+}
+
+// ── Board State ─────────────────────────────────────────────
+const BoardState = {
+  currentBoardId: null,
+  view: 'kanban', // kanban | grid | timeline | mindmap
+  filter: { label: '', priority: '', tag: '', search: '' },
+  dragCard: null,
+  dragCol: null,
+  flippedCards: new Set(),
+};
+
+// ── CARD LABEL COLORS ───────────────────────────────────────
+const CARD_LABELS = [
+  { name:'シーン',      color:'#6ab8f7', bg:'#e8f4fd' },
+  { name:'キャラクター',color:'#c86af7', bg:'#f3e8fd' },
+  { name:'テーマ',      color:'#f76ca0', bg:'#fde8f0' },
+  { name:'プロット',    color:'#6af7a0', bg:'#e8fdf0' },
+  { name:'セリフ',      color:'#f7c56a', bg:'#fdf5e8' },
+  { name:'設定・舞台',  color:'#6af7f7', bg:'#e8fdfd' },
+  { name:'伏線',        color:'#f76a6a', bg:'#fde8e8' },
+  { name:'感情',        color:'#f7a06a', bg:'#fdf0e8' },
+  { name:'リサーチ',    color:'#7c6af7', bg:'#ebe8fd' },
+  { name:'メモ',        color:'#a0a0a0', bg:'#f0f0f0' },
+];
+
+const PRIORITY_CONFIG = {
+  low:    { label:'低',   icon:'fa-arrow-down',   color:'#6ab8f7', bg:'#e8f4fd' },
+  medium: { label:'中',   icon:'fa-minus',        color:'#f7c56a', bg:'#fdf5e8' },
+  high:   { label:'高',   icon:'fa-arrow-up',     color:'#f76a6a', bg:'#fde8e8' },
+  urgent: { label:'緊急', icon:'fa-exclamation',  color:'#f76ca0', bg:'#fde8f0' },
+};
+
+const EMOTION_LIST = ['喜び','悲しみ','怒り','恐れ','驚き','嫌悪','期待','信頼','緊張','安堵','絶望','希望','好奇心','羞恥','嫉妬'];
+const STORY_FUNCTIONS = ['日常を示す','事件の発端','関係性の構築','対立の激化','転換点','クライマックス','解決・カタルシス','余韻・エピローグ','伏線設置','伏線回収','キャラクターの成長','情報提示','テーマの明示'];
+
+// ── Render Board Page ────────────────────────────────────────
+function renderBoardPage() {
+  const boards = BOARD_DB.getBoards();
+  const currentBoard = BoardState.currentBoardId ? BOARD_DB.getBoard(BoardState.currentBoardId) : null;
+
+  if (!currentBoard) {
+    return renderBoardList(boards);
+  }
+  return renderBoardKanban(currentBoard);
+}
+
+function renderBoardList(boards) {
+  const projects = DB.getProjects();
+  const boardCards = boards.length === 0
+    ? `<div style="text-align:center;padding:80px 20px;color:var(--text-muted)">
+        <div style="font-size:60px;margin-bottom:20px;opacity:0.25">🗂️</div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:8px;font-family:'Noto Serif JP',serif">ボードがありません</div>
+        <div style="font-size:13px;margin-bottom:24px;line-height:1.7">ストーリーボードを作成して<br>カードで物語を視覚的に整理しましょう</div>
+        <button class="btn btn-primary btn-lg" onclick="openNewBoardModal()"><i class="fas fa-plus"></i> 最初のボードを作成</button>
+      </div>`
+    : boards.map(b => {
+        const cardCount = (b.cards || []).length;
+        const proj = b.projectId ? projects.find(p => p.id === b.projectId) : null;
+        return `
+        <div class="board-list-card" onclick="openBoard('${b.id}')" style="border-left:4px solid ${b.color || '#7c6af7'}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div style="display:flex;gap:12px;align-items:center">
+              <div style="width:40px;height:40px;border-radius:var(--radius-sm);background:${b.color}22;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
+                <i class="fas ${b.icon || 'fa-table-cells-large'}" style="color:${b.color}"></i>
+              </div>
+              <div>
+                <div style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${esc(b.title)}</div>
+                ${b.description ? `<div style="font-size:12px;color:var(--text-muted);margin-top:2px">${esc(b.description.slice(0,60))}${b.description.length>60?'…':''}</div>` : ''}
+                ${proj ? `<div style="font-size:11px;color:var(--text-light);margin-top:3px"><i class="fas fa-film" style="margin-right:3px"></i>${esc(proj.title)}</div>` : ''}
+              </div>
+            </div>
+            <div style="display:flex;gap:4px;flex-shrink:0">
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();openEditBoardModal('${b.id}')" title="編集"><i class="fas fa-pen" style="font-size:10px"></i></button>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();confirmDeleteBoard('${b.id}')" title="削除"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+            <span style="font-size:12px;color:var(--text-muted)"><i class="fas fa-clone" style="margin-right:4px;color:${b.color}"></i>${cardCount}枚のカード</span>
+            <span style="font-size:12px;color:var(--text-muted)"><i class="fas fa-columns" style="margin-right:4px;color:${b.color}"></i>${(b.columns||[]).length}列</span>
+            <span style="font-size:12px;color:var(--text-muted);margin-left:auto"><i class="fas fa-clock" style="margin-right:4px"></i>${fmtDate(b.updatedAt)}</span>
+          </div>
+        </div>`;
+      }).join('');
+
+  return `
+  <div style="max-width:960px;margin:0 auto;padding:0 4px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+      <div>
+        <h1 style="font-size:22px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif;margin-bottom:4px">
+          <i class="fas fa-table-cells-large" style="color:var(--fuji);margin-right:8px"></i>ストーリーボード
+        </h1>
+        <p style="font-size:13px;color:var(--text-muted)">カードで物語のアイデアを視覚的に整理・設計</p>
+      </div>
+      <button class="btn btn-primary" onclick="openNewBoardModal()">
+        <i class="fas fa-plus"></i> 新しいボード
+      </button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px">
+      ${boardCards}
+    </div>
+  </div>`;
+}
+
+function renderBoardKanban(board) {
+  const cards = board.cards || [];
+  const columns = board.columns || ['アイデア','構成中','完成','保留'];
+  const f = BoardState.filter;
+
+  const filteredCards = cards.filter(c => {
+    if (f.search && !c.title.includes(f.search) && !c.body.includes(f.search)) return false;
+    if (f.label && c.label !== f.label) return false;
+    if (f.priority && c.priority !== f.priority) return false;
+    if (f.tag && !c.tags.includes(f.tag)) return false;
+    return true;
+  });
+
+  const allTags = [...new Set(cards.flatMap(c => c.tags))];
+  const totalCards = cards.length;
+  const pinnedCount = cards.filter(c => c.pinned).length;
+  const highPriority = cards.filter(c => c.priority === 'high' || c.priority === 'urgent').length;
+
+  const colHtml = columns.map((col, ci) => {
+    const colCards = filteredCards.filter(c => c.column === ci).sort((a,b) => {
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return (a.order||0) - (b.order||0);
+    });
+
+    const cardHtml = colCards.map(c => renderBoardCard(c, board.id)).join('');
+
+    return `
+    <div class="board-column" data-col="${ci}" 
+         ondragover="boardDragOver(event)" 
+         ondrop="boardDrop(event,'${board.id}',${ci})"
+         ondragleave="this.classList.remove('drag-over')">
+      <div class="board-col-header">
+        <div style="display:flex;align-items:center;gap:8px;min-width:0">
+          <span class="board-col-title">${esc(col)}</span>
+          <span class="board-col-count">${colCards.length}</span>
+        </div>
+        <div style="display:flex;gap:3px">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="addQuickCard('${board.id}',${ci})" title="カードを追加">
+            <i class="fas fa-plus" style="font-size:10px"></i>
+          </button>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="openEditColumnModal('${board.id}',${ci})" title="列を編集">
+            <i class="fas fa-pen" style="font-size:10px"></i>
+          </button>
+        </div>
+      </div>
+      <div class="board-col-cards" id="col-${ci}" 
+           ondragenter="this.closest('.board-column').classList.add('drag-over')">
+        ${cardHtml}
+        <button class="board-add-card-btn" onclick="addQuickCard('${board.id}',${ci})">
+          <i class="fas fa-plus" style="font-size:11px"></i> カードを追加
+        </button>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="board-page-wrap">
+    <!-- Board Topbar -->
+    <div class="board-topbar">
+      <div style="display:flex;align-items:center;gap:12px;min-width:0">
+        <button class="btn btn-ghost btn-sm" onclick="closeBoardToList()">
+          <i class="fas fa-arrow-left"></i>
+        </button>
+        <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:${board.color}22;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="fas ${board.icon}" style="color:${board.color};font-size:14px"></i>
+        </div>
+        <div style="min-width:0">
+          <div style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(board.title)}</div>
+          ${board.description ? `<div style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(board.description)}</div>` : ''}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+        <!-- 統計チップ -->
+        <span class="board-stat-chip"><i class="fas fa-clone"></i> ${totalCards}</span>
+        ${pinnedCount > 0 ? `<span class="board-stat-chip" style="color:var(--kogane)"><i class="fas fa-thumbtack"></i> ${pinnedCount}</span>` : ''}
+        ${highPriority > 0 ? `<span class="board-stat-chip" style="color:var(--accent)"><i class="fas fa-exclamation-triangle"></i> ${highPriority}</span>` : ''}
+        <!-- 検索 -->
+        <input class="board-search-input" id="board-search" placeholder="カードを検索…" value="${esc(f.search)}" oninput="boardSearch(this.value,'${board.id}')">
+        <!-- フィルター -->
+        <button class="btn btn-ghost btn-sm" onclick="toggleBoardFilterPanel('${board.id}')" title="フィルター">
+          <i class="fas fa-filter"></i>
+        </button>
+        <!-- 列追加 -->
+        <button class="btn btn-ghost btn-sm" onclick="openAddColumnModal('${board.id}')" title="列を追加">
+          <i class="fas fa-plus"></i> 列
+        </button>
+        <!-- ボード設定 -->
+        <button class="btn btn-ghost btn-sm" onclick="openEditBoardModal('${board.id}')" title="ボード設定">
+          <i class="fas fa-gear"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Filter Panel (hidden by default) -->
+    <div class="board-filter-panel" id="board-filter-panel" style="display:none">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+        <span style="font-size:12px;font-weight:600;color:var(--text-secondary)">フィルター:</span>
+        <select class="form-select" style="width:auto;padding:4px 8px;font-size:12px;height:32px" onchange="setBoardFilter('${board.id}','label',this.value)">
+          <option value="">すべてのラベル</option>
+          ${CARD_LABELS.map(l => `<option value="${l.name}" ${f.label===l.name?'selected':''}>${l.name}</option>`).join('')}
+        </select>
+        <select class="form-select" style="width:auto;padding:4px 8px;font-size:12px;height:32px" onchange="setBoardFilter('${board.id}','priority',this.value)">
+          <option value="">すべての優先度</option>
+          ${Object.entries(PRIORITY_CONFIG).map(([k,v]) => `<option value="${k}" ${f.priority===k?'selected':''}>${v.label}</option>`).join('')}
+        </select>
+        ${allTags.length > 0 ? `<select class="form-select" style="width:auto;padding:4px 8px;font-size:12px;height:32px" onchange="setBoardFilter('${board.id}','tag',this.value)">
+          <option value="">すべてのタグ</option>
+          ${allTags.map(t => `<option value="${t}" ${f.tag===t?'selected':''}>${esc(t)}</option>`).join('')}
+        </select>` : ''}
+        <button class="btn btn-ghost btn-sm" onclick="clearBoardFilters('${board.id}')"><i class="fas fa-xmark"></i> クリア</button>
+      </div>
+    </div>
+
+    <!-- Kanban Board -->
+    <div class="board-kanban-wrap" id="board-kanban">
+      ${colHtml}
+      <!-- 列追加ゾーン -->
+      <div class="board-add-column" onclick="openAddColumnModal('${board.id}')">
+        <i class="fas fa-plus" style="font-size:16px;color:var(--text-light)"></i>
+        <span style="font-size:13px;color:var(--text-light)">列を追加</span>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderBoardCard(card, boardId) {
+  const isFlipped = BoardState.flippedCards.has(card.id);
+  const pri = PRIORITY_CONFIG[card.priority] || PRIORITY_CONFIG.medium;
+  const label = CARD_LABELS.find(l => l.name === card.label);
+  const checkTotal = (card.back?.checklist || []).length;
+  const checkDone = (card.back?.checklist || []).filter(i => i.done).length;
+
+  if (isFlipped) {
+    return renderCardBack(card, boardId);
+  }
+
+  return `
+  <div class="board-card ${card.pinned ? 'pinned' : ''}" 
+       id="bc-${card.id}"
+       draggable="true"
+       ondragstart="boardDragStart(event,'${card.id}','${boardId}')"
+       ondragend="boardDragEnd(event)"
+       style="border-left:3px solid ${pri.color};${card.color && card.color !== '#ffffff' ? `background:${card.color}18;` : ''}">
+    <!-- Card Header -->
+    <div class="board-card-header">
+      <div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">
+        ${card.pinned ? `<i class="fas fa-thumbtack" style="color:var(--kogane);font-size:10px;flex-shrink:0"></i>` : ''}
+        ${label ? `<span class="card-label-chip" style="background:${label.bg};color:${label.color}">${label.name}</span>` : ''}
+      </div>
+      <div class="board-card-actions">
+        <span class="priority-chip" style="background:${pri.bg};color:${pri.color}" title="${pri.label}優先度">
+          <i class="fas ${pri.icon}" style="font-size:8px"></i>
+        </span>
+        <button class="btn btn-ghost btn-icon" style="width:22px;height:22px;padding:0" onclick="flipCard('${card.id}')" title="裏面を見る">
+          <i class="fas fa-rotate" style="font-size:10px;color:var(--fuji)"></i>
+        </button>
+        <button class="btn btn-ghost btn-icon" style="width:22px;height:22px;padding:0" onclick="openCardEditModal('${card.id}','${boardId}')" title="編集">
+          <i class="fas fa-pen" style="font-size:10px"></i>
+        </button>
+        <button class="btn btn-ghost btn-icon" style="width:22px;height:22px;padding:0" onclick="deleteCard('${card.id}','${boardId}')" title="削除">
+          <i class="fas fa-xmark" style="font-size:10px;color:var(--text-light)"></i>
+        </button>
+      </div>
+    </div>
+    <!-- Card Body -->
+    <div class="board-card-title">${esc(card.title)}</div>
+    ${card.body ? `<div class="board-card-body">${esc(card.body.slice(0,120))}${card.body.length>120?'…':''}</div>` : ''}
+    <!-- Tags -->
+    ${(card.tags||[]).length > 0 ? `<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:6px">${card.tags.map(t=>`<span class="board-tag-chip">${esc(t)}</span>`).join('')}</div>` : ''}
+    <!-- Footer -->
+    <div class="board-card-footer">
+      ${checkTotal > 0 ? `<span style="font-size:10px;color:${checkDone===checkTotal?'var(--matcha)':'var(--text-muted)'}"><i class="fas fa-check-square" style="margin-right:2px"></i>${checkDone}/${checkTotal}</span>` : ''}
+      ${card.back?.emotion ? `<span style="font-size:10px;color:var(--momo)"><i class="fas fa-heart" style="margin-right:2px"></i>${esc(card.back.emotion)}</span>` : ''}
+      ${card.dueDate ? `<span style="font-size:10px;color:var(--text-muted);margin-left:auto"><i class="fas fa-calendar" style="margin-right:2px"></i>${card.dueDate}</span>` : '<span style="margin-left:auto"></span>'}
+      <button class="btn btn-ghost btn-icon" style="width:20px;height:20px;padding:0;flex-shrink:0" onclick="togglePinCard('${card.id}','${boardId}')" title="${card.pinned?'ピン解除':'ピン留め'}">
+        <i class="fas fa-thumbtack" style="font-size:10px;color:${card.pinned?'var(--kogane)':'var(--text-light)'}"></i>
+      </button>
+    </div>
+    ${card.back?.tension > 0 ? `<div class="card-tension-bar" title="テンション:${card.back.tension}/10">
+      <div style="height:100%;width:${card.back.tension*10}%;background:${card.back.tension>7?'var(--accent)':card.back.tension>4?'var(--kogane)':'var(--fuji)'};border-radius:2px;transition:width .3s"></div>
+    </div>` : ''}
+  </div>`;
+}
+
+function renderCardBack(card, boardId) {
+  const pri = PRIORITY_CONFIG[card.priority] || PRIORITY_CONFIG.medium;
+  const checklist = card.back?.checklist || [];
+
+  return `
+  <div class="board-card board-card-back ${card.pinned ? 'pinned' : ''}"
+       id="bc-${card.id}"
+       style="border-left:3px solid ${pri.color}">
+    <!-- Back Header -->
+    <div class="board-card-header">
+      <div style="display:flex;align-items:center;gap:6px;min-width:0">
+        <i class="fas fa-rotate" style="color:var(--fuji);font-size:10px"></i>
+        <span style="font-size:11px;color:var(--fuji);font-weight:600">裏面</span>
+        <span style="font-size:11px;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(card.title)}</span>
+      </div>
+      <div class="board-card-actions">
+        <button class="btn btn-ghost btn-icon" style="width:22px;height:22px;padding:0" onclick="flipCard('${card.id}')" title="表面に戻る">
+          <i class="fas fa-rotate-left" style="font-size:10px;color:var(--fuji)"></i>
+        </button>
+        <button class="btn btn-ghost btn-icon" style="width:22px;height:22px;padding:0" onclick="openCardEditModal('${card.id}','${boardId}')" title="編集">
+          <i class="fas fa-pen" style="font-size:10px"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Back Content -->
+    <div style="display:grid;gap:8px;margin-top:4px">
+      ${card.back?.storyFunction ? `
+      <div style="padding:6px 8px;background:var(--fuji-bg);border-radius:var(--radius-sm);border-left:2px solid var(--fuji)">
+        <span style="font-size:10px;color:var(--fuji);font-weight:600;display:block;margin-bottom:2px">物語機能</span>
+        <span style="font-size:11px;color:var(--text-secondary)">${esc(card.back.storyFunction)}</span>
+      </div>` : ''}
+      ${card.back?.emotion ? `
+      <div style="padding:6px 8px;background:var(--momo-bg);border-radius:var(--radius-sm);border-left:2px solid var(--momo)">
+        <span style="font-size:10px;color:var(--momo);font-weight:600;display:block;margin-bottom:2px">感情・トーン</span>
+        <span style="font-size:11px;color:var(--text-secondary)">${esc(card.back.emotion)}</span>
+        ${card.back.tension ? `<div style="margin-top:4px;height:4px;background:var(--bg-hover);border-radius:2px;overflow:hidden"><div style="height:100%;width:${card.back.tension*10}%;background:var(--momo);border-radius:2px"></div></div>` : ''}
+      </div>` : ''}
+      ${(card.back?.characters || []).length > 0 ? `
+      <div style="padding:6px 8px;background:var(--bg-subtle);border-radius:var(--radius-sm)">
+        <span style="font-size:10px;color:var(--text-secondary);font-weight:600;display:block;margin-bottom:4px">登場キャラクター</span>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          ${card.back.characters.map(ch => `<span style="padding:2px 7px;background:var(--fuji-bg);color:var(--fuji);border-radius:10px;font-size:10px">${esc(ch)}</span>`).join('')}
+        </div>
+      </div>` : ''}
+      ${card.back?.sceneDetail ? `
+      <div style="padding:6px 8px;background:var(--bg-subtle);border-radius:var(--radius-sm)">
+        <span style="font-size:10px;color:var(--text-secondary);font-weight:600;display:block;margin-bottom:2px">シーン詳細</span>
+        <span style="font-size:11px;color:var(--text-secondary);line-height:1.5">${esc(card.back.sceneDetail.slice(0,150))}${card.back.sceneDetail.length>150?'…':''}</span>
+      </div>` : ''}
+      ${card.back?.notes ? `
+      <div style="padding:6px 8px;background:var(--kogane-bg);border-radius:var(--radius-sm);border-left:2px solid var(--kogane)">
+        <span style="font-size:10px;color:var(--kogane);font-weight:600;display:block;margin-bottom:2px">メモ</span>
+        <span style="font-size:11px;color:var(--text-secondary);line-height:1.5">${esc(card.back.notes.slice(0,100))}${card.back.notes.length>100?'…':''}</span>
+      </div>` : ''}
+      ${checklist.length > 0 ? `
+      <div style="padding:6px 8px;background:var(--matcha-bg);border-radius:var(--radius-sm)">
+        <span style="font-size:10px;color:var(--matcha);font-weight:600;display:block;margin-bottom:6px">チェックリスト (${checklist.filter(i=>i.done).length}/${checklist.length})</span>
+        ${checklist.slice(0,4).map(item => `
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+          <div style="width:12px;height:12px;border-radius:2px;border:1.5px solid ${item.done?'var(--matcha)':'var(--border)'};background:${item.done?'var(--matcha)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            ${item.done ? '<i class="fas fa-check" style="font-size:7px;color:white"></i>' : ''}
+          </div>
+          <span style="font-size:10px;color:var(--text-secondary);${item.done?'text-decoration:line-through;opacity:0.6':''}">${esc(item.text)}</span>
+        </div>`).join('')}
+        ${checklist.length > 4 ? `<span style="font-size:10px;color:var(--text-muted)">…他${checklist.length-4}件</span>` : ''}
+      </div>` : ''}
+      ${!card.back?.storyFunction && !card.back?.emotion && !card.back?.sceneDetail && !card.back?.notes && checklist.length === 0 && !(card.back?.characters||[]).length ? `
+      <div style="text-align:center;padding:16px 8px;color:var(--text-muted)">
+        <i class="fas fa-pen" style="font-size:20px;margin-bottom:8px;opacity:0.3;display:block"></i>
+        <span style="font-size:12px">裏面はまだ空です<br>編集して詳細を追加しましょう</span>
+      </div>` : ''}
+    </div>
+    <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:8px;font-size:11px" onclick="openCardEditModal('${card.id}','${boardId}')">
+      <i class="fas fa-pen"></i> 裏面を編集
+    </button>
+  </div>`;
+}
+
+// ── Board Functions ──────────────────────────────────────────
+
+function openBoard(boardId) {
+  BoardState.currentBoardId = boardId;
+  BoardState.flippedCards.clear();
+  render();
+}
+
+function closeBoardToList() {
+  BoardState.currentBoardId = null;
+  BoardState.flippedCards.clear();
+  render();
+}
+
+function flipCard(cardId) {
+  if (BoardState.flippedCards.has(cardId)) {
+    BoardState.flippedCards.delete(cardId);
+  } else {
+    BoardState.flippedCards.add(cardId);
+  }
+  // 個別カードのみ再レンダリング
+  const board = BOARD_DB.getBoard(BoardState.currentBoardId);
+  if (!board) return;
+  const card = (board.cards || []).find(c => c.id === cardId);
+  if (!card) return;
+  const el2 = document.getElementById('bc-' + cardId);
+  if (el2) {
+    el2.outerHTML = renderBoardCard(card, board.id);
+  }
+}
+
+function togglePinCard(cardId, boardId) {
+  const board = BOARD_DB.getBoard(boardId);
+  if (!board) return;
+  const card = (board.cards || []).find(c => c.id === cardId);
+  if (!card) return;
+  card.pinned = !card.pinned;
+  card.updatedAt = now();
+  BOARD_DB.saveBoard(board);
+  const el2 = document.getElementById('bc-' + cardId);
+  if (el2) el2.outerHTML = renderBoardCard(card, boardId);
+}
+
+function deleteCard(cardId, boardId) {
+  const board = BOARD_DB.getBoard(boardId);
+  if (!board) return;
+  board.cards = (board.cards || []).filter(c => c.id !== cardId);
+  board.updatedAt = now();
+  BOARD_DB.saveBoard(board);
+  const el2 = document.getElementById('bc-' + cardId);
+  if (el2) el2.remove();
+  toast('カードを削除しました', 'info');
+}
+
+function addQuickCard(boardId, colIdx) {
+  const board = BOARD_DB.getBoard(boardId);
+  if (!board) return;
+  openModal(
+    `<i class="fas fa-plus" style="color:var(--fuji)"></i> カードを追加 — ${esc((board.columns||[])[colIdx]||'')}`,
+    `<div class="form-group">
+      <label class="form-label">タイトル <span style="color:var(--accent)">*</span></label>
+      <input class="form-input" id="qc-title" placeholder="カードのタイトル…" autofocus>
+    </div>
+    <div class="form-group">
+      <label class="form-label">内容</label>
+      <textarea class="form-textarea" id="qc-body" placeholder="詳細・メモ…" rows="3"></textarea>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label class="form-label">ラベル</label>
+        <select class="form-select" id="qc-label">
+          <option value="">なし</option>
+          ${CARD_LABELS.map(l => `<option value="${l.name}">${l.name}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">優先度</label>
+        <select class="form-select" id="qc-priority">
+          ${Object.entries(PRIORITY_CONFIG).map(([k,v]) => `<option value="${k}" ${k==='medium'?'selected':''}>${v.label}</option>`).join('')}
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">タグ（スペース区切り）</label>
+      <input class="form-input" id="qc-tags" placeholder="例: 第1話 クライマックス">
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveQuickCard('${boardId}',${colIdx})"><i class="fas fa-plus"></i> 追加</button>`
+  );
+}
+
+function saveQuickCard(boardId, colIdx) {
+  const title = $('#qc-title')?.value?.trim();
+  if (!title) { toast('タイトルを入力してください', 'error'); return; }
+  const board = BOARD_DB.getBoard(boardId);
+  if (!board) return;
+  const tags = $('#qc-tags')?.value?.trim().split(/\s+/).filter(Boolean) || [];
+  const maxOrder = Math.max(0, ...(board.cards||[]).filter(c=>c.column===colIdx).map(c=>c.order||0));
+  const card = newCard({
+    title,
+    body: $('#qc-body')?.value?.trim() || '',
+    column: colIdx,
+    label: $('#qc-label')?.value || '',
+    priority: $('#qc-priority')?.value || 'medium',
+    tags,
+    order: maxOrder + 1,
+  });
+  board.cards = [...(board.cards||[]), card];
+  board.updatedAt = now();
+  BOARD_DB.saveBoard(board);
+  closeModal();
+  toast('カードを追加しました', 'success');
+  render();
+}
+
+function openCardEditModal(cardId, boardId) {
+  const board = BOARD_DB.getBoard(boardId);
+  if (!board) return;
+  const card = (board.cards||[]).find(c => c.id === cardId);
+  if (!card) return;
+  const back = card.back || {};
+  const checklist = back.checklist || [];
+  const checklistHtml = checklist.map((item, idx) => `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px" id="cl-item-${idx}">
+      <input type="checkbox" id="cl-done-${idx}" ${item.done?'checked':''} style="width:14px;height:14px;cursor:pointer">
+      <input class="form-input" id="cl-text-${idx}" value="${esc(item.text)}" style="flex:1;padding:4px 8px;font-size:12px">
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="removeChecklistItem(${idx})" title="削除">
+        <i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i>
+      </button>
+    </div>`).join('');
+
+  openModal(
+    `<i class="fas fa-pen" style="color:var(--fuji)"></i> カード編集`,
+    `<div style="display:flex;flex-direction:column;gap:0">
+      <!-- タブ -->
+      <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px">
+        <button class="card-edit-tab active" id="ced-tab-front" onclick="switchCardEditTab('front')">表面</button>
+        <button class="card-edit-tab" id="ced-tab-back" onclick="switchCardEditTab('back')">裏面・詳細</button>
+      </div>
+
+      <!-- 表面 -->
+      <div id="ced-front">
+        <div class="form-group">
+          <label class="form-label">タイトル <span style="color:var(--accent)">*</span></label>
+          <input class="form-input" id="ced-title" value="${esc(card.title)}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">内容・メモ</label>
+          <textarea class="form-textarea" id="ced-body" rows="4">${esc(card.body||'')}</textarea>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">ラベル</label>
+            <select class="form-select" id="ced-label">
+              <option value="">なし</option>
+              ${CARD_LABELS.map(l => `<option value="${l.name}" ${card.label===l.name?'selected':''}>${l.name}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">優先度</label>
+            <select class="form-select" id="ced-priority">
+              ${Object.entries(PRIORITY_CONFIG).map(([k,v]) => `<option value="${k}" ${card.priority===k?'selected':''}>${v.label}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">カードカラー</label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 0">
+              ${['#ffffff','#fff9e6','#e8f4fd','#fde8e8','#e8fde8','#f3e8fd','#fde8f0','#e8fdfd'].map(c=>`
+                <div onclick="document.getElementById('ced-color').value='${c}'" 
+                     style="width:22px;height:22px;border-radius:50%;background:${c};border:2px solid ${card.color===c?'var(--fuji)':'var(--border)'};cursor:pointer" 
+                     title="${c}"></div>`).join('')}
+              <input type="color" id="ced-color" value="${card.color||'#ffffff'}" style="width:22px;height:22px;border:none;padding:0;cursor:pointer;border-radius:50%">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">期限日</label>
+            <input class="form-input" type="date" id="ced-due" value="${card.dueDate||''}">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">タグ（スペース区切り）</label>
+          <input class="form-input" id="ced-tags" value="${esc((card.tags||[]).join(' '))}">
+        </div>
+      </div>
+
+      <!-- 裏面 -->
+      <div id="ced-back" style="display:none">
+        <div class="form-group">
+          <label class="form-label"><i class="fas fa-theater-masks" style="color:var(--fuji);margin-right:4px"></i>物語機能</label>
+          <select class="form-select" id="ced-storyfunc">
+            <option value="">未設定</option>
+            ${STORY_FUNCTIONS.map(f => `<option value="${f}" ${back.storyFunction===f?'selected':''}>${f}</option>`).join('')}
+          </select>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label"><i class="fas fa-heart" style="color:var(--momo);margin-right:4px"></i>感情・トーン</label>
+            <select class="form-select" id="ced-emotion">
+              <option value="">未設定</option>
+              ${EMOTION_LIST.map(e => `<option value="${e}" ${back.emotion===e?'selected':''}>${e}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">テンション (${back.tension||5}/10)</label>
+            <input type="range" id="ced-tension" min="1" max="10" value="${back.tension||5}" style="width:100%;margin-top:8px" oninput="document.querySelector('[for=ced-tension]').textContent='テンション ('+this.value+'/10)'">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label"><i class="fas fa-users" style="color:var(--fuji);margin-right:4px"></i>登場キャラクター（カンマ区切り）</label>
+          <input class="form-input" id="ced-chars" value="${esc((back.characters||[]).join(', '))}" placeholder="例: 田中, 山田, 鈴木">
+        </div>
+        <div class="form-group">
+          <label class="form-label"><i class="fas fa-film" style="color:var(--matcha);margin-right:4px"></i>シーン詳細</label>
+          <textarea class="form-textarea" id="ced-scenedtl" rows="3" placeholder="場所・時間・状況など">${esc(back.sceneDetail||'')}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label"><i class="fas fa-note-sticky" style="color:var(--kogane);margin-right:4px"></i>メモ</label>
+          <textarea class="form-textarea" id="ced-notes" rows="2" placeholder="自由メモ…">${esc(back.notes||'')}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="display:flex;justify-content:space-between">
+            <span><i class="fas fa-check-square" style="color:var(--matcha);margin-right:4px"></i>チェックリスト</span>
+            <button class="btn btn-ghost btn-sm" onclick="addChecklistItem()" style="padding:0;font-size:11px;height:auto"><i class="fas fa-plus"></i> 追加</button>
+          </label>
+          <div id="checklist-editor">${checklistHtml}</div>
+        </div>
+        <div class="form-group">
+          <label class="form-label"><i class="fas fa-link" style="color:var(--text-muted);margin-right:4px"></i>参考資料・URL</label>
+          <input class="form-input" id="ced-refs" value="${esc(back.references||'')}" placeholder="https://...">
+        </div>
+      </div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveCardEdit('${cardId}','${boardId}')"><i class="fas fa-floppy-disk"></i> 保存</button>`,
+    { size: 'modal-lg' }
+  );
+}
+
+function switchCardEditTab(tab) {
+  const front = document.getElementById('ced-front');
+  const back = document.getElementById('ced-back');
+  const tabFront = document.getElementById('ced-tab-front');
+  const tabBack = document.getElementById('ced-tab-back');
+  if (!front || !back) return;
+  if (tab === 'front') {
+    front.style.display = ''; back.style.display = 'none';
+    tabFront?.classList.add('active'); tabBack?.classList.remove('active');
+  } else {
+    front.style.display = 'none'; back.style.display = '';
+    tabFront?.classList.remove('active'); tabBack?.classList.add('active');
+  }
+}
+
+let _tempChecklist = [];
+function addChecklistItem() {
+  const container = document.getElementById('checklist-editor');
+  if (!container) return;
+  const idx = container.querySelectorAll('[id^=cl-text-]').length;
+  const newItem = document.createElement('div');
+  newItem.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px';
+  newItem.id = `cl-item-${idx}`;
+  newItem.innerHTML = `
+    <input type="checkbox" id="cl-done-${idx}" style="width:14px;height:14px;cursor:pointer">
+    <input class="form-input" id="cl-text-${idx}" placeholder="チェック項目…" style="flex:1;padding:4px 8px;font-size:12px">
+    <button class="btn btn-ghost btn-icon btn-sm" onclick="this.closest('[id^=cl-item]').remove()" title="削除">
+      <i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i>
+    </button>`;
+  container.appendChild(newItem);
+  newItem.querySelector('input[type=text], .form-input:not([type=checkbox])')?.focus?.();
+}
+
+function removeChecklistItem(idx) {
+  document.getElementById(`cl-item-${idx}`)?.remove();
+}
+
+function saveCardEdit(cardId, boardId) {
+  const board = BOARD_DB.getBoard(boardId);
+  if (!board) return;
+  const cardIdx = (board.cards||[]).findIndex(c => c.id === cardId);
+  if (cardIdx < 0) return;
+
+  const title = document.getElementById('ced-title')?.value?.trim();
+  if (!title) { toast('タイトルを入力してください', 'error'); return; }
+
+  // チェックリスト収集
+  const container = document.getElementById('checklist-editor');
+  const checklist = [];
+  if (container) {
+    const inputs = container.querySelectorAll('.form-input');
+    inputs.forEach((input, i) => {
+      const text = input.value?.trim();
+      if (text) {
+        const done = !!document.getElementById(`cl-done-${i}`)?.checked;
+        checklist.push({ text, done });
+      }
+    });
+  }
+
+  const chars = document.getElementById('ced-chars')?.value?.split(/[,、]/).map(s=>s.trim()).filter(Boolean) || [];
+
+  board.cards[cardIdx] = {
+    ...board.cards[cardIdx],
+    title,
+    body: document.getElementById('ced-body')?.value || '',
+    label: document.getElementById('ced-label')?.value || '',
+    priority: document.getElementById('ced-priority')?.value || 'medium',
+    color: document.getElementById('ced-color')?.value || '#ffffff',
+    dueDate: document.getElementById('ced-due')?.value || '',
+    tags: (document.getElementById('ced-tags')?.value || '').split(/\s+/).filter(Boolean),
+    back: {
+      ...board.cards[cardIdx].back,
+      storyFunction: document.getElementById('ced-storyfunc')?.value || '',
+      emotion: document.getElementById('ced-emotion')?.value || '',
+      tension: parseInt(document.getElementById('ced-tension')?.value || '5'),
+      characters: chars,
+      sceneDetail: document.getElementById('ced-scenedtl')?.value || '',
+      notes: document.getElementById('ced-notes')?.value || '',
+      checklist,
+      references: document.getElementById('ced-refs')?.value || '',
+    },
+    updatedAt: now(),
+  };
+  board.updatedAt = now();
+  BOARD_DB.saveBoard(board);
+  closeModal();
+  toast('カードを保存しました', 'success');
+  render();
+}
+
+// ── Drag & Drop ─────────────────────────────────────────────
+function boardDragStart(event, cardId, boardId) {
+  BoardState.dragCard = cardId;
+  BoardState.dragBoardId = boardId;
+  event.dataTransfer.effectAllowed = 'move';
+  event.currentTarget.style.opacity = '0.5';
+}
+
+function boardDragEnd(event) {
+  event.currentTarget.style.opacity = '';
+  $$('.board-column').forEach(c => c.classList.remove('drag-over'));
+}
+
+function boardDragOver(event) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+}
+
+function boardDrop(event, boardId, colIdx) {
+  event.preventDefault();
+  $$('.board-column').forEach(c => c.classList.remove('drag-over'));
+  if (!BoardState.dragCard) return;
+  const board = BOARD_DB.getBoard(boardId);
+  if (!board) return;
+  const cardIdx = (board.cards||[]).findIndex(c => c.id === BoardState.dragCard);
+  if (cardIdx < 0) return;
+  board.cards[cardIdx].column = colIdx;
+  board.cards[cardIdx].updatedAt = now();
+  board.updatedAt = now();
+  BOARD_DB.saveBoard(board);
+  BoardState.dragCard = null;
+  render();
+}
+
+// ── Filter & Search ──────────────────────────────────────────
+function boardSearch(val, boardId) {
+  BoardState.filter.search = val;
+  render();
+}
+
+function setBoardFilter(boardId, key, val) {
+  BoardState.filter[key] = val;
+  render();
+}
+
+function clearBoardFilters(boardId) {
+  BoardState.filter = { label: '', priority: '', tag: '', search: '' };
+  render();
+}
+
+function toggleBoardFilterPanel(boardId) {
+  const panel = document.getElementById('board-filter-panel');
+  if (panel) panel.style.display = panel.style.display === 'none' ? '' : 'none';
+}
+
+// ── Board Modals ─────────────────────────────────────────────
+function openNewBoardModal() {
+  const projects = DB.getProjects();
+  openModal(
+    `<i class="fas fa-plus" style="color:var(--fuji)"></i> 新しいボードを作成`,
+    `<div class="form-group">
+      <label class="form-label">ボード名 <span style="color:var(--accent)">*</span></label>
+      <input class="form-input" id="nb-title" placeholder="例: 第1話コンテ、キャラ関係図" autofocus>
+    </div>
+    <div class="form-group">
+      <label class="form-label">説明</label>
+      <input class="form-input" id="nb-desc" placeholder="このボードの目的…">
+    </div>
+    <div class="form-group">
+      <label class="form-label">リンクする作品（任意）</label>
+      <select class="form-select" id="nb-proj">
+        <option value="">なし</option>
+        ${projects.map(p => `<option value="${p.id}">${esc(p.title)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ボードカラー</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${['#7c6af7','#f76ca0','#6ab8f7','#6af7a0','#f7c56a','#c86af7','#f76a6a','#6af7f7'].map(c=>`
+          <div onclick="selectBoardColor('${c}')" id="bc-${c.replace('#','')}" 
+               style="width:28px;height:28px;border-radius:50%;background:${c};cursor:pointer;border:3px solid ${'#7c6af7'===c?'var(--text-primary)':'transparent'};transition:border .15s"></div>`).join('')}
+        <input type="color" id="nb-color" value="#7c6af7" style="width:28px;height:28px;border:none;padding:0;cursor:pointer;border-radius:50%">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">カラム（列）設定</label>
+      <div id="nb-cols-wrap" style="display:flex;flex-direction:column;gap:6px">
+        ${['アイデア','構成中','完成','保留'].map((c,i) => `
+          <div style="display:flex;gap:6px;align-items:center">
+            <input class="form-input nb-col-input" value="${c}" style="flex:1">
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="this.closest('div').remove()" title="削除"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>
+          </div>`).join('')}
+      </div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addColumnInput()"><i class="fas fa-plus"></i> 列を追加</button>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveNewBoard()"><i class="fas fa-plus"></i> 作成</button>`
+  );
+}
+
+let _selectedBoardColor = '#7c6af7';
+function selectBoardColor(color) {
+  _selectedBoardColor = color;
+  $$('[id^=bc-]').forEach(el => el.style.border = '3px solid transparent');
+  const el2 = document.getElementById('bc-' + color.replace('#', ''));
+  if (el2) el2.style.border = '3px solid var(--text-primary)';
+  const colorInput = document.getElementById('nb-color');
+  if (colorInput) colorInput.value = color;
+}
+
+function addColumnInput() {
+  const wrap = document.getElementById('nb-cols-wrap');
+  if (!wrap) return;
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:6px;align-items:center';
+  div.innerHTML = `<input class="form-input nb-col-input" placeholder="新しい列名…" style="flex:1">
+    <button class="btn btn-ghost btn-icon btn-sm" onclick="this.closest('div').remove()" title="削除"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>`;
+  wrap.appendChild(div);
+  div.querySelector('input')?.focus();
+}
+
+function saveNewBoard() {
+  const title = document.getElementById('nb-title')?.value?.trim();
+  if (!title) { toast('ボード名を入力してください', 'error'); return; }
+  const columns = [...$$('.nb-col-input')].map(i => i.value.trim()).filter(Boolean);
+  if (columns.length === 0) { toast('列を最低1つ追加してください', 'error'); return; }
+  const color = document.getElementById('nb-color')?.value || _selectedBoardColor;
+  const board = newBoard({
+    title,
+    description: document.getElementById('nb-desc')?.value?.trim() || '',
+    projectId: document.getElementById('nb-proj')?.value || null,
+    color,
+    columns,
+  });
+  BOARD_DB.saveBoard(board);
+  closeModal();
+  toast(`「${title}」を作成しました`, 'success');
+  BoardState.currentBoardId = board.id;
+  render();
+}
+
+function openEditBoardModal(boardId) {
+  const board = BOARD_DB.getBoard(boardId);
+  if (!board) return;
+  const projects = DB.getProjects();
+  openModal(
+    `<i class="fas fa-gear" style="color:var(--fuji)"></i> ボード設定`,
+    `<div class="form-group">
+      <label class="form-label">ボード名</label>
+      <input class="form-input" id="eb-title" value="${esc(board.title)}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">説明</label>
+      <input class="form-input" id="eb-desc" value="${esc(board.description||'')}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">リンクする作品</label>
+      <select class="form-select" id="eb-proj">
+        <option value="">なし</option>
+        ${projects.map(p => `<option value="${p.id}" ${board.projectId===p.id?'selected':''}>${esc(p.title)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">列管理</label>
+      <div id="eb-cols-wrap" style="display:flex;flex-direction:column;gap:6px">
+        ${(board.columns||[]).map(c => `
+          <div style="display:flex;gap:6px;align-items:center">
+            <input class="form-input nb-col-input" value="${esc(c)}" style="flex:1">
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="this.closest('div').remove()" title="削除"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>
+          </div>`).join('')}
+      </div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="addColumnInputEdit()"><i class="fas fa-plus"></i> 列を追加</button>
+    </div>
+    <div style="padding:10px 12px;background:var(--accent-bg);border-radius:var(--radius-sm);border-left:3px solid var(--accent);font-size:12px;color:var(--accent)">
+      <i class="fas fa-exclamation-triangle" style="margin-right:6px"></i>列の順序変更・削除は既存カードの列割り当てに影響します
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveEditBoard('${boardId}')"><i class="fas fa-floppy-disk"></i> 保存</button>`
+  );
+}
+
+function addColumnInputEdit() {
+  const wrap = document.getElementById('eb-cols-wrap');
+  if (!wrap) return;
+  const div = document.createElement('div');
+  div.style.cssText = 'display:flex;gap:6px;align-items:center';
+  div.innerHTML = `<input class="form-input nb-col-input" placeholder="新しい列名…" style="flex:1">
+    <button class="btn btn-ghost btn-icon btn-sm" onclick="this.closest('div').remove()" title="削除"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>`;
+  wrap.appendChild(div);
+  div.querySelector('input')?.focus();
+}
+
+function saveEditBoard(boardId) {
+  const board = BOARD_DB.getBoard(boardId);
+  if (!board) return;
+  const title = document.getElementById('eb-title')?.value?.trim();
+  if (!title) { toast('ボード名を入力してください', 'error'); return; }
+  const columns = [...$$('.nb-col-input')].map(i => i.value.trim()).filter(Boolean);
+  board.title = title;
+  board.description = document.getElementById('eb-desc')?.value?.trim() || '';
+  board.projectId = document.getElementById('eb-proj')?.value || null;
+  board.columns = columns.length > 0 ? columns : board.columns;
+  board.updatedAt = now();
+  BOARD_DB.saveBoard(board);
+  closeModal();
+  toast('ボード設定を保存しました', 'success');
+  render();
+}
+
+function confirmDeleteBoard(boardId) {
+  const board = BOARD_DB.getBoard(boardId);
+  if (!board) return;
+  openModal(
+    `<i class="fas fa-trash" style="color:var(--accent)"></i> ボードを削除`,
+    `<div style="text-align:center;padding:16px 0">
+      <div style="font-size:40px;margin-bottom:12px">🗑️</div>
+      <div style="font-size:14px;color:var(--text-primary);margin-bottom:8px;font-weight:600">「${esc(board.title)}」を削除しますか？</div>
+      <div style="font-size:12px;color:var(--text-muted);line-height:1.7">ボード内の全カード（${(board.cards||[]).length}枚）も削除されます。<br>この操作は元に戻せません。</div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-danger" onclick="deleteBoard('${boardId}')"><i class="fas fa-trash"></i> 削除する</button>`
+  );
+}
+
+function deleteBoard(boardId) {
+  BOARD_DB.deleteBoard(boardId);
+  closeModal();
+  if (BoardState.currentBoardId === boardId) {
+    BoardState.currentBoardId = null;
+  }
+  toast('ボードを削除しました', 'info');
+  render();
+}
+
+function openAddColumnModal(boardId) {
+  openModal(
+    `<i class="fas fa-plus" style="color:var(--fuji)"></i> 列を追加`,
+    `<div class="form-group">
+      <label class="form-label">列名 <span style="color:var(--accent)">*</span></label>
+      <input class="form-input" id="acol-name" placeholder="例: レビュー中、下書き" autofocus>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveAddColumn('${boardId}')"><i class="fas fa-plus"></i> 追加</button>`
+  );
+}
+
+function saveAddColumn(boardId) {
+  const name = document.getElementById('acol-name')?.value?.trim();
+  if (!name) { toast('列名を入力してください', 'error'); return; }
+  const board = BOARD_DB.getBoard(boardId);
+  if (!board) return;
+  board.columns = [...(board.columns||[]), name];
+  board.updatedAt = now();
+  BOARD_DB.saveBoard(board);
+  closeModal();
+  toast(`「${name}」列を追加しました`, 'success');
+  render();
+}
+
+function openEditColumnModal(boardId, colIdx) {
+  const board = BOARD_DB.getBoard(boardId);
+  if (!board) return;
+  const colName = (board.columns||[])[colIdx] || '';
+  openModal(
+    `<i class="fas fa-pen" style="color:var(--fuji)"></i> 列を編集`,
+    `<div class="form-group">
+      <label class="form-label">列名</label>
+      <input class="form-input" id="ecol-name" value="${esc(colName)}" autofocus>
+    </div>
+    <div style="padding:10px 12px;background:var(--accent-bg);border-radius:var(--radius-sm);font-size:12px;color:var(--accent);border-left:3px solid var(--accent)">
+      <i class="fas fa-info-circle"></i> 列を削除するにはボード設定から行ってください
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveEditColumn('${boardId}',${colIdx})">保存</button>`
+  );
+}
+
+function saveEditColumn(boardId, colIdx) {
+  const name = document.getElementById('ecol-name')?.value?.trim();
+  if (!name) { toast('列名を入力してください', 'error'); return; }
+  const board = BOARD_DB.getBoard(boardId);
+  if (!board) return;
+  board.columns[colIdx] = name;
+  board.updatedAt = now();
+  BOARD_DB.saveBoard(board);
+  closeModal();
+  toast('列名を変更しました', 'success');
+  render();
+}
+
+// ── Board Page Bind ───────────────────────────────────────────
+function bindBoardPage() {
+  // DnD系はHTML attributeで処理済み
+}
+
+// ── Dashboard: Board Quick Access ────────────────────────────
+function renderDashboardBoardWidget() {
+  const boards = BOARD_DB.getBoards();
+  if (boards.length === 0) {
+    return `<div class="card" style="padding:20px;text-align:center;border:2px dashed var(--border)">
+      <i class="fas fa-table-cells-large" style="font-size:28px;color:var(--fuji);opacity:0.4;display:block;margin-bottom:10px"></i>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">ストーリーボードがありません</div>
+      <button class="btn btn-ghost btn-sm" onclick="navigate('board')"><i class="fas fa-plus"></i> ボードを作成</button>
+    </div>`;
+  }
+  const recent = boards.slice(0, 3);
+  return `
+  <div class="card" style="padding:0;overflow:hidden">
+    <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg-subtle)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <i class="fas fa-table-cells-large" style="color:var(--fuji);font-size:13px"></i>
+        <span style="font-size:13px;font-weight:600;color:var(--text-primary);font-family:'Noto Serif JP',serif">ストーリーボード</span>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="navigate('board')" style="font-size:11px">すべて見る</button>
+    </div>
+    <div style="padding:8px 12px">
+      ${recent.map(b => `
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 4px;border-bottom:1px solid var(--border);cursor:pointer" onclick="BoardState.currentBoardId='${b.id}';navigate('board')">
+        <div style="width:28px;height:28px;border-radius:var(--radius-sm);background:${b.color}22;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="fas ${b.icon||'fa-table-cells-large'}" style="color:${b.color};font-size:12px"></i>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.title)}</div>
+          <div style="font-size:10px;color:var(--text-muted)">${(b.cards||[]).length}枚のカード · ${(b.columns||[]).length}列</div>
+        </div>
+        <i class="fas fa-chevron-right" style="color:var(--text-light);font-size:10px;flex-shrink:0"></i>
+      </div>`).join('')}
+    </div>
+    <div style="padding:8px 12px;border-top:1px solid var(--border)">
+      <button class="btn btn-ghost btn-sm" style="width:100%;font-size:12px" onclick="navigate('board');setTimeout(openNewBoardModal,100)">
+        <i class="fas fa-plus" style="color:var(--fuji)"></i> 新しいボードを作成
+      </button>
+    </div>
+  </div>`;
 }
 
 // ================================================================

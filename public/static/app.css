@@ -2461,3 +2461,358 @@ body {
 /* プロジェクトカード 選択時 */
 .project-card:hover { border-color: var(--accent-border); }
 
+
+/* ================================================================
+   STORY BOARD — Phase 3 ストーリーボード CSS
+   ================================================================ */
+
+/* ── Board List ─────────────────────────────────────────────── */
+.board-list-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: transform .15s, box-shadow .15s, border-color .15s;
+}
+.board-list-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+  border-color: var(--accent-border);
+}
+
+/* ── Board Page Wrapper ─────────────────────────────────────── */
+.board-page-wrap {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 56px);
+  overflow: hidden;
+}
+
+/* ── Board Topbar ────────────────────────────────────────────── */
+.board-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--card-bg);
+  border-bottom: 1px solid var(--border);
+  gap: 12px;
+  flex-shrink: 0;
+}
+.board-search-input {
+  width: 180px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color .15s;
+}
+.board-search-input:focus { border-color: var(--fuji); }
+.board-stat-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 3px 8px;
+  background: var(--bg-subtle);
+  border-radius: 12px;
+}
+
+/* ── Filter Panel ─────────────────────────────────────────────── */
+.board-filter-panel {
+  padding: 8px 16px;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+/* ── Kanban Wrap ──────────────────────────────────────────────── */
+.board-kanban-wrap {
+  display: flex;
+  gap: 12px;
+  padding: 16px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+  align-items: flex-start;
+}
+.board-kanban-wrap::-webkit-scrollbar { height: 6px; }
+.board-kanban-wrap::-webkit-scrollbar-track { background: var(--bg-subtle); border-radius: 3px; }
+.board-kanban-wrap::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+.board-kanban-wrap::-webkit-scrollbar-thumb:hover { background: var(--text-light); }
+
+/* ── Board Column ─────────────────────────────────────────────── */
+.board-column {
+  flex-shrink: 0;
+  width: 270px;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-subtle);
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border);
+  max-height: calc(100vh - 160px);
+  transition: border-color .15s, background .15s;
+}
+.board-column.drag-over {
+  border-color: var(--fuji);
+  background: var(--fuji-bg);
+}
+.board-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.board-col-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: 'Noto Serif JP', serif;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.board-col-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 5px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.board-col-cards {
+  padding: 8px 8px 4px;
+  overflow-y: auto;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 60px;
+}
+.board-col-cards::-webkit-scrollbar { width: 4px; }
+.board-col-cards::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── Add Card Button ─────────────────────────────────────────── */
+.board-add-card-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  font-size: 12px;
+  color: var(--text-light);
+  background: transparent;
+  border: 1.5px dashed var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: color .15s, border-color .15s, background .15s;
+  text-align: left;
+  width: 100%;
+  margin-top: 2px;
+  margin-bottom: 4px;
+}
+.board-add-card-btn:hover {
+  color: var(--fuji);
+  border-color: var(--fuji);
+  background: var(--fuji-bg);
+}
+
+/* ── Add Column Button ─────────────────────────────────────────── */
+.board-add-column {
+  flex-shrink: 0;
+  width: 200px;
+  min-height: 120px;
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  background: transparent;
+}
+.board-add-column:hover {
+  border-color: var(--fuji);
+  background: var(--fuji-bg);
+}
+
+/* ── Board Card ──────────────────────────────────────────────── */
+.board-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 10px 8px;
+  cursor: grab;
+  transition: box-shadow .15s, transform .15s;
+  position: relative;
+  user-select: none;
+}
+.board-card:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.09);
+  transform: translateY(-1px);
+}
+.board-card.pinned {
+  box-shadow: 0 0 0 2px var(--kogane);
+}
+.board-card-back {
+  cursor: default;
+  background: linear-gradient(135deg, var(--fuji-bg) 0%, var(--card-bg) 100%);
+}
+.board-card:active { cursor: grabbing; opacity: 0.85; }
+
+/* ── Card Header ─────────────────────────────────────────────── */
+.board-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  min-height: 22px;
+}
+.board-card-actions {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity .15s;
+}
+.board-card:hover .board-card-actions { opacity: 1; }
+.board-card-back .board-card-actions { opacity: 1; }
+
+/* ── Card Content ─────────────────────────────────────────────── */
+.board-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.4;
+  margin-bottom: 4px;
+}
+.board-card-body {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.board-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+/* ── Label & Priority Chips ──────────────────────────────────── */
+.card-label-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 7px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.priority-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.board-tag-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  border-radius: 6px;
+  font-size: 10px;
+}
+
+/* ── Card Tension Bar ────────────────────────────────────────── */
+.card-tension-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--bg-hover);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+  overflow: hidden;
+}
+
+/* ── Card Edit Tab ───────────────────────────────────────────── */
+.card-edit-tab {
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+  margin-bottom: -2px;
+}
+.card-edit-tab.active {
+  color: var(--fuji);
+  border-bottom-color: var(--fuji);
+}
+.card-edit-tab:hover:not(.active) { color: var(--text-secondary); }
+
+/* ── Board responsive ─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .board-topbar { flex-wrap: wrap; }
+  .board-search-input { width: 120px; }
+  .board-column { width: 240px; }
+  .board-kanban-wrap { padding: 10px; gap: 10px; }
+}
+
+/* ── btn-danger ──────────────────────────────────────────────── */
+.btn-danger {
+  background: var(--accent);
+  color: white;
+  border: none;
+}
+.btn-danger:hover { background: #c04020; }
+
+
+/* ── Dashboard List View ─────────────────────────────────────── */
+.project-list-view {
+  display: flex !important;
+  flex-direction: column;
+  gap: 8px;
+}
+.project-list-view .project-card {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 16px;
+}
+.project-list-view .project-card .phase-steps { display: none; }
+.project-list-view .project-card .progress-bar-wrap { display: none; }
+.project-list-view .project-card > div:first-child { flex: 1; }
+
+/* ── View Toggle Button Active ─────────────────────────────── */
+.db-view-btn { color: var(--text-muted); }
+.db-view-btn.active {
+  color: var(--fuji);
+  background: var(--fuji-bg);
+  border-color: var(--fuji-border);
+}
+
