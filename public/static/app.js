@@ -436,12 +436,12 @@ function renderLayout(content, proj = null) {
       <div class="topbar-subtitle">${tbData.sub}</div>
     </div>
     <div class="topbar-actions">
-      <button class="btn btn-secondary btn-sm" onclick="navigate('dashboard')"><i class="fas fa-house"></i><span class="topbar-btn-label"> 作品一覧</span></button>
+      <button class="btn btn-secondary btn-sm" onclick="navigate('dashboard')"><i class="fas fa-gauge-high"></i><span class="topbar-btn-label"> ダッシュボード</span></button>
     </div>` : `
     ${collapsedLogo}
     <div class="topbar-actions">
       ${isTopPage ? `
-      <button class="btn btn-secondary btn-sm" onclick="navigate('dashboard')"><i class="fas fa-folder"></i><span class="topbar-btn-label"> 作品一覧</span></button>
+      <button class="btn btn-secondary btn-sm" onclick="navigate('dashboard')"><i class="fas fa-gauge-high"></i><span class="topbar-btn-label"> ダッシュボード</span></button>
       <button class="btn btn-primary btn-sm" onclick="openNewProjectModal()"><i class="fas fa-plus"></i><span class="topbar-btn-label"> 新規作品</span></button>
       ` : `<button class="btn btn-primary btn-sm" onclick="openNewProjectModal()"><i class="fas fa-plus"></i><span class="topbar-btn-label"> 新規作品</span></button>`}
     </div>`;
@@ -498,7 +498,7 @@ function renderLayout(content, proj = null) {
               <span class="nav-icon"><i class="fas fa-sun" style="color:#f7d07a"></i></span><span class="nav-label">ホーム</span>
             </div>
             <div class="nav-item ${(!proj && cp==='dashboard')?'active':''}" onclick="navigate('dashboard')">
-              <span class="nav-icon"><i class="fas fa-folder" style="color:#f5d9c8"></i></span><span class="nav-label">作品一覧</span>
+              <span class="nav-icon"><i class="fas fa-gauge-high" style="color:#f5d9c8"></i></span><span class="nav-label">ダッシュボード</span>
             </div>
             <div class="nav-item ${isJournalPage?'active':''}" onclick="navigate('journal')">
               <span class="nav-icon"><i class="fas fa-book" style="color:#7de08a"></i></span><span class="nav-label">執筆日誌</span>
@@ -977,6 +977,34 @@ function renderDashboard() {
     drafts: projects.reduce((a, p) => a + (p.drafts||[]).length, 0),
     totalWords: projects.reduce((a, p) => a + (p.drafts||[]).reduce((b, d) => b + countWords(d.content||''), 0), 0),
   };
+
+  // タスク統計（ダッシュボード用）
+  const allTasks = TASK_DB.getAll();
+  const todayStr = new Date().toISOString().slice(0,10);
+  const tasksDueToday = allTasks.filter(t => !t.done && t.dueDate === todayStr);
+  const tasksOverdue = allTasks.filter(t => !t.done && t.dueDate && t.dueDate < todayStr);
+  const tasksUrgent = allTasks.filter(t => !t.done && t.priority === 'urgent');
+  const tasksThisWeek = allTasks.filter(t => {
+    if (!t.dueDate || t.done) return false;
+    const d = new Date(t.dueDate);
+    const now = new Date();
+    const diff = (d - now) / (1000*60*60*24);
+    return diff >= 0 && diff <= 7;
+  });
+
+  // ライティングストリーク計算
+  const journalEntriesAll = DB.get('journal_entries', []);
+  let streak = 0;
+  const checkDate = new Date();
+  for (let i = 0; i < 365; i++) {
+    const ds = checkDate.toISOString().slice(0,10);
+    if (journalEntriesAll.find(e => e.date === ds && (e.wordCount||0) > 0)) {
+      streak++;
+      checkDate.setDate(checkDate.getDate() - 1);
+    } else {
+      break;
+    }
+  }
   const phaseIdx = { '着想':0,'リサーチ':1,'コンセプト設計':2,'プロット設計':3,'キャラクター':4,'アウトライン':5,'初稿':6,'大改稿':7,'精密推敲':8,'フィードバック':9,'最終稿':10,'共有・出力':11 };
 
   // プロジェクトカード（強化版）
@@ -1136,12 +1164,12 @@ function renderDashboard() {
     </div>
   </div>
 
-  <!-- 統計カード -->
-  <div class="stat-grid" style="margin-bottom:28px">
-    <div class="stat-card beni">
+  <!-- 統計カード（強化版） -->
+  <div class="stat-grid db-stat-grid" style="margin-bottom:20px">
+    <div class="stat-card beni" style="cursor:pointer" onclick="openNewProjectModal()" title="新規作成">
       <div class="stat-icon-wrap"><i class="fas fa-film"></i></div>
       <div class="stat-value">${stats.total}</div>
-      <div class="stat-label">総プロジェクト数</div>
+      <div class="stat-label">総プロジェクト</div>
     </div>
     <div class="stat-card kon">
       <div class="stat-icon-wrap"><i class="fas fa-pen-nib"></i></div>
@@ -1156,8 +1184,19 @@ function renderDashboard() {
     <div class="stat-card kogane">
       <div class="stat-icon-wrap"><i class="fas fa-font"></i></div>
       <div class="stat-value">${stats.totalWords >= 10000 ? Math.round(stats.totalWords/1000)+'k' : stats.totalWords.toLocaleString()}</div>
-      <div class="stat-label">総執筆文字数</div>
+      <div class="stat-label">総文字数</div>
     </div>
+    <div class="stat-card fuji" style="cursor:pointer" onclick="navigate('journal')" title="執筆日誌へ">
+      <div class="stat-icon-wrap"><i class="fas fa-fire"></i></div>
+      <div class="stat-value">${streak}</div>
+      <div class="stat-label">連続日数🔥</div>
+    </div>
+    <div class="stat-card ${tasksOverdue.length>0?'beni':'asagi'}" style="cursor:pointer" onclick="navigate('tasks')" title="タスク管理へ">
+      <div class="stat-icon-wrap"><i class="fas fa-triangle-exclamation"></i></div>
+      <div class="stat-value">${tasksOverdue.length}</div>
+      <div class="stat-label">期限切れ</div>
+    </div>
+
   </div>
 
   <!-- メインコンテンツ：作品一覧 + サイドパネル -->
@@ -1167,7 +1206,7 @@ function renderDashboard() {
     <div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div style="font-size:16px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">
-          <i class="fas fa-folder-open" style="color:var(--accent);margin-right:8px"></i>作品一覧
+          <i class="fas fa-folder-open" style="color:var(--accent);margin-right:8px"></i>作品ダッシュボード
           ${projects.length > 0 ? '<span style="font-size:12px;font-weight:400;color:var(--text-muted);font-family:inherit;margin-left:6px">(' + projects.length + '件)</span>' : ''}
         </div>
         <button class="btn btn-primary btn-sm" onclick="openNewProjectModal()">
@@ -1206,6 +1245,72 @@ function renderDashboard() {
 
     <!-- 右：サイドパネル -->
     <div style="display:flex;flex-direction:column;gap:18px">
+
+      <!-- 今日のタスク・期限切れタスク ウィジェット -->
+      <div class="card" style="padding:0;overflow:hidden;border-top:3px solid ${tasksOverdue.length>0?'var(--accent)':'var(--kon-lt)'}">
+        <div style="padding:13px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg-subtle)">
+          <div style="display:flex;align-items:center;gap:8px">
+            <i class="fas fa-list-check" style="color:${tasksOverdue.length>0?'var(--accent)':'var(--kon-lt)'};font-size:13px"></i>
+            <span style="font-size:13px;font-weight:600;color:var(--text-primary);font-family:'Noto Serif JP',serif">タスク状況</span>
+            ${(tasksDueToday.length+tasksOverdue.length)>0?`<span style="background:var(--accent);color:white;font-size:9px;font-weight:700;padding:1px 6px;border-radius:8px">${tasksDueToday.length+tasksOverdue.length}</span>`:''}
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="navigate('tasks')" style="font-size:10.5px">
+            すべて見る <i class="fas fa-arrow-right" style="font-size:9px"></i>
+          </button>
+        </div>
+        <div style="padding:10px 12px">
+          ${tasksOverdue.length>0?`
+          <div style="margin-bottom:8px">
+            <div style="font-size:10.5px;font-weight:700;color:var(--accent);margin-bottom:5px;display:flex;align-items:center;gap:5px">
+              <i class="fas fa-circle-exclamation" style="font-size:9px"></i> 期限切れ (${tasksOverdue.length}件)
+            </div>
+            ${tasksOverdue.slice(0,3).map(t=>`
+            <div style="display:flex;align-items:center;gap:7px;padding:5px 7px;background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:5px;margin-bottom:4px;cursor:pointer" onclick="navigate('tasks')">
+              <i class="fas fa-circle" style="color:var(--accent);font-size:8px;flex-shrink:0"></i>
+              <span style="font-size:11.5px;color:var(--text-primary);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.title)}</span>
+              <span style="font-size:9.5px;color:var(--accent);font-weight:600;white-space:nowrap">${t.dueDate?t.dueDate.slice(5):''}</span>
+            </div>`).join('')}
+            ${tasksOverdue.length>3?`<div style="font-size:10.5px;color:var(--text-muted);text-align:center;padding:3px">他 ${tasksOverdue.length-3}件…</div>`:''}
+          </div>`:''}
+          ${tasksDueToday.length>0?`
+          <div style="margin-bottom:8px">
+            <div style="font-size:10.5px;font-weight:700;color:var(--kogane);margin-bottom:5px;display:flex;align-items:center;gap:5px">
+              <i class="fas fa-sun" style="font-size:9px"></i> 今日のタスク (${tasksDueToday.length}件)
+            </div>
+            ${tasksDueToday.slice(0,3).map(t=>`
+            <div style="display:flex;align-items:center;gap:7px;padding:5px 7px;background:var(--kogane-bg);border:1px solid var(--kogane-border);border-radius:5px;margin-bottom:4px;cursor:pointer" onclick="navigate('tasks')">
+              <i class="fas fa-circle" style="color:var(--kogane);font-size:8px;flex-shrink:0"></i>
+              <span style="font-size:11.5px;color:var(--text-primary);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.title)}</span>
+              ${t.priority==='urgent'?`<span style="font-size:9px;background:var(--accent-bg);color:var(--accent);padding:1px 4px;border-radius:3px;font-weight:700">急</span>`:''}
+            </div>`).join('')}
+            ${tasksDueToday.length>3?`<div style="font-size:10.5px;color:var(--text-muted);text-align:center;padding:3px">他 ${tasksDueToday.length-3}件…</div>`:''}
+          </div>`:''}
+          ${tasksThisWeek.length>0&&tasksDueToday.length===0&&tasksOverdue.length===0?`
+          <div style="margin-bottom:6px">
+            <div style="font-size:10.5px;font-weight:700;color:var(--matcha);margin-bottom:5px;display:flex;align-items:center;gap:5px">
+              <i class="fas fa-calendar-week" style="font-size:9px"></i> 今週中 (${tasksThisWeek.length}件)
+            </div>
+            ${tasksThisWeek.slice(0,3).map(t=>`
+            <div style="display:flex;align-items:center;gap:7px;padding:5px 7px;background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:5px;margin-bottom:4px;cursor:pointer" onclick="navigate('tasks')">
+              <i class="fas fa-circle" style="color:var(--matcha);font-size:8px;flex-shrink:0"></i>
+              <span style="font-size:11.5px;color:var(--text-primary);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.title)}</span>
+              <span style="font-size:9.5px;color:var(--matcha);font-weight:600;white-space:nowrap">${t.dueDate?t.dueDate.slice(5):''}</span>
+            </div>`).join('')}
+          </div>`:''}
+          ${(tasksDueToday.length+tasksOverdue.length+tasksThisWeek.length)===0?`
+          <div style="text-align:center;padding:16px 8px;color:var(--text-muted);font-size:12px">
+            <i class="fas fa-check-circle" style="font-size:22px;display:block;margin-bottom:6px;opacity:0.4;color:var(--matcha)"></i>
+            今日の期限タスクなし
+          </div>`:''}
+          <!-- クイックタスク追加 -->
+          <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+            <div style="display:flex;gap:5px">
+              <input id="db-quick-task" class="form-input" placeholder="タスクをすばやく追加…" style="font-size:11.5px;height:30px;flex:1" onkeydown="if(event.key==='Enter')dbQuickAddTask()">
+              <button class="btn btn-primary btn-sm" onclick="dbQuickAddTask()" style="height:30px;padding:0 10px;font-size:11px"><i class="fas fa-plus"></i></button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- 執筆目標ウィジェット -->
       <div class="card" style="padding:0;overflow:hidden;border-top:3px solid var(--matcha)">
@@ -1354,6 +1459,32 @@ function renderDashboard() {
       </div>
     </div>
   </div>`;
+}
+
+function dbQuickAddTask() {
+  const input = document.getElementById('db-quick-task');
+  if (!input || !input.value.trim()) return;
+  const title = input.value.trim();
+  const task = {
+    id: 'task_' + Date.now(),
+    title,
+    dueDate: new Date().toISOString().slice(0,10),
+    priority: 'medium',
+    category: 'writing',
+    done: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  TASK_DB.save(task);
+  input.value = '';
+  toast(`タスク「${title}」を追加しました`, 'success', 2500);
+  // ダッシュボードを再描画してタスクリストを更新
+  const taskWidgetContent = document.querySelector('#db-task-widget-list');
+  if (!taskWidgetContent) {
+    // 簡易リフレッシュ
+    navigate('dashboard');
+    return;
+  }
 }
 
 function bindDashboard() {
@@ -4713,6 +4844,39 @@ const ARTICLES = [
     readTime: 10,
     desc: '日本の脚本術で語り継がれる10の根本原則。Situations（展開）、Destiny（宿命）、Treasure（宝物）、Turning Point（決意）、Feels（感動）、Climax（山場）、Finale（終演）、Theme（題目）、Pinch（乱調）、Antagonist（敵役）。',
   },
+  {
+    id: 'emotional-design',
+    title: '感情設計マスターガイド — 観客の心を動かす技術',
+    subtitle: '涙・笑い・恐怖・興奮を計算して生み出す感情工学',
+    category: '執筆技法',
+    categoryColor: 'momo',
+    icon: 'fa-heart-pulse',
+    tags: ['感情設計','カタルシス','共感','感情曲線'],
+    readTime: 11,
+    desc: '脚本が「感動的」かどうかは偶然ではなく設計による。感情の種類・タイミング・振れ幅を意図的に制御するプロの技術を解説。カタルシス理論から感情曲線設計まで。',
+  },
+  {
+    id: 'act2-breakthrough',
+    title: 'アクト2突破法 — 中盤の「沼」から抜け出す6つの戦略',
+    subtitle: '三幕構成の最大の壁、アクト2をどう書き切るか',
+    category: '構成理論',
+    categoryColor: 'kon',
+    icon: 'fa-shield-halved',
+    tags: ['アクト2','三幕構成','中盤','ミッドポイント'],
+    readTime: 9,
+    desc: 'ほとんどの脚本家が苦しむアクト2（全体の50%を占める中幕）。失速しやすい中盤を突破するための6つの構造的戦略とミッドポイントの設計法を詳解。',
+  },
+  {
+    id: 'professional-revision',
+    title: 'プロの推敲術 — 初稿から完成稿への7段階',
+    subtitle: '書き直すたびに脚本が強くなる体系的推敲プロセス',
+    category: '執筆プロセス',
+    categoryColor: 'asagi',
+    icon: 'fa-rotate',
+    tags: ['推敲','改稿','初稿','完成稿'],
+    readTime: 10,
+    desc: 'プロの脚本家は「初稿は捨て稿」と言う。7段階の推敲プロセス（大局→構造→シーン→セリフ→ト書き→テクニカル→最終読み）で、初稿を傑作に磨き上げる方法論。',
+  },
 ];
 
 // ガイドデータ
@@ -5019,6 +5183,9 @@ function renderArticlePage(articleId) {
     'script-format': renderArticleScriptFormat(),
     'tension-pacing': renderArticleTensionPacing(),
     'scenario-ten': renderArticleScenarioTen(),
+    'emotional-design': renderArticleEmotionalDesign(),
+    'act2-breakthrough': renderArticleAct2Breakthrough(),
+    'professional-revision': renderArticleProfessionalRevision(),
   };
 
   const body = bodies[articleId] || `<p>コンテンツは準備中です。</p>`;
@@ -6251,6 +6418,282 @@ function renderArticleScenarioTen() {
   </div>`;
 }
 
+// ── 感情設計マスターガイド ──────────────────────────────────────
+function renderArticleEmotionalDesign() {
+  return `
+  <h2>感情は「設計」できる</h2>
+  <p>観客が涙を流したり、心が震えたりする瞬間は、偶然の産物ではありません。熟練した脚本家は、感情を意図的に計算し、配置し、振れ幅を設計しています。これを<strong>感情設計（Emotional Engineering）</strong>と呼びます。</p>
+
+  <div class="article-callout beni">
+    <strong>感情設計の黄金律：</strong>観客に感情を「語らせる」のではなく、感情を「体験させる」。
+  </div>
+
+  <h2>感情の7種類と脚本への応用</h2>
+  ${[
+    { name:'喜び・高揚', icon:'fa-face-smile', color:'var(--kogane)', desc:'目標達成・再会・笑い。クライマックス後に配置。長く続けると感動が薄れる。', tip:'喜びの前に「苦労」を置くほど増幅される' },
+    { name:'悲しみ・喪失', icon:'fa-face-sad-tear', color:'var(--fuji)', desc:'別れ・死・失敗。最も強い感情の一つ。「何かを失う」シーンで発生。', tip:'観客が喪失の大きさを理解した瞬間に爆発する' },
+    { name:'恐怖・緊張', icon:'fa-face-grimace', color:'var(--accent)', desc:'未知・脅威・タイムプレッシャー。長すぎると麻痺。短く鋭く使う。', tip:'「何かが起こりそう」という予感が恐怖より怖い' },
+    { name:'怒り・義憤', icon:'fa-face-angry', color:'var(--momo)', desc:'不正義・裏切り・弱者への攻撃。観客の味方を作る最強の道具。', tip:'観客が主人公に「怒れ！」と思う瞬間が理想' },
+    { name:'共感・感情移入', icon:'fa-heart', color:'var(--matcha)', desc:'「自分もそう思う」「分かる」という感覚。物語の接着剤。', tip:'主人公の弱点や失敗が共感を生む' },
+    { name:'驚き・意外性', icon:'fa-bolt', color:'var(--asagi)', desc:'予想外の展開・情報。強く使いすぎると安っぽくなる。', tip:'伏線を張って「そうだったのか！」を作る' },
+    { name:'希望・期待', icon:'fa-star', color:'var(--kon-lt)', desc:'「きっと上手くいく」という感覚。暗い話でも希望の光を置く。', tip:'絶望の底で希望を見せると感情が最大化する' },
+  ].map(e => `
+  <div style="display:flex;gap:12px;padding:12px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px;align-items:flex-start">
+    <div style="width:36px;height:36px;border-radius:50%;background:${e.color}20;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <i class="fas ${e.icon}" style="color:${e.color};font-size:15px"></i>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:3px">${e.name}</div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:5px;line-height:1.6">${e.desc}</div>
+      <div style="font-size:11.5px;color:${e.color};font-weight:600"><i class="fas fa-lightbulb" style="font-size:10px;margin-right:4px"></i>${e.tip}</div>
+    </div>
+  </div>`).join('')}
+
+  <h2>感情曲線の設計法</h2>
+  <p>物語全体の感情の動きを<strong>感情曲線（Emotional Arc）</strong>として視覚化します。良い物語は平坦ではなく、山と谷を繰り返しながら最終的に最高点（クライマックス）に向かいます。</p>
+
+  <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin:16px 0">
+    <div style="font-size:13px;font-weight:700;margin-bottom:12px;font-family:'Noto Serif JP',serif">感情曲線の基本パターン</div>
+    ${[
+      { name:'W字型（最も使われる）', desc:'感情が上下を繰り返しながら最終的に最高点に。三幕構成に対応。', color:'var(--kogane)' },
+      { name:'カタルシス型', desc:'長い下降→急激な上昇。「どん底からの復活」パターン。最も感動的。', color:'var(--accent)' },
+      { name:'悲劇型', desc:'上昇→急激な下降。観客に強い余韻を残す。芸術的作品に多い。', color:'var(--fuji)' },
+      { name:'平静→嵐→平静', desc:'日常→事件→新たな日常。成長物語の基本。', color:'var(--matcha)' },
+    ].map(p => `
+    <div style="display:flex;gap:10px;margin-bottom:8px;align-items:center">
+      <div style="width:8px;height:8px;border-radius:50%;background:${p.color};flex-shrink:0"></div>
+      <div>
+        <span style="font-size:12px;font-weight:600;color:${p.color}">${p.name}：</span>
+        <span style="font-size:12px;color:var(--text-secondary)">${p.desc}</span>
+      </div>
+    </div>`).join('')}
+  </div>
+
+  <h2>カタルシスを生む3つの条件</h2>
+  <p>アリストテレスが提唱した<strong>カタルシス（感情の浄化）</strong>は、観客が感情的解放を経験する瞬間です。強いカタルシスには3つの条件が必要です。</p>
+  <div class="article-callout matcha">
+    <ol style="padding-left:18px;margin:0">
+      <li style="margin-bottom:6px"><strong>感情的投資：</strong>観客がキャラクターに深く共感している（カタルシス前の感情の蓄積）</li>
+      <li style="margin-bottom:6px"><strong>感情的障害：</strong>その感情が長時間抑圧・緊張させられている（エネルギーの蓄積）</li>
+      <li><strong>感情的解放：</strong>決定的なシーンで一気に解放される（爆発・浄化）</li>
+    </ol>
+  </div>
+
+  <h2>実践：感情マップを作る</h2>
+  <p>脚本を書く前に、シーンごとに「どの感情を、どの強度で、観客に体験させたいか」をリストアップしましょう。これを<strong>感情マップ</strong>と呼びます。</p>
+
+  <div class="article-callout kon">
+    <strong>練習：</strong>好きな映画・ドラマのシーンを10個選び、それぞれが観客に与える感情と強度（1〜10）を書き出してみましょう。パターンが見えてきます。
+  </div>`;
+}
+
+// ── アクト2突破法 ─────────────────────────────────────────────
+function renderArticleAct2Breakthrough() {
+  const strategies = [
+    {
+      no: 1,
+      title: 'ミッドポイントを最大化する',
+      icon: 'fa-crosshairs',
+      color: 'var(--accent)',
+      bg: 'var(--accent-bg)',
+      desc: 'アクト2の中央（全体の50%地点）に「偽りの勝利」か「偽りの敗北」を置く。これがアクト2を前半・後半に分割し、失速を防ぐ。',
+      example: '例：主人公がゴールに一時的に近づく（偽りの勝利）か、最悪の状況に陥る（偽りの敗北）。',
+    },
+    {
+      no: 2,
+      title: 'サブプロットで主プロットを補強する',
+      icon: 'fa-code-branch',
+      color: 'var(--fuji)',
+      bg: 'var(--fuji-bg)',
+      desc: 'サブプロット（恋愛・友情・サイドキャラの物語）をアクト2に組み込む。主プロットが停滞する時間を埋め、テーマを別角度から補強する。',
+      example: '例：犯罪捜査もの（主プロット）に、主人公の家庭の問題（サブプロット）を絡める。',
+    },
+    {
+      no: 3,
+      title: '「見かけ上の解決」を挟む',
+      icon: 'fa-magnifying-glass',
+      color: 'var(--matcha)',
+      bg: 'var(--matcha-bg)',
+      desc: 'アクト2中盤で一度「問題が解決しそう」な場面を作り、すぐに覆す。観客のエネルギーをリセットして後半への期待を高める。',
+      example: '例：「これで全部解決だ」→「いや、実はもっと深刻な問題があった」という流れ。',
+    },
+    {
+      no: 4,
+      title: 'キャラクターの内的変化を可視化する',
+      icon: 'fa-person-walking',
+      color: 'var(--kogane)',
+      bg: 'var(--kogane-bg)',
+      desc: 'アクト2は外的な事件だけでなく、キャラクターの内面が変化するフェーズ。変化の「前」「途中」「後」を具体的なシーンで示す。',
+      example: '例：「嘘をつくことへの罪悪感」が徐々に表れるシーンを3〜4回挟む。',
+    },
+    {
+      no: 5,
+      title: '時計を見せる（タイムプレッシャー）',
+      icon: 'fa-clock',
+      color: 'var(--momo)',
+      bg: 'var(--momo-bg)',
+      desc: '締め切り・制限時間・迫り来る脅威をアクト2に組み込む。観客に「急いで！」という緊張感を持続させる。',
+      example: '例：「3日以内に証拠を見つけなければ無実の人が処刑される」。',
+    },
+    {
+      no: 6,
+      title: 'ダークナイト（最暗部）を設計する',
+      icon: 'fa-moon',
+      color: 'var(--kon-lt)',
+      bg: 'var(--kon-bg)',
+      desc: 'アクト2終盤（75%地点）で主人公が最も深い絶望に落ちる「ダークナイト・オブ・ソウル」を置く。ここからアクト3への反転が生まれる。',
+      example: '例：仲間を失い、目標は届かず、帰る場所もなく…という状況。',
+    },
+  ];
+
+  return `
+  <h2>アクト2とは何か</h2>
+  <p>三幕構成において、アクト2（第二幕）は全体の約<strong>50%</strong>を占める最長の幕です。主人公が目標に向かって行動し、様々な障害にぶつかり、内的・外的に変化していく過程を描きます。</p>
+  <div class="article-callout beni">
+    <strong>アクト2が難しい理由：</strong>アクト1は「物語を始める」という明確な目標、アクト3は「物語を終わらせる」という目標があります。しかしアクト2は「物語を進める」という漠然とした目標しかなく、脚本家はここで行き詰まりやすくなります。
+  </div>
+
+  <h2>6つの突破戦略</h2>
+  ${strategies.map(s => `
+  <div style="border:1px solid var(--border);border-left:4px solid ${s.color};border-radius:var(--radius);padding:16px;margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+      <div style="width:32px;height:32px;border-radius:50%;background:${s.bg};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fas ${s.icon}" style="color:${s.color};font-size:13px"></i>
+      </div>
+      <div>
+        <span style="font-size:11px;color:${s.color};font-weight:700;letter-spacing:.05em">戦略 ${s.no}</span>
+        <div style="font-size:14px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${s.title}</div>
+      </div>
+    </div>
+    <p style="font-size:13px;line-height:1.75;color:var(--text-secondary);margin:0 0 8px">${s.desc}</p>
+    <div style="background:${s.bg};border-radius:var(--radius-sm);padding:8px 12px;font-size:12px;color:var(--text-secondary)">
+      <i class="fas fa-film" style="color:${s.color};font-size:10px;margin-right:5px"></i>${s.example}
+    </div>
+  </div>`).join('')}
+
+  <h2>アクト2の時間配分（モデル）</h2>
+  <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin:16px 0">
+    ${[
+      { range:'25-37.5%', label:'アクト2前半：新世界への適応', color:'var(--matcha)', desc:'主人公が新しい状況・目標・仲間に慣れていく。' },
+      { range:'37.5-50%', label:'ミッドポイント', color:'var(--kogane)', desc:'偽りの勝利 or 偽りの敗北。物語の転換点。' },
+      { range:'50-62.5%', label:'アクト2後半：エスカレーション', color:'var(--accent)', desc:'主人公が積極的に行動し、危機が高まる。' },
+      { range:'62.5-75%', label:'ダークナイト（最暗部）', color:'var(--fuji)', desc:'全てを失う。絶望の底。アクト3への反転準備。' },
+    ].map(t => `
+    <div style="display:flex;gap:10px;margin-bottom:10px;align-items:flex-start">
+      <div style="min-width:80px;font-size:10px;font-weight:700;color:${t.color};padding-top:2px">${t.range}</div>
+      <div>
+        <div style="font-size:12.5px;font-weight:600;color:var(--text-primary)">${t.label}</div>
+        <div style="font-size:12px;color:var(--text-muted)">${t.desc}</div>
+      </div>
+    </div>`).join('')}
+  </div>
+
+  <div class="article-callout kogane">
+    <strong>自己診断：</strong>「アクト2で詰まった」と感じたら、ミッドポイントが明確かどうか確認してください。多くの場合、50%地点に劇的な転換がないことが原因です。
+  </div>`;
+}
+
+// ── プロの推敲術 ──────────────────────────────────────────────
+function renderArticleProfessionalRevision() {
+  const stages = [
+    {
+      stage: 1,
+      title: '大局読み — 全体像を俯瞰する',
+      icon: 'fa-binoculars',
+      color: 'var(--accent)',
+      bg: 'var(--accent-bg)',
+      desc: '初稿を「連続して一気に読む」。この段階では何も直さない。物語の流れ、感情の動き、大きな矛盾を把握する。',
+      check: ['物語全体の感情曲線は山と谷があるか', '主人公の欲求は一貫しているか', '全体の読後感は意図した通りか'],
+    },
+    {
+      stage: 2,
+      title: '構造チェック — 幕と転換点の確認',
+      icon: 'fa-diagram-project',
+      color: 'var(--fuji)',
+      bg: 'var(--fuji-bg)',
+      desc: '三幕構成・ビートシートなどの構造フレームワークと照らし合わせる。各転換点（ターニングポイント）が機能しているか確認。',
+      check: ['アクト1の終わりに「世界の変化」があるか', 'ミッドポイントが明確か', 'アクト2のダークナイトが十分に暗いか', 'クライマックスが物語の全テーマを体現しているか'],
+    },
+    {
+      stage: 3,
+      title: 'シーン整理 — 不要シーンの削除',
+      icon: 'fa-scissors',
+      color: 'var(--matcha)',
+      bg: 'var(--matcha-bg)',
+      desc: '各シーンに「このシーンがなければ物語は成立するか？」と問う。Yesなら削除候補。残すシーンは必ず複数の役割（情報提供＋感情＋伏線など）を果たすこと。',
+      check: ['このシーンで観客は何かを学ぶか', 'このシーンはキャラクターの内的変化を示すか', 'このシーンは次のシーンへの橋渡しをするか'],
+    },
+    {
+      stage: 4,
+      title: 'セリフの磨き上げ',
+      icon: 'fa-comments',
+      color: 'var(--kogane)',
+      bg: 'var(--kogane-bg)',
+      desc: '各キャラクターのセリフを音読する。長すぎるセリフを切る。「言わなくても分かること」は削除。各キャラクターの声が区別できるか確認する。',
+      check: ['同じことを2回言っていないか', '直接的すぎるセリフ（サブテキストがないか）', 'このセリフはこのキャラクターらしいか', 'テーマを「語らせて」いないか'],
+    },
+    {
+      stage: 5,
+      title: 'ト書き・情景描写の精査',
+      icon: 'fa-align-left',
+      color: 'var(--momo)',
+      bg: 'var(--momo-bg)',
+      desc: '日本式ト書きの場合、動作・状況のみを書く。感情・心理を直接書かない。映像で見せることを意識。4行以上のト書きは分割するか短縮する。',
+      check: ['カメラでは写せない内面描写を書いていないか', '動詞は具体的で生き生きしているか', '読み手が映像をイメージできるか'],
+    },
+    {
+      stage: 6,
+      title: 'テクニカルチェック',
+      icon: 'fa-gear',
+      color: 'var(--asagi)',
+      bg: 'var(--asagi-bg)',
+      desc: 'フォーマット・表記の統一。キャラクター名の統一、時制の一貫性、柱書きの正確さ、ページ数のバランス確認。',
+      check: ['キャラクター名の表記が一致しているか', '柱書きのフォーマットが正しいか', '1シーンが長すぎないか（3〜5分が目安）', '全体のページ数は適切か'],
+    },
+    {
+      stage: 7,
+      title: '最終読み — 他者の目で読む',
+      icon: 'fa-eye',
+      color: 'var(--kon-lt)',
+      bg: 'var(--kon-bg)',
+      desc: '数日間距離を置いた後、「初めて読む読者」の視点で通読する。または信頼できる人に読んでもらい、感情の反応を確認する。',
+      check: ['最初の10ページで引き込まれるか', 'どこかで読み飛ばしたくなる場所はないか', '最後まで読んだ後、誰かに話したくなるか'],
+    },
+  ];
+
+  return `
+  <h2>「初稿は捨て稿」の本当の意味</h2>
+  <p>ヘミングウェイは「すべての初稿はクソだ」と言いました。これは初稿をバカにしているのではなく、推敲こそが脚本執筆の本質だという宣言です。初稿は「素材の発見」、推敲は「彫刻」です。</p>
+  <div class="article-callout beni">
+    <strong>重要な心構え：</strong>初稿で完璧を目指さない。まず書き切ることに集中し、推敲で磨く。多くの脚本家は初稿を7〜10回書き直します。
+  </div>
+
+  <h2>7段階推敲プロセス</h2>
+  ${stages.map(s => `
+  <div style="border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;position:relative;padding-left:52px">
+    <div style="position:absolute;left:16px;top:16px;width:28px;height:28px;border-radius:50%;background:${s.bg};border:2px solid ${s.color};display:flex;align-items:center;justify-content:center">
+      <span style="font-size:11px;font-weight:800;color:${s.color}">${s.stage}</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+      <i class="fas ${s.icon}" style="color:${s.color};font-size:13px"></i>
+      <span style="font-size:14px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${s.title}</span>
+    </div>
+    <p style="font-size:13px;line-height:1.75;color:var(--text-secondary);margin:0 0 10px">${s.desc}</p>
+    <div style="background:${s.bg};border-radius:var(--radius-sm);padding:10px 12px">
+      <div style="font-size:10.5px;font-weight:700;color:${s.color};margin-bottom:6px">チェックリスト</div>
+      <ul style="margin:0;padding-left:16px">
+        ${s.check.map(c => `<li style="font-size:12px;color:var(--text-secondary);margin-bottom:3px">${c}</li>`).join('')}
+      </ul>
+    </div>
+  </div>`).join('')}
+
+  <h2>「殺すのが惜しい愛着」に注意</h2>
+  <p>推敲で最も難しいのは、自分が気に入っているシーンやセリフを削除することです。作家はこれを<strong>「殺すのが惜しい愛着（Kill Your Darlings）」</strong>と呼びます。</p>
+  <div class="article-callout kogane">
+    <strong>原則：</strong>「このシーンが好きだから残す」ではなく「このシーンが物語に必要だから残す」で判断してください。削除したシーンは「書き溜め」として別ファイルに保存しておきましょう。後で別の作品で使えることがあります。
+  </div>`;
+}
+
 function renderGuidePage(guideId) {
   const guide = GUIDES.find(g => `guide-${g.id}` === guideId);
   if (!guide) {
@@ -7461,49 +7904,72 @@ function updateTimerSettings() {
   }
 }
 
-// ── 自然音エンジン (Web Audio API) ──────────────────────────────
+// ── 自然音エンジン v2 (Web Audio API — 高品質自然音) ────────────
 const AmbientSound = {
   ctx: null,
   nodes: [],
   current: null,
-  gain: null,
+  masterGain: null,
+  _schedulers: [],
 
   init() {
     if (!this.ctx) {
-      try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { return false; }
+      try {
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      } catch(e) { return false; }
+    }
+    // AudioContextが一時停止している場合は再開
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume();
     }
     return true;
   },
 
   stop() {
-    this.nodes.forEach(n => { try { n.stop(); } catch(e) {} });
+    // スケジューラーを全て停止
+    this._schedulers.forEach(id => clearTimeout(id));
+    this._schedulers = [];
+    // ノードを停止
+    this.nodes.forEach(n => {
+      try { n.stop(0); } catch(e) {}
+      try { n.disconnect(); } catch(e) {}
+    });
     this.nodes = [];
-    if (this.gain) { try { this.gain.disconnect(); } catch(e) {} this.gain = null; }
+    if (this.masterGain) {
+      try {
+        // フェードアウト
+        this.masterGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.3);
+        const g = this.masterGain;
+        setTimeout(() => { try { g.disconnect(); } catch(e) {} }, 500);
+      } catch(e) {}
+      this.masterGain = null;
+    }
     this.current = null;
   },
 
-  makeGain(vol) {
-    const g = this.ctx.createGain();
-    g.gain.value = vol;
-    g.connect(this.ctx.destination);
-    return g;
-  },
-
-  makeWhiteNoise(color, vol) {
-    const bufSize = this.ctx.sampleRate * 2;
-    const buf = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
-    const data = buf.getChannelData(0);
-    let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
-    for (let i = 0; i < bufSize; i++) {
-      const white = Math.random() * 2 - 1;
-      if (color === 'pink') {
-        b0=0.99886*b0+white*0.0555179; b1=0.99332*b1+white*0.0750759;
-        b2=0.96900*b2+white*0.1538520; b3=0.86650*b3+white*0.3104856;
-        b4=0.55000*b4+white*0.5329522; b5=-0.7616*b5-white*0.0168980;
-        data[i] = (b0+b1+b2+b3+b4+b5+b6+white*0.5362) * 0.11;
-        b6 = white * 0.115926;
-      } else {
-        data[i] = white;
+  // ノイズバッファ生成（ステレオ対応、より長いバッファ）
+  makeNoiseBuf(color) {
+    const sr = this.ctx.sampleRate;
+    const len = sr * 4; // 4秒バッファでよりランダムに
+    const buf = this.ctx.createBuffer(2, len, sr); // ステレオ
+    for (let ch = 0; ch < 2; ch++) {
+      const data = buf.getChannelData(ch);
+      let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+      let lastOut = 0;
+      for (let i = 0; i < len; i++) {
+        const white = Math.random() * 2 - 1;
+        if (color === 'pink') {
+          b0=0.99886*b0+white*0.0555179; b1=0.99332*b1+white*0.0750759;
+          b2=0.96900*b2+white*0.1538520; b3=0.86650*b3+white*0.3104856;
+          b4=0.55000*b4+white*0.5329522; b5=-0.7616*b5-white*0.0168980;
+          data[i] = (b0+b1+b2+b3+b4+b5+b6+white*0.5362) * 0.11;
+          b6 = white * 0.115926;
+        } else if (color === 'brown') {
+          lastOut = (lastOut + (0.02 * white)) / 1.02;
+          data[i] = lastOut * 3.5;
+        } else {
+          data[i] = white;
+        }
       }
     }
     const src = this.ctx.createBufferSource();
@@ -7512,84 +7978,233 @@ const AmbientSound = {
     return src;
   },
 
-  playRain(gain) {
-    // ホワイトノイズ + LPF で雨音を模倒
-    const noise = this.makeWhiteNoise('white', 0.3);
-    const lpf = this.ctx.createBiquadFilter();
-    lpf.type = 'lowpass'; lpf.frequency.value = 1200;
-    const g2 = this.ctx.createGain(); g2.gain.value = 0.35;
-    noise.connect(lpf); lpf.connect(g2); g2.connect(gain);
-    noise.start();
-    this.nodes.push(noise);
+  // フィルターチェーン作成
+  makeFilter(type, freq, q) {
+    const f = this.ctx.createBiquadFilter();
+    f.type = type; f.frequency.value = freq;
+    if (q !== undefined) f.Q.value = q;
+    return f;
   },
 
-  playWaves(gain) {
-    // ピンクノイズ + 周期的な振幅変調で波音
-    const noise = this.makeWhiteNoise('pink', 0.4);
+  // 雨音 — より自然な多層構成
+  playRain(dest) {
+    const sr = this.ctx.sampleRate;
+    // 層1: メインの雨の背景音（ホワイトノイズ＋複数フィルター）
+    const rain1 = this.makeNoiseBuf('white');
+    const lpf1 = this.makeFilter('lowpass', 3000);
+    const hpf1 = this.makeFilter('highpass', 200);
+    const g1 = this.ctx.createGain(); g1.gain.value = 0.28;
+    rain1.connect(lpf1); lpf1.connect(hpf1); hpf1.connect(g1); g1.connect(dest);
+    rain1.start();
+    this.nodes.push(rain1);
+
+    // 層2: 雨粒の細かい音（高域成分）
+    const rain2 = this.makeNoiseBuf('pink');
+    const bpf2 = this.makeFilter('bandpass', 4000, 0.8);
+    const g2 = this.ctx.createGain(); g2.gain.value = 0.12;
+    rain2.connect(bpf2); bpf2.connect(g2); g2.connect(dest);
+    rain2.start();
+    this.nodes.push(rain2);
+
+    // 層3: 低域のゴロゴロ感（遠くの雷・地鳴り）
+    const rain3 = this.makeNoiseBuf('brown');
+    const lpf3 = this.makeFilter('lowpass', 180);
+    const g3 = this.ctx.createGain(); g3.gain.value = 0.08;
+    rain3.connect(lpf3); lpf3.connect(g3); g3.connect(dest);
+    rain3.start();
+    this.nodes.push(rain3);
+
+    // 強度のゆらぎ（自然な変動）
     const lfo = this.ctx.createOscillator();
-    lfo.frequency.value = 0.15;
-    const lfoGain = this.ctx.createGain();
-    lfoGain.gain.value = 0.28;
-    const biasGain = this.ctx.createGain();
-    biasGain.gain.value = 0.28;
-    const lpf = this.ctx.createBiquadFilter();
-    lpf.type = 'lowpass'; lpf.frequency.value = 800;
-    lfo.connect(lfoGain); lfoGain.connect(biasGain.gain);
-    noise.connect(lpf); lpf.connect(biasGain); biasGain.connect(gain);
-    noise.start(); lfo.start();
-    this.nodes.push(noise, lfo);
+    lfo.type = 'sine'; lfo.frequency.value = 0.05;
+    const lfoG = this.ctx.createGain(); lfoG.gain.value = 0.06;
+    lfo.connect(lfoG); lfoG.connect(g1.gain);
+    lfo.start();
+    this.nodes.push(lfo);
   },
 
-  playForest(gain) {
-    // 高域ピンクノイズで風・鳥の鳴き声的な質感
-    const noise = this.makeWhiteNoise('pink', 0.2);
-    const hpf = this.ctx.createBiquadFilter();
-    hpf.type = 'highpass'; hpf.frequency.value = 400;
-    const bpf = this.ctx.createBiquadFilter();
-    bpf.type = 'bandpass'; bpf.frequency.value = 2000; bpf.Q.value = 0.5;
-    const g2 = this.ctx.createGain(); g2.gain.value = 0.18;
-    noise.connect(hpf); hpf.connect(g2); g2.connect(gain);
+  // 波音 — 海岸の波の寄せ返し
+  playWaves(dest) {
+    // ピンクノイズベース
+    const noise = this.makeNoiseBuf('pink');
+    const lpf = this.makeFilter('lowpass', 1200);
+    const g = this.ctx.createGain(); g.gain.value = 0.4;
+    noise.connect(lpf); lpf.connect(g); g.connect(dest);
     noise.start();
     this.nodes.push(noise);
-    // 周期的な高音成分（虫・鳥の鳴き声）
-    const osc = this.ctx.createOscillator();
-    osc.type = 'sine'; osc.frequency.value = 2400;
-    const oscGain = this.ctx.createGain(); oscGain.gain.value = 0;
-    const lfo2 = this.ctx.createOscillator();
-    lfo2.frequency.value = 0.08;
-    lfo2.connect(oscGain.gain);
-    osc.connect(oscGain); oscGain.connect(gain);
-    osc.start(); lfo2.start();
-    this.nodes.push(osc, lfo2);
+
+    // 波の周期的なうねり（複数周期を重ねる）
+    const createWaveLfo = (freq, depth, offset) => {
+      const lfo = this.ctx.createOscillator();
+      lfo.type = 'sine'; lfo.frequency.value = freq;
+      const lfoG = this.ctx.createGain(); lfoG.gain.value = depth;
+      const bias = this.ctx.createGain(); bias.gain.value = offset;
+      lfo.connect(lfoG); lfoG.connect(bias.gain);
+      lfo.start();
+      this.nodes.push(lfo);
+      return bias;
+    };
+    // 主波（約12秒周期）
+    const wave1 = createWaveLfo(0.083, 0.22, 0.22);
+    wave1.connect(g.gain);
+    // 副波（ずれた周期）
+    const wave2 = createWaveLfo(0.11, 0.10, 0.0);
+    wave2.connect(g.gain);
+
+    // フィルター周波数のゆらぎ（波が寄せる時の音色変化）
+    const fLfo = this.ctx.createOscillator();
+    fLfo.type = 'sine'; fLfo.frequency.value = 0.083;
+    const fLfoG = this.ctx.createGain(); fLfoG.gain.value = 400;
+    lpf.frequency.value = 800;
+    fLfo.connect(fLfoG); fLfoG.connect(lpf.frequency);
+    fLfo.start();
+    this.nodes.push(fLfo);
+
+    // 泡立ち音（高域）
+    const foam = this.makeNoiseBuf('white');
+    const hpf = this.makeFilter('highpass', 3000);
+    const fLfo2 = this.ctx.createOscillator();
+    fLfo2.type = 'sine'; fLfo2.frequency.value = 0.083;
+    const gFoam = this.ctx.createGain(); gFoam.gain.value = 0.0;
+    const fLfoG2 = this.ctx.createGain(); fLfoG2.gain.value = 0.05;
+    fLfo2.connect(fLfoG2); fLfoG2.connect(gFoam.gain);
+    foam.connect(hpf); hpf.connect(gFoam); gFoam.connect(dest);
+    foam.start(); fLfo2.start();
+    this.nodes.push(foam, fLfo2);
   },
 
-  playCafe(gain) {
-    // ブラウンノイズ + 軽い反響で空間感
-    const noise = this.makeWhiteNoise('pink', 0.25);
-    const lpf = this.ctx.createBiquadFilter();
-    lpf.type = 'lowpass'; lpf.frequency.value = 600;
-    const g2 = this.ctx.createGain(); g2.gain.value = 0.25;
-    noise.connect(lpf); lpf.connect(g2); g2.connect(gain);
+  // 森の音 — 風・虫・鳥の多層レイヤー
+  playForest(dest) {
+    // 風の音（ピンクノイズ）
+    const wind = this.makeNoiseBuf('pink');
+    const lpf = this.makeFilter('lowpass', 800);
+    const hpf = this.makeFilter('highpass', 120);
+    const gWind = this.ctx.createGain(); gWind.gain.value = 0.22;
+    wind.connect(hpf); hpf.connect(lpf); lpf.connect(gWind); gWind.connect(dest);
+    wind.start();
+    this.nodes.push(wind);
+
+    // 風のゆらぎ
+    const wLfo = this.ctx.createOscillator();
+    wLfo.type = 'sine'; wLfo.frequency.value = 0.07;
+    const wLfoG = this.ctx.createGain(); wLfoG.gain.value = 0.08;
+    wLfo.connect(wLfoG); wLfoG.connect(gWind.gain);
+    wLfo.start();
+    this.nodes.push(wLfo);
+
+    // 葉ずれ（高域ピンクノイズ）
+    const leaves = this.makeNoiseBuf('pink');
+    const bpLeaves = this.makeFilter('bandpass', 5000, 0.5);
+    const gLeaves = this.ctx.createGain(); gLeaves.gain.value = 0.08;
+    leaves.connect(bpLeaves); bpLeaves.connect(gLeaves); gLeaves.connect(dest);
+    leaves.start();
+    this.nodes.push(leaves);
+
+    // 虫の音（複数周波数の正弦波 + AM変調）
+    const insects = [
+      { freq: 4200, rate: 3.5, depth: 0.02 },
+      { freq: 3800, rate: 4.2, depth: 0.015 },
+      { freq: 5100, rate: 2.8, depth: 0.01 },
+    ];
+    insects.forEach(ins => {
+      const osc = this.ctx.createOscillator();
+      osc.type = 'sine'; osc.frequency.value = ins.freq;
+      const gOsc = this.ctx.createGain(); gOsc.gain.value = 0;
+      const amLfo = this.ctx.createOscillator();
+      amLfo.type = 'sine'; amLfo.frequency.value = ins.rate;
+      const amG = this.ctx.createGain(); amG.gain.value = ins.depth;
+      amLfo.connect(amG); amG.connect(gOsc.gain);
+      osc.connect(gOsc); gOsc.connect(dest);
+      osc.start(); amLfo.start();
+      this.nodes.push(osc, amLfo);
+    });
+  },
+
+  // カフェ音 — より自然な環境音
+  playCafe(dest) {
+    // ベース低域（部屋の響き）
+    const base = this.makeNoiseBuf('brown');
+    const lpf = this.makeFilter('lowpass', 300);
+    const gBase = this.ctx.createGain(); gBase.gain.value = 0.15;
+    base.connect(lpf); lpf.connect(gBase); gBase.connect(dest);
+    base.start();
+    this.nodes.push(base);
+
+    // 中域の環境音（人の声・食器のような）
+    const mid = this.makeNoiseBuf('pink');
+    const bpf = this.makeFilter('bandpass', 800, 0.4);
+    const gMid = this.ctx.createGain(); gMid.gain.value = 0.12;
+    mid.connect(bpf); bpf.connect(gMid); gMid.connect(dest);
+    mid.start();
+    this.nodes.push(mid);
+
+    // 会話のざわめき（複数帯域）
+    [600, 1200, 2400].forEach((freq, i) => {
+      const n = this.makeNoiseBuf('pink');
+      const bp = this.makeFilter('bandpass', freq, 1.5);
+      const g = this.ctx.createGain(); g.gain.value = 0.04 + i * 0.01;
+      // ランダムなボリューム変動（会話が始まったり終わったり）
+      const modLfo = this.ctx.createOscillator();
+      modLfo.type = 'sine';
+      modLfo.frequency.value = 0.2 + Math.random() * 0.3;
+      const modG = this.ctx.createGain(); modG.gain.value = 0.03;
+      modLfo.connect(modG); modG.connect(g.gain);
+      n.connect(bp); bp.connect(g); g.connect(dest);
+      n.start(); modLfo.start();
+      this.nodes.push(n, modLfo);
+    });
+
+    // 食器やカップの音（ランダムトランジェント）
+    const scheduleClatter = () => {
+      if (!this.ctx || !this.masterGain) return;
+      const delay = 3000 + Math.random() * 8000;
+      const id = setTimeout(() => {
+        if (!this.ctx || !this.masterGain) return;
+        const osc = this.ctx.createOscillator();
+        osc.type = 'triangle';
+        osc.frequency.value = 1800 + Math.random() * 1200;
+        const env = this.ctx.createGain();
+        env.gain.setValueAtTime(0.04, this.ctx.currentTime);
+        env.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
+        osc.connect(env); env.connect(dest);
+        osc.start(this.ctx.currentTime);
+        osc.stop(this.ctx.currentTime + 0.15);
+        scheduleClatter(); // 繰り返し
+      }, delay);
+      this._schedulers.push(id);
+    };
+    scheduleClatter();
+  },
+
+  // ホワイトノイズ
+  playWhite(dest) {
+    const noise = this.makeNoiseBuf('white');
+    const lpf = this.makeFilter('lowpass', 8000);
+    const g = this.ctx.createGain(); g.gain.value = 0.18;
+    noise.connect(lpf); lpf.connect(g); g.connect(dest);
     noise.start();
     this.nodes.push(noise);
   },
 
   play(type) {
-    if (!this.init()) { toast('ブラウザがオーディオに対応していません', 'error'); return; }
+    if (!this.init()) {
+      toast('ブラウザがオーディオに対応していません', 'error');
+      return;
+    }
     this.stop();
     if (type === 'none') return;
     this.current = type;
-    this.gain = this.makeGain(0.6);
-    if (type === 'rain') this.playRain(this.gain);
-    else if (type === 'waves') this.playWaves(this.gain);
-    else if (type === 'forest') this.playForest(this.gain);
-    else if (type === 'cafe') this.playCafe(this.gain);
-    else if (type === 'white') {
-      const n = this.makeWhiteNoise('white', 0.3);
-      const g2 = this.ctx.createGain(); g2.gain.value = 0.2;
-      n.connect(g2); g2.connect(this.gain);
-      n.start(); this.nodes.push(n);
-    }
+    // マスターゲイン（フェードイン）
+    this.masterGain = this.ctx.createGain();
+    this.masterGain.gain.setValueAtTime(0, this.ctx.currentTime);
+    this.masterGain.gain.linearRampToValueAtTime(0.7, this.ctx.currentTime + 1.5);
+    this.masterGain.connect(this.ctx.destination);
+
+    if (type === 'rain') this.playRain(this.masterGain);
+    else if (type === 'waves') this.playWaves(this.masterGain);
+    else if (type === 'forest') this.playForest(this.masterGain);
+    else if (type === 'cafe') this.playCafe(this.masterGain);
+    else if (type === 'white') this.playWhite(this.masterGain);
   },
 };
 

@@ -876,6 +876,20 @@ body {
   gap: 14px;
   margin-bottom: 26px;
 }
+/* Dashboard stat grid with 6 columns */
+.db-stat-grid {
+  grid-template-columns: repeat(6, 1fr) !important;
+  gap: 10px !important;
+}
+.db-stat-grid .stat-card {
+  padding: 12px 10px;
+}
+.db-stat-grid .stat-value {
+  font-size: 22px !important;
+}
+.db-stat-grid .stat-label {
+  font-size: 10px !important;
+}
 .stat-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -2031,6 +2045,7 @@ body {
    ================================================================ */
 @media (max-width: 900px) {
   .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .db-stat-grid { grid-template-columns: repeat(3, 1fr) !important; }
   .plot-board { grid-template-columns: repeat(2, 1fr); }
   .quick-actions { grid-template-columns: 1fr 1fr; }
 }
@@ -2861,12 +2876,14 @@ body {
   top: calc(100% + 8px);
   right: 0;
   width: 260px;
-  background: var(--card-bg);
+  background: #ffffff;
+  background-color: #ffffff;
   border: 1.5px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
   z-index: 9999;
   overflow: hidden;
+  isolation: isolate;
 }
 .timer-popup-header {
   display: flex;
@@ -6365,15 +6382,20 @@ body {
   top: var(--topbar-h) !important;
   right: 16px !important;
   width: 300px !important;
-  background: var(--card-bg);
+  background: var(--bg-white, #ffffff) !important;
+  background-color: #ffffff !important;
   border: 1.5px solid var(--border);
   border-top: 3px solid var(--kogane);
   border-radius: 0 0 var(--radius) var(--radius);
-  box-shadow: 0 12px 40px rgba(0,0,0,.18), 0 4px 12px rgba(0,0,0,.1);
-  z-index: 10000 !important;
+  box-shadow: 0 12px 40px rgba(0,0,0,.28), 0 4px 16px rgba(0,0,0,.18), 0 0 0 1px rgba(0,0,0,.06);
+  z-index: 100000 !important;
   overflow: hidden;
   max-height: calc(100vh - var(--topbar-h) - 16px);
   overflow-y: auto;
+  /* Force opaque rendering */
+  isolation: isolate;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 .timer-popup-header {
   display: flex;
@@ -6386,7 +6408,7 @@ body {
   top: 0;
   z-index: 1;
 }
-.timer-popup-body { padding: 16px; }
+.timer-popup-body { padding: 16px; background: #ffffff; }
 .timer-popup-bigtime {
   font-size: 52px;
   font-weight: 900;
@@ -6472,6 +6494,7 @@ body {
   .topbar-divider { display: none; }
   .topbar-page-info .topbar-subtitle { display: none; }
   .topbar-proj-info .topbar-subtitle { display: none; }
+  .db-stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
   .timer-popup { width: calc(100vw - 16px) !important; right: 8px !important; }
 }
 
