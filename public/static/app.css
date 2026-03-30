@@ -3836,3 +3836,158 @@ body {
   .learn-filter-bar .form-input { min-width: 120px; }
   .learn-progress-bar-wrap { flex-direction: column; align-items: stretch; gap: 10px; }
 }
+
+/* ================================================================
+   Phase 6: コラボメモ・プロジェクトダッシュボード・エクスポート強化・ガイド拡充
+   ================================================================ */
+
+/* ── コラボメモタブ ── */
+.collab-tab-bar {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 12px;
+}
+
+/* ── プロジェクトダッシュボード (proj-dash) ── */
+.proj-dash-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+@media (max-width: 900px) {
+  .proj-dash-stat-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── テンションカーブ強化 ── */
+.tension-point circle {
+  transition: r 0.15s ease;
+}
+.tension-point:hover circle:first-child {
+  r: 8;
+}
+.tension-curve-container {
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-primary);
+}
+
+/* ── エクスポート強化 ── */
+.export-fmt-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.export-fmt-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 8px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  text-align: center;
+  user-select: none;
+}
+.export-fmt-card:hover {
+  border-color: var(--fuji);
+  background: var(--fuji-bg);
+}
+.export-fmt-card.active {
+  border-color: var(--fuji);
+  background: var(--fuji-bg);
+}
+.export-fmt-card input[type="radio"] {
+  display: none;
+}
+.export-opt-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.export-opt-row:hover { opacity: 0.8; }
+.export-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.export-layout {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.export-info-grid { display: flex; flex-direction: column; gap: 6px; }
+.export-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  font-size: 12px;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+.export-info-row span:first-child { color: var(--text-muted); min-width: 64px; }
+.export-info-row strong { font-weight: 700; color: var(--text-primary); }
+
+@media (max-width: 860px) {
+  .export-layout { grid-template-columns: 1fr; }
+  .export-fmt-grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (max-width: 600px) {
+  .export-fmt-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── ガイド進捗 ── */
+.guide-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+.guide-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.12s, box-shadow 0.15s;
+}
+.guide-card:hover {
+  border-color: var(--fuji);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
+}
+.guide-card-icon {
+  width: 40px; height: 40px;
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+.guide-card-title {
+  font-size: 13.5px; font-weight: 700;
+  color: var(--text-primary);
+  font-family: 'Noto Serif JP', serif;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+.guide-card-desc {
+  font-size: 11.5px; color: var(--text-muted);
+  line-height: 1.7;
+}
