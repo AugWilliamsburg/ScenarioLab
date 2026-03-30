@@ -2254,3 +2254,210 @@ body {
   }
 }
 
+
+/* ================================================================
+   Phase 2 CSS Additions — アニメーション・新コンポーネント
+   ================================================================ */
+
+/* フェードインアニメーション */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideInRight {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes pulse-soft {
+  0%,100% { opacity:1; }
+  50%      { opacity:.65; }
+}
+.card { animation: fadeIn .25s ease; }
+.insp-scratch-card { animation: fadeIn .2s ease; }
+
+/* 目標ウィジェット カラー変数 */
+.stat-card.matcha { --card-color: var(--matcha); --card-bg: var(--matcha-bg); --card-border: var(--matcha-border); }
+.stat-card.kogane { --card-color: var(--kogane); --card-bg: var(--kogane-bg); --card-border: var(--kogane-border); }
+
+/* インスピレーション タブ */
+.insp-tabs {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  border-bottom: 2px solid var(--border);
+}
+.insp-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+}
+.insp-tab:hover { color: var(--text-primary); background: var(--bg-subtle); }
+.insp-tab.active {
+  color: var(--kogane);
+  font-weight: 700;
+  border-bottom-color: var(--kogane);
+  background: var(--kogane-bg);
+}
+
+/* スクラッチカード */
+.insp-scratch-card {
+  background: var(--bg-white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  transition: box-shadow .15s, border-color .15s;
+}
+.insp-scratch-card:hover {
+  border-color: var(--accent-border);
+  box-shadow: var(--shadow-sm);
+}
+.insp-scratch-card.pinned {
+  border-color: var(--kogane-border);
+  background: var(--kogane-bg);
+}
+.insp-scratch-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.insp-scratch-body {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.insp-empty {
+  text-align: center;
+  padding: 32px 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* インスピレーション タグ */
+.insp-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all .12s;
+}
+.insp-tag:hover { background: var(--bg-hover); border-color: var(--accent-border); color: var(--accent); }
+.insp-tag.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-border); }
+.insp-tag.momo { background: var(--momo-bg); color: var(--momo); border-color: var(--momo-border); }
+.insp-tag.kon  { background: var(--kon-bg);  color: var(--kon-lt);  border-color: var(--kon-border); }
+.insp-tag.asagi { background: var(--asagi-bg); color: var(--asagi); border-color: var(--asagi-border); }
+.insp-tag.beni  { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-border); }
+
+/* プロンプト一覧アイテム */
+.insp-prompt-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background .12s;
+  border-bottom: 1px solid var(--border);
+}
+.insp-prompt-item:hover { background: var(--bg-subtle); }
+.insp-prompt-item:last-child { border-bottom: none; }
+
+/* アイデアソートボタン */
+.idea-sort.active {
+  background: var(--kogane-bg);
+  color: var(--kogane);
+  border-color: var(--kogane-border);
+  font-weight: 700;
+}
+
+/* 週間チャートバー */
+.chart-bar-wrap {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 4px;
+  height: 70px;
+}
+
+/* 記事カード既読スタイル */
+.article-card.read {
+  opacity: .85;
+}
+.article-card.read .article-card-title {
+  color: var(--text-secondary);
+}
+
+/* モバイル対応 */
+@media (max-width: 768px) {
+  .insp-tabs { flex-wrap: wrap; }
+  .insp-tab { font-size: 11.5px; padding: 6px 10px; }
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .quick-actions { grid-template-columns: 1fr 1fr; }
+  .character-grid { grid-template-columns: 1fr; }
+  .project-grid { grid-template-columns: 1fr; }
+  .article-grid { grid-template-columns: 1fr; }
+}
+
+/* 集中執筆モード */
+.focus-mode-active .sidebar,
+.focus-mode-active .page-header,
+.focus-mode-active .topbar { display: none !important; }
+
+/* ストレージメーター */
+.storage-bar { height: 6px; background: var(--bg-hover); border-radius: 3px; overflow: hidden; }
+.storage-bar-fill { height: 100%; border-radius: 3px; transition: width .4s ease; }
+
+/* 目標進捗バー アニメーション */
+.goal-progress-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width .6s cubic-bezier(.22,.61,.36,1);
+}
+
+/* 記事進捗バー */
+.learn-progress-bar {
+  height: 6px;
+  background: var(--bg-hover);
+  border-radius: 3px;
+  overflow: hidden;
+  transition: width .4s;
+}
+
+/* ツールカード ホバー強化 */
+.tool-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+}
+.tool-card { transition: transform .15s, box-shadow .15s; }
+
+/* アクティビティアイテム ホバー */
+.activity-item:hover { background: var(--bg-subtle); border-radius: var(--radius-sm); }
+
+/* フォームグループ ラベル強化 */
+.form-label { letter-spacing: 0.02em; }
+
+/* プロジェクトカード 選択時 */
+.project-card:hover { border-color: var(--accent-border); }
+

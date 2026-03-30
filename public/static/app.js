@@ -522,6 +522,26 @@ function renderDashboard() {
         </div>`;
       }).join('');
 
+  // 今週の執筆データ（日誌から取得）
+  const journalEntries = DB.get('journal_entries', []);
+  const today = new Date();
+  const weekDays = Array.from({length:7}, (_,i) => {
+    const d = new Date(today); d.setDate(today.getDate()-6+i);
+    return d.toISOString().slice(0,10);
+  });
+  const weekData = weekDays.map(day => {
+    const e = journalEntries.find(e => e.date === day);
+    return { day: day.slice(5), wc: e?.wordCount||0, mood: e?.mood||null };
+  });
+  const weekMax = Math.max(...weekData.map(d=>d.wc), 1);
+
+  // 目標進捗
+  const writingGoal = DB.get('writing_goal', { daily: 500, weekly: 2000 });
+  const todayWc = journalEntries.find(e=>e.date===today.toISOString().slice(0,10))?.wordCount||0;
+  const weekWc  = weekData.reduce((a,d)=>a+d.wc,0);
+  const goalPct = Math.min(100, Math.round(todayWc / writingGoal.daily * 100));
+  const weekGoalPct = Math.min(100, Math.round(weekWc / writingGoal.weekly * 100));
+
   // 最近の活動（強化版）
   const recentActivity = projects.slice(0, 6).map(p => {
     const idx2 = phaseIdx[p.phase] ?? 0;
@@ -653,6 +673,75 @@ function renderDashboard() {
     <!-- 右：サイドパネル -->
     <div style="display:flex;flex-direction:column;gap:18px">
 
+      <!-- 執筆目標ウィジェット -->
+      <div class="card" style="padding:0;overflow:hidden;border-top:3px solid var(--matcha)">
+        <div style="padding:13px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg-subtle)">
+          <div style="display:flex;align-items:center;gap:8px">
+            <i class="fas fa-bullseye" style="color:var(--matcha);font-size:13px"></i>
+            <span style="font-size:13px;font-weight:600;color:var(--text-primary);font-family:'Noto Serif JP',serif">今日の目標</span>
+          </div>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="openGoalSettingModal()" title="目標を設定">
+            <i class="fas fa-pen" style="font-size:10px"></i>
+          </button>
+        </div>
+        <div style="padding:14px">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+            <div style="text-align:center;padding:10px;background:var(--matcha-bg);border-radius:var(--radius-sm);border:1px solid var(--matcha-border)">
+              <div style="font-size:22px;font-weight:700;color:var(--matcha)">${todayWc.toLocaleString()}</div>
+              <div style="font-size:10px;color:var(--text-muted)">今日の文字数</div>
+              <div style="font-size:10px;color:var(--matcha);font-weight:600">目標 ${writingGoal.daily.toLocaleString()}字</div>
+            </div>
+            <div style="text-align:center;padding:10px;background:var(--kogane-bg);border-radius:var(--radius-sm);border:1px solid var(--kogane-border)">
+              <div style="font-size:22px;font-weight:700;color:var(--kogane)">${weekWc.toLocaleString()}</div>
+              <div style="font-size:10px;color:var(--text-muted)">今週の文字数</div>
+              <div style="font-size:10px;color:var(--kogane);font-weight:600">目標 ${writingGoal.weekly.toLocaleString()}字</div>
+            </div>
+          </div>
+          <div style="margin-bottom:8px">
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+              <span style="font-size:11px;color:var(--text-secondary)">今日の進捗</span>
+              <span style="font-size:11px;font-weight:600;color:${goalPct>=100?'var(--matcha)':'var(--text-secondary)'}">${goalPct}%${goalPct>=100?' 🎉':''}</span>
+            </div>
+            <div style="height:8px;background:var(--bg-hover);border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:${goalPct}%;background:${goalPct>=100?'var(--matcha)':'linear-gradient(90deg,var(--matcha),var(--kogane))'};border-radius:4px;transition:width .5s ease"></div>
+            </div>
+          </div>
+          <div>
+            <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+              <span style="font-size:11px;color:var(--text-secondary)">週間進捗</span>
+              <span style="font-size:11px;font-weight:600;color:${weekGoalPct>=100?'var(--kogane)':'var(--text-secondary)'}">${weekGoalPct}%${weekGoalPct>=100?' ✨':''}</span>
+            </div>
+            <div style="height:8px;background:var(--bg-hover);border-radius:4px;overflow:hidden">
+              <div style="height:100%;width:${weekGoalPct}%;background:${weekGoalPct>=100?'var(--kogane)':'linear-gradient(90deg,var(--kogane),var(--fuji))'};border-radius:4px;transition:width .5s ease"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 週間執筆チャート -->
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:13px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:var(--bg-subtle)">
+          <i class="fas fa-chart-bar" style="color:var(--fuji);font-size:13px"></i>
+          <span style="font-size:13px;font-weight:600;color:var(--text-primary);font-family:'Noto Serif JP',serif">週間執筆チャート</span>
+        </div>
+        <div style="padding:14px">
+          <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:4px;height:70px">
+            ${weekData.map(d => {
+              const h = Math.round((d.wc / weekMax) * 60) + 4;
+              const isToday = d.day === today.toISOString().slice(5,10);
+              return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px">
+                <div style="font-size:9px;color:var(--text-muted)">${d.wc>0?d.wc:''}</div>
+                <div style="width:100%;height:${h}px;background:${isToday?'var(--fuji)':'var(--fuji-bg)'};border:1.5px solid ${isToday?'var(--fuji)':'var(--fuji-border)'};border-radius:3px 3px 0 0;transition:height .3s" title="${d.day}: ${d.wc}字"></div>
+                <div style="font-size:9px;color:${isToday?'var(--fuji)':'var(--text-muted)'};font-weight:${isToday?700:400}">${d.day}</div>
+              </div>`;
+            }).join('')}
+          </div>
+          <div style="margin-top:10px;font-size:11px;color:var(--text-muted);text-align:center">
+            今週合計: <span style="font-weight:600;color:var(--fuji)">${weekWc.toLocaleString()}字</span>
+          </div>
+        </div>
+      </div>
+
       <!-- 最近の活動 -->
       <div class="card" style="padding:0;overflow:hidden">
         <div style="padding:13px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:var(--bg-subtle)">
@@ -744,6 +833,35 @@ function bindDashboard() {
       filterProjectsByPhase(btn.dataset.phase);
     });
   });
+}
+
+function openGoalSettingModal() {
+  const goal = DB.get('writing_goal', { daily: 500, weekly: 2000 });
+  openModal(
+    `<i class="fas fa-bullseye" style="color:var(--matcha)"></i> 執筆目標を設定`,
+    `<div class="form-group">
+       <label class="form-label">1日の目標文字数</label>
+       <input class="form-input" id="goal-daily" type="number" value="${goal.daily}" min="100" max="50000" step="100">
+     </div>
+     <div class="form-group">
+       <label class="form-label">1週間の目標文字数</label>
+       <input class="form-input" id="goal-weekly" type="number" value="${goal.weekly}" min="500" max="200000" step="500">
+     </div>
+     <div style="padding:10px 12px;background:var(--matcha-bg);border-radius:var(--radius-sm);font-size:12px;color:var(--matcha);border-left:3px solid var(--matcha)">
+       <i class="fas fa-lightbulb" style="margin-right:6px"></i>目標は執筆日誌の文字数入力と連動します
+     </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveWritingGoal()"><i class="fas fa-floppy-disk"></i> 保存</button>`
+  );
+}
+
+function saveWritingGoal() {
+  const daily  = parseInt($('#goal-daily')?.value || 500);
+  const weekly = parseInt($('#goal-weekly')?.value || 2000);
+  DB.set('writing_goal', { daily: isNaN(daily)?500:daily, weekly: isNaN(weekly)?2000:weekly });
+  closeModal();
+  toast('目標を設定しました！', 'success');
+  navigate('dashboard');
 }
 
 function filterProjects(query) {
@@ -1129,9 +1247,21 @@ function renderIdeas(proj) {
           <div class="card-title"><i class="fas fa-lightbulb icon" style="color:var(--kogane)"></i> アイデアノート</div>
           ${ideaTypeSummary ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">' + ideaTypeSummary + '</div>' : ''}
         </div>
-        <button class="btn btn-primary btn-sm" onclick="openAddIdeaModal('${proj.id}')"><i class="fas fa-plus"></i> 追加</button>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="openImportFromInspiration('${proj.id}')" title="インスピレーションから取り込む">
+            <i class="fas fa-bolt" style="color:var(--kogane)"></i> インスピから
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="openAddIdeaModal('${proj.id}')"><i class="fas fa-plus"></i> 追加</button>
+        </div>
       </div>
-      <div class="idea-grid">${ideaCards}</div>
+      ${ideas.length > 1 ? `
+      <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-size:11.5px;color:var(--text-muted)">並び替え:</span>
+        <button class="btn btn-ghost btn-sm idea-sort active" data-sort="createdAt" onclick="sortIdeas('${proj.id}','createdAt',this)">日付順</button>
+        <button class="btn btn-ghost btn-sm idea-sort" data-sort="priority" onclick="sortIdeas('${proj.id}','priority',this)">優先度</button>
+        <button class="btn btn-ghost btn-sm idea-sort" data-sort="type" onclick="sortIdeas('${proj.id}','type',this)">タイプ別</button>
+      </div>` : ''}
+      <div class="idea-grid" id="idea-grid-${proj.id}">${ideaCards}</div>
     </div>
 
     <!-- 右：キーワード + ムードボード + チェック -->
@@ -1178,6 +1308,96 @@ function renderIdeas(proj) {
     <div><strong>着想フェーズのポイント：</strong>良し悪しを判断せず、浮かんだアイデアをすべて書き出しましょう。
     断片的なシーン・セリフ・テーマ・キャラクターのイメージ、何でもOK。高優先のアイデアはのちのコンセプト設計に活用します。</div>
   </div>`;
+}
+
+function sortIdeas(projId, by, btn) {
+  $$('.idea-sort').forEach(b => b.classList.remove('active'));
+  btn?.classList.add('active');
+  const proj = DB.getProject(projId);
+  if (!proj || !proj.ideas) return;
+  const priorityOrder = { '高':0, '中':1, '低':2, '':3 };
+  const sorted = [...proj.ideas].sort((a,b) => {
+    if (by === 'priority') return (priorityOrder[a.priority||'']||3) - (priorityOrder[b.priority||'']||3);
+    if (by === 'type') return (a.type||'').localeCompare(b.type||'');
+    return new Date(b.createdAt||0) - new Date(a.createdAt||0);
+  });
+  const IDEA_TYPE_COLORS = {
+    'メモ':{'tag':'tag-kogane','icon':'fa-note-sticky','hex':'#c48a00','bg':'#fdf8e8'},
+    'シーン':{'tag':'tag-momo','icon':'fa-film','hex':'#d44d7a','bg':'#fdf0f5'},
+    'セリフ':{'tag':'tag-fuji','icon':'fa-quote-left','hex':'#6a5aaa','bg':'#f4f2fb'},
+    'テーマ':{'tag':'tag-matcha','icon':'fa-seedling','hex':'#4a7c3f','bg':'#eff6ed'},
+    'キャラクター':{'tag':'tag-beni','icon':'fa-user','hex':'#d94f2a','bg':'#fef2ee'},
+    '設定':{'tag':'tag-asagi','icon':'fa-map','hex':'#2a8080','bg':'#eef7f7'},
+  };
+  const grid = $('#idea-grid-'+projId);
+  if (!grid) return;
+  grid.innerHTML = sorted.map(idea => {
+    const tc = IDEA_TYPE_COLORS[idea.type] || IDEA_TYPE_COLORS['メモ'];
+    return `<div class="idea-card" id="idea-${idea.id}" style="border-top:3px solid ${tc.hex}">
+      <div class="idea-card-actions">
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="editIdea('${projId}','${idea.id}')"><i class="fas fa-pen" style="font-size:10px"></i></button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteIdea('${projId}','${idea.id}')"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>
+      </div>
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
+        <div style="width:22px;height:22px;border-radius:4px;background:${tc.bg};border:1px solid ${tc.hex}44;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="fas ${tc.icon}" style="color:${tc.hex};font-size:10px"></i>
+        </div>
+        <div class="idea-card-title" style="margin:0">${esc(idea.title||'無題')}</div>
+      </div>
+      <div class="idea-card-body">${esc(idea.body||'').replace(/\n/g,'<br>')}</div>
+      <div class="idea-card-footer">
+        <span class="tag ${tc.tag}" style="font-size:10px">${esc(idea.type||'メモ')}</span>
+        ${idea.priority==='高'?'<span class="tag tag-beni" style="font-size:10px"><i class="fas fa-fire" style="font-size:9px"></i> 高優先</span>':''}
+        ${idea.priority==='低'?'<span class="tag tag-gray" style="font-size:10px">低優先</span>':''}
+        <span class="tag tag-gray" style="margin-left:auto;font-size:10px">${fmtDate(idea.createdAt)}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openImportFromInspiration(projId) {
+  const scratches = DB.get('inspiration_scratches', []);
+  if (scratches.length === 0) {
+    toast('スクラッチパッドにメモがありません。先にインスピレーションページでメモを追加してください。', 'info');
+    return;
+  }
+  openModal(
+    `<i class="fas fa-bolt" style="color:var(--kogane)"></i> インスピレーションから取り込む`,
+    `<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">スクラッチパッドのメモを選択してアイデアとして追加します</div>
+     <div style="max-height:360px;overflow-y:auto;display:flex;flex-direction:column;gap:8px" id="insp-import-list">
+       ${scratches.slice(0,20).map((s,i) => `
+         <label style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;background:var(--bg-subtle);border-radius:var(--radius-sm);cursor:pointer;border:1px solid var(--border)">
+           <input type="checkbox" value="${s.id}" style="margin-top:3px;flex-shrink:0">
+           <div>
+             ${s.title ? `<div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:3px">${esc(s.title)}</div>` : ''}
+             <div style="font-size:12px;color:var(--text-secondary);line-height:1.6">${esc(s.body?.slice(0,100)||'')}${(s.body||'').length>100?'…':''}</div>
+             <div style="font-size:10px;color:var(--text-muted);margin-top:4px">${s.type||'その他'}</div>
+           </div>
+         </label>`).join('')}
+     </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="confirmImportFromInspiration('${projId}')"><i class="fas fa-plus"></i> 選択した項目を追加</button>`,
+    { size: 'modal-md' }
+  );
+}
+
+function confirmImportFromInspiration(projId) {
+  const checks = $$('#insp-import-list input[type=checkbox]:checked');
+  if (checks.length === 0) { toast('項目を選択してください', 'error'); return; }
+  const scratches = DB.get('inspiration_scratches', []);
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  if (!proj.ideas) proj.ideas = [];
+  checks.forEach(ch => {
+    const s = scratches.find(x => x.id === ch.value);
+    if (!s) return;
+    proj.ideas.unshift({ id: uid(), title: s.title || s.body?.slice(0,30) || 'スクラッチメモ',
+      body: s.body, type: 'メモ', priority: '中', createdAt: new Date().toISOString() });
+  });
+  DB.saveProject(proj);
+  closeModal();
+  toast(`${checks.length}件のメモをアイデアに追加しました！`, 'success');
+  navigate(State.currentPage, projId);
 }
 
 function renderIdeaChecklist(proj) {
@@ -2593,6 +2813,12 @@ function renderEditor(proj) {
         </div>
         <div class="editor-toolbar-group" style="margin-left:auto">
           <span style="font-size:11px;color:var(--text-muted)">${wordCount.toLocaleString()}字 / 約${pageCount}ページ</span>
+          <button class="btn btn-ghost btn-sm" onclick="toggleFocusMode()" id="focus-mode-btn" title="集中執筆モード"><i class="fas fa-expand"></i></button>
+          <div style="display:flex;align-items:center;gap:4px">
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="changeEditorFontSize(-1)" title="文字を小さく"><i class="fas fa-minus" style="font-size:9px"></i></button>
+            <span id="editor-font-size" style="font-size:11px;color:var(--text-muted);min-width:28px;text-align:center">13</span>
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="changeEditorFontSize(1)" title="文字を大きく"><i class="fas fa-plus" style="font-size:9px"></i></button>
+          </div>
           <button class="btn btn-primary btn-sm" onclick="saveEditorContent('${proj.id}','${activeDraft?.id||''}')"><i class="fas fa-floppy-disk"></i> 保存</button>
         </div>
       </div>
@@ -2761,6 +2987,39 @@ function insertCharName(name) {
   ta.value = ta.value.slice(0, pos) + text + ta.value.slice(pos);
   ta.selectionStart = ta.selectionEnd = pos + text.length;
   ta.focus();
+}
+
+// ── 集中執筆モード ───────────────────────────────────────────────
+window._focusMode = false;
+window._editorFontSize = 13;
+
+function toggleFocusMode() {
+  window._focusMode = !window._focusMode;
+  const editorLayout = document.querySelector('.editor-layout');
+  const sidebar = document.querySelector('.editor-sidebar');
+  const btn = $('#focus-mode-btn');
+  const header = document.querySelector('.page-header, .topbar, .sidebar, nav');
+
+  if (window._focusMode) {
+    if (sidebar) sidebar.style.display = 'none';
+    if (editorLayout) { editorLayout.style.gridTemplateColumns = '1fr'; editorLayout.style.maxWidth = '800px'; editorLayout.style.margin = '0 auto'; }
+    if (btn) { btn.innerHTML = '<i class="fas fa-compress"></i>'; btn.title = '通常モードに戻る'; }
+    toast('集中執筆モード ON', 'success');
+  } else {
+    if (sidebar) sidebar.style.display = '';
+    if (editorLayout) { editorLayout.style.gridTemplateColumns = ''; editorLayout.style.maxWidth = ''; editorLayout.style.margin = ''; }
+    if (btn) { btn.innerHTML = '<i class="fas fa-expand"></i>'; btn.title = '集中執筆モード'; }
+    toast('通常モードに戻りました', 'info');
+  }
+}
+
+function changeEditorFontSize(delta) {
+  window._editorFontSize = Math.min(20, Math.max(10, window._editorFontSize + delta));
+  const ta = $('#script-editor');
+  if (ta) ta.style.fontSize = window._editorFontSize + 'px';
+  const sizeEl = $('#editor-font-size');
+  if (sizeEl) sizeEl.textContent = window._editorFontSize;
+  DB.set('editor_font_size', window._editorFontSize);
 }
 
 // ================================================================
@@ -3486,6 +3745,28 @@ const ARTICLES = [
     readTime: 9,
     desc: 'キャラクターが物語を通じてどう変化するかを設計するフレームワーク。主人公の「欠如（ウーンド）」から「変化（チェンジ）」までの心理的旅路を詳解。',
   },
+  {
+    id: 'subtext',
+    title: 'サブテキスト — 言わない脚本術',
+    subtitle: '台詞の裏に隠された意味・感情を演出するテクニック',
+    category: 'セリフ技法',
+    categoryColor: 'asagi',
+    icon: 'fa-comment-dots',
+    tags: ['セリフ','サブテキスト','演出'],
+    readTime: 8,
+    desc: '「本当のことは言わない」——優れた脚本の台詞はセリフの表面ではなく裏側に本音が流れる。サブテキストの概念と実践的な書き方を解説。',
+  },
+  {
+    id: 'scene-craft',
+    title: 'シーン設計の技法 — 目的・葛藤・変化',
+    subtitle: '1シーンに必ず含めるべき3つの要素と設計の流れ',
+    category: '場面設計',
+    categoryColor: 'kogane',
+    icon: 'fa-clapperboard',
+    tags: ['シーン','構成','場面設計'],
+    readTime: 10,
+    desc: 'すべての優れたシーンには「目的・葛藤・変化」が含まれている。シーンをゼロから設計する手順と、よくある失敗パターンの回避法を解説。',
+  },
 ];
 
 // ガイドデータ
@@ -3582,11 +3863,20 @@ function renderLearnPage() {
   </div>`;
 
   if (activeTab === 'articles') {
+    // 既読・ブックマーク取得
+    const readArticles = DB.get('read_articles', []);
+    const bookmarkedArticles = DB.get('bookmarked_articles', []);
+    const readCount = ARTICLES.filter(a => readArticles.includes(a.id)).length;
+
     // 記事一覧
     const articleCards = ARTICLES.map(a => {
       const c = COLOR_MAP[a.categoryColor] || COLOR_MAP['beni'];
+      const isRead = readArticles.includes(a.id);
+      const isBm   = bookmarkedArticles.includes(a.id);
       return `
-      <div class="article-card" onclick="navigate('article-${a.id}')">
+      <div class="article-card ${isRead?'read':''}" onclick="navigate('article-${a.id}')" style="position:relative">
+        ${isRead ? `<div style="position:absolute;top:10px;right:10px;font-size:10px;padding:2px 8px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border);border-radius:var(--radius-full);font-weight:600"><i class="fas fa-check" style="font-size:9px;margin-right:2px"></i>既読</div>` : ''}
+        ${isBm ? `<div style="position:absolute;top:10px;right:${isRead?'70':'10'}px;font-size:10px;color:var(--kogane)"><i class="fas fa-bookmark"></i></div>` : ''}
         <div class="article-card-header">
           <div class="article-card-icon" style="background:${c.bg};color:${c.color}">
             <i class="fas ${a.icon}"></i>
@@ -3608,13 +3898,34 @@ function renderLearnPage() {
       </div>`;
     }).join('');
 
+    // 進捗バッジ
+    const progressPct = Math.round(readCount / ARTICLES.length * 100);
+    const progressBadge = `
+    <div style="margin-bottom:16px;padding:12px 16px;background:var(--fuji-bg);border:1px solid var(--fuji-border);border-radius:var(--radius-md);display:flex;align-items:center;gap:16px">
+      <div style="flex:1">
+        <div style="font-size:12px;font-weight:600;color:var(--fuji);margin-bottom:5px">
+          <i class="fas fa-trophy" style="margin-right:6px"></i>学習進捗: ${readCount}/${ARTICLES.length}本読了 (${progressPct}%)
+        </div>
+        <div style="height:6px;background:var(--bg-hover);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${progressPct}%;background:var(--fuji);border-radius:3px;transition:width .4s ease"></div>
+        </div>
+      </div>
+      ${bookmarkedArticles.length > 0 ? `
+      <div style="font-size:12px;color:var(--kogane);font-weight:600;text-align:center;min-width:80px">
+        <i class="fas fa-bookmark" style="font-size:14px;display:block;margin-bottom:2px"></i>
+        ${bookmarkedArticles.length}本 保存済み
+      </div>` : ''}
+      ${progressPct >= 100 ? `<div style="font-size:13px;color:var(--matcha);font-weight:700">🏆 全記事コンプリート！</div>` : ''}
+    </div>`;
+
     return `${hero}${subnav}
-    <div style="margin-bottom:18px">
+    <div style="margin-bottom:14px">
       <div style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif;margin-bottom:4px">
         <i class="fas fa-newspaper" style="color:var(--fuji);margin-right:7px"></i>構成理論 記事
       </div>
       <div style="font-size:12px;color:var(--text-muted)">各構成理論を詳細に解説した専用記事です。クリックして読む。</div>
     </div>
+    ${progressBadge}
     <div class="article-grid">${articleCards}</div>`;
 
   } else {
@@ -3671,17 +3982,39 @@ function renderArticlePage(articleId) {
     'story-circle': renderArticleStoryCircle(),
     'hero-journey': renderArticleHeroJourney(),
     'character-arc': renderArticleCharacterArc(),
+    'subtext': renderArticleSubtext(),
+    'scene-craft': renderArticleSceneCraft(),
   };
 
   const body = bodies[articleId] || `<p>コンテンツは準備中です。</p>`;
 
+  // 既読マーク
+  const readArticles = DB.get('read_articles', []);
+  const isRead = readArticles.includes(articleId);
+  if (!isRead) {
+    readArticles.push(articleId);
+    DB.set('read_articles', readArticles);
+  }
+  // ブックマーク
+  const bookmarkedArticles = DB.get('bookmarked_articles', []);
+  const isBookmarked = bookmarkedArticles.includes(articleId);
+
   return `
   <div style="max-width:820px">
-    <div class="article-back-btn" onclick="navigate('learn-articles')">
-      <i class="fas fa-arrow-left"></i> 記事一覧に戻る
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="article-back-btn" style="margin-bottom:0" onclick="navigate('learn-articles')">
+        <i class="fas fa-arrow-left"></i> 記事一覧に戻る
+      </div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="toggleArticleBookmark('${articleId}')" style="color:${isBookmarked?'var(--kogane)':'var(--text-muted)'}">
+          <i class="fas fa-bookmark"></i> ${isBookmarked?'ブックマーク済み':'ブックマーク'}
+        </button>
+        <span style="font-size:11px;padding:3px 10px;border-radius:var(--radius-full);background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border);font-weight:600">
+          <i class="fas fa-check" style="font-size:9px;margin-right:3px"></i>既読
+        </span>
+      </div>
     </div>
     <div class="article-header" style="margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--border);position:relative">
-      <div class="article-header::after" style="display:none"></div>
       <div style="position:absolute;bottom:-1px;left:0;width:40px;height:2px;background:${c.color};border-radius:1px"></div>
       <div class="article-category-tag" style="background:${c.bg};color:${c.color};border:1px solid ${c.border}">
         <i class="fas ${article.icon}"></i> ${esc(article.category)}
@@ -3699,6 +4032,9 @@ function renderArticlePage(articleId) {
         <i class="fas fa-arrow-left"></i> 記事一覧
       </button>
       <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="toggleArticleBookmark('${articleId}')">
+          <i class="fas fa-bookmark"></i> ${isBookmarked?'ブックマーク解除':'ブックマーク'}
+        </button>
         <button class="btn btn-ghost btn-sm" onclick="navigate('learn-guide')"><i class="fas fa-map"></i> ガイドも見る</button>
       </div>
     </div>
@@ -4033,6 +4369,216 @@ function renderArticleHeroJourney() {
 
   <div class="article-callout">
     <strong>実践的な活用：</strong>17段階すべてを使う必要はありません。「召喚→拒否→師→旅立ち→試練→帰還」という基本的な弧を意識するだけでも物語は豊かになります。
+  </div>`;
+}
+
+function toggleArticleBookmark(articleId) {
+  const bm = DB.get('bookmarked_articles', []);
+  const idx = bm.indexOf(articleId);
+  if (idx >= 0) {
+    bm.splice(idx, 1);
+    toast('ブックマークを解除しました', 'info');
+  } else {
+    bm.push(articleId);
+    toast('ブックマークしました！', 'success');
+  }
+  DB.set('bookmarked_articles', bm);
+  navigate('article-' + articleId);
+}
+
+function renderArticleSubtext() {
+  return `
+  <div class="article-callout asagi">
+    <i class="fas fa-comment-dots" style="color:var(--asagi);margin-right:8px;flex-shrink:0"></i>
+    <strong>サブテキスト（subtext）</strong>とは、台詞の表面には現れない、言外に込められた意味・感情・意図のこと。「言葉と本音のズレ」が観客を引きつける。
+  </div>
+
+  <h2>なぜサブテキストが重要か</h2>
+  <p>素人の脚本と玄人の脚本を分ける大きな要因のひとつがサブテキストの扱いです。登場人物が「すべて言葉で説明してしまう」脚本は薄っぺらく感じられ、観客の想像力が入る余地がありません。</p>
+  <div class="article-callout">
+    ドラマの黄金律：「決して言うな。見せろ。それも直接ではなく、間接的に」
+  </div>
+
+  <h2>サブテキストの4類型</h2>
+  <div class="concept-cards">
+    <div class="concept-card-sm" style="background:var(--asagi-bg);border-color:var(--asagi-border)">
+      <span class="icon">💔</span>
+      <div class="label" style="color:var(--asagi)">感情的サブテキスト</div>
+      <div class="sub">言えない本音・押し込めた感情</div>
+    </div>
+    <div class="concept-card-sm" style="background:var(--matcha-bg);border-color:var(--matcha-border)">
+      <span class="icon">🎭</span>
+      <div class="label" style="color:var(--matcha)">社会的サブテキスト</div>
+      <div class="sub">立場・礼儀・権力の抑圧</div>
+    </div>
+    <div class="concept-card-sm" style="background:var(--accent-bg);border-color:var(--accent-border)">
+      <span class="icon">🔍</span>
+      <div class="label" style="color:var(--accent)">情報的サブテキスト</div>
+      <div class="sub">キャラが知っていることを隠す</div>
+    </div>
+    <div class="concept-card-sm" style="background:var(--fuji-bg);border-color:var(--fuji-border)">
+      <span class="icon">⚡</span>
+      <div class="label" style="color:var(--fuji)">意図的サブテキスト</div>
+      <div class="sub">操作・交渉・計算された言葉</div>
+    </div>
+  </div>
+
+  <h2>実践例：感情的サブテキスト</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:16px 0">
+    <div style="padding:14px;background:var(--accent-bg);border-radius:var(--radius-md);border:1px solid var(--accent-border)">
+      <div style="font-size:11.5px;font-weight:700;color:var(--accent);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em">❌ サブテキストなし（薄い）</div>
+      <div style="font-size:13px;color:var(--text-secondary);line-height:1.9">
+        A「好きだよ」<br>B「私も好き」<br>A「でも、これからも友達でいよう」<br>B「…うん、そうだね。友達として好き」
+      </div>
+    </div>
+    <div style="padding:14px;background:var(--matcha-bg);border-radius:var(--radius-md);border:1px solid var(--matcha-border)">
+      <div style="font-size:11.5px;font-weight:700;color:var(--matcha);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.05em">✅ サブテキストあり（深い）</div>
+      <div style="font-size:13px;color:var(--text-secondary);line-height:1.9">
+        A「（外を見ながら）来年、東京行くんだろ」<br>B「（少し間）そう。決まってる」<br>A「そっか」（長い沈黙）「──いい店、知ってるよ。向こうで」<br>B「…教えてよ」
+      </div>
+    </div>
+  </div>
+  <p>後者では「好き」という言葉は一言も出てきません。しかし「東京に引っ越す」事実と「いい店を教える」という言葉の裏に、関係継続を望む気持ちと諦めが同時に流れています。</p>
+
+  <h2>サブテキストを書く5つの技法</h2>
+  <div class="beat-list">
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--asagi)">1</div>
+      <div class="beat-content">
+        <div class="beat-title">話題のすり替え（Topic Dodge）</div>
+        <div class="beat-desc">本当に言いたいことを言わず、別のトピックに移す。観客は「あ、言えなかったんだ」と感じる</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--asagi)">2</div>
+      <div class="beat-content">
+        <div class="beat-title">行動で代替する（Action Substitute）</div>
+        <div class="beat-desc">「愛してる」と言う代わりに、コーヒーを静かに置く。日本映画の得意技。</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--asagi)">3</div>
+      <div class="beat-content">
+        <div class="beat-title">皮肉・反語（Irony）</div>
+        <div class="beat-desc">言葉の意味と感情の逆転。「楽しいね」と言いながら顔が強張っている</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--asagi)">4</div>
+      <div class="beat-content">
+        <div class="beat-title">過去形・仮定法（Past/Conditional）</div>
+        <div class="beat-desc">「もし昔に戻れたら」「あのとき違う選択をしていたら」——現在への思いを過去に隠す</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--asagi)">5</div>
+      <div class="beat-content">
+        <div class="beat-title">中断と沈黙（Interruption / Silence）</div>
+        <div class="beat-desc">言いかけてやめる。沈黙が続く。「…」は時に最も雄弁なセリフになる。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="article-callout matcha">
+    <strong>執筆のヒント：</strong>書いた台詞に「このキャラは本当はここで何を言いたかったのか？」と問い直してみましょう。その答えを言わせずに、どう行動・反応させるかを考えると、サブテキストが生まれます。
+  </div>`;
+}
+
+function renderArticleSceneCraft() {
+  return `
+  <div class="article-callout kogane">
+    <i class="fas fa-clapperboard" style="color:var(--kogane);margin-right:8px;flex-shrink:0"></i>
+    シーンとは単なる「場面の描写」ではありません。シーンは<strong>物語を推進するドラマ単位</strong>です。優れたシーンには必ず「目的・葛藤・変化」の3要素が含まれています。
+  </div>
+
+  <h2>シーン設計の3要素</h2>
+  <div class="concept-cards">
+    <div class="concept-card-sm" style="background:var(--kogane-bg);border-color:var(--kogane-border)">
+      <span class="icon">🎯</span>
+      <div class="label" style="color:var(--kogane)">目的（Goal）</div>
+      <div class="sub">このシーンで誰が何を達成しようとしているか</div>
+    </div>
+    <div class="concept-card-sm" style="background:var(--accent-bg);border-color:var(--accent-border)">
+      <span class="icon">⚔️</span>
+      <div class="label" style="color:var(--accent)">葛藤（Conflict）</div>
+      <div class="sub">目的の達成を妨げる力・人・状況</div>
+    </div>
+    <div class="concept-card-sm" style="background:var(--matcha-bg);border-color:var(--matcha-border)">
+      <span class="icon">🔄</span>
+      <div class="label" style="color:var(--matcha)">変化（Change）</div>
+      <div class="sub">シーン終了後、何かが変わっていること</div>
+    </div>
+  </div>
+
+  <h2>シーン設計の手順</h2>
+  <div class="beat-list">
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--kogane)">1</div>
+      <div class="beat-content">
+        <div class="beat-title">このシーンは何のためにあるか？</div>
+        <div class="beat-desc">物語的機能を1文で言えること。「主人公が動機を明確にする」「ターニングポイントを引き起こす」など</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--kogane)">2</div>
+      <div class="beat-content">
+        <div class="beat-title">誰がシーンに入り、どんな目標を持っているか？</div>
+        <div class="beat-desc">登場人物全員に「このシーンで何がしたいか」を設定する。目標が衝突するとき、葛藤が生まれる</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--kogane)">3</div>
+      <div class="beat-content">
+        <div class="beat-title">シーンの最大テンションはどこか？</div>
+        <div class="beat-desc">最も緊張が高まる瞬間（ターニングポイント）を意識的に設計する。そこに向かって構築し、そこから解放する</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--kogane)">4</div>
+      <div class="beat-content">
+        <div class="beat-title">シーン終了時、何が変化したか？</div>
+        <div class="beat-desc">感情、関係性、情報、状況——何かが確実に変わっていること。同じ状態で終わるシーンはカットすべき</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--kogane)">5</div>
+      <div class="beat-content">
+        <div class="beat-title">入口と出口を遅く入り早く出る</div>
+        <div class="beat-desc">シーンに入るのを「挨拶」より遅くし、「解決」の直後に終わる。前後の冗長な部分をカットするとテンポが上がる</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>シーンのよくある失敗と対策</h2>
+  <div style="display:grid;grid-template-columns:1fr;gap:10px;margin:16px 0">
+    ${[
+      { fail:'情報を渡すだけのシーン（説明シーン）', fix:'情報を葛藤の中に埋め込む。「二人が言い争いながら、その情報が出てくる」' },
+      { fail:'感情を直接語らせる（「悲しい」「嬉しい」と言う）', fix:'感情は行動・ト書き・サブテキストで表現する' },
+      { fail:'変化のないシーン（入った時と出た時が同じ）', fix:'シーン終わりに「Value Change（価値の変化）」を意識する' },
+      { fail:'長すぎる会話シーン（話し合いが続く）', fix:'会話を「行動」「決断」「行動の中断」で分断する' },
+    ].map(({fail,fix}) => `
+      <div style="padding:12px 14px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg-subtle)">
+        <div style="font-size:12px;color:var(--accent);font-weight:600;margin-bottom:5px"><i class="fas fa-times-circle" style="margin-right:5px"></i>${fail}</div>
+        <div style="font-size:12px;color:var(--matcha);margin-top:4px"><i class="fas fa-check-circle" style="margin-right:5px"></i>${fix}</div>
+      </div>`).join('')}
+  </div>
+
+  <h2>シーンチェックリスト</h2>
+  ${[
+    'このシーンがなければ物語は成立しないか？（不要なら削除）',
+    '登場人物全員に明確な目標があるか？',
+    '何らかの葛藤・対立・困難があるか？',
+    'シーン前後で何かが変化しているか？',
+    '最後のセリフ/ト書きが次のシーンへの「引き」になっているか？',
+    '会話・行動・沈黙のバランスは取れているか？',
+  ].map(item => `
+    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="width:18px;height:18px;border-radius:50%;border:2px solid var(--matcha);flex-shrink:0"></div>
+      <span style="font-size:12.5px;color:var(--text-secondary)">${item}</span>
+    </div>`).join('')}
+
+  <div class="article-callout">
+    <strong>プロのテクニック：</strong>書いたシーンを「このシーンをカットしたら？」と問い直してみましょう。カットしても物語が成立するなら、そのシーンは不要です。すべてのシーンが「必要不可欠」である脚本こそが強い。
   </div>`;
 }
 
@@ -5619,33 +6165,95 @@ function copyTemplate() {
 // ================================================================
 function renderSettingsPage() {
   const projects = DB.getProjects();
-  const storageUsed = JSON.stringify(projects).length;
-  const storageKB = (storageUsed / 1024).toFixed(1);
+  const storageData = JSON.stringify(localStorage);
+  const storageKB = (storageData.length / 1024).toFixed(1);
+  const storageMax = 5120; // 5MB
+  const storagePct = Math.min(100, Math.round(storageData.length / 1024 / storageMax * 100));
+
+  // 統計情報
+  const totalWords = projects.reduce((a,p) => a + (p.drafts||[]).reduce((b,d)=>b+countWords(d.content||''),0), 0);
+  const totalChars = projects.reduce((a,p) => a + (p.characters||[]).length, 0);
+  const totalDrafts = projects.reduce((a,p) => a + (p.drafts||[]).length, 0);
+  const journalEntries = DB.get('journal_entries', []).length;
+  const readArticles   = DB.get('read_articles', []).length;
+  const scratchCount   = DB.get('inspiration_scratches', []).length;
+  const nameDictCount  = DB.get('name_dict', []).length;
+
+  const writingGoal = DB.get('writing_goal', { daily: 500, weekly: 2000 });
 
   return `
   <div class="section-header">
     <div class="section-title"><i class="fas fa-gear"></i> 設定</div>
-    <div class="section-desc">シナリオラボの設定・データ管理</div>
+    <div class="section-desc">シナリオラボの設定・データ管理・カスタマイズ</div>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:900px">
+
+  <!-- 統計サマリー -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px">
+    ${[
+      { icon:'fa-film',      label:'プロジェクト',  val:projects.length+'本',    color:'var(--accent)' },
+      { icon:'fa-font',      label:'総文字数',       val:totalWords>=10000?Math.round(totalWords/1000)+'k字':totalWords+'字', color:'var(--fuji)' },
+      { icon:'fa-book-open', label:'学習記事読了',   val:readArticles+'本',       color:'var(--matcha)' },
+      { icon:'fa-lightbulb', label:'スクラッチメモ', val:scratchCount+'件',       color:'var(--kogane)' },
+    ].map(s => `
+      <div style="padding:14px;background:var(--bg-white);border:1px solid var(--border);border-radius:var(--radius-md);text-align:center">
+        <div style="font-size:16px;color:${s.color};margin-bottom:4px"><i class="fas ${s.icon}"></i></div>
+        <div style="font-size:20px;font-weight:700;color:${s.color}">${s.val}</div>
+        <div style="font-size:11px;color:var(--text-muted)">${s.label}</div>
+      </div>`).join('')}
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:960px">
     <div style="display:flex;flex-direction:column;gap:16px">
+      <!-- データ管理 -->
       <div class="card">
         <div class="card-header"><div class="card-title"><i class="fas fa-database icon" style="color:var(--kon-lt)"></i> データ管理</div></div>
         <div style="font-size:13px;color:var(--text-secondary);line-height:2;margin-bottom:14px">
           <div>プロジェクト数: <strong>${projects.length}件</strong></div>
-          <div>使用容量: <strong>約 ${storageKB} KB</strong></div>
-          <div>保存先: <strong>ブラウザ LocalStorage</strong></div>
+          <div>日誌エントリ: <strong>${journalEntries}件</strong></div>
+          <div>キャラクター名辞典: <strong>${nameDictCount}件</strong></div>
+          <div>稿数合計: <strong>${totalDrafts}稿</strong></div>
+          <div>登場人物合計: <strong>${totalChars}人</strong></div>
+        </div>
+        <!-- ストレージメーター -->
+        <div style="margin-bottom:14px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+            <span style="font-size:12px;color:var(--text-secondary)">使用容量</span>
+            <span style="font-size:12px;font-weight:600;color:${storagePct>80?'var(--accent)':'var(--text-secondary)'}">${storageKB}KB / ${storageMax}KB</span>
+          </div>
+          <div style="height:6px;background:var(--bg-hover);border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${storagePct}%;background:${storagePct>80?'var(--accent)':storagePct>50?'var(--kogane)':'var(--matcha)'};border-radius:3px"></div>
+          </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:8px">
           <button class="btn btn-secondary" onclick="exportAllData()"><i class="fas fa-file-export"></i> 全データをエクスポート（JSON）</button>
+          <button class="btn btn-ghost btn-sm" onclick="openImportModal()"><i class="fas fa-file-import"></i> データをインポート（JSON）</button>
           <button class="btn btn-ghost btn-sm" onclick="confirmClearAllData()" style="color:var(--accent)"><i class="fas fa-trash"></i> 全データを削除</button>
         </div>
       </div>
 
+      <!-- 執筆目標設定 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-bullseye icon" style="color:var(--matcha)"></i> 執筆目標</div>
+          <button class="btn btn-primary btn-sm" onclick="saveGoalFromSettings()"><i class="fas fa-floppy-disk"></i> 保存</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">1日の目標文字数</label>
+            <input class="form-input" id="cfg-daily" type="number" value="${writingGoal.daily}" min="100" max="50000" step="100">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">1週間の目標文字数</label>
+            <input class="form-input" id="cfg-weekly" type="number" value="${writingGoal.weekly}" min="500" max="200000" step="500">
+          </div>
+        </div>
+      </div>
+
+      <!-- アプリ情報 -->
       <div class="card">
         <div class="card-header"><div class="card-title"><i class="fas fa-circle-info icon" style="color:var(--fuji)"></i> アプリ情報</div></div>
         <div style="font-size:13px;color:var(--text-secondary);line-height:2.2">
-          <div>バージョン: <strong>v4.0.0</strong></div>
+          <div>バージョン: <strong>v5.0.0</strong></div>
           <div>名称: <strong>シナリオラボ</strong></div>
           <div>最終更新: <strong>2025年</strong></div>
           <div style="font-size:11.5px;color:var(--text-muted);margin-top:6px;line-height:1.6">
@@ -5658,12 +6266,38 @@ function renderSettingsPage() {
     </div>
 
     <div style="display:flex;flex-direction:column;gap:16px">
+      <!-- 詳細統計 -->
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-chart-bar icon" style="color:var(--fuji)"></i> 使用状況サマリー</div></div>
+        <div style="font-size:12.5px">
+          ${[
+            { label:'プロジェクト総数', val:projects.length+'本', pct: null, color:'var(--accent)' },
+            { label:'執筆中', val:projects.filter(p=>!['最終稿','共有・出力'].includes(p.phase)).length+'本', pct:null, color:'var(--kon-lt)' },
+            { label:'完成稿', val:projects.filter(p=>['最終稿','共有・出力'].includes(p.phase)).length+'本', pct:null, color:'var(--matcha)' },
+            { label:'総文字数', val:(totalWords>=10000?Math.round(totalWords/1000)+'k':totalWords)+'字', pct:null, color:'var(--fuji)' },
+            { label:'総稿数', val:totalDrafts+'稿', pct:null, color:'var(--fuji)' },
+            { label:'学習記事読了', val:readArticles+'/8本', pct:Math.round(readArticles/8*100), color:'var(--matcha)' },
+            { label:'執筆日誌', val:journalEntries+'日', pct:null, color:'var(--kogane)' },
+            { label:'スクラッチメモ', val:scratchCount+'件', pct:null, color:'var(--kogane)' },
+          ].map(s => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)">
+              <span style="color:var(--text-muted)">${s.label}</span>
+              <div style="display:flex;align-items:center;gap:8px">
+                ${s.pct!==null ? `<div style="width:60px;height:4px;background:var(--bg-hover);border-radius:2px;overflow:hidden"><div style="height:100%;width:${s.pct}%;background:${s.color};border-radius:2px"></div></div>` : ''}
+                <span style="font-weight:700;color:${s.color}">${s.val}</span>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- キーボードショートカット -->
       <div class="card">
         <div class="card-header"><div class="card-title"><i class="fas fa-keyboard icon" style="color:var(--matcha)"></i> キーボードショートカット</div></div>
         <div style="font-size:12.5px;line-height:2.2">
           ${[
             ['Ctrl/⌘ + S', 'プロジェクトを保存'],
             ['Escape', 'モーダルを閉じる'],
+            ['Ctrl/⌘ + N', '新規プロジェクト（準備中）'],
           ].map(([k,d]) => `<div style="display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
             <code style="background:var(--bg-hover);padding:2px 7px;border-radius:4px;font-size:11.5px;border:1px solid var(--border)">${k}</code>
             <span style="color:var(--text-muted)">${d}</span>
@@ -5671,6 +6305,7 @@ function renderSettingsPage() {
         </div>
       </div>
 
+      <!-- 使い方のヒント -->
       <div class="card">
         <div class="card-header"><div class="card-title"><i class="fas fa-lightbulb icon" style="color:var(--kogane)"></i> 使い方のヒント</div></div>
         <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.9">
@@ -5679,10 +6314,60 @@ function renderSettingsPage() {
           <div>📋 テンプレートページに各種設計シートがあります</div>
           <div>📚 学習センターで脚本理論を体系的に学べます</div>
           <div>🛠️ ツールページに便利なユーティリティがあります</div>
+          <div>💡 インスピレーションページでアイデアを整理</div>
+          <div>📖 執筆日誌で執筆の習慣を記録・追跡</div>
         </div>
       </div>
     </div>
   </div>`;
+}
+
+function openImportModal() {
+  openModal(
+    `<i class="fas fa-file-import" style="color:var(--matcha)"></i> データをインポート`,
+    `<div style="padding:10px 12px;background:var(--kogane-bg);border-radius:var(--radius-sm);border-left:3px solid var(--kogane);font-size:12.5px;color:var(--text-secondary);margin-bottom:14px;line-height:1.7">
+       <strong>注意:</strong> インポートするとすべての現在のデータが上書きされます。<br>
+       事前に「エクスポート」でバックアップを取ってください。
+     </div>
+     <div class="form-group">
+       <label class="form-label">JSONファイルを選択</label>
+       <input type="file" accept=".json" id="import-file" class="form-input" style="padding:6px">
+     </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="importData()"><i class="fas fa-file-import"></i> インポート実行</button>`
+  );
+}
+
+function importData() {
+  const fileInput = $('#import-file');
+  if (!fileInput?.files?.length) { toast('ファイルを選択してください', 'error'); return; }
+  const file = fileInput.files[0];
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.projects || !Array.isArray(data.projects)) {
+        toast('無効なフォーマットです', 'error'); return;
+      }
+      // プロジェクトを上書き
+      localStorage.setItem('sl_projects', JSON.stringify(data.projects));
+      closeModal();
+      toast(`${data.projects.length}件のプロジェクトをインポートしました！`, 'success');
+      State.currentProjectId = null;
+      State.currentPage = 'dashboard';
+      render();
+    } catch(err) {
+      toast('JSONの解析に失敗しました: '+err.message, 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function saveGoalFromSettings() {
+  const daily  = parseInt($('#cfg-daily')?.value  || 500);
+  const weekly = parseInt($('#cfg-weekly')?.value || 2000);
+  DB.set('writing_goal', { daily: isNaN(daily)?500:daily, weekly: isNaN(weekly)?2000:weekly });
+  toast('目標を保存しました！', 'success');
 }
 
 function exportAllData() {
@@ -6320,107 +7005,461 @@ const INSPIRATION_DB = {
     '宇宙船の修理工が、廃棄予定の人工知能に「生きたい」と言われる。',
     '写真を撮るたびに、そこに写っていない「はずだった人」が映り込む。',
     '10年間文通を続けてきた相手が、実は亡くなっていたと知る日。',
+    '街の落書きだけが事件の唯一の手がかりだった。',
+    '最後の一人の翻訳家が、消えゆく言語を記録する旅に出る。',
+    '教師が35年の教師生活の最後の日、最も嫌いだった生徒からの手紙を受け取る。',
+    '過去に戻れるが、変えることはできない——ただ「見る」だけ。',
+    '二人の刑事が同じ犯人を20年追い続けた。一方は定年退職、もう一方は犯人に恋をしていた。',
   ],
-  themes: ['愛と喪失','アイデンティティの危機','許しと和解','正義と悪の曖昧な境界','成長と痛み','孤独と繋がり','真実と嘘','変化への抵抗','信頼と裏切り','自由の代償'],
-  genres: ['社会派サスペンス','青春ラブストーリー','SF的ディストピア','家族ドラマ','歴史×現代','犯罪捜査もの','心理ホラー','ロードムービー','コメディ×シリアス','武士道時代劇'],
-  moods: ['静かな絶望の中に希望','笑いながら泣ける','息が詰まるほどの緊張','疾走感と爽快感','ゆったりとした余韻','うずうずするスリル','じわりと温かい','底冷えするような孤独'],
+  themes: ['愛と喪失','アイデンティティの危機','許しと和解','正義と悪の曖昧な境界','成長と痛み','孤独と繋がり','真実と嘘','変化への抵抗','信頼と裏切り','自由の代償','記憶と忘却','夢と現実の乖離','家族という呪縛','贖罪の旅','沈黙の力'],
+  genres: ['社会派サスペンス','青春ラブストーリー','SF的ディストピア','家族ドラマ','歴史×現代','犯罪捜査もの','心理ホラー','ロードムービー','コメディ×シリアス','武士道時代劇','ヒューマンドラマ','ミステリー×哲学','SF×ロマンス'],
+  moods: ['静かな絶望の中に希望','笑いながら泣ける','息が詰まるほどの緊張','疾走感と爽快感','ゆったりとした余韻','うずうずするスリル','じわりと温かい','底冷えするような孤独','胸が締め付けられる切なさ','怒りと哀しみが交錯する'],
+  characters: ['正義感が強すぎて孤立した刑事','嘘しかつけない外交官','自分が死ぬことを知っている医師','声を失った歌手','記憶を持つたびに人格が変わる研究者','守るべき人を傷つけてしまった父親','老いた革命家','子供のような老人と老人のような子供'],
+  conflicts: ['愛する人を守るために嘘をつき続けなければならない','真実を言えば誰かが傷つく、黙れば自分が壊れる','敵の正しさを認めなければ戦えない','夢を諦めることで家族を救える','正しいことをすれば法を犯す羽目になる'],
+  settings: ['24時間以内に何もかもが変わる','同じ場所に毎年戻ってくる二人','誰もいなくなった後の世界','終わらない夜','最後の列車','嘘がすべてバレてしまう装置が普及した社会'],
 };
 
 function renderInspirationPage() {
-  const saved = DB.get('inspiration_history', []);
+  const tab = State.currentTab['inspiration'] || 'scratch';
   const rp = INSPIRATION_DB.prompts[Math.floor(Math.random()*INSPIRATION_DB.prompts.length)];
-  const rt = INSPIRATION_DB.themes[Math.floor(Math.random()*INSPIRATION_DB.themes.length)];
-  const rg = INSPIRATION_DB.genres[Math.floor(Math.random()*INSPIRATION_DB.genres.length)];
-  const rm = INSPIRATION_DB.moods[Math.floor(Math.random()*INSPIRATION_DB.moods.length)];
+  const scratches = DB.get('inspiration_scratches', []);
+  const pinnedScratch = scratches.filter(s => s.pinned);
+  const recentScratch = scratches.filter(s => !s.pinned).slice(0,5);
 
-  const historyHtml = saved.length > 0
-    ? saved.slice(0,10).map(h => `
-      <div style="padding:10px 12px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px">
-        <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">${h.date}</div>
-        <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6">${esc(h.combo)}</div>
-      </div>`).join('')
-    : `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px">「アイデアを生成」ボタンで組み合わせが保存されます</div>`;
+  const tabData = [
+    { id:'scratch',  label:'スクラッチパッド', icon:'fa-pen-to-square' },
+    { id:'generate', label:'ランダム生成',       icon:'fa-dice' },
+    { id:'library',  label:'ライブラリ',          icon:'fa-books' },
+    { id:'builder',  label:'構造化ビルダー',       icon:'fa-drafting-compass' },
+  ];
+
+  const tabs = tabData.map(t => `
+    <button class="insp-tab ${tab===t.id?'active':''}" onclick="switchInspirationTab('${t.id}')">
+      <i class="fas ${t.icon}"></i> ${t.label}
+    </button>`).join('');
+
+  let tabContent = '';
+  if (tab === 'scratch') tabContent = renderInspirationScratch(scratches);
+  else if (tab === 'generate') tabContent = renderInspirationGenerate(rp);
+  else if (tab === 'library') tabContent = renderInspirationLibrary();
+  else if (tab === 'builder') tabContent = renderInspirationBuilder();
 
   return `
-  <div class="section-header">
-    <div class="section-title"><i class="fas fa-bolt"></i> インスピレーション</div>
-    <div class="section-desc">執筆のきっかけ・刺激・アイデアプロンプトを取得しましょう</div>
+  <!-- ヒーローバナー -->
+  <div style="background:linear-gradient(135deg,var(--kogane-bg) 0%,var(--fuji-bg) 60%,var(--bg-subtle) 100%);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:20px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:80px;font-weight:900;font-family:'Noto Serif JP',serif;color:var(--kogane);opacity:0.07;pointer-events:none">閃</div>
+    <div style="width:28px;height:2.5px;background:linear-gradient(90deg,var(--kogane),var(--fuji));border-radius:2px;margin-bottom:8px"></div>
+    <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary)">
+      <i class="fas fa-bolt" style="color:var(--kogane);margin-right:8px"></i>インスピレーション・スタジオ
+    </div>
+    <div style="font-size:13px;color:var(--text-muted);margin-top:4px">雑案を集め・整理し・物語の種へ構造化するための統合ワークスペース</div>
   </div>
 
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
-    <!-- 左: プロンプトジェネレーター -->
+  <!-- タブナビ -->
+  <div class="insp-tabs" style="margin-bottom:20px">${tabs}</div>
+
+  <!-- タブコンテンツ -->
+  <div id="insp-tab-content">${tabContent}</div>`;
+}
+
+// ── スクラッチパッドタブ ──────────────────────────────────────
+function renderInspirationScratch(scratches) {
+  const tags = [...new Set(scratches.flatMap(s => s.tags||[]))].filter(Boolean);
+  const filterTag = State.currentTab['insp-tag'] || '';
+
+  const filteredScratches = filterTag
+    ? scratches.filter(s => (s.tags||[]).includes(filterTag))
+    : scratches;
+
+  const scratchCards = filteredScratches.length === 0
+    ? `<div class="insp-empty">
+        <i class="fas fa-pen-to-square" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.25"></i>
+        ${filterTag ? `「${filterTag}」のメモはありません` : 'まだメモがありません。上の入力欄から最初のアイデアを書きましょう！'}
+       </div>`
+    : filteredScratches.map(s => {
+        const tagHtml = (s.tags||[]).map(t =>
+          `<span class="insp-tag" onclick="filterScratchByTag('${esc(t)}')">${esc(t)}</span>`
+        ).join('');
+        const typeColor = { '着想':'var(--kogane)','シーン':'var(--momo)','セリフ':'var(--fuji)','テーマ':'var(--asagi)','キャラ':'var(--accent)','設定':'var(--matcha)','その他':'var(--text-muted)' };
+        const tc = typeColor[s.type||'その他'] || 'var(--text-muted)';
+        return `
+        <div class="insp-scratch-card ${s.pinned?'pinned':''}" id="sc-${s.id}">
+          <div class="insp-scratch-top">
+            <span style="font-size:10px;font-weight:700;color:${tc};padding:2px 8px;background:white;border:1px solid ${tc};border-radius:var(--radius-full)">${s.type||'その他'}</span>
+            <div style="display:flex;gap:4px;align-items:center">
+              <span style="font-size:10px;color:var(--text-light)">${fmtDate(s.createdAt)}</span>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="togglePinScratch('${s.id}')" title="${s.pinned?'ピン解除':'ピン留め'}">
+                <i class="fas ${s.pinned?'fa-thumbtack':'fa-thumbtack'}" style="font-size:10px;color:${s.pinned?'var(--kogane)':'var(--text-muted)'}"></i>
+              </button>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="openEditScratch('${s.id}')"><i class="fas fa-pen" style="font-size:10px"></i></button>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteScratch('${s.id}')"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+            </div>
+          </div>
+          ${s.title ? `<div style="font-size:13px;font-weight:700;color:var(--text-primary);margin:6px 0 4px;font-family:'Noto Serif JP',serif">${esc(s.title)}</div>` : ''}
+          <div class="insp-scratch-body">${esc(s.body||'')}</div>
+          ${tagHtml ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">${tagHtml}</div>` : ''}
+          <div style="margin-top:10px;display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="developScratch('${s.id}')"><i class="fas fa-wand-magic-sparkles"></i> 展開する</button>
+            <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="sendScratchToProject('${s.id}')"><i class="fas fa-share"></i> 作品へ送る</button>
+          </div>
+        </div>`;
+      }).join('');
+
+  return `
+  <div style="display:grid;grid-template-columns:1fr 320px;gap:20px">
+    <!-- 左: 入力 + カード一覧 -->
     <div>
-      <!-- ランダムプロンプト -->
-      <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,var(--kogane-bg),var(--bg-white));border-top:3px solid var(--kogane)">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-          <div class="card-title"><i class="fas fa-random icon" style="color:var(--kogane)"></i> 今日のプロンプト</div>
-          <button class="btn btn-ghost btn-sm" onclick="refreshInspiration()"><i class="fas fa-rotate"></i> 別のを見る</button>
+      <!-- 素早く入力 -->
+      <div class="card" style="margin-bottom:16px;border-top:3px solid var(--kogane)">
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:10px"><i class="fas fa-lightning-bolt" style="color:var(--kogane);margin-right:6px"></i>アイデアをすぐに書き留める</div>
+        <div class="grid-2" style="gap:8px;margin-bottom:8px">
+          <input class="form-input" id="sc-title" placeholder="タイトル（任意）" style="font-size:13px">
+          <select class="form-select" id="sc-type" style="font-size:13px">
+            <option>着想</option><option>シーン</option><option>セリフ</option><option>テーマ</option><option>キャラ</option><option>設定</option><option>その他</option>
+          </select>
         </div>
-        <div id="insp-prompt" style="font-size:14px;color:var(--text-primary);line-height:1.8;padding:14px;background:white;border-radius:var(--radius-md);border:1px solid var(--kogane-border);font-family:'Noto Serif JP',serif;font-style:italic">
-          「${esc(rp)}」
-        </div>
-        <div style="margin-top:10px;display:flex;gap:8px">
-          <button class="btn btn-secondary btn-sm" onclick="copyPrompt()"><i class="fas fa-copy"></i> コピー</button>
-          <button class="btn btn-primary btn-sm" onclick="savePromptToIdeas()"><i class="fas fa-lightbulb"></i> アイデアに追加</button>
+        <textarea class="form-textarea" id="sc-body" rows="3" placeholder="思いついたことを何でも…キーワード1個でも、一文でも、長文でもOK。" style="font-size:13px;resize:vertical"></textarea>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
+          <input class="form-input" id="sc-tags-input" placeholder="タグ（カンマ区切り）例: 主人公, 終盤" style="font-size:12px;max-width:220px">
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" onclick="addScratch(true)"><i class="fas fa-thumbtack"></i> ピン留めで追加</button>
+            <button class="btn btn-primary" onclick="addScratch(false)"><i class="fas fa-plus"></i> 追加</button>
+          </div>
         </div>
       </div>
 
-      <!-- ランダムコンビネーター -->
-      <div class="card" style="margin-bottom:16px">
-        <div class="card-header"><div class="card-title"><i class="fas fa-shuffle icon" style="color:var(--fuji)"></i> ランダム組み合わせ</div></div>
-        <div id="insp-combo" style="display:flex;flex-direction:column;gap:8px">
-          ${renderInspirationCombo(rt, rg, rm)}
+      <!-- ブレインストーミングモード -->
+      <div class="card" style="margin-bottom:16px;background:var(--fuji-bg);border:1.5px solid var(--fuji-border)">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:13px;font-weight:600;color:var(--fuji)"><i class="fas fa-brain" style="margin-right:6px"></i>ブレインストーミングモード</div>
+          <button class="btn btn-sm" style="background:var(--fuji);color:white;border:none" onclick="startBrainStorm()"><i class="fas fa-play"></i> 開始</button>
         </div>
-        <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="generateInspirationCombo()">
-          <i class="fas fa-dice"></i> 別の組み合わせを生成
-        </button>
+        <div style="font-size:12px;color:var(--text-secondary);margin-top:6px">タイマー付き自由連想。思いついた単語・フレーズをEnterで連続追加。5分間で最大のアイデア数を目指します。</div>
+        <div id="bs-area" style="display:none;margin-top:12px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+            <span id="bs-timer" style="font-size:22px;font-weight:700;color:var(--fuji);font-family:monospace">5:00</span>
+            <span style="font-size:12px;color:var(--text-muted)">残り時間</span>
+            <span id="bs-count" style="font-size:13px;font-weight:700;color:var(--accent);margin-left:auto">0個</span>
+          </div>
+          <input class="form-input" id="bs-input" placeholder="単語・フレーズを入力してEnter" style="font-size:14px" onkeydown="handleBsInput(event)">
+          <div id="bs-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;max-height:120px;overflow-y:auto"></div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:8px;color:var(--accent)" onclick="stopBrainStorm()"><i class="fas fa-stop"></i> 終了してメモに追加</button>
+        </div>
+      </div>
+
+      <!-- タグフィルター -->
+      ${tags.length > 0 ? `
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+        <span style="font-size:11.5px;color:var(--text-muted)"><i class="fas fa-tag" style="margin-right:4px"></i>フィルター:</span>
+        <span class="insp-tag ${!filterTag?'active':''}" onclick="filterScratchByTag('')">すべて</span>
+        ${tags.map(t => `<span class="insp-tag ${filterTag===t?'active':''}" onclick="filterScratchByTag('${esc(t)}')">${esc(t)}</span>`).join('')}
+      </div>` : ''}
+
+      <!-- カード一覧 -->
+      <div id="scratch-list" style="display:flex;flex-direction:column;gap:10px">
+        ${scratchCards}
+      </div>
+    </div>
+
+    <!-- 右: サイドパネル -->
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <!-- 統計 -->
+      <div class="card" style="padding:14px">
+        <div style="font-size:12.5px;font-weight:600;margin-bottom:10px;color:var(--text-secondary)"><i class="fas fa-chart-simple" style="color:var(--asagi);margin-right:6px"></i>メモ統計</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          ${[
+            { label:'総メモ', val: scratches.length, color:'var(--asagi)' },
+            { label:'ピン留め', val: scratches.filter(s=>s.pinned).length, color:'var(--kogane)' },
+            { label:'タグ数', val: tags.length, color:'var(--fuji)' },
+            { label:'今週追加', val: scratches.filter(s => { const d=new Date(s.createdAt); const now=new Date(); return (now-d) < 7*86400000; }).length, color:'var(--matcha)' },
+          ].map(s => `<div style="text-align:center;padding:8px;background:var(--bg-subtle);border-radius:var(--radius-sm)">
+            <div style="font-size:18px;font-weight:700;color:${s.color}">${s.val}</div>
+            <div style="font-size:10.5px;color:var(--text-muted)">${s.label}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+
+      <!-- タイプ別内訳 -->
+      ${scratches.length > 0 ? `
+      <div class="card" style="padding:14px">
+        <div style="font-size:12.5px;font-weight:600;margin-bottom:10px;color:var(--text-secondary)"><i class="fas fa-layer-group" style="color:var(--momo);margin-right:6px"></i>タイプ別</div>
+        ${(function(){
+          const tc = { '着想':'var(--kogane)','シーン':'var(--momo)','セリフ':'var(--fuji)','テーマ':'var(--asagi)','キャラ':'var(--accent)','設定':'var(--matcha)','その他':'var(--text-muted)' };
+          const counts = {};
+          scratches.forEach(s => { const t=s.type||'その他'; counts[t]=(counts[t]||0)+1; });
+          return Object.entries(counts).map(([t,c]) => {
+            const pct = Math.round(c/scratches.length*100);
+            return `<div style="margin-bottom:6px">
+              <div style="display:flex;justify-content:space-between;margin-bottom:2px">
+                <span style="font-size:11.5px;color:${tc[t]||'var(--text-muted)'};">${t}</span>
+                <span style="font-size:11px;color:var(--text-light)">${c}</span>
+              </div>
+              <div style="height:4px;background:var(--bg-hover);border-radius:2px"><div style="height:100%;width:${pct}%;background:${tc[t]||'var(--text-muted)'};border-radius:2px"></div></div>
+            </div>`;
+          }).join('');
+        })()}
+      </div>` : ''}
+
+      <!-- ピン留めメモ -->
+      ${scratches.filter(s=>s.pinned).length > 0 ? `
+      <div class="card" style="padding:14px">
+        <div style="font-size:12.5px;font-weight:600;margin-bottom:10px;color:var(--text-secondary)"><i class="fas fa-thumbtack" style="color:var(--kogane);margin-right:6px"></i>ピン留めメモ</div>
+        ${scratches.filter(s=>s.pinned).map(s => `
+          <div style="padding:8px 10px;background:var(--kogane-bg);border:1px solid var(--kogane-border);border-radius:var(--radius-sm);margin-bottom:6px;cursor:pointer" onclick="scrollToScratch('${s.id}')">
+            <div style="font-size:12px;font-weight:600;color:var(--kogane)">${esc(s.title||s.body?.slice(0,30)||'無題')}…</div>
+          </div>`).join('')}
+      </div>` : ''}
+
+      <!-- タグクラウド -->
+      ${tags.length > 0 ? `
+      <div class="card" style="padding:14px">
+        <div style="font-size:12.5px;font-weight:600;margin-bottom:10px;color:var(--text-secondary)"><i class="fas fa-tags" style="color:var(--fuji);margin-right:6px"></i>タグクラウド</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">
+          ${tags.map(t => {
+            const cnt = scratches.filter(s=>(s.tags||[]).includes(t)).length;
+            const size = cnt>=3?'13px':cnt>=2?'12px':'11px';
+            return `<span class="insp-tag" style="font-size:${size}" onclick="filterScratchByTag('${esc(t)}')">${esc(t)} <span style="opacity:0.6">${cnt}</span></span>`;
+          }).join('')}
+        </div>
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
+// ── ランダム生成タブ ──────────────────────────────────────────
+function renderInspirationGenerate(rp) {
+  const rt = INSPIRATION_DB.themes[Math.floor(Math.random()*INSPIRATION_DB.themes.length)];
+  const rg = INSPIRATION_DB.genres[Math.floor(Math.random()*INSPIRATION_DB.genres.length)];
+  const rm = INSPIRATION_DB.moods[Math.floor(Math.random()*INSPIRATION_DB.moods.length)];
+  const rc = INSPIRATION_DB.characters[Math.floor(Math.random()*INSPIRATION_DB.characters.length)];
+  const rconf = INSPIRATION_DB.conflicts[Math.floor(Math.random()*INSPIRATION_DB.conflicts.length)];
+  const rs = INSPIRATION_DB.settings[Math.floor(Math.random()*INSPIRATION_DB.settings.length)];
+
+  return `
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div>
+      <!-- プロンプトカード -->
+      <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,var(--kogane-bg),var(--bg-white));border-top:3px solid var(--kogane)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+          <div style="font-size:13px;font-weight:600;color:var(--kogane)"><i class="fas fa-sparkles" style="margin-right:6px"></i>ランダムプロンプト</div>
+          <button class="btn btn-ghost btn-sm" onclick="switchInspirationTab('generate')"><i class="fas fa-rotate"></i></button>
+        </div>
+        <div id="insp-prompt" style="font-size:14px;color:var(--text-primary);line-height:1.9;padding:16px;background:white;border-radius:var(--radius-md);border:1px solid var(--kogane-border);font-family:'Noto Serif JP',serif;font-style:italic">
+          「${esc(rp)}」
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary btn-sm" onclick="copyPrompt()"><i class="fas fa-copy"></i> コピー</button>
+          <button class="btn btn-ghost btn-sm" onclick="savePromptToScratch()"><i class="fas fa-pen-to-square"></i> スクラッチへ</button>
+          <button class="btn btn-primary btn-sm" onclick="savePromptToIdeas()"><i class="fas fa-lightbulb"></i> 作品アイデアへ</button>
+        </div>
       </div>
 
       <!-- 全プロンプト一覧 -->
       <div class="card">
-        <div class="card-header"><div class="card-title"><i class="fas fa-list icon" style="color:var(--asagi)"></i> プロンプト集</div></div>
-        <div style="max-height:300px;overflow-y:auto">
+        <div class="card-header"><div style="font-size:13px;font-weight:600;color:var(--text-secondary)"><i class="fas fa-list icon" style="color:var(--asagi)"></i> プロンプト一覧 (${INSPIRATION_DB.prompts.length})</div></div>
+        <div style="max-height:360px;overflow-y:auto">
           ${INSPIRATION_DB.prompts.map((p, i) => `
-            <div style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:12.5px;color:var(--text-secondary);line-height:1.6;cursor:pointer" onclick="selectPrompt(${i})">
-              ${i+1}. ${esc(p)}
+            <div class="insp-prompt-item" onclick="setActivePrompt(${i})">
+              <span style="font-size:10px;color:var(--text-muted);min-width:18px">${i+1}.</span>
+              <span style="font-size:12.5px;color:var(--text-secondary);line-height:1.6">${esc(p)}</span>
             </div>`).join('')}
         </div>
       </div>
     </div>
 
-    <!-- 右: カテゴリー別ブレスト + 履歴 -->
-    <div style="display:flex;flex-direction:column;gap:16px">
-      <!-- テーマ集 -->
-      <div class="card">
-        <div class="card-title" style="margin-bottom:10px"><i class="fas fa-heart icon" style="color:var(--momo)"></i> テーマ集</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">
-          ${INSPIRATION_DB.themes.map(t => `
-            <span class="tag" style="cursor:pointer;background:var(--momo-bg);color:var(--momo);border-color:var(--momo-border)" onclick="copyToClipboard('${esc(t)}')" title="クリックでコピー">${t}</span>`).join('')}
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <!-- ランダム組み合わせ -->
+      <div class="card" style="border-top:3px solid var(--fuji)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div style="font-size:13px;font-weight:600;color:var(--fuji)"><i class="fas fa-shuffle" style="margin-right:6px"></i>ランダム組み合わせ</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" onclick="generateInspirationCombo()"><i class="fas fa-dice"></i> 再生成</button>
+            <button class="btn btn-ghost btn-sm" onclick="saveComboToScratch()"><i class="fas fa-pen-to-square"></i> 保存</button>
+          </div>
+        </div>
+        <div id="insp-combo">
+          ${renderInspirationCombo(rt, rg, rm, rc, rconf, rs)}
         </div>
       </div>
 
-      <!-- ジャンル -->
-      <div class="card">
-        <div class="card-title" style="margin-bottom:10px"><i class="fas fa-film icon" style="color:var(--kon-lt)"></i> ジャンルヒント</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">
-          ${INSPIRATION_DB.genres.map(g => `
-            <span class="tag" style="cursor:pointer;background:var(--kon-bg);color:var(--kon-lt);border-color:var(--kon-border)" onclick="copyToClipboard('${esc(g)}')" title="クリックでコピー">${g}</span>`).join('')}
+      <!-- テーマ -->
+      <div class="card" style="padding:14px">
+        <div style="font-size:12.5px;font-weight:600;color:var(--momo);margin-bottom:8px"><i class="fas fa-heart" style="margin-right:5px"></i>テーマ集</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">
+          ${INSPIRATION_DB.themes.map(t => `<span class="insp-tag momo" onclick="copyToClipboard('${esc(t)}')" title="コピー">${esc(t)}</span>`).join('')}
         </div>
       </div>
 
-      <!-- ムード -->
-      <div class="card">
-        <div class="card-title" style="margin-bottom:10px"><i class="fas fa-theater-masks icon" style="color:var(--asagi)"></i> 作品のムード</div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px">
-          ${INSPIRATION_DB.moods.map(m => `
-            <span class="tag" style="cursor:pointer;background:var(--asagi-bg);color:var(--asagi);border-color:var(--asagi-border)" onclick="copyToClipboard('${esc(m)}')" title="クリックでコピー">${m}</span>`).join('')}
+      <!-- ジャンル + ムード -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="card" style="padding:12px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--kon-lt);margin-bottom:7px"><i class="fas fa-film" style="margin-right:4px"></i>ジャンル</div>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            ${INSPIRATION_DB.genres.map(g => `<span class="insp-tag kon" onclick="copyToClipboard('${esc(g)}')" style="font-size:10.5px">${esc(g)}</span>`).join('')}
+          </div>
+        </div>
+        <div class="card" style="padding:12px">
+          <div style="font-size:11.5px;font-weight:600;color:var(--asagi);margin-bottom:7px"><i class="fas fa-theater-masks" style="margin-right:4px"></i>ムード</div>
+          <div style="display:flex;flex-direction:column;gap:3px">
+            ${INSPIRATION_DB.moods.map(m => `<span class="insp-tag asagi" onclick="copyToClipboard('${esc(m)}')" style="font-size:10.5px">${esc(m)}</span>`).join('')}
+          </div>
         </div>
       </div>
 
-      <!-- 生成履歴 -->
+      <!-- キャラクター的特徴 -->
+      <div class="card" style="padding:14px">
+        <div style="font-size:12.5px;font-weight:600;color:var(--accent);margin-bottom:8px"><i class="fas fa-user-secret" style="margin-right:5px"></i>キャラクタータイプ</div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px">
+          ${INSPIRATION_DB.characters.map(c => `<span class="insp-tag beni" onclick="copyToClipboard('${esc(c)}')" style="font-size:10.5px">${esc(c)}</span>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── ライブラリタブ ────────────────────────────────────────────
+function renderInspirationLibrary() {
+  const bookmarks = DB.get('insp_bookmarks', []);
+  const combos = DB.get('inspiration_history', []);
+
+  return `
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header">
+          <div style="font-size:13px;font-weight:600"><i class="fas fa-bookmark icon" style="color:var(--kogane)"></i> ブックマーク (${bookmarks.length})</div>
+          ${bookmarks.length > 0 ? `<button class="btn btn-ghost btn-sm" onclick="clearBookmarks()"><i class="fas fa-trash"></i></button>` : ''}
+        </div>
+        ${bookmarks.length === 0
+          ? `<div class="insp-empty"><i class="fas fa-bookmark" style="font-size:28px;display:block;margin-bottom:8px;opacity:0.2"></i>ランダム生成タブで「保存」するとここに追加されます</div>`
+          : bookmarks.map(b => `
+            <div style="padding:10px 12px;background:var(--bg-subtle);border-radius:var(--radius-sm);margin-bottom:8px;border:1px solid var(--border)">
+              <div style="font-size:10px;color:var(--text-muted);margin-bottom:5px">${b.savedAt||''}</div>
+              <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.7;white-space:pre-wrap">${esc(b.content)}</div>
+              <div style="margin-top:8px;display:flex;gap:6px">
+                <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="sendBookmarkToScratch(${bookmarks.indexOf(b)})"><i class="fas fa-pen-to-square"></i> スクラッチへ</button>
+                <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteBookmark(${bookmarks.indexOf(b)})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+              </div>
+            </div>`).join('')}
+      </div>
+    </div>
+
+    <div>
       <div class="card">
-        <div class="card-title" style="margin-bottom:10px"><i class="fas fa-clock-rotate-left icon" style="color:var(--text-muted)"></i> 生成履歴</div>
-        <div id="insp-history">${historyHtml}</div>
+        <div class="card-header">
+          <div style="font-size:13px;font-weight:600"><i class="fas fa-clock-rotate-left icon" style="color:var(--fuji)"></i> 生成履歴 (${combos.length})</div>
+          ${combos.length > 0 ? `<button class="btn btn-ghost btn-sm" onclick="clearInspirationHistory()"><i class="fas fa-trash"></i></button>` : ''}
+        </div>
+        ${combos.length === 0
+          ? `<div class="insp-empty">まだ生成履歴がありません</div>`
+          : combos.slice(0,20).map((h,i) => `
+            <div style="padding:10px;background:var(--bg-subtle);border-radius:var(--radius-sm);margin-bottom:6px;border:1px solid var(--border)">
+              <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">${h.date}</div>
+              <div style="font-size:12px;color:var(--text-secondary);line-height:1.6">${esc(h.combo)}</div>
+              <button class="btn btn-ghost btn-sm" style="margin-top:6px;font-size:11px" onclick="reloadCombo(${i})"><i class="fas fa-rotate-left"></i> 再利用</button>
+            </div>`).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── 構造化ビルダータブ ────────────────────────────────────────
+function renderInspirationBuilder() {
+  const draft = DB.get('insp_builder_draft', {
+    premise: '', protagonist: '', antagonist: '', conflict: '', theme: '', tone: '', hook: '', logline: ''
+  });
+
+  return `
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div>
+      <div class="card">
+        <div class="card-header">
+          <div style="font-size:13px;font-weight:600;color:var(--fuji)"><i class="fas fa-drafting-compass icon"></i> 物語の核を構造化する</div>
+          <button class="btn btn-primary btn-sm" onclick="saveBuilderDraft()"><i class="fas fa-floppy-disk"></i> 保存</button>
+        </div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px;padding:8px 10px;background:var(--fuji-bg);border-radius:var(--radius-sm);border-left:3px solid var(--fuji)">
+          スクラッチパッドに集めた雑案を、物語の核となる要素に整理します。
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" style="color:var(--accent)">プレミス（一言で言うと？）</label>
+          <textarea class="form-textarea" id="bld-premise" rows="2" placeholder="例：正義を信じた男が、正義そのものに裏切られる話">${esc(draft.premise||'')}</textarea>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label" style="color:var(--matcha)">主人公（誰が？）</label>
+            <textarea class="form-textarea" id="bld-protagonist" rows="2" placeholder="職業・性格・最大の欠如">${esc(draft.protagonist||'')}</textarea>
+          </div>
+          <div class="form-group">
+            <label class="form-label" style="color:var(--momo)">敵役・障害（何が立ちはだかる？）</label>
+            <textarea class="form-textarea" id="bld-antagonist" rows="2" placeholder="人・制度・内なる葛藤">${esc(draft.antagonist||'')}</textarea>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="color:var(--fuji)">中心的葛藤（何vs何？）</label>
+          <input class="form-input" id="bld-conflict" value="${esc(draft.conflict||'')}" placeholder="例：愛する人を守りたい vs 真実を明かさなければならない">
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">テーマ（何を問う？）</label>
+            <input class="form-input" id="bld-theme" value="${esc(draft.theme||'')}" placeholder="例：正義とは何か">
+          </div>
+          <div class="form-group">
+            <label class="form-label">トーン（どんな空気感？）</label>
+            <input class="form-input" id="bld-tone" value="${esc(draft.tone||'')}" placeholder="例：重厚・社会派">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="color:var(--kogane)">フック（冒頭の引き）</label>
+          <textarea class="form-textarea" id="bld-hook" rows="2" placeholder="例：第1シーンで主人公は何を見て凍りつくか">${esc(draft.hook||'')}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <!-- ログライン自動合成 -->
+      <div class="card" style="margin-bottom:16px;border-top:3px solid var(--accent)">
+        <div class="card-header">
+          <div style="font-size:13px;font-weight:600;color:var(--accent)"><i class="fas fa-wand-magic-sparkles icon"></i> ログライン自動合成</div>
+          <button class="btn btn-primary btn-sm" onclick="synthesizeLogline()"><i class="fas fa-bolt"></i> 合成</button>
+        </div>
+        <div id="bld-logline-out" style="min-height:80px;padding:12px;background:var(--bg-subtle);border-radius:var(--radius-md);border:1px solid var(--border);font-family:'Noto Serif JP',serif;font-size:13.5px;color:var(--text-secondary);line-height:1.8;font-style:italic">
+          ${draft.logline ? `「${esc(draft.logline)}」` : `左のフォームを記入して「合成」ボタンを押してください`}
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="btn btn-ghost btn-sm" onclick="copyBuilderLogline()"><i class="fas fa-copy"></i> コピー</button>
+          <button class="btn btn-ghost btn-sm" onclick="sendLoglineToProject()"><i class="fas fa-share"></i> 作品に設定</button>
+        </div>
+      </div>
+
+      <!-- 構造チェックリスト -->
+      <div class="card" style="margin-bottom:16px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:12px"><i class="fas fa-check-circle icon" style="color:var(--matcha)"></i> 物語の核 チェックリスト</div>
+        ${[
+          { id:'bld-premise', label:'プレミスが一文で言えるか', key:'premise' },
+          { id:'bld-protagonist', label:'主人公に明確な欠如があるか', key:'protagonist' },
+          { id:'bld-antagonist', label:'対立勢力が具体的か', key:'antagonist' },
+          { id:'bld-conflict', label:'葛藤がA vs Bで表現できるか', key:'conflict' },
+          { id:'bld-theme', label:'テーマが問いの形になっているか', key:'theme' },
+          { id:'bld-hook', label:'冒頭3分で観客を引き込めるか', key:'hook' },
+        ].map(c => {
+          const filled = draft[c.key] && draft[c.key].trim().length > 0;
+          return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)">
+            <div style="width:18px;height:18px;border-radius:50%;border:2px solid ${filled?'var(--matcha)':'var(--border)'};background:${filled?'var(--matcha)':'white'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+              ${filled?'<i class="fas fa-check" style="font-size:9px;color:white"></i>':''}
+            </div>
+            <span style="font-size:12.5px;color:${filled?'var(--text-primary)':'var(--text-muted)'}">${c.label}</span>
+          </div>`;
+        }).join('')}
+      </div>
+
+      <!-- スクラッチから取り込む -->
+      <div class="card" style="padding:14px">
+        <div style="font-size:12.5px;font-weight:600;color:var(--text-secondary);margin-bottom:10px"><i class="fas fa-import icon" style="color:var(--asagi)"></i> スクラッチから取り込む</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">スクラッチパッドのメモをビルダーに反映できます</div>
+        <button class="btn btn-secondary" style="width:100%" onclick="switchInspirationTab('scratch')">
+          <i class="fas fa-pen-to-square"></i> スクラッチパッドを開く
+        </button>
       </div>
     </div>
   </div>`;
@@ -6511,6 +7550,408 @@ function confirmSavePromptToIdeas(text) {
 }
 
 function bindInspirationPage() {}
+
+// ── Inspiration: スクラッチパッド操作 ────────────────────────────
+function switchInspirationTab(tab) {
+  State.currentTab['inspiration'] = tab;
+  navigate('inspiration');
+}
+
+function addScratch(pinned = false) {
+  const title = $('#sc-title')?.value?.trim() || '';
+  const body  = $('#sc-body')?.value?.trim()  || '';
+  const type  = $('#sc-type')?.value           || 'その他';
+  const tags  = ($('#sc-tags-input')?.value || '').split(',').map(t=>t.trim()).filter(Boolean);
+  if (!body) { toast('本文を入力してください', 'error'); return; }
+  const scratches = DB.get('inspiration_scratches', []);
+  scratches.unshift({ id: uid(), title, body, type, tags, pinned, createdAt: new Date().toISOString() });
+  DB.set('inspiration_scratches', scratches);
+  toast(pinned ? 'ピン留めして追加しました' : '追加しました', 'success');
+  navigate('inspiration');
+}
+
+function togglePinScratch(id) {
+  const scratches = DB.get('inspiration_scratches', []);
+  const idx = scratches.findIndex(s => s.id === id);
+  if (idx < 0) return;
+  scratches[idx].pinned = !scratches[idx].pinned;
+  DB.set('inspiration_scratches', scratches);
+  navigate('inspiration');
+}
+
+function openEditScratch(id) {
+  const scratches = DB.get('inspiration_scratches', []);
+  const s = scratches.find(x => x.id === id);
+  if (!s) return;
+  openModal(
+    `<i class="fas fa-pen" style="color:var(--fuji)"></i> メモを編集`,
+    `<div class="form-group">
+       <label class="form-label">タイトル</label>
+       <input class="form-input" id="es-title" value="${esc(s.title||'')}" placeholder="タイトル（任意）">
+     </div>
+     <div class="grid-2" style="gap:8px">
+       <div class="form-group">
+         <label class="form-label">タイプ</label>
+         <select class="form-select" id="es-type">
+           ${['着想','シーン','セリフ','テーマ','キャラ','設定','その他'].map(t=>`<option ${t===s.type?'selected':''}>${t}</option>`).join('')}
+         </select>
+       </div>
+       <div class="form-group">
+         <label class="form-label">タグ（カンマ区切り）</label>
+         <input class="form-input" id="es-tags" value="${esc((s.tags||[]).join(', '))}">
+       </div>
+     </div>
+     <div class="form-group">
+       <label class="form-label">本文</label>
+       <textarea class="form-textarea" id="es-body" rows="5">${esc(s.body||'')}</textarea>
+     </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveEditScratch('${id}')"><i class="fas fa-floppy-disk"></i> 保存</button>`
+  );
+}
+
+function saveEditScratch(id) {
+  const scratches = DB.get('inspiration_scratches', []);
+  const idx = scratches.findIndex(s => s.id === id);
+  if (idx < 0) return;
+  scratches[idx].title = $('#es-title')?.value?.trim() || '';
+  scratches[idx].body  = $('#es-body')?.value?.trim()  || '';
+  scratches[idx].type  = $('#es-type')?.value           || 'その他';
+  scratches[idx].tags  = ($('#es-tags')?.value||'').split(',').map(t=>t.trim()).filter(Boolean);
+  DB.set('inspiration_scratches', scratches);
+  closeModal();
+  toast('保存しました', 'success');
+  navigate('inspiration');
+}
+
+function deleteScratch(id) {
+  let scratches = DB.get('inspiration_scratches', []);
+  scratches = scratches.filter(s => s.id !== id);
+  DB.set('inspiration_scratches', scratches);
+  toast('削除しました', 'info');
+  navigate('inspiration');
+}
+
+function filterScratchByTag(tag) {
+  State.currentTab['insp-tag'] = tag;
+  navigate('inspiration');
+}
+
+function scrollToScratch(id) {
+  const el = document.getElementById('sc-' + id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+// ── 展開モーダル ─────────────────────────────────────────────────
+function developScratch(id) {
+  const scratches = DB.get('inspiration_scratches', []);
+  const s = scratches.find(x => x.id === id);
+  if (!s) return;
+  const body = s.body || '';
+  // 簡易展開パターン
+  const patterns = [
+    `【シーンに落とす】\n${body}\n↓\n情景: \nキャラの行動: \nセリフ（一言）: `,
+    `【テーマを掘り下げる】\n「${body}」\n↓\nなぜこれが重要か: \n主人公との関係: \n物語への影響: `,
+    `【対立軸を作る】\n${body}\n↓\nAの立場: \nBの立場: \n衝突する瞬間: `,
+    `【5W1Hで展開】\n${body}\n↓\nWho: \nWhat: \nWhen: \nWhere: \nWhy: \nHow: `,
+  ];
+  openModal(
+    `<i class="fas fa-wand-magic-sparkles" style="color:var(--fuji)"></i> アイデアを展開する`,
+    `<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;padding:10px;background:var(--bg-subtle);border-radius:var(--radius-sm);font-style:italic">元メモ: ${esc(body.slice(0,80))}${body.length>80?'…':''}</div>
+     <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:10px">展開パターンを選択</div>
+     <div style="display:flex;flex-direction:column;gap:8px">
+       ${patterns.map((p,i) => `
+         <div class="tool-result-card" style="cursor:pointer" onclick="applyDevelopPattern(${i},'${id}')">
+           <div style="font-size:11.5px;color:var(--text-muted);white-space:pre-line;line-height:1.8">${esc(p)}</div>
+         </div>`).join('')}
+     </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">閉じる</button>`,
+    { size: 'modal-md' }
+  );
+}
+
+function applyDevelopPattern(patIdx, scratchId) {
+  const scratches = DB.get('inspiration_scratches', []);
+  const s = scratches.find(x => x.id === scratchId);
+  if (!s) return;
+  const body = s.body || '';
+  const patterns = [
+    `【シーンに落とす】\n${body}\n↓\n情景: \nキャラの行動: \nセリフ（一言）: `,
+    `【テーマを掘り下げる】\n「${body}」\n↓\nなぜこれが重要か: \n主人公との関係: \n物語への影響: `,
+    `【対立軸を作る】\n${body}\n↓\nAの立場: \nBの立場: \n衝突する瞬間: `,
+    `【5W1Hで展開】\n${body}\n↓\nWho: \nWhat: \nWhen: \nWhere: \nWhy: \nHow: `,
+  ];
+  const newBody = patterns[patIdx];
+  scratches.unshift({
+    id: uid(), title: `[展開] ${(s.title||s.body?.slice(0,20)||'メモ')}`,
+    body: newBody, type: s.type, tags: s.tags, pinned: false,
+    createdAt: new Date().toISOString()
+  });
+  DB.set('inspiration_scratches', scratches);
+  closeModal();
+  toast('展開メモを追加しました', 'success');
+  navigate('inspiration');
+}
+
+function sendScratchToProject(id) {
+  const scratches = DB.get('inspiration_scratches', []);
+  const s = scratches.find(x => x.id === id);
+  if (!s) return;
+  const projects = DB.getProjects();
+  if (projects.length === 0) { toast('先に作品を作成してください', 'error'); return; }
+  const opts = projects.map(p => `<option value="${p.id}">${esc(p.title)}</option>`).join('');
+  openModal(
+    `<i class="fas fa-share" style="color:var(--matcha)"></i> 作品へ送る`,
+    `<div class="form-group"><label class="form-label">送り先の作品</label><select class="form-select" id="str-proj">${opts}</select></div>
+     <div class="form-group">
+       <label class="form-label">送る先</label>
+       <select class="form-select" id="str-dest">
+         <option value="ideas">アイデアリスト</option>
+         <option value="research">リサーチノート</option>
+       </select>
+     </div>
+     <div style="padding:10px;background:var(--bg-subtle);border-radius:var(--radius-sm);font-size:12.5px;color:var(--text-secondary);white-space:pre-wrap;line-height:1.7;font-style:italic">${esc((s.title?s.title+'\n':'')+s.body)}</div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="confirmSendScratch('${id}')"><i class="fas fa-share"></i> 送る</button>`
+  );
+}
+
+function confirmSendScratch(scratchId) {
+  const scratches = DB.get('inspiration_scratches', []);
+  const s = scratches.find(x => x.id === scratchId);
+  if (!s) return;
+  const projId = $('#str-proj')?.value;
+  const dest   = $('#str-dest')?.value || 'ideas';
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  if (dest === 'ideas') {
+    if (!proj.ideas) proj.ideas = [];
+    proj.ideas.unshift({ id: uid(), title: s.title || s.body?.slice(0,30) || 'スクラッチメモ',
+      body: s.body, type: 'メモ', priority: '中', createdAt: new Date().toISOString() });
+  } else {
+    if (!proj.researchNotes) proj.researchNotes = [];
+    proj.researchNotes.unshift({ id: uid(), title: s.title || 'スクラッチメモ',
+      body: s.body, createdAt: new Date().toISOString() });
+  }
+  DB.saveProject(proj);
+  closeModal();
+  toast('作品に送りました！', 'success');
+}
+
+// ── ブレインストーミング ─────────────────────────────────────────
+window._bsState = { interval: null, remaining: 300, items: [] };
+
+function startBrainStorm() {
+  const bsArea = $('#bs-area');
+  if (bsArea) bsArea.style.display = 'block';
+  window._bsState.remaining = 300;
+  window._bsState.items = [];
+  window._bsState.interval = setInterval(() => {
+    window._bsState.remaining--;
+    const t = window._bsState.remaining;
+    const timerEl = $('#bs-timer');
+    if (timerEl) timerEl.textContent = `${Math.floor(t/60)}:${String(t%60).padStart(2,'0')}`;
+    if (window._bsState.remaining <= 0) stopBrainStorm();
+  }, 1000);
+  const inp = $('#bs-input');
+  if (inp) inp.focus();
+}
+
+function handleBsInput(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    const val = e.target.value.trim();
+    if (!val) return;
+    window._bsState.items.push(val);
+    e.target.value = '';
+    const chips = $('#bs-chips');
+    if (chips) {
+      const chip = document.createElement('div');
+      chip.style.cssText = 'padding:4px 10px;background:var(--fuji-bg);border:1px solid var(--fuji-border);border-radius:var(--radius-full);font-size:12px;color:var(--fuji);font-weight:600;animation:fadeIn 0.2s';
+      chip.textContent = val;
+      chips.appendChild(chip);
+      chips.scrollTop = chips.scrollHeight;
+    }
+    const cnt = $('#bs-count');
+    if (cnt) cnt.textContent = `${window._bsState.items.length}個`;
+  }
+}
+
+function stopBrainStorm() {
+  if (window._bsState.interval) clearInterval(window._bsState.interval);
+  const items = window._bsState.items;
+  if (items.length === 0) { toast('アイデアが0個でした', 'info'); return; }
+  const scratches = DB.get('inspiration_scratches', []);
+  scratches.unshift({
+    id: uid(),
+    title: `ブレインストーム (${items.length}個)`,
+    body: items.join('\n'),
+    type: '着想', tags: ['BS'], pinned: false,
+    createdAt: new Date().toISOString()
+  });
+  DB.set('inspiration_scratches', scratches);
+  toast(`${items.length}個のアイデアをメモに追加しました！`, 'success');
+  navigate('inspiration');
+}
+
+// ── ランダム生成タブの関数 ───────────────────────────────────────
+function setActivePrompt(idx) {
+  const p = INSPIRATION_DB.prompts[idx];
+  const promptEl = $('#insp-prompt');
+  if (promptEl) promptEl.innerHTML = `「${esc(p)}」`;
+  window._currentPrompt = p;
+  toast('プロンプトを選択しました', 'success');
+}
+
+function savePromptToScratch() {
+  const promptEl = $('#insp-prompt');
+  const text = (promptEl?.textContent || '').replace(/^「|」$/g, '');
+  if (!text) return;
+  const scratches = DB.get('inspiration_scratches', []);
+  scratches.unshift({ id: uid(), title: 'プロンプト', body: text,
+    type: '着想', tags: ['prompt'], pinned: false, createdAt: new Date().toISOString() });
+  DB.set('inspiration_scratches', scratches);
+  toast('スクラッチパッドに追加しました', 'success');
+}
+
+function saveComboToScratch() {
+  const comboEl = $('#insp-combo');
+  const text = comboEl?.innerText || '';
+  if (!text) return;
+  const scratches = DB.get('inspiration_scratches', []);
+  scratches.unshift({ id: uid(), title: 'ランダム組み合わせ', body: text.replace(/\s+/g,' ').trim(),
+    type: '着想', tags: ['combo'], pinned: false, createdAt: new Date().toISOString() });
+  DB.set('inspiration_scratches', scratches);
+  // ブックマークにも保存
+  const bookmarks = DB.get('insp_bookmarks', []);
+  bookmarks.unshift({ content: text.replace(/\s+/g,' ').trim(), savedAt: new Date().toLocaleDateString('ja-JP') });
+  DB.set('insp_bookmarks', bookmarks.slice(0,30));
+  toast('スクラッチ＆ブックマークに保存しました', 'success');
+}
+
+function clearBookmarks() {
+  DB.set('insp_bookmarks', []);
+  navigate('inspiration');
+  toast('ブックマークをクリアしました', 'info');
+}
+
+function clearInspirationHistory() {
+  DB.set('inspiration_history', []);
+  navigate('inspiration');
+  toast('履歴をクリアしました', 'info');
+}
+
+function deleteBookmark(idx) {
+  const bm = DB.get('insp_bookmarks', []);
+  bm.splice(idx, 1);
+  DB.set('insp_bookmarks', bm);
+  navigate('inspiration');
+}
+
+function sendBookmarkToScratch(idx) {
+  const bm = DB.get('insp_bookmarks', []);
+  const b = bm[idx];
+  if (!b) return;
+  const scratches = DB.get('inspiration_scratches', []);
+  scratches.unshift({ id: uid(), title: 'ブックマークから', body: b.content,
+    type: '着想', tags: ['bookmark'], pinned: false, createdAt: new Date().toISOString() });
+  DB.set('inspiration_scratches', scratches);
+  toast('スクラッチに追加しました', 'success');
+  State.currentTab['inspiration'] = 'scratch';
+  navigate('inspiration');
+}
+
+function reloadCombo(idx) {
+  const h = DB.get('inspiration_history', []);
+  const item = h[idx];
+  if (!item) return;
+  const comboEl = $('#insp-combo');
+  if (comboEl) {
+    const parts = item.combo.split(' / ');
+    const theme = (parts[0]||'').replace('テーマ: ','');
+    const genre = (parts[1]||'').replace('ジャンル: ','');
+    const mood  = (parts[2]||'').replace('ムード: ','');
+    comboEl.innerHTML = renderInspirationCombo(theme, genre, mood);
+  }
+  toast('組み合わせを再利用しました', 'success');
+}
+
+// ── 構造化ビルダー関数 ───────────────────────────────────────────
+function saveBuilderDraft() {
+  const draft = {
+    premise:     $('#bld-premise')?.value     || '',
+    protagonist: $('#bld-protagonist')?.value || '',
+    antagonist:  $('#bld-antagonist')?.value  || '',
+    conflict:    $('#bld-conflict')?.value     || '',
+    theme:       $('#bld-theme')?.value        || '',
+    tone:        $('#bld-tone')?.value         || '',
+    hook:        $('#bld-hook')?.value         || '',
+    logline:     DB.get('insp_builder_draft', {}).logline || '',
+  };
+  DB.set('insp_builder_draft', draft);
+  toast('ビルダーを保存しました', 'success');
+  // チェックリスト更新
+  navigate('inspiration');
+}
+
+function synthesizeLogline() {
+  const premise     = $('#bld-premise')?.value?.trim()     || '';
+  const protagonist = $('#bld-protagonist')?.value?.trim() || '';
+  const antagonist  = $('#bld-antagonist')?.value?.trim()  || '';
+  const conflict    = $('#bld-conflict')?.value?.trim()     || '';
+  const theme       = $('#bld-theme')?.value?.trim()        || '';
+  if (!premise && !protagonist) { toast('プレミスか主人公を入力してください', 'error'); return; }
+
+  const patterns = [
+    protagonist && conflict ? `${protagonist}が、${conflict}という状況の中で、${premise || 'すべてを変える選択をする'}。` : null,
+    premise ? `${premise}${theme ? ` ——${theme}をめぐる、普遍的な物語。` : ''}` : null,
+    protagonist && antagonist ? `${protagonist}と${antagonist}の対立を通じて、${conflict || theme || 'その真実'} が明らかになる。` : null,
+    `${premise || protagonist}。${theme ? `テーマ：${theme}。` : ''}${conflict ? `中心的な葛藤：${conflict}` : ''}`,
+  ].filter(Boolean);
+
+  const logline = patterns[0] || premise;
+  const outEl = $('#bld-logline-out');
+  if (outEl) outEl.innerHTML = `「${esc(logline)}」`;
+
+  // ドラフトに保存
+  const draft = DB.get('insp_builder_draft', {});
+  draft.logline = logline;
+  DB.set('insp_builder_draft', draft);
+  toast('ログラインを合成しました', 'success');
+}
+
+function copyBuilderLogline() {
+  const el = $('#bld-logline-out');
+  const text = (el?.textContent || '').replace(/^「|」$/g, '');
+  if (!text || text.includes('左のフォームを記入')) { toast('先に合成してください', 'error'); return; }
+  navigator.clipboard?.writeText(text).then(() => toast('コピーしました', 'success'));
+}
+
+function sendLoglineToProject() {
+  const el = $('#bld-logline-out');
+  const text = (el?.textContent || '').replace(/^「|」$/g, '');
+  if (!text || text.includes('左のフォームを記入')) { toast('先に合成してください', 'error'); return; }
+  const projects = DB.getProjects();
+  if (projects.length === 0) { toast('先に作品を作成してください', 'error'); return; }
+  const opts = projects.map(p => `<option value="${p.id}">${esc(p.title)}</option>`).join('');
+  openModal(
+    `<i class="fas fa-share" style="color:var(--accent)"></i> ログラインを作品に設定`,
+    `<div class="form-group"><label class="form-label">設定する作品</label><select class="form-select" id="ll-proj">${opts}</select></div>
+     <div style="padding:10px;background:var(--bg-subtle);border-radius:var(--radius-sm);font-size:13px;color:var(--text-secondary);line-height:1.7;font-style:italic">${esc(text)}</div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="confirmSendLoglineToProject('${esc(text).replace(/'/g,"\\'")}')">設定する</button>`
+  );
+}
+
+function confirmSendLoglineToProject(text) {
+  const projId = $('#ll-proj')?.value;
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  proj.logline = text;
+  DB.saveProject(proj);
+  closeModal();
+  toast('ログラインを設定しました！', 'success');
+}
 
 // ================================================================
 //  INIT
