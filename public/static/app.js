@@ -266,12 +266,17 @@ function renderLayout(content, proj = null) {
   <div class="app-layout">
     <nav class="sidebar" id="sidebar">
       <div class="sidebar-logo">
-        <h1><i class="fas fa-clapperboard"></i> シナリオラボ</h1>
-        <div class="tagline">SCENARIO LAB — 脚本執筆支援</div>
+        <div class="logo-main">
+          <div class="logo-icon"><i class="fas fa-clapperboard"></i></div>
+          <div>
+            <div class="logo-text">シナリオラボ</div>
+            <div class="logo-sub">Scenario Lab</div>
+          </div>
+        </div>
       </div>
       <div class="sidebar-nav">
         <div class="sidebar-section">
-          <div class="sidebar-section-title">メイン</div>
+          <div class="sidebar-section-title">ナビゲーション</div>
           <div class="nav-item ${!proj || State.currentPage==='dashboard'?'active':''}" onclick="navigate('dashboard')">
             <span class="nav-icon"><i class="fas fa-house"></i></span> ダッシュボード
           </div>
@@ -291,6 +296,39 @@ function renderLayout(content, proj = null) {
 // ================================================================
 //  DASHBOARD
 // ================================================================
+
+// 和色パレット（各フェーズに伝統色を割り当て）
+const PHASE_COLORS_WA = {
+  '着想':        { bg: '#fdf8e8', color: '#c48a00', border: '#e8d088', icon_bg: '#fdf8e8' },
+  'リサーチ':    { bg: '#eef3fb', color: '#2e5fa0', border: '#b8cee8', icon_bg: '#eef3fb' },
+  'コンセプト設計': { bg: '#eef7f7', color: '#2a8080', border: '#a8d4d4', icon_bg: '#eef7f7' },
+  'プロット設計': { bg: '#fdf0f5', color: '#d44d7a', border: '#f0b8ce', icon_bg: '#fdf0f5' },
+  'キャラクター': { bg: '#f4f2fb', color: '#6a5aaa', border: '#ccc4e8', icon_bg: '#f4f2fb' },
+  'アウトライン': { bg: '#eff6ed', color: '#4a7c3f', border: '#b8d4b2', icon_bg: '#eff6ed' },
+  '初稿':        { bg: '#fef2ee', color: '#d94f2a', border: '#f5c4b4', icon_bg: '#fef2ee' },
+  '大改稿':      { bg: '#fdf8e8', color: '#c48a00', border: '#e8d088', icon_bg: '#fdf8e8' },
+  '精密推敲':    { bg: '#fdf0f5', color: '#d44d7a', border: '#f0b8ce', icon_bg: '#fdf0f5' },
+  'フィードバック':{ bg: '#eef3fb', color: '#2e5fa0', border: '#b8cee8', icon_bg: '#eef3fb' },
+  '最終稿':      { bg: '#eff6ed', color: '#4a7c3f', border: '#b8d4b2', icon_bg: '#eff6ed' },
+  '共有・出力':  { bg: '#f4f2fb', color: '#6a5aaa', border: '#ccc4e8', icon_bg: '#f4f2fb' },
+};
+
+// ライティングチップ
+const WRITING_TIPS = [
+  { icon: 'fa-pen-nib', title: '初稿のコツ', body: '「完璧な初稿」は存在しません。書き続けることが大切です。まずは感情のままに書き、後で直しましょう。' },
+  { icon: 'fa-users', title: 'キャラクターの深み', body: 'キャラクターには「表の欲求（Want）」と「内なる必要（Need）」を設けましょう。この葛藤がドラマを生みます。' },
+  { icon: 'fa-lightbulb', title: '着想を大切に', body: 'アイデアが浮かんだ瞬間を逃さないよう、メモ帳アプリや手帳を常に用意しておきましょう。' },
+  { icon: 'fa-rotate', title: '改稿の視点', body: '改稿時は「読者（視聴者）の目線」で読み直すことが重要です。作り手目線を一時忘れましょう。' },
+  { icon: 'fa-comments', title: 'セリフの鉄則', body: 'セリフはキャラクターが言わなくてもよいことを言う場所ではありません。何かを隠す・嘘をつく・遠回しにする、それがリアルです。' },
+  { icon: 'fa-diagram-project', title: '構造の重要性', body: '三幕構成や四幕構成は「規則」ではなく「地図」です。どこで観客の心が動くかを意識して設計しましょう。' },
+  { icon: 'fa-magnifying-glass', title: 'リサーチの深度', body: 'リサーチは書き始める前だけでなく、執筆中も続けましょう。リアリティは細部から生まれます。' },
+  { icon: 'fa-microscope', title: '推敲のポイント', body: '「言わなくてもわかるセリフ」「説明的なト書き」を削るだけで、脚本の質は劇的に上がります。' },
+];
+
+function getRandomTip() {
+  return WRITING_TIPS[Math.floor(Math.random() * WRITING_TIPS.length)];
+}
+
 function renderDashboard() {
   const projects = DB.getProjects();
   const stats = {
@@ -298,118 +336,281 @@ function renderDashboard() {
     inProgress: projects.filter(p => !['最終稿','共有・出力'].includes(p.phase)).length,
     completed: projects.filter(p => p.phase === '最終稿' || p.phase === '共有・出力').length,
     drafts: projects.reduce((a, p) => a + (p.drafts||[]).length, 0),
+    totalWords: projects.reduce((a, p) => a + (p.drafts||[]).reduce((b, d) => b + countWords(d.content||''), 0), 0),
   };
-  const phaseColor = { '着想':'#f7c56a','リサーチ':'#6ab8f7','コンセプト設計':'#6af7c8','プロット設計':'#f76ca0','キャラクター':'#c86af7','アウトライン':'#7c6af7','初稿':'#6af7c8','大改稿':'#f7a06a','精密推敲':'#f76ca0','フィードバック':'#6ab8f7','最終稿':'#6af7c8','共有・出力':'#f7c56a' };
   const phaseIdx = { '着想':0,'リサーチ':1,'コンセプト設計':2,'プロット設計':3,'キャラクター':4,'アウトライン':5,'初稿':6,'大改稿':7,'精密推敲':8,'フィードバック':9,'最終稿':10,'共有・出力':11 };
 
+  // プロジェクトカード（強化版）
   const projectCards = projects.length === 0
-    ? `<div class="card" style="text-align:center;padding:60px 20px;grid-column:1/-1">
-        <i class="fas fa-film" style="font-size:48px;color:var(--text-muted);margin-bottom:16px;display:block"></i>
-        <div style="font-size:16px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">作品がまだありません</div>
-        <div style="font-size:13px;color:var(--text-muted);margin-bottom:20px">新しい脚本プロジェクトを作成して始めましょう</div>
-        <button class="btn btn-primary" onclick="openNewProjectModal()"><i class="fas fa-plus"></i> 最初の作品を作成</button>
+    ? `<div class="card" style="text-align:center;padding:64px 20px;grid-column:1/-1;border:2px dashed var(--border)">
+        <div style="font-size:52px;margin-bottom:16px;opacity:0.35">🎬</div>
+        <div style="font-size:16px;font-weight:700;color:var(--text-secondary);margin-bottom:8px;font-family:'Noto Serif JP',serif">まだ作品がありません</div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:24px;line-height:1.7">新しい脚本プロジェクトを作成して<br>あなたの物語を始めましょう</div>
+        <button class="btn btn-primary btn-lg" onclick="openNewProjectModal()"><i class="fas fa-plus"></i> 最初の作品を作成</button>
       </div>`
     : projects.map(p => {
         const idx = phaseIdx[p.phase] ?? 0;
         const pct = Math.round((idx / 11) * 100);
-        const color = phaseColor[p.phase] || 'var(--accent)';
+        const waColor = PHASE_COLORS_WA[p.phase] || { bg:'#fef2ee', color:'#d94f2a', border:'#f5c4b4' };
         const wordCount = (p.drafts||[]).reduce((a,d) => a + countWords(d.content||''), 0);
+        const charCount = (p.characters||[]).length;
+        const draftCount = (p.drafts||[]).length;
+        const ph = PHASES[idx];
+        // 12段階フェーズドット
+        const phaseDots = PHASES.map((ph2, pi) => {
+          const cls = pi < idx ? 'done' : pi === idx ? 'current' : '';
+          return '<div class="phase-step ' + cls + '"></div>';
+        }).join('');
         return `
-        <div class="project-card" onclick="navigate('${PHASES[idx]?.nav||'ideas'}','${p.id}')">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
-            <div class="project-card-title">${esc(p.title)}</div>
-            <div style="display:flex;gap:4px">
-              <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();openEditProjectModal('${p.id}')" title="編集"><i class="fas fa-pen" style="font-size:11px"></i></button>
-              <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();confirmDeleteProject('${p.id}')" title="削除"><i class="fas fa-trash" style="font-size:11px;color:var(--red)"></i></button>
+        <div class="project-card" onclick="navigate('${ph?.nav||'ideas'}','${p.id}')" style="cursor:pointer">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+            <div>
+              <div class="project-card-title">${esc(p.title)}</div>
+              <div class="project-card-genre"><i class="fas fa-film" style="font-size:10px;margin-right:3px;opacity:0.6"></i>${esc(p.genre)} / ${esc(p.format)}</div>
+            </div>
+            <div style="display:flex;gap:3px;flex-shrink:0">
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();openEditProjectModal('${p.id}')" title="編集"><i class="fas fa-pen" style="font-size:10px"></i></button>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();confirmDeleteProject('${p.id}')" title="削除"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
             </div>
           </div>
-          <div class="project-card-genre">${esc(p.genre)} / ${esc(p.format)}</div>
-          ${p.logline ? `<div style="font-size:12px;color:var(--text-muted);line-height:1.5;margin-bottom:8px">${esc(p.logline.slice(0,80))}${p.logline.length>80?'…':''}</div>` : ''}
+          ${p.logline ? `<div style="font-size:12px;color:var(--text-muted);line-height:1.5;margin-bottom:10px;border-left:2px solid var(--border);padding-left:8px">${esc(p.logline.slice(0,90))}${p.logline.length>90?'…':''}</div>` : ''}
           <div class="project-card-meta">
-            <span class="tag" style="background:${color}22;color:${color};border:1px solid ${color}44">
-              <i class="fas ${PHASES[idx]?.icon||'fa-circle'}"></i> ${esc(p.phase)}
+            <span class="tag" style="background:${waColor.bg};color:${waColor.color};border:1px solid ${waColor.border}">
+              <i class="fas ${ph?.icon||'fa-circle'}" style="font-size:9px"></i> ${esc(p.phase)}
             </span>
-            ${wordCount > 0 ? `<span class="tag tag-gray"><i class="fas fa-font"></i> ${wordCount.toLocaleString()}字</span>` : ''}
-            <span class="tag tag-gray"><i class="fas fa-clock"></i> ${fmtDate(p.updatedAt)}</span>
+            ${wordCount > 0 ? `<span class="tag tag-gray" title="総文字数"><i class="fas fa-font" style="font-size:9px"></i> ${wordCount >= 1000 ? (wordCount/1000).toFixed(1)+'k' : wordCount}字</span>` : ''}
+            ${charCount > 0 ? `<span class="tag tag-gray" title="キャラクター数"><i class="fas fa-user" style="font-size:9px"></i> ${charCount}人</span>` : ''}
+            ${draftCount > 0 ? `<span class="tag tag-gray" title="稿数"><i class="fas fa-file-lines" style="font-size:9px"></i> ${draftCount}稿</span>` : ''}
           </div>
-          <div class="progress-bar-wrap">
-            <div class="progress-label"><span>進捗</span><span>${pct}%</span></div>
-            <div class="progress-bar"><div class="progress-fill" style="width:${pct}%;background:linear-gradient(90deg,${color},${color}99)"></div></div>
+          <div class="progress-bar-wrap" style="margin-top:10px">
+            <div class="progress-label">
+              <span style="font-size:10px;color:var(--text-muted)">フェーズ ${idx+1}/12</span>
+              <span style="font-size:10px;font-weight:600;color:${waColor.color}">${pct}%</span>
+            </div>
+            <div class="progress-bar" style="height:5px">
+              <div class="progress-fill" style="width:${pct}%;background:linear-gradient(90deg,${waColor.color},${waColor.color}bb)"></div>
+            </div>
+          </div>
+          <div class="phase-steps" style="margin-top:6px">${phaseDots}</div>
+          <div style="margin-top:8px;font-size:11px;color:var(--text-light);text-align:right">
+            <i class="fas fa-clock" style="font-size:9px"></i> ${fmtDate(p.updatedAt)}
           </div>
         </div>`;
       }).join('');
 
-  const recentActivity = projects.slice(0, 5).map(p => `
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div style="width:32px;height:32px;border-radius:6px;background:${phaseColor[p.phase]||'var(--accent)'}22;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-        <i class="fas ${PHASES[phaseIdx[p.phase]??0]?.icon||'fa-film'}" style="color:${phaseColor[p.phase]||'var(--accent)'};font-size:13px"></i>
+  // 最近の活動（強化版）
+  const recentActivity = projects.slice(0, 6).map(p => {
+    const idx2 = phaseIdx[p.phase] ?? 0;
+    const waColor2 = PHASE_COLORS_WA[p.phase] || PHASE_COLORS_WA['着想'];
+    return `
+    <div class="activity-item">
+      <div style="width:34px;height:34px;border-radius:var(--radius-sm);background:${waColor2.bg};border:1px solid ${waColor2.border};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fas ${PHASES[idx2]?.icon||'fa-film'}" style="color:${waColor2.color};font-size:13px"></i>
       </div>
-      <div style="overflow:hidden;flex:1">
-        <div style="font-size:13px;font-weight:500;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(p.title)}</div>
-        <div style="font-size:11px;color:var(--text-muted)">${esc(p.phase)} フェーズ — ${fmtDate(p.updatedAt)}</div>
+      <div class="activity-content">
+        <div class="activity-title">${esc(p.title)}</div>
+        <div class="activity-meta"><span style="color:${waColor2.color};font-weight:500">${esc(p.phase)}</span> フェーズ — ${fmtDate(p.updatedAt)}</div>
       </div>
-      <button class="btn btn-ghost btn-sm" onclick="navigate('${PHASES[phaseIdx[p.phase]??0]?.nav||'ideas'}','${p.id}')">開く</button>
-    </div>`).join('') || `<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px">作品がありません</div>`;
+      <button class="btn btn-secondary btn-sm" style="flex-shrink:0" onclick="navigate('${PHASES[idx2]?.nav||'ideas'}','${p.id}')">
+        <i class="fas fa-arrow-right" style="font-size:10px"></i> 開く
+      </button>
+    </div>`;
+  }).join('') || `<div style="text-align:center;padding:28px 16px;color:var(--text-muted);font-size:13px"><i class="fas fa-inbox" style="font-size:24px;display:block;margin-bottom:8px;opacity:0.4"></i>まだ作品がありません</div>`;
+
+  // フェーズフローガイド（タイル形式）
+  const phaseFlowItems = PHASES.map((ph, i) => {
+    const waC = PHASE_COLORS_WA[ph.id] || { bg:'#f8f6f1', color:'#7a6e5e', border:'#e4ddd3' };
+    return `
+    <div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:var(--radius-sm);border:1px solid ${waC.border};background:${waC.bg};cursor:default">
+      <div style="width:24px;height:24px;border-radius:50%;background:white;border:1.5px solid ${waC.border};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fas ${ph.icon}" style="color:${waC.color};font-size:10px"></i>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:${waC.color};letter-spacing:0.02em">${i+1}. ${ph.id}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // ランダムチップ
+  const tip = getRandomTip();
+
+  // 今日の格言
+  const QUOTES = [
+    '「一稿で傑作を書こうとするな。傑作は百稿から生まれる」',
+    '「書けないのは才能がないからではない。まだ書いていないだけだ」',
+    '「キャラクターが動き始めたとき、本当の脚本が始まる」',
+    '「観客は物語を見ているのではない。感情の旅をしているのだ」',
+    '「削った一行が、残した百行より重要なこともある」',
+  ];
+  const quote = QUOTES[new Date().getDate() % QUOTES.length];
 
   return `
-  <div class="dashboard-header">
-    <h2><i class="fas fa-clapperboard" style="color:var(--accent);margin-right:10px"></i>ダッシュボード</h2>
-    <p>プロジェクトを選択して脚本執筆を始めましょう</p>
+  <!-- ヒーローバナー（明るい和デザイン） -->
+  <div class="hero-wa" style="margin-bottom:28px">
+    <div class="hero-wa-line"></div>
+    <div class="hero-wa-title">
+      <i class="fas fa-clapperboard" style="color:var(--accent);margin-right:10px"></i>
+      シナリオラボ — ダッシュボード
+    </div>
+    <div class="hero-wa-sub">脚本執筆の全フェーズを一元管理。着想から完成まで、あなたの物語を支援します。</div>
+    <div style="margin-top:14px;font-size:12px;font-style:italic;color:var(--text-muted);font-family:'Noto Serif JP',serif;border-left:2px solid var(--kogane);padding-left:10px">
+      ${quote}
+    </div>
   </div>
 
-  <div class="stat-grid">
-    <div class="stat-card purple">
-      <div class="stat-icon"><i class="fas fa-film"></i></div>
+  <!-- クイックアクション -->
+  <div class="quick-actions" style="margin-bottom:28px">
+    <div class="quick-action-btn" onclick="openNewProjectModal()">
+      <div class="qa-icon" style="background:var(--accent-bg);color:var(--accent)"><i class="fas fa-plus"></i></div>
+      <div class="qa-label">新規作品を作成</div>
+    </div>
+    <div class="quick-action-btn" onclick="showImportTipsModal()">
+      <div class="qa-icon" style="background:var(--kogane-bg);color:var(--kogane)"><i class="fas fa-book-open"></i></div>
+      <div class="qa-label">執筆ガイドを読む</div>
+    </div>
+    <div class="quick-action-btn" onclick="showPhaseGuideModal()">
+      <div class="qa-icon" style="background:var(--matcha-bg);color:var(--matcha)"><i class="fas fa-map-signs"></i></div>
+      <div class="qa-label">フェーズガイド</div>
+    </div>
+  </div>
+
+  <!-- 統計カード -->
+  <div class="stat-grid" style="margin-bottom:28px">
+    <div class="stat-card beni">
+      <div class="stat-icon-wrap"><i class="fas fa-film"></i></div>
       <div class="stat-value">${stats.total}</div>
       <div class="stat-label">総プロジェクト数</div>
     </div>
-    <div class="stat-card pink">
-      <div class="stat-icon"><i class="fas fa-pen-nib"></i></div>
+    <div class="stat-card kon">
+      <div class="stat-icon-wrap"><i class="fas fa-pen-nib"></i></div>
       <div class="stat-value">${stats.inProgress}</div>
       <div class="stat-label">執筆中</div>
     </div>
-    <div class="stat-card green">
-      <div class="stat-icon"><i class="fas fa-flag-checkered"></i></div>
+    <div class="stat-card matcha">
+      <div class="stat-icon-wrap"><i class="fas fa-flag-checkered"></i></div>
       <div class="stat-value">${stats.completed}</div>
       <div class="stat-label">完成作品</div>
     </div>
-    <div class="stat-card yellow">
-      <div class="stat-icon"><i class="fas fa-file-lines"></i></div>
-      <div class="stat-value">${stats.drafts}</div>
-      <div class="stat-label">総稿数</div>
+    <div class="stat-card kogane">
+      <div class="stat-icon-wrap"><i class="fas fa-font"></i></div>
+      <div class="stat-value">${stats.totalWords >= 10000 ? Math.round(stats.totalWords/1000)+'k' : stats.totalWords.toLocaleString()}</div>
+      <div class="stat-label">総執筆文字数</div>
     </div>
   </div>
 
-  <div class="grid-2" style="gap:24px;margin-bottom:24px">
+  <!-- メインコンテンツ：作品一覧 + サイドパネル -->
+  <div style="display:grid;grid-template-columns:1fr 320px;gap:24px;align-items:start">
+
+    <!-- 左：作品一覧 -->
     <div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-        <div style="font-size:15px;font-weight:600;color:var(--text-primary)"><i class="fas fa-folder-open" style="color:var(--accent);margin-right:8px"></i>作品一覧</div>
-        <button class="btn btn-primary btn-sm" onclick="openNewProjectModal()"><i class="fas fa-plus"></i> 新規作成</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div style="font-size:16px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">
+          <i class="fas fa-folder-open" style="color:var(--accent);margin-right:8px"></i>作品一覧
+          ${projects.length > 0 ? '<span style="font-size:12px;font-weight:400;color:var(--text-muted);font-family:inherit;margin-left:6px">(' + projects.length + '件)</span>' : ''}
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="openNewProjectModal()">
+          <i class="fas fa-plus"></i> 新規作成
+        </button>
       </div>
       <div class="project-grid">${projectCards}</div>
     </div>
-    <div>
-      <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:14px"><i class="fas fa-clock-rotate-left" style="color:var(--accent2);margin-right:8px"></i>最近の活動</div>
-      <div class="card" style="padding:8px 16px">${recentActivity}</div>
-      <div style="margin-top:16px">
-        <div style="font-size:15px;font-weight:600;color:var(--text-primary);margin-bottom:12px"><i class="fas fa-map" style="color:var(--accent3);margin-right:8px"></i>執筆フローガイド</div>
-        <div class="card" style="padding:16px">
-          <div style="display:flex;flex-direction:column;gap:6px">
-            ${PHASES.map((p,i) => `
-            <div style="display:flex;align-items:center;gap:8px;padding:5px 0;${i<PHASES.length-1?'border-bottom:1px solid var(--border)':''}">
-              <div style="width:22px;height:22px;border-radius:50%;background:${p.color}22;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                <i class="fas ${p.icon}" style="color:${p.color};font-size:10px"></i>
-              </div>
-              <div style="font-size:12px;color:var(--text-secondary);font-weight:500">${i+1}. ${p.id}</div>
-            </div>`).join('')}
+
+    <!-- 右：サイドパネル -->
+    <div style="display:flex;flex-direction:column;gap:18px">
+
+      <!-- 最近の活動 -->
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:13px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:var(--bg-subtle)">
+          <i class="fas fa-clock-rotate-left" style="color:var(--momo);font-size:13px"></i>
+          <span style="font-size:13px;font-weight:600;color:var(--text-primary);font-family:'Noto Serif JP',serif">最近の活動</span>
+        </div>
+        <div style="padding:6px 12px">${recentActivity}</div>
+      </div>
+
+      <!-- 今日の執筆チップ -->
+      <div class="writing-tip-box">
+        <div class="writing-tip-title"><i class="fas ${tip.icon}"></i> ${tip.title}</div>
+        <div class="writing-tip-body">${tip.body}</div>
+      </div>
+
+      <!-- 執筆フローガイド -->
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:13px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg-subtle)">
+          <div style="display:flex;align-items:center;gap:8px">
+            <i class="fas fa-map" style="color:var(--matcha);font-size:13px"></i>
+            <span style="font-size:13px;font-weight:600;color:var(--text-primary);font-family:'Noto Serif JP',serif">執筆フローガイド</span>
           </div>
+          <span style="font-size:10px;color:var(--text-muted)">12フェーズ</span>
+        </div>
+        <div style="padding:12px 12px;display:grid;grid-template-columns:1fr 1fr;gap:5px">
+          ${phaseFlowItems}
         </div>
       </div>
     </div>
   </div>`;
 }
 
-function bindDashboard() {}
+function bindDashboard() {
+  // ダッシュボードのインタラクション（将来拡張用）
+}
+
+// ── 執筆ガイドモーダル ────────────────────────────────────────
+function showImportTipsModal() {
+  const tipsHtml = WRITING_TIPS.map(t => `
+    <div style="display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
+      <div style="width:36px;height:36px;border-radius:var(--radius-sm);background:var(--kogane-bg);color:var(--kogane);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px">
+        <i class="fas ${t.icon}"></i>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:3px">${t.title}</div>
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.7">${t.body}</div>
+      </div>
+    </div>`).join('');
+  openModal(
+    `<i class="fas fa-book-open" style="color:var(--kogane)"></i> 執筆ガイド — プロのコツ`,
+    `<div>${tipsHtml}</div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">閉じる</button>`,
+    { size: 'modal-lg' }
+  );
+}
+
+// ── フェーズガイドモーダル ────────────────────────────────────
+function showPhaseGuideModal() {
+  const PHASE_DESC = [
+    { name:'着想', desc:'アイデアの種を集める段階。良し悪し問わずすべての閃きをメモしましょう。キーワード・ムードボード・チェックリストで整理します。' },
+    { name:'リサーチ', desc:'作品世界のリアリティを構築する段階。史実・専門知識・現地調査など根拠となる情報を収集・整理します。' },
+    { name:'コンセプト設計', desc:'作品の核を言語化する段階。テーマ・プレミス・ターゲット・トーン・USP（唯一無二の要素）・ログラインを確定します。' },
+    { name:'プロット設計', desc:'物語の骨格を設計する段階。四幕（または三幕）構成でシーンを配置し、テンションカーブを確認します。' },
+    { name:'キャラクター', desc:'登場人物を深く掘り下げる段階。Want/Need・バックストーリー・口癖・関係性マップで立体的なキャラクターを構築します。' },
+    { name:'アウトライン', desc:'シーンの順序と内容を詳細に決める段階。各シーンの目的・登場人物・感情変化を整理し、全体の流れを確認します。' },
+    { name:'初稿', desc:'実際に脚本を書く段階。日本式フォーマットで書き、とにかく最後まで書ききることを優先します。' },
+    { name:'大改稿', desc:'構造レベルで見直す段階。シーンの順序・幕の長さ・キャラクターアーク・伏線回収を全面的にチェックします。' },
+    { name:'精密推敲', desc:'セリフ・ト書きレベルで磨く段階。冗長な説明・キャラクターの口調の統一・リズム・間・余白を精査します。' },
+    { name:'フィードバック', desc:'他者の目線を取り入れる段階。読み合わせ・感想収集・問題点の整理・対応計画を立てます。' },
+    { name:'最終稿', desc:'完成稿として仕上げる段階。すべての修正を反映し、表紙・著作権・バージョン管理を行います。' },
+    { name:'共有・出力', desc:'制作陣・スタッフへの共有段階。PDF/TXT出力・フォーマット確認・制作メモの添付を行います。' },
+  ];
+  const itemsHtml = PHASE_DESC.map((ph, i) => {
+    const waC = PHASE_COLORS_WA[ph.name] || { bg:'#f8f6f1', color:'#7a6e5e', border:'#e4ddd3' };
+    const phaseInfo = PHASES[i];
+    return `
+    <div style="display:flex;gap:12px;padding:12px;border-radius:var(--radius-sm);background:${waC.bg};border:1px solid ${waC.border};margin-bottom:8px">
+      <div style="width:36px;height:36px;border-radius:50%;background:white;border:2px solid ${waC.border};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fas ${phaseInfo?.icon||'fa-circle'}" style="color:${waC.color};font-size:14px"></i>
+      </div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:${waC.color};margin-bottom:3px;letter-spacing:0.05em">Phase ${i+1} — ${ph.name}</div>
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.7">${ph.desc}</div>
+      </div>
+    </div>`;
+  }).join('');
+  openModal(
+    `<i class="fas fa-map-signs" style="color:var(--matcha)"></i> フェーズガイド — 全12段階`,
+    `<div>${itemsHtml}</div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">閉じる</button>`,
+    { size: 'modal-lg' }
+  );
+}
 
 // ── New Project Modal ──────────────────────────────────────────
 function openNewProjectModal() {
@@ -573,88 +774,185 @@ function autoSaveField(inp, proj) {
 }
 
 // ================================================================
-//  PAGE: 着想 (IDEAS)
+//  PAGE: 着想 (IDEAS) — 個別最適化版
 // ================================================================
 function renderIdeas(proj) {
   const ideas = proj.ideas || [];
   const keywords = proj.keywords || [];
   const moodboard = proj.moodboard || [];
 
+  // アイデアタイプの和色マッピング
+  const IDEA_TYPE_COLORS = {
+    'メモ':       { tag:'tag-kogane', icon:'fa-note-sticky', hex:'#c48a00', bg:'#fdf8e8' },
+    'シーン':     { tag:'tag-momo',   icon:'fa-film',        hex:'#d44d7a', bg:'#fdf0f5' },
+    'セリフ':     { tag:'tag-fuji',   icon:'fa-quote-left',  hex:'#6a5aaa', bg:'#f4f2fb' },
+    'テーマ':     { tag:'tag-matcha', icon:'fa-seedling',    hex:'#4a7c3f', bg:'#eff6ed' },
+    'キャラクター':{ tag:'tag-beni',  icon:'fa-user',        hex:'#d94f2a', bg:'#fef2ee' },
+    '設定':       { tag:'tag-asagi',  icon:'fa-map',         hex:'#2a8080', bg:'#eef7f7' },
+  };
+
   const ideaCards = ideas.length === 0
-    ? `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted);font-size:13px">
-        <i class="fas fa-lightbulb" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.4"></i>
-        アイデアを追加しましょう
+    ? `<div style="grid-column:1/-1;text-align:center;padding:48px 20px;color:var(--text-muted)">
+        <div style="font-size:44px;margin-bottom:12px;opacity:0.30">💡</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">アイデアがまだありません</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px">浮かんだことを何でも書き留めましょう</div>
+        <button class="btn btn-primary btn-sm" onclick="openAddIdeaModal('${proj.id}')"><i class="fas fa-plus"></i> 最初のアイデアを追加</button>
        </div>`
-    : ideas.map(idea => `
-      <div class="idea-card" id="idea-${idea.id}">
+    : ideas.map(idea => {
+        const tc = IDEA_TYPE_COLORS[idea.type] || IDEA_TYPE_COLORS['メモ'];
+        return `
+      <div class="idea-card" id="idea-${idea.id}" style="border-top:3px solid ${tc.hex}">
         <div class="idea-card-actions">
           <button class="btn btn-ghost btn-icon btn-sm" onclick="editIdea('${proj.id}','${idea.id}')"><i class="fas fa-pen" style="font-size:10px"></i></button>
-          <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteIdea('${proj.id}','${idea.id}')"><i class="fas fa-xmark" style="font-size:10px;color:var(--red)"></i></button>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteIdea('${proj.id}','${idea.id}')"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>
         </div>
-        <div class="idea-card-title">${esc(idea.title||'無題')}</div>
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
+          <div style="width:22px;height:22px;border-radius:4px;background:${tc.bg};border:1px solid ${tc.hex}44;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+            <i class="fas ${tc.icon}" style="color:${tc.hex};font-size:10px"></i>
+          </div>
+          <div class="idea-card-title" style="margin:0">${esc(idea.title||'無題')}</div>
+        </div>
         <div class="idea-card-body">${esc(idea.body||'').replace(/\n/g,'<br>')}</div>
         <div class="idea-card-footer">
-          <span class="tag tag-${idea.type==='シーン'?'pink':idea.type==='セリフ'?'purple':idea.type==='テーマ'?'green':'yellow'}">${esc(idea.type||'メモ')}</span>
-          ${idea.priority==='高' ? '<span class="tag tag-red">優先度：高</span>' : ''}
-          <span class="tag tag-gray" style="margin-left:auto">${fmtDate(idea.createdAt)}</span>
+          <span class="tag ${tc.tag}" style="font-size:10px">${esc(idea.type||'メモ')}</span>
+          ${idea.priority==='高' ? '<span class="tag tag-beni" style="font-size:10px"><i class="fas fa-fire" style="font-size:9px"></i> 高優先</span>' : ''}
+          ${idea.priority==='低' ? '<span class="tag tag-gray" style="font-size:10px">低優先</span>' : ''}
+          <span class="tag tag-gray" style="margin-left:auto;font-size:10px">${fmtDate(idea.createdAt)}</span>
         </div>
-      </div>`).join('');
+      </div>`;
+      }).join('');
+
+  // アイデアタイプ集計
+  const ideaTypeSummary = Object.entries(IDEA_TYPE_COLORS).map(([type, tc]) => {
+    const count = ideas.filter(i => (i.type||'メモ') === type).length;
+    if (count === 0) return '';
+    return `<span class="tag ${tc.tag}" style="font-size:10px"><i class="fas ${tc.icon}" style="font-size:9px"></i> ${type} ${count}</span>`;
+  }).join('');
 
   const keywordTags = keywords.map(k => `
-    <span class="tag tag-purple" style="font-size:12px;padding:5px 10px;cursor:pointer" onclick="deleteKeyword('${proj.id}','${esc(k)}')">
-      ${esc(k)} <i class="fas fa-xmark" style="margin-left:4px;font-size:10px"></i>
+    <span style="display:inline-flex;align-items:center;gap:5px;background:var(--fuji-bg);color:var(--fuji);border:1px solid var(--fuji-border);border-radius:20px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:500" onclick="deleteKeyword('${proj.id}','${esc(k)}')">
+      # ${esc(k)} <i class="fas fa-xmark" style="font-size:9px;opacity:0.7"></i>
     </span>`).join('');
 
-  const MOODS = ['時代・時期','場所・空間','雰囲気・トーン','色彩イメージ','音楽・サウンド','視覚的モチーフ'];
-  const moodItems = MOODS.map((m, i) => {
-    const item = moodboard.find(mb => mb.category === m);
+  // ムードボード（アイコン付き・カラー別）
+  const MOODS = [
+    { name:'時代・時期', icon:'fa-calendar', color: '#c48a00', bg:'#fdf8e8' },
+    { name:'場所・空間', icon:'fa-location-dot', color: '#2a8080', bg:'#eef7f7' },
+    { name:'雰囲気・トーン', icon:'fa-cloud', color: '#6a5aaa', bg:'#f4f2fb' },
+    { name:'色彩イメージ', icon:'fa-palette', color: '#d44d7a', bg:'#fdf0f5' },
+    { name:'音楽・サウンド', icon:'fa-music', color: '#4a7c3f', bg:'#eff6ed' },
+    { name:'視覚的モチーフ', icon:'fa-eye', color: '#2e5fa0', bg:'#eef3fb' },
+  ];
+  const moodItems = MOODS.map(m => {
+    const item = moodboard.find(mb => mb.category === m.name);
     return `
-    <div class="mood-item ${item ? 'filled' : ''}" onclick="editMoodItem('${proj.id}','${m}')">
-      <div style="font-size:10px;font-weight:600;color:var(--text-muted);margin-bottom:4px">${m}</div>
-      ${item ? `<div style="font-size:12px;color:var(--text-primary);text-align:center">${esc(item.content||'')}</div>` : `<i class="fas fa-plus" style="color:var(--text-muted);font-size:12px"></i>`}
+    <div class="mood-item ${item ? 'filled' : ''}" onclick="editMoodItem('${proj.id}','${m.name}')" style="${item ? 'border-color:'+m.color+'66;background:'+m.bg : ''}">
+      <div style="display:flex;align-items:center;gap:5px;margin-bottom:5px">
+        <i class="fas ${m.icon}" style="color:${m.color};font-size:12px"></i>
+        <span style="font-size:10px;font-weight:600;color:${m.color}">${m.name}</span>
+      </div>
+      ${item ? `<div style="font-size:12px;color:var(--text-secondary);text-align:center;line-height:1.5">${esc(item.content||'').slice(0,60)}</div>` : `<div style="font-size:11px;color:var(--text-muted)">クリックして追加</div>`}
     </div>`;
   }).join('');
+
+  const filledMoodCount = MOODS.filter(m => moodboard.find(mb => mb.category === m.name)).length;
+  const checkedCount = (proj.ideaChecks||[]).length;
 
   return `
   <div class="section-header">
     <div class="section-title">
-      <i class="fas fa-lightbulb" style="color:#f7c56a"></i> 着想・アイデア収集
-      <span class="phase-badge-lg">Phase 1</span>
+      <i class="fas fa-lightbulb" style="color:var(--kogane)"></i> 着想・アイデア収集
+      <span class="phase-badge-lg" style="background:var(--kogane-bg);color:var(--kogane);border-color:var(--kogane-border)">Phase 1</span>
     </div>
-    <div class="section-desc">閃き・断片的なアイデア・イメージをすべて書き留めましょう</div>
+    <div class="section-desc">閃き・断片的なアイデア・イメージをすべて書き留めましょう。良し悪しは後で判断します</div>
   </div>
 
-  <div class="grid-2" style="margin-bottom:24px">
-    <div>
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title"><i class="fas fa-lightbulb icon"></i> アイデアノート</div>
-          <button class="btn btn-primary btn-sm" onclick="openAddIdeaModal('${proj.id}')"><i class="fas fa-plus"></i> 追加</button>
-        </div>
-        <div class="idea-grid">${ideaCards}</div>
+  <!-- 進捗サマリー -->
+  <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+    <div class="card" style="padding:12px 16px;display:flex;align-items:center;gap:10px;flex:1;min-width:140px">
+      <div style="width:34px;height:34px;border-radius:var(--radius-sm);background:var(--kogane-bg);color:var(--kogane);display:flex;align-items:center;justify-content:center;font-size:15px">
+        <i class="fas fa-lightbulb"></i>
+      </div>
+      <div>
+        <div style="font-size:20px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${ideas.length}</div>
+        <div style="font-size:11px;color:var(--text-muted)">アイデア数</div>
       </div>
     </div>
-    <div style="display:flex;flex-direction:column;gap:16px">
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title"><i class="fas fa-tags icon"></i> キーワード・モチーフ</div>
+    <div class="card" style="padding:12px 16px;display:flex;align-items:center;gap:10px;flex:1;min-width:140px">
+      <div style="width:34px;height:34px;border-radius:var(--radius-sm);background:var(--fuji-bg);color:var(--fuji);display:flex;align-items:center;justify-content:center;font-size:15px">
+        <i class="fas fa-tags"></i>
+      </div>
+      <div>
+        <div style="font-size:20px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${keywords.length}</div>
+        <div style="font-size:11px;color:var(--text-muted)">キーワード</div>
+      </div>
+    </div>
+    <div class="card" style="padding:12px 16px;display:flex;align-items:center;gap:10px;flex:1;min-width:140px">
+      <div style="width:34px;height:34px;border-radius:var(--radius-sm);background:var(--momo-bg);color:var(--momo);display:flex;align-items:center;justify-content:center;font-size:15px">
+        <i class="fas fa-palette"></i>
+      </div>
+      <div>
+        <div style="font-size:20px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${filledMoodCount}/6</div>
+        <div style="font-size:11px;color:var(--text-muted)">ムードボード</div>
+      </div>
+    </div>
+    <div class="card" style="padding:12px 16px;display:flex;align-items:center;gap:10px;flex:1;min-width:140px">
+      <div style="width:34px;height:34px;border-radius:var(--radius-sm);background:var(--matcha-bg);color:var(--matcha);display:flex;align-items:center;justify-content:center;font-size:15px">
+        <i class="fas fa-circle-check"></i>
+      </div>
+      <div>
+        <div style="font-size:20px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${checkedCount}/5</div>
+        <div style="font-size:11px;color:var(--text-muted)">チェック完了</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:20px;margin-bottom:24px">
+    <!-- 左：アイデアノート -->
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <div class="card-title"><i class="fas fa-lightbulb icon" style="color:var(--kogane)"></i> アイデアノート</div>
+          ${ideaTypeSummary ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">' + ideaTypeSummary + '</div>' : ''}
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${keywordTags || '<span style="font-size:12px;color:var(--text-muted)">まだキーワードがありません</span>'}</div>
+        <button class="btn btn-primary btn-sm" onclick="openAddIdeaModal('${proj.id}')"><i class="fas fa-plus"></i> 追加</button>
+      </div>
+      <div class="idea-grid">${ideaCards}</div>
+    </div>
+
+    <!-- 右：キーワード + ムードボード + チェック -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <!-- キーワード・モチーフ -->
+      <div class="card card-fuji" style="padding:14px 16px">
+        <div class="card-header" style="margin-bottom:10px">
+          <div class="card-title"><i class="fas fa-hashtag icon" style="color:var(--fuji)"></i> キーワード・モチーフ</div>
+          <span style="font-size:11px;color:var(--text-muted)">${keywords.length}個</span>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;min-height:32px">
+          ${keywordTags || '<span style="font-size:12px;color:var(--text-muted);font-style:italic">キーワードを追加してください</span>'}
+        </div>
         <div style="display:flex;gap:8px">
-          <input class="form-input" id="kw-input" placeholder="キーワードを入力して Enter" style="font-size:12px"
+          <input class="form-input" id="kw-input" placeholder="# キーワードを入力して Enter" style="font-size:12px"
             onkeydown="if(event.key==='Enter')addKeyword('${proj.id}')">
           <button class="btn btn-secondary btn-sm" onclick="addKeyword('${proj.id}')"><i class="fas fa-plus"></i></button>
         </div>
       </div>
+
+      <!-- ムードボード -->
       <div class="card">
         <div class="card-header">
-          <div class="card-title"><i class="fas fa-palette icon"></i> ムードボード</div>
+          <div class="card-title"><i class="fas fa-palette icon" style="color:var(--momo)"></i> ムードボード</div>
+          <span style="font-size:11px;color:var(--text-muted)">${filledMoodCount}/6 入力済</span>
         </div>
         <div class="mood-board">${moodItems}</div>
       </div>
-      <div class="card">
+
+      <!-- 着想チェックリスト -->
+      <div class="card card-matcha">
         <div class="card-header">
-          <div class="card-title"><i class="fas fa-question-circle icon"></i> 着想チェック</div>
+          <div class="card-title"><i class="fas fa-circle-check icon" style="color:var(--matcha)"></i> 着想チェックリスト</div>
+          <span style="font-size:11px;color:var(--matcha);font-weight:600">${checkedCount}/5</span>
         </div>
         ${renderIdeaChecklist(proj)}
       </div>
@@ -664,7 +962,7 @@ function renderIdeas(proj) {
   <div class="info-box">
     <i class="fas fa-lightbulb"></i>
     <div><strong>着想フェーズのポイント：</strong>良し悪しを判断せず、浮かんだアイデアをすべて書き出しましょう。
-    断片的なシーン・セリフ・テーマ・キャラクターのイメージ、何でもOK。後で整理します。</div>
+    断片的なシーン・セリフ・テーマ・キャラクターのイメージ、何でもOK。高優先のアイデアはのちのコンセプト設計に活用します。</div>
   </div>`;
 }
 
@@ -853,73 +1151,140 @@ function saveMoodItem(projId, category) {
 }
 
 // ================================================================
-//  PAGE: リサーチ
+//  PAGE: リサーチ — 個別最適化版
 // ================================================================
 function renderResearch(proj) {
   const r = proj.research || {};
   const notes = r.notes || [];
   const links = r.links || [];
 
-  const noteCards = notes.map(n => `
-    <div class="idea-card" style="position:relative">
+  // カテゴリ別色設定
+  const NOTE_CAT_COLORS = {
+    '職業・専門知識': { color: '#2a8080', bg: '#eef7f7', border: '#a8d4d4' },
+    '時代・歴史':    { color: '#c48a00', bg: '#fdf8e8', border: '#e8d088' },
+    '地理・場所':    { color: '#4a7c3f', bg: '#eff6ed', border: '#b8d4b2' },
+    '人物・実在モデル': { color: '#d44d7a', bg: '#fdf0f5', border: '#f0b8ce' },
+    '法律・制度':    { color: '#2e5fa0', bg: '#eef3fb', border: '#b8cee8' },
+    '文化・慣習':    { color: '#6a5aaa', bg: '#f4f2fb', border: '#ccc4e8' },
+    'その他':        { color: '#7a6e5e', bg: '#f0ece4', border: '#e4ddd3' },
+  };
+
+  const noteCards = notes.map(n => {
+    const cat = NOTE_CAT_COLORS[n.category] || NOTE_CAT_COLORS['その他'];
+    return `
+    <div class="idea-card" style="border-left:3px solid ${cat.color};position:relative">
       <div class="idea-card-actions">
-        <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteResearchNote('${proj.id}','${n.id}')"><i class="fas fa-xmark" style="font-size:10px;color:var(--red)"></i></button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteResearchNote('${proj.id}','${n.id}')"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>
       </div>
-      <div style="font-size:11px;font-weight:600;color:var(--accent-light);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">${esc(n.category||'メモ')}</div>
-      <div class="idea-card-title">${esc(n.title||'')}</div>
+      <div style="display:inline-flex;align-items:center;gap:4px;background:${cat.bg};color:${cat.color};border:1px solid ${cat.border};border-radius:10px;padding:2px 8px;font-size:10px;font-weight:600;margin-bottom:7px">
+        ${esc(n.category||'その他')}
+      </div>
+      <div class="idea-card-title">${esc(n.title||'無題')}</div>
       <div class="idea-card-body">${esc(n.body||'').replace(/\n/g,'<br>')}</div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:8px">${fmtDate(n.createdAt)}</div>
-    </div>`).join('') || `<div style="text-align:center;padding:32px;color:var(--text-muted);font-size:13px;grid-column:1/-1">リサーチノートを追加しましょう</div>`;
+      <div style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:right">${fmtDate(n.createdAt)}</div>
+    </div>`;
+  }).join('') || `<div style="grid-column:1/-1;text-align:center;padding:36px 20px;color:var(--text-muted)">
+    <div style="font-size:36px;margin-bottom:10px;opacity:0.3">📚</div>
+    <div style="font-size:13px">リサーチノートを追加しましょう</div>
+  </div>`;
 
   const linkItems = links.map(l => `
-    <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-      <i class="fas fa-link" style="color:var(--accent);font-size:12px;flex-shrink:0"></i>
-      <div style="flex:1;overflow:hidden">
-        <div style="font-size:13px;font-weight:500;color:var(--text-primary)">${esc(l.title||l.url)}</div>
-        <div style="font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.url)}</div>
+    <div class="research-source-card">
+      <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:var(--kon-bg);color:var(--kon-lt);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fas fa-link" style="font-size:12px"></i>
       </div>
-      <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteResearchLink('${proj.id}','${l.id}')"><i class="fas fa-xmark" style="color:var(--red);font-size:10px"></i></button>
-    </div>`).join('') || `<div style="font-size:13px;color:var(--text-muted);text-align:center;padding:16px">参考リンクなし</div>`;
+      <div style="flex:1;overflow:hidden">
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:2px">${esc(l.title||l.url)}</div>
+        <div style="font-size:11px;color:var(--kon-lt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.url)}</div>
+        ${l.memo ? '<div style="font-size:11px;color:var(--text-muted);margin-top:3px">' + esc(l.memo) + '</div>' : ''}
+      </div>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteResearchLink('${proj.id}','${l.id}')"><i class="fas fa-xmark" style="color:var(--accent);font-size:10px"></i></button>
+    </div>`).join('') || `<div style="font-size:12px;color:var(--text-muted);text-align:center;padding:16px;font-style:italic">参考リンクがありません</div>`;
+
+  // カテゴリ別ノート数の集計
+  const catSummary = Object.entries(NOTE_CAT_COLORS).map(([cat, c]) => {
+    const cnt = notes.filter(n => (n.category||'その他') === cat).length;
+    if (cnt === 0) return '';
+    return `<span style="display:inline-flex;align-items:center;gap:3px;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:10px;padding:2px 8px;font-size:10px;font-weight:500">${cat} ${cnt}</span>`;
+  }).join('');
+
+  const checkedResearch = (proj.researchChecks||[]).length;
 
   return `
   <div class="section-header">
-    <div class="section-title"><i class="fas fa-magnifying-glass" style="color:#6ab8f7"></i> リサーチ <span class="phase-badge-lg">Phase 2</span></div>
-    <div class="section-desc">取材・調査・参考資料を整理して作品の土台を固めましょう</div>
+    <div class="section-title">
+      <i class="fas fa-magnifying-glass" style="color:var(--kon-lt)"></i> リサーチ
+      <span class="phase-badge-lg" style="background:var(--kon-bg);color:var(--kon-lt);border-color:var(--kon-border)">Phase 2</span>
+    </div>
+    <div class="section-desc">取材・調査・参考資料を整理して、作品世界のリアリティを構築しましょう</div>
   </div>
-  <div class="grid-2" style="margin-bottom:20px">
+
+  <!-- 進捗サマリー -->
+  <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+    <div class="card" style="padding:12px 16px;display:flex;align-items:center;gap:10px;flex:1;min-width:130px">
+      <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:var(--kon-bg);color:var(--kon-lt);display:flex;align-items:center;justify-content:center;font-size:14px"><i class="fas fa-book-open"></i></div>
+      <div><div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif">${notes.length}</div><div style="font-size:11px;color:var(--text-muted)">リサーチノート</div></div>
+    </div>
+    <div class="card" style="padding:12px 16px;display:flex;align-items:center;gap:10px;flex:1;min-width:130px">
+      <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:var(--asagi-bg);color:var(--asagi);display:flex;align-items:center;justify-content:center;font-size:14px"><i class="fas fa-link"></i></div>
+      <div><div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif">${links.length}</div><div style="font-size:11px;color:var(--text-muted)">参考リンク</div></div>
+    </div>
+    <div class="card" style="padding:12px 16px;display:flex;align-items:center;gap:10px;flex:1;min-width:130px">
+      <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:var(--matcha-bg);color:var(--matcha);display:flex;align-items:center;justify-content:center;font-size:14px"><i class="fas fa-circle-check"></i></div>
+      <div><div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif">${checkedResearch}/6</div><div style="font-size:11px;color:var(--text-muted)">チェック完了</div></div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:20px;margin-bottom:20px">
+    <!-- 左：ノート + リンク -->
     <div style="display:flex;flex-direction:column;gap:16px">
       <div class="card">
         <div class="card-header">
-          <div class="card-title"><i class="fas fa-book-open icon"></i> リサーチノート</div>
+          <div>
+            <div class="card-title"><i class="fas fa-book-open icon" style="color:var(--kon-lt)"></i> リサーチノート</div>
+            ${catSummary ? '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">' + catSummary + '</div>' : ''}
+          </div>
           <button class="btn btn-primary btn-sm" onclick="openAddResearchNote('${proj.id}')"><i class="fas fa-plus"></i> 追加</button>
         </div>
-        <div class="idea-grid" style="grid-template-columns:1fr">${noteCards}</div>
+        <div class="idea-grid" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">${noteCards}</div>
       </div>
       <div class="card">
         <div class="card-header">
-          <div class="card-title"><i class="fas fa-link icon"></i> 参考リンク</div>
+          <div class="card-title"><i class="fas fa-link icon" style="color:var(--asagi)"></i> 参考リンク・資料</div>
           <button class="btn btn-secondary btn-sm" onclick="openAddResearchLink('${proj.id}')"><i class="fas fa-plus"></i> 追加</button>
         </div>
-        ${linkItems}
+        <div>${linkItems}</div>
       </div>
     </div>
+
+    <!-- 右：世界観ノート + チェックリスト -->
     <div style="display:flex;flex-direction:column;gap:16px">
-      <div class="card">
+      <div class="card card-kon">
         <div class="card-header">
-          <div class="card-title"><i class="fas fa-globe icon"></i> 世界観・設定ノート</div>
+          <div class="card-title"><i class="fas fa-globe icon" style="color:var(--kon-lt)"></i> 世界観・設定ノート</div>
         </div>
-        <textarea class="form-textarea" id="worldbuilding-area" rows="12"
-          placeholder="時代背景、地理、社会、組織、ルール、文化、技術…&#10;作品世界の設定を自由に書いてください"
+        <textarea class="form-textarea" id="worldbuilding-area" rows="10"
+          placeholder="時代背景、地理、社会構造、組織、ルール、文化、技術…&#10;作品世界の設定を自由に書いてください"
           onblur="saveWorldbuilding('${proj.id}',this.value)"
-          style="min-height:200px">${esc(r.worldbuilding||'')}</textarea>
+          style="min-height:180px;background:white">${esc(r.worldbuilding||'')}</textarea>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px;text-align:right">
+          <i class="fas fa-floppy-disk" style="font-size:9px"></i> フォーカスを外すと自動保存
+        </div>
       </div>
-      <div class="card">
+      <div class="card card-matcha">
         <div class="card-header">
-          <div class="card-title"><i class="fas fa-list-check icon"></i> リサーチチェックリスト</div>
+          <div class="card-title"><i class="fas fa-list-check icon" style="color:var(--matcha)"></i> リサーチチェックリスト</div>
+          <span style="font-size:11px;color:var(--matcha);font-weight:600">${checkedResearch}/6</span>
         </div>
         ${renderResearchChecklist(proj)}
       </div>
     </div>
+  </div>
+
+  <div class="info-box">
+    <i class="fas fa-magnifying-glass"></i>
+    <div><strong>リサーチのコツ：</strong>「わかったつもり」で書き始めないこと。実際に現場に行く・専門家に話を聞く・原典を読む。
+    リサーチが深いほど、セリフや場面描写が生きてきます。</div>
   </div>`;
 }
 
@@ -1040,40 +1405,100 @@ function saveWorldbuilding(projId, val) {
 }
 
 // ================================================================
-//  PAGE: コンセプト設計
+//  PAGE: コンセプト設計 — 個別最適化版
 // ================================================================
 function renderConcept(proj) {
   const c = proj.concept || {};
+  const checkedConcept = (proj.conceptChecks||[]).length;
+
+  // テーマの入力状況チェック
+  const themeOk = (c.theme||'').trim().length > 0;
+  const premiseOk = (c.premise||'').trim().length > 0;
+  const loglineOk = (proj.logline||'').trim().length > 0;
+  const conceptFillPct = Math.round(([themeOk, premiseOk, !!(c.tone), !!(c.target), loglineOk, !!(c.usp)].filter(Boolean).length / 6) * 100);
+
+  const TONE_COLORS = {
+    'シリアス': { color:'#1d3d6b', bg:'#eef3fb' },
+    'ダーク':   { color:'#2a1f1a', bg:'#f4f0eb' },
+    'コミカル': { color:'#c48a00', bg:'#fdf8e8' },
+    'ヒューマン':{ color:'#4a7c3f', bg:'#eff6ed' },
+    'サスペンス':{ color:'#6a5aaa', bg:'#f4f2fb' },
+    '感動':     { color:'#d44d7a', bg:'#fdf0f5' },
+    'ホラー':   { color:'#8b1a1a', bg:'#fdf0ee' },
+    '爽快':     { color:'#2a8080', bg:'#eef7f7' },
+    '詩的':     { color:'#7a5a3a', bg:'#fdf8f0' },
+  };
+  const toneColor = c.tone ? (TONE_COLORS[c.tone] || { color:'var(--text-secondary)', bg:'#f0ece4' }) : null;
+
   return `
   <div class="section-header">
-    <div class="section-title"><i class="fas fa-compass-drafting" style="color:#6af7c8"></i> コンセプト設計 <span class="phase-badge-lg">Phase 3</span></div>
-    <div class="section-desc">作品の核心を定義し、ぶれない軸を作りましょう</div>
+    <div class="section-title">
+      <i class="fas fa-compass-drafting" style="color:var(--asagi)"></i> コンセプト設計
+      <span class="phase-badge-lg" style="background:var(--asagi-bg);color:var(--asagi);border-color:var(--asagi-border)">Phase 3</span>
+    </div>
+    <div class="section-desc">作品の核心を言語化し、ぶれない「軸」を確立しましょう</div>
   </div>
-  <div class="grid-2" style="gap:20px">
+
+  <!-- ログライン・完成度ハイライト -->
+  <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap">
+    <div class="card" style="flex:1;padding:16px;border-left:4px solid var(--asagi)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:12px;font-weight:700;color:var(--asagi);letter-spacing:0.06em;text-transform:uppercase">ログライン</div>
+        <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="openEditProjectModal('${proj.id}')"><i class="fas fa-pen" style="font-size:10px"></i> 編集</button>
+      </div>
+      <div style="font-size:13.5px;color:var(--text-primary);line-height:1.7;font-family:'Noto Serif JP',serif;font-style:italic">
+        ${proj.logline ? esc(proj.logline) : '<span style="color:var(--text-muted)">ログラインを設定してください（プロジェクト情報→編集）</span>'}
+      </div>
+    </div>
+    <div class="card" style="min-width:160px;padding:16px;text-align:center">
+      <div style="font-size:28px;font-weight:700;font-family:'Noto Serif JP',serif;color:${conceptFillPct>=80?'var(--matcha)':conceptFillPct>=50?'var(--kogane)':'var(--accent)'}">${conceptFillPct}%</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">コンセプト完成度</div>
+      <div class="progress-bar" style="height:5px"><div class="progress-fill" style="width:${conceptFillPct}%;background:${conceptFillPct>=80?'var(--matcha)':conceptFillPct>=50?'var(--kogane)':'var(--accent)'}"></div></div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:20px">
+    <!-- 左：テーマ・設定 -->
     <div style="display:flex;flex-direction:column;gap:16px">
+
+      <!-- テーマ・プレミス -->
       <div class="card">
-        <div class="card-title" style="margin-bottom:14px"><i class="fas fa-bullseye icon"></i> テーマ・主題</div>
-        <div class="form-group">
-          <label class="form-label">メインテーマ（一文で）</label>
-          <input class="form-input" id="c-theme" value="${esc(c.theme||'')}"
-            placeholder="例：真の強さとは他者を思いやること"
-            onblur="saveConcept('${proj.id}')">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-bullseye icon" style="color:var(--asagi)"></i> テーマ・主題・問い</div>
         </div>
         <div class="form-group">
-          <label class="form-label">プレミス（前提・問い）</label>
+          <label class="form-label">
+            メインテーマ <span style="color:var(--accent)">*</span>
+            <span style="font-size:10px;font-weight:400;color:var(--text-muted);margin-left:4px">一文で言い切れるほど明確に</span>
+          </label>
+          <input class="form-input" id="c-theme" value="${esc(c.theme||'')}"
+            placeholder="例：真の勇気とは、恐れを感じながらも前に進むこと"
+            onblur="saveConcept('${proj.id}')"
+            style="${themeOk ? 'border-color:var(--matcha);background:var(--matcha-bg)' : ''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">
+            プレミス・問い <span style="color:var(--accent)">*</span>
+            <span style="font-size:10px;font-weight:400;color:var(--text-muted);margin-left:4px">「もし〜ならば…するか？」</span>
+          </label>
           <textarea class="form-textarea" id="c-premise" rows="3"
-            placeholder="例：もし親友を失った刑事が、その犯人が無実だと知ったら何をするか？"
+            placeholder="例：もし愛する人を助けるために犯罪を犯した人間が、法の裁きを受けたとき何を選ぶか？"
             onblur="saveConcept('${proj.id}')">${esc(c.premise||'')}</textarea>
         </div>
         <div class="form-group">
-          <label class="form-label">サブテーマ（複数可）</label>
+          <label class="form-label">サブテーマ・通奏低音</label>
           <textarea class="form-textarea" id="c-subtheme" rows="2"
-            placeholder="贖罪、友情と裏切り、など"
+            placeholder="例：贖罪、親子の絆、正義の相対性…"
             onblur="saveConcept('${proj.id}')">${esc(c.subtheme||'')}</textarea>
         </div>
       </div>
+
+      <!-- 作品フォーマット設定 -->
       <div class="card">
-        <div class="card-title" style="margin-bottom:14px"><i class="fas fa-film icon"></i> 作品設定</div>
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-sliders icon" style="color:var(--kogane)"></i> 作品フォーマット・設定</div>
+          ${c.tone && toneColor ? '<span class="tag" style="background:' + toneColor.bg + ';color:' + toneColor.color + ';border:1px solid ' + toneColor.color + '44">' + esc(c.tone) + '</span>' : ''}
+        </div>
         <div class="grid-2">
           <div class="form-group">
             <label class="form-label">トーン・雰囲気</label>
@@ -1095,34 +1520,57 @@ function renderConcept(proj) {
               placeholder="例：60分×10話" onblur="saveConcept('${proj.id}')">
           </div>
           <div class="form-group">
-            <label class="form-label">時制・視点</label>
+            <label class="form-label">時制・語り口</label>
             <input class="form-input" id="c-pov" value="${esc(c.pov||'')}"
-              placeholder="例：現代・三人称限定" onblur="saveConcept('${proj.id}')">
+              placeholder="例：現代・一人称（主人公）" onblur="saveConcept('${proj.id}')">
           </div>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">参考作品・インスピレーション源</label>
+          <input class="form-input" id="c-ref" value="${esc(c.ref||'')}"
+            placeholder="例：「半沢直樹」×「万引き家族」のような…" onblur="saveConcept('${proj.id}')">
         </div>
       </div>
     </div>
+
+    <!-- 右：USP・感情・チェック -->
     <div style="display:flex;flex-direction:column;gap:16px">
-      <div class="card">
-        <div class="card-title" style="margin-bottom:14px"><i class="fas fa-star icon"></i> ユニークセリングポイント</div>
+
+      <!-- USP -->
+      <div class="card card-asagi">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-star icon" style="color:var(--asagi)"></i> ユニーク・セリング・ポイント</div>
+        </div>
+        <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:8px;line-height:1.6">
+          なぜ今この話を語るのか？他の作品とどこが違うのか？
+        </div>
         <textarea class="form-textarea" id="c-usp" rows="5"
-          placeholder="この作品の「他にはない特徴」は何か？&#10;似た作品との違いは何か？&#10;なぜ今この話を語るのか？"
-          onblur="saveConcept('${proj.id}')">${esc(c.usp||'')}</textarea>
+          placeholder="この作品にしか描けない「何か」を書いてください"
+          onblur="saveConcept('${proj.id}')"
+          style="background:white">${esc(c.usp||'')}</textarea>
       </div>
-      <div class="card">
-        <div class="card-title" style="margin-bottom:14px"><i class="fas fa-users icon"></i> ターゲット視聴者の感情体験</div>
+
+      <!-- 感情体験 -->
+      <div class="card card-momo">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-heart icon" style="color:var(--momo)"></i> 視聴者の感情体験</div>
+        </div>
+        <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:8px;line-height:1.6">
+          見終わった後、何を感じてほしいか？何が残ってほしいか？
+        </div>
         <textarea class="form-textarea" id="c-emotion" rows="4"
-          placeholder="視聴者に何を感じてほしいか？&#10;見終わった後に何が残ってほしいか？"
-          onblur="saveConcept('${proj.id}')">${esc(c.emotion||'')}</textarea>
+          placeholder="例：明日も頑張ろうという前向きな気持ち。誰かを大切にしたくなる衝動"
+          onblur="saveConcept('${proj.id}')"
+          style="background:white">${esc(c.emotion||'')}</textarea>
       </div>
-      <div class="card">
-        <div class="card-title" style="margin-bottom:14px"><i class="fas fa-clipboard-list icon"></i> コンセプト確認チェック</div>
+
+      <!-- チェックリスト -->
+      <div class="card card-matcha">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-clipboard-check icon" style="color:var(--matcha)"></i> コンセプト確認チェック</div>
+          <span style="font-size:11px;color:var(--matcha);font-weight:600">${checkedConcept}/5</span>
+        </div>
         ${renderConceptChecklist(proj)}
-      </div>
-      <div class="card" style="background:rgba(106,247,200,0.05);border-color:rgba(106,247,200,0.2)">
-        <div class="card-title" style="margin-bottom:10px;color:var(--accent3)"><i class="fas fa-quote-left"></i> ログライン</div>
-        <div style="font-size:13px;color:var(--text-secondary);line-height:1.7">${esc(proj.logline || '（プロジェクト情報でログラインを設定してください）')}</div>
-        <button class="btn btn-secondary btn-sm" style="margin-top:10px" onclick="openEditProjectModal('${proj.id}')"><i class="fas fa-pen"></i> 編集</button>
       </div>
     </div>
   </div>`;
@@ -1155,49 +1603,112 @@ function saveConcept(projId) {
     pov:      $('#c-pov')?.value      || '',
     usp:      $('#c-usp')?.value      || '',
     emotion:  $('#c-emotion')?.value  || '',
+    ref:      $('#c-ref')?.value      || '',
   };
   proj.updatedAt = now();
   DB.saveProject(proj);
 }
 
 // ================================================================
-//  PAGE: キャラクター設計
+//  PAGE: キャラクター設計 — 個別最適化版
 // ================================================================
 function renderCharacters(proj) {
   const chars = proj.characters || [];
-  const ROLES = ['主人公','ヒロイン/ヒーロー','antagonist（敵）','相棒','メンター','サブキャラ','その他'];
+
+  // ロール別色設定
+  const ROLE_COLORS = {
+    '主人公':            { color:'#d94f2a', bg:'#fef2ee', border:'#f5c4b4' },
+    'ヒロイン/ヒーロー': { color:'#d44d7a', bg:'#fdf0f5', border:'#f0b8ce' },
+    'antagonist（敵）':  { color:'#1d3d6b', bg:'#eef3fb', border:'#b8cee8' },
+    '相棒':              { color:'#4a7c3f', bg:'#eff6ed', border:'#b8d4b2' },
+    'メンター':          { color:'#c48a00', bg:'#fdf8e8', border:'#e8d088' },
+    'サブキャラ':        { color:'#6a5aaa', bg:'#f4f2fb', border:'#ccc4e8' },
+    'その他':            { color:'#7a6e5e', bg:'#f0ece4', border:'#e4ddd3' },
+  };
+
+  // キャラクターのロール別分布
+  const roleDistribution = chars.reduce((acc, ch) => {
+    const role = ch.role || 'その他';
+    acc[role] = (acc[role] || 0) + 1;
+    return acc;
+  }, {});
 
   const charCards = chars.length === 0
-    ? `<div style="grid-column:1/-1;text-align:center;padding:60px;color:var(--text-muted)">
-        <i class="fas fa-users" style="font-size:40px;display:block;margin-bottom:12px;opacity:0.3"></i>
-        キャラクターを追加しましょう
+    ? `<div style="grid-column:1/-1;text-align:center;padding:56px 20px;color:var(--text-muted)">
+        <div style="font-size:48px;margin-bottom:12px;opacity:0.3">👥</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">キャラクターがいません</div>
+        <div style="font-size:12px;margin-bottom:20px">主人公・敵役など登場人物を追加しましょう</div>
+        <button class="btn btn-primary btn-sm" onclick="openAddCharModal('${proj.id}')"><i class="fas fa-user-plus"></i> 最初のキャラクターを追加</button>
        </div>`
-    : chars.map(ch => `
+    : chars.map(ch => {
+        const rc = ROLE_COLORS[ch.role] || ROLE_COLORS['その他'];
+        const wantFilled = (ch.want||'').trim().length > 0;
+        const needFilled = (ch.need||'').trim().length > 0;
+        const completeness = [ch.name, ch.role, ch.age, ch.want, ch.need, ch.backstory, ch.speech].filter(v => v && String(v).trim()).length;
+        return `
       <div class="character-card" onclick="openEditCharModal('${proj.id}','${ch.id}')">
-        <div class="character-avatar" style="background:linear-gradient(135deg,${ch.color||'#7c6af7'}33,${ch.color||'#f76ca0'}22)">
-          <span style="font-size:40px">${ch.emoji||'👤'}</span>
+        <div class="character-avatar" style="background:linear-gradient(135deg,${rc.bg} 0%,${rc.border}55 100%)">
+          <span style="font-size:42px">${ch.emoji||'👤'}</span>
+          <div style="position:absolute;top:8px;right:8px">
+            <span style="display:inline-flex;align-items:center;gap:3px;background:${rc.bg};color:${rc.color};border:1px solid ${rc.border};border-radius:10px;padding:2px 7px;font-size:9.5px;font-weight:700">${esc(ch.role||'？')}</span>
+          </div>
         </div>
         <div class="character-info">
           <div class="character-name">${esc(ch.name||'名前未設定')}</div>
-          <div class="character-role">${esc(ch.role||'')} ${ch.age ? `/ ${ch.age}歳` : ''}</div>
-          ${ch.tagline ? `<div style="font-size:11px;color:var(--text-muted);font-style:italic;margin-bottom:8px">"${esc(ch.tagline)}"</div>` : ''}
+          <div class="character-role" style="color:var(--text-muted)">
+            ${ch.age ? ch.age + '歳' : ''}
+            ${ch.age && ch.gender ? ' / ' : ''}
+            ${ch.gender ? esc(ch.gender) : ''}
+          </div>
+          ${ch.tagline ? `<div style="font-size:11px;color:var(--text-secondary);font-style:italic;margin-bottom:8px;line-height:1.5;border-left:2px solid ${rc.border};padding-left:6px">"${esc(ch.tagline)}"</div>` : ''}
+          <div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap">
+            ${wantFilled ? '<span class="tag tag-beni" style="font-size:10px"><i class="fas fa-arrow-up" style="font-size:8px"></i> Want</span>' : '<span class="tag tag-gray" style="font-size:10px;opacity:0.5">Want 未入力</span>'}
+            ${needFilled ? '<span class="tag tag-matcha" style="font-size:10px"><i class="fas fa-heart" style="font-size:8px"></i> Need</span>' : '<span class="tag tag-gray" style="font-size:10px;opacity:0.5">Need 未入力</span>'}
+          </div>
           <div class="character-traits">
-            ${(ch.traits||[]).map(t=>`<span class="tag tag-purple" style="font-size:10px">${esc(t)}</span>`).join('')}
+            ${(ch.traits||[]).slice(0,3).map(t=>`<span class="tag tag-fuji" style="font-size:10px">${esc(t)}</span>`).join('')}
+          </div>
+          <div style="margin-top:8px">
+            <div class="progress-bar" style="height:3px"><div class="progress-fill" style="width:${Math.round(completeness/7*100)}%;background:linear-gradient(90deg,${rc.color},${rc.color}88)"></div></div>
+            <div style="font-size:9.5px;color:var(--text-muted);margin-top:2px">プロフィール完成度 ${Math.round(completeness/7*100)}%</div>
           </div>
         </div>
-      </div>`).join('');
+      </div>`;
+      }).join('');
+
+  // ロール分布サマリー
+  const roleSummary = Object.entries(roleDistribution).map(([role, cnt]) => {
+    const rc = ROLE_COLORS[role] || ROLE_COLORS['その他'];
+    return `<span style="display:inline-flex;align-items:center;gap:3px;background:${rc.bg};color:${rc.color};border:1px solid ${rc.border};border-radius:10px;padding:3px 9px;font-size:10.5px;font-weight:500">${role} ${cnt}人</span>`;
+  }).join('');
 
   return `
   <div class="section-header">
-    <div class="section-title"><i class="fas fa-users" style="color:#c86af7"></i> キャラクター設計 <span class="phase-badge-lg">Phase 5</span></div>
-    <div class="section-desc">登場人物を深く掘り下げ、生きたキャラクターを作りましょう</div>
+    <div class="section-title">
+      <i class="fas fa-users" style="color:var(--fuji)"></i> キャラクター設計
+      <span class="phase-badge-lg" style="background:var(--fuji-bg);color:var(--fuji);border-color:var(--fuji-border)">Phase 5</span>
+    </div>
+    <div class="section-desc">登場人物の内面・欲求・バックストーリーを深掘りして、生きたキャラクターを作りましょう</div>
   </div>
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <div style="font-size:13px;color:var(--text-muted)">${chars.length}人のキャラクター</div>
-    <button class="btn btn-primary" onclick="openAddCharModal('${proj.id}')"><i class="fas fa-user-plus"></i> キャラクター追加</button>
+
+  <!-- ロール分布 + アクション -->
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:12px;color:var(--text-muted);font-weight:500">登場人物：</span>
+      ${roleSummary || '<span style="font-size:12px;color:var(--text-muted);font-style:italic">まだキャラクターがいません</span>'}
+    </div>
+    <button class="btn btn-primary" onclick="openAddCharModal('${proj.id}')">
+      <i class="fas fa-user-plus"></i> キャラクター追加
+    </button>
   </div>
-  <div class="character-grid">${charCards}</div>
-  ${chars.length > 1 ? renderRelationshipMap(proj) : ''}`;
+
+  <div class="character-grid" style="margin-bottom:24px">${charCards}</div>
+  ${chars.length > 1 ? renderRelationshipMap(proj) : ''}
+  <div class="info-box" style="margin-top:16px">
+    <i class="fas fa-users"></i>
+    <div><strong>キャラクター設計のポイント：</strong>「Want（表の欲求）」と「Need（内なる必要）」の葛藤がドラマを生みます。
+    主人公はWantを追いながら、Needに気づいていく——この旅がキャラクターアークです。</div>
+  </div>`;
 }
 
 function renderRelationshipMap(proj) {
