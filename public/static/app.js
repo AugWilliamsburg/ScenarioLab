@@ -34,7 +34,7 @@ function renderChecklistItems(done, checks, getFn) {
 
 // ── State ──────────────────────────────────────────────────────
 const State = {
-  currentPage: 'dashboard',
+  currentPage: 'top',
   currentProjectId: null,
   currentTab: {},
   projects: [],
@@ -184,6 +184,14 @@ const FORMATS = ['テレビドラマ（連続）','テレビドラマ（単発�
 function navigate(page, projectId = null) {
   State.currentPage = page;
   if (projectId) State.currentProjectId = projectId;
+  // モバイルではナビゲート時にサイドバーを強制的に閉じる
+  if (window.innerWidth <= 900) {
+    const overlay = document.getElementById('sidebar-overlay');
+    if (overlay) overlay.classList.remove('active');
+    DB.set('sidebar_collapsed', true);
+  }
+  // デスクトップでも現在の折り畳み状態を確実に維持（DB状態を保持）
+  // → renderLayout側で DB.get('sidebar_collapsed', true) を読むのでここでは変更しない
   render();
   window.scrollTo(0, 0);
 }
@@ -269,9 +277,14 @@ function render() {
     return;
   }
 
-  if (p === 'dashboard' || !State.currentProjectId) {
-    app.innerHTML = renderLayout(renderDashboard());
-    bindDashboard();
+  if (p === 'dashboard' || p === 'top' || !State.currentProjectId) {
+    if (p === 'top') {
+      app.innerHTML = renderLayout(renderTopPage());
+      bindTopPage();
+    } else {
+      app.innerHTML = renderLayout(renderDashboard());
+      bindDashboard();
+    }
   } else {
     const proj = DB.getProject(State.currentProjectId);
     if (!proj) { navigate('dashboard'); return; }
@@ -325,6 +338,8 @@ function renderLayout(content, proj = null) {
     </div>` : '';
 
   const TOPBAR_PAGES = {
+    top:              { icon:'fa-house',     color:'var(--accent)',  title:'ホーム',             sub:'今日の執筆・プロジェクト・タスク' },
+    dashboard:        { icon:'fa-folder',    color:'var(--fuji)',    title:'作品ダッシュボード', sub:'プロジェクト一覧・管理' },
     learn:            { icon:'fa-book-open', color:'var(--fuji)',   title:'学習センター',       sub:'脚本執筆の理論・テクニックを学ぶ' },
     'learn-guide':    { icon:'fa-book-open', color:'var(--fuji)',   title:'学習センター',       sub:'ステップバイステップガイド' },
     'learn-articles': { icon:'fa-book-open', color:'var(--fuji)',   title:'学習センター',       sub:'構成理論・詳細記事' },
@@ -341,7 +356,7 @@ function renderLayout(content, proj = null) {
     journal:          { icon:'fa-book',      color:'var(--matcha)', title:'執筆日誌',           sub:'毎日の執筆記録・進捗管理' },
     namedict:         { icon:'fa-spell-check',color:'var(--kon-lt)',title:'キャラクター名辞典', sub:'登場人物の名前・読みを管理' },
     worldbuilding:    { icon:'fa-globe',     color:'var(--asagi)',  title:'世界観設計',         sub:'舞台・設定・世界観を構築' },
-    inspiration:      { icon:'fa-bolt',      color:'var(--kogane)', title:'インスピレーション', sub:'アイデア・刺激・乱数プロンプト' },
+    inspiration:      { icon:'fa-bolt',      color:'var(--kogane)', title:'インスピレーション・ライブラリ', sub:'アイデア・メモ・ノート・マインドマップを整理' },
     board:            { icon:'fa-film',              color:'var(--fuji)',   title:'ストーリーボード',  sub:'カンバンボード＆シーンマップで物語を視覚設計' },
     tasks:            { icon:'fa-calendar-check',   color:'var(--matcha)', title:'タスク管理',        sub:'執筆タスク・スケジュール・習慣管理' },
     storymap:         { icon:'fa-film',              color:'var(--fuji)',   title:'ストーリーボード',  sub:'カンバンボード＆シーンマップで物語を視覚設計' },
@@ -349,8 +364,8 @@ function renderLayout(content, proj = null) {
   const cpKey = TOPBAR_PAGES[cp] ? cp : (cp && cp.startsWith('article-') ? 'learn' : null);
   const tbData = cpKey ? TOPBAR_PAGES[cpKey] : null;
 
-  // ── サイドバー折り畳み状態 ──
-  const sidebarCollapsed = DB.get('sidebar_collapsed', false);
+  // ── サイドバー折り畳み状態 ── デフォルトは閉じた状態
+  const sidebarCollapsed = DB.get('sidebar_collapsed', true);
 
   // ── デュータスクバッジ ──
   const dueBadge = (()=>{
@@ -388,11 +403,24 @@ function renderLayout(content, proj = null) {
     </div>
   </div>` : '';
 
-  // ── トップバー ──
-  const topbarContent = proj ? `
+  // ── サイドバー折り畳み時に表示するロゴ（常に表示） ──
+  const collapsedLogo = `
     <button class="sidebar-toggle-btn" id="sidebar-toggle" onclick="toggleSidebar()" title="メニュー開閉">
       <i class="fas fa-bars"></i>
     </button>
+    <div class="topbar-logo-link" onclick="navigate('top')" title="ホームへ">
+      <div class="topbar-logo-icon"><i class="fas fa-clapperboard"></i></div>
+      <div class="topbar-logo-texts">
+        <div class="topbar-logo-name">シナリオラボ</div>
+        <div class="topbar-logo-sub">脚本執筆支援ツール</div>
+      </div>
+    </div>`;
+
+  // ── トップバー ──
+  const isTopPage = (cp === 'top');
+  const topbarContent = proj ? `
+    ${collapsedLogo}
+    <div class="topbar-divider"></div>
     <div class="topbar-proj-info" onclick="navigate('proj-dash','${proj.id}')" title="作品概要へ" style="cursor:pointer">
       <div class="topbar-title">${esc(proj.title)}</div>
       <div class="topbar-subtitle">${esc(proj.genre)} / ${esc(proj.format)} — <span style="color:${(PHASE_COLORS_WA[proj.phase]||{color:'#999'}).color};font-weight:600">${esc(proj.phase)}</span></div>
@@ -400,26 +428,22 @@ function renderLayout(content, proj = null) {
     <div class="topbar-actions">
       <button class="btn btn-secondary btn-sm" onclick="navigate('dashboard')"><i class="fas fa-house"></i><span class="topbar-btn-label"> 一覧</span></button>
       <button class="btn btn-primary btn-sm" onclick="quickSaveProject('${proj.id}')"><i class="fas fa-floppy-disk"></i><span class="topbar-btn-label"> 保存</span></button>
-    </div>` : tbData ? `
-    <button class="sidebar-toggle-btn" id="sidebar-toggle" onclick="toggleSidebar()" title="メニュー開閉">
-      <i class="fas fa-bars"></i>
-    </button>
-    <div>
+    </div>` : tbData && !isTopPage ? `
+    ${collapsedLogo}
+    <div class="topbar-divider"></div>
+    <div class="topbar-page-info">
       <div class="topbar-title"><i class="fas ${tbData.icon}" style="color:${tbData.color};margin-right:7px"></i>${tbData.title}</div>
       <div class="topbar-subtitle">${tbData.sub}</div>
     </div>
     <div class="topbar-actions">
-      <button class="btn btn-secondary btn-sm" onclick="navigate('dashboard')"><i class="fas fa-house"></i><span class="topbar-btn-label"> ホーム</span></button>
+      <button class="btn btn-secondary btn-sm" onclick="navigate('dashboard')"><i class="fas fa-house"></i><span class="topbar-btn-label"> 作品一覧</span></button>
     </div>` : `
-    <button class="sidebar-toggle-btn" id="sidebar-toggle" onclick="toggleSidebar()" title="メニュー開閉">
-      <i class="fas fa-bars"></i>
-    </button>
-    <div>
-      <div class="topbar-title">シナリオラボ</div>
-      <div class="topbar-subtitle">脚本執筆支援ツール</div>
-    </div>
+    ${collapsedLogo}
     <div class="topbar-actions">
+      ${isTopPage ? `
+      <button class="btn btn-secondary btn-sm" onclick="navigate('dashboard')"><i class="fas fa-folder"></i><span class="topbar-btn-label"> 作品一覧</span></button>
       <button class="btn btn-primary btn-sm" onclick="openNewProjectModal()"><i class="fas fa-plus"></i><span class="topbar-btn-label"> 新規作品</span></button>
+      ` : `<button class="btn btn-primary btn-sm" onclick="openNewProjectModal()"><i class="fas fa-plus"></i><span class="topbar-btn-label"> 新規作品</span></button>`}
     </div>`;
 
   // ── サイドバー内の作品ミニカード（作品選択中のみ） ──
@@ -470,8 +494,11 @@ function renderLayout(content, proj = null) {
             <i class="fas fa-chevron-down sidebar-section-caret ${sec0collapsed?'rotated':''}"></i>
           </button>
           <div class="sidebar-section-items">
+            <div class="nav-item ${cp==='top'?'active':''}" onclick="navigate('top')">
+              <span class="nav-icon"><i class="fas fa-sun" style="color:#f7d07a"></i></span><span class="nav-label">ホーム</span>
+            </div>
             <div class="nav-item ${(!proj && cp==='dashboard')?'active':''}" onclick="navigate('dashboard')">
-              <span class="nav-icon"><i class="fas fa-house" style="color:#f5d9c8"></i></span><span class="nav-label">ダッシュボード</span>
+              <span class="nav-icon"><i class="fas fa-folder" style="color:#f5d9c8"></i></span><span class="nav-label">作品一覧</span>
             </div>
             <div class="nav-item ${isJournalPage?'active':''}" onclick="navigate('journal')">
               <span class="nav-icon"><i class="fas fa-book" style="color:#7de08a"></i></span><span class="nav-label">執筆日誌</span>
@@ -531,8 +558,8 @@ function renderLayout(content, proj = null) {
     <div class="main-content">
       <div class="topbar">
         ${topbarContent}
-        <!-- グローバルタイマーウィジェット -->
-        <div class="global-timer-widget" id="global-timer-widget" onclick="toggleTimerPopup()" title="執筆タイマー">
+        <!-- グローバルタイマーウィジェット（常に右端に表示） -->
+        <div class="global-timer-widget" id="global-timer-widget" onclick="toggleTimerPopup()" title="執筆タイマーを開く">
           <div class="gtimer-icon ${TimerState.isRunning ? (TimerState.isBreak ? 'break' : 'running') : ''}">
             <i class="fas fa-stopwatch"></i>
           </div>
@@ -543,7 +570,7 @@ function renderLayout(content, proj = null) {
 
       ${phaseBar}
 
-      <!-- タイマーポップアップ -->
+      <!-- タイマーポップアップ（fixed, topbar直下の右端） -->
       <div class="timer-popup" id="timer-popup" style="display:none">
         <div class="timer-popup-header">
           <span style="font-size:13px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">
@@ -555,29 +582,43 @@ function renderLayout(content, proj = null) {
           </div>
         </div>
         <div class="timer-popup-body">
-          <div id="timer-popup-mode" style="font-size:11px;font-weight:600;text-align:center;margin-bottom:8px;color:${TimerState.isBreak?'var(--matcha)':'var(--kogane)'}">${TimerState.isBreak?'☕ 休憩タイム':'✍️ 執筆タイム'}</div>
-          <div id="timer-popup-display" style="font-size:38px;font-weight:800;text-align:center;letter-spacing:2px;font-variant-numeric:tabular-nums;margin-bottom:14px">${(()=>{const m=Math.floor(TimerState.seconds/60),s=TimerState.seconds%60;return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');})()} </div>
-          <div style="display:flex;gap:6px;justify-content:center;margin-bottom:12px">
-            <button class="btn btn-primary btn-sm" id="timer-popup-btn" onclick="timerTogglePopup()" style="min-width:90px">
+          <div id="timer-popup-mode" style="font-size:12px;font-weight:600;text-align:center;margin-bottom:10px;color:${TimerState.isBreak?'var(--matcha)':'var(--kogane)'};letter-spacing:.04em">${TimerState.isBreak?'☕ 休憩タイム':'✍️ 執筆タイム'}</div>
+          <div id="timer-popup-display" class="timer-popup-bigtime" title="クリックで時間を編集" onclick="timerDisplayClick()">${(()=>{const m=Math.floor(TimerState.seconds/60),s=TimerState.seconds%60;return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');})()} </div>
+          <div style="font-size:10px;color:var(--text-muted);text-align:center;margin-bottom:12px;margin-top:-6px"><i class="fas fa-pen-to-square" style="font-size:9px"></i> クリックで時間を編集</div>
+          <div style="display:flex;gap:6px;justify-content:center;margin-bottom:14px">
+            <button class="btn btn-primary" id="timer-popup-btn" onclick="timerTogglePopup()" style="min-width:100px;height:36px">
               <i class="fas ${TimerState.isRunning?'fa-pause':'fa-play'}"></i> ${TimerState.isRunning?'一時停止':'開始'}
             </button>
-            <button class="btn btn-secondary btn-sm" onclick="timerResetPopup()" title="リセット"><i class="fas fa-rotate-left"></i></button>
+            <button class="btn btn-secondary" onclick="timerResetPopup()" title="リセット" style="height:36px;width:36px;padding:0;display:flex;align-items:center;justify-content:center"><i class="fas fa-rotate-left"></i></button>
           </div>
-          <div style="display:flex;gap:8px;justify-content:center">
-            <div style="text-align:center">
-              <div style="font-size:10px;color:var(--text-muted)">作業時間</div>
-              <input type="number" id="timer-popup-work" class="form-input" value="${DB.get('timer_settings',{work:25}).work}" min="1" max="90" style="width:54px;text-align:center;padding:3px 6px;font-size:12px" onchange="updateTimerSettings()">
-              <div style="font-size:10px;color:var(--text-muted)">分</div>
+          <div class="timer-popup-settings">
+            <div class="timer-popup-setting-item">
+              <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px">作業</div>
+              <input type="number" id="timer-popup-work" class="form-input" value="${DB.get('timer_settings',{work:25}).work}" min="1" max="90" style="width:52px;text-align:center;padding:3px 4px;font-size:13px;font-weight:700" onchange="updateTimerSettings()">
+              <div style="font-size:10px;color:var(--text-muted);margin-top:2px">分</div>
             </div>
-            <div style="text-align:center">
-              <div style="font-size:10px;color:var(--text-muted)">休憩時間</div>
-              <input type="number" id="timer-popup-break" class="form-input" value="${DB.get('timer_settings',{break:5}).break}" min="1" max="30" style="width:54px;text-align:center;padding:3px 6px;font-size:12px" onchange="updateTimerSettings()">
-              <div style="font-size:10px;color:var(--text-muted)">分</div>
+            <div style="font-size:18px;color:var(--border);align-self:center">:</div>
+            <div class="timer-popup-setting-item">
+              <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px">休憩</div>
+              <input type="number" id="timer-popup-break" class="form-input" value="${DB.get('timer_settings',{break:5}).break}" min="1" max="30" style="width:52px;text-align:center;padding:3px 4px;font-size:13px;font-weight:700" onchange="updateTimerSettings()">
+              <div style="font-size:10px;color:var(--text-muted);margin-top:2px">分</div>
             </div>
-            <div style="text-align:center">
-              <div style="font-size:10px;color:var(--text-muted)">完了</div>
-              <div style="font-size:18px;font-weight:700;color:var(--kogane);padding:4px 0" id="timer-popup-sessions">${TimerState.sessions}</div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px">
+              <div style="font-size:10px;color:var(--text-muted)">完了セッション</div>
+              <div style="font-size:22px;font-weight:800;color:var(--kogane);line-height:1" id="timer-popup-sessions">${TimerState.sessions}</div>
               <div style="font-size:10px;color:var(--text-muted)">回</div>
+            </div>
+          </div>
+          <!-- 自然音セレクター -->
+          <div class="timer-ambient-section">
+            <div class="timer-ambient-label"><i class="fas fa-music"></i> BGM / 自然音</div>
+            <div id="ambient-btns" class="timer-ambient-grid">
+              <button class="timer-ambient-btn ${(DB.get('ambient_sound','none')==='none')?'active':''}" onclick="setAmbientSound('none')">🔇<span>なし</span></button>
+              <button class="timer-ambient-btn ${(DB.get('ambient_sound','none')==='rain')?'active':''}" onclick="setAmbientSound('rain')">🌧<span>雨音</span></button>
+              <button class="timer-ambient-btn ${(DB.get('ambient_sound','none')==='waves')?'active':''}" onclick="setAmbientSound('waves')">🌊<span>波音</span></button>
+              <button class="timer-ambient-btn ${(DB.get('ambient_sound','none')==='forest')?'active':''}" onclick="setAmbientSound('forest')">🌿<span>森</span></button>
+              <button class="timer-ambient-btn ${(DB.get('ambient_sound','none')==='cafe')?'active':''}" onclick="setAmbientSound('cafe')">☕<span>カフェ</span></button>
+              <button class="timer-ambient-btn ${(DB.get('ambient_sound','none')==='white')?'active':''}" onclick="setAmbientSound('white')">📻<span>ホワイト</span></button>
             </div>
           </div>
         </div>
@@ -665,6 +706,266 @@ const WRITING_TIPS = [
 
 function getRandomTip() {
   return WRITING_TIPS[Math.floor(Math.random() * WRITING_TIPS.length)];
+}
+
+// ================================================================
+//  TOP PAGE (ホーム)
+// ================================================================
+const WRITING_QUOTES = [
+  { text: '初稿はただ存在させればいい。完璧である必要はない。', author: 'アーネスト・ヘミングウェイ' },
+  { text: '書くことは、考えることだ。書き始めるまで、自分が何を考えているか分からない。', author: 'フラナリー・オコナー' },
+  { text: '物語は人間の夢だ。夢は人間の物語だ。', author: 'Ⅲ 匿名' },
+  { text: '一日に一ページ。それだけで一年後には一冊の本になる。', author: '作家の格言' },
+  { text: 'セリフは行動だ。キャラクターがただ話しているのではなく、何かをしているのだ。', author: 'デイヴィッド・マメット' },
+  { text: 'すべての物語は「なぜ今日この話をするのか」という問いから始まる。', author: '脚本術の格言' },
+  { text: '観客は賢い。彼らを馬鹿にしてはいけない。彼らはあなたが思う以上に多くを感じ取っている。', author: 'シドニー・ルメット' },
+  { text: '主人公を苦しめることを恐れるな。苦難が物語を生む。', author: 'ストーリーテリングの原則' },
+  { text: '「なぜ」と「もし〜なら」——この二つの問いが物語のエンジンだ。', author: '脚本家の知恵' },
+  { text: '書けない日も書く。それが習慣になる。', author: '匿名の作家' },
+  { text: '良い対話は何か別のことについて話している。', author: 'エルモア・レナード' },
+  { text: 'ストーリーとはキャラクターだ。プロットはキャラクターが何をするかではなく、キャラクターが誰であるかを明かす方法だ。', author: 'リサ・クロン' },
+  { text: '伏線は回収しなければ嘘になる。回収できない伏線は置かない勇気も必要だ。', author: '脚本術の格言' },
+  { text: '物語の核心はいつも「変化」だ——主人公が変わるか、世界が変わるか、観客が変わるか。', author: 'ロバート・マッキー' },
+  { text: '書くことは孤独な仕事だ。しかし孤独でなければ書けない。', author: 'フランツ・カフカ' },
+];
+
+function renderTopPage() {
+  const today = new Date().toISOString().slice(0, 10);
+  const quote = WRITING_QUOTES[Math.floor(Math.random() * WRITING_QUOTES.length)];
+  const projects = DB.getProjects();
+  const tasks = TASK_DB.getTasks();
+  const todayTasks = tasks.filter(t => !t.done && t.dueDate === today);
+  const overdueTasks = tasks.filter(t => !t.done && t.dueDate && t.dueDate < today);
+  const urgentTasks = tasks.filter(t => !t.done && t.priority === 'urgent');
+
+  // 進行中プロジェクト (最後に更新した順)
+  const activeProjects = [...projects]
+    .filter(p => p.phase !== '共有・出力')
+    .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))
+    .slice(0, 3);
+
+  // 今日のジャーナル
+  const journals = DB.get('journal_entries', []);
+  const todayJournal = journals.find(j => j.date === today);
+  const todayWords = todayJournal ? (todayJournal.wordCount || 0) : 0;
+  const dailyGoal = DB.get('daily_word_goal', 500);
+  const pct = Math.min(100, Math.round(todayWords / dailyGoal * 100));
+
+  // 今後7日以内の期限タスク
+  const upcoming7 = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(); d.setDate(d.getDate() + i);
+    const ds = d.toISOString().slice(0, 10);
+    const dayTasks = tasks.filter(t => !t.done && t.dueDate === ds);
+    if (dayTasks.length > 0) upcoming7.push({ date: ds, tasks: dayTasks });
+  }
+
+  const dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+  const todayDay = new Date().getDay();
+  const todayJP = `${new Date().getMonth()+1}月${new Date().getDate()}日（${dayNames[todayDay]}）`;
+
+  const phaseColors = PHASE_COLORS_WA;
+
+  return `
+  <div class="top-page">
+    <!-- ヒーロー格言バナー -->
+    <div class="top-quote-banner">
+      <div class="top-quote-inner">
+        <div class="top-quote-date"><i class="fas fa-sun"></i> ${todayJP}</div>
+        <blockquote class="top-quote-text">"${esc(quote.text)}"</blockquote>
+        <div class="top-quote-author">— ${esc(quote.author)}</div>
+      </div>
+      <button class="top-quote-refresh" onclick="renderTopPageRefreshQuote()" title="別の格言"><i class="fas fa-rotate"></i></button>
+    </div>
+
+    <!-- クイックアクション -->
+    <div class="top-quick-actions">
+      <button class="top-qa-btn top-qa-primary" onclick="navigate('journal')">
+        <i class="fas fa-pen-nib"></i><span>今日の執筆記録</span>
+      </button>
+      <button class="top-qa-btn" onclick="openNewProjectModal()">
+        <i class="fas fa-plus"></i><span>新規作品</span>
+      </button>
+      <button class="top-qa-btn" onclick="navigate('tasks');setTimeout(openNewTaskModal,100)">
+        <i class="fas fa-list-check"></i><span>タスク追加</span>
+      </button>
+      <button class="top-qa-btn" onclick="navigate('inspiration')">
+        <i class="fas fa-bolt"></i><span>インスピレーション</span>
+      </button>
+    </div>
+
+    <div class="top-main-grid">
+      <!-- 左カラム -->
+      <div class="top-left-col">
+
+        <!-- 今日の執筆進捗 -->
+        <div class="top-card">
+          <div class="top-card-header">
+            <i class="fas fa-pen-nib" style="color:var(--matcha)"></i>
+            <span>今日の執筆</span>
+            <span class="top-card-sub">${todayJP}</span>
+          </div>
+          <div class="top-writing-progress">
+            <div class="top-wp-numbers">
+              <span class="top-wp-count">${todayWords.toLocaleString()}</span>
+              <span class="top-wp-sep">/</span>
+              <span class="top-wp-goal">${dailyGoal.toLocaleString()} 字</span>
+              <span class="top-wp-pct ${pct>=100?'done':''}">${pct}%</span>
+            </div>
+            <div class="top-progress-bar">
+              <div class="top-progress-fill ${pct>=100?'done':''}" style="width:${pct}%"></div>
+            </div>
+            ${pct >= 100 ? `<div style="font-size:11.5px;color:var(--matcha);text-align:center;margin-top:4px;font-weight:700">🎉 今日のノルマ達成！</div>` : `<div style="font-size:11px;color:var(--text-muted);text-align:center;margin-top:4px">あと ${(dailyGoal-todayWords).toLocaleString()} 字</div>`}
+          </div>
+          ${todayJournal ? `
+          <div style="margin-top:10px;padding:10px 12px;background:var(--bg-hover);border-radius:var(--radius-sm);font-size:12px;color:var(--text-secondary)">
+            <i class="fas fa-quote-left" style="color:var(--text-muted);margin-right:4px;font-size:10px"></i>${esc((todayJournal.body||'').slice(0,100))}${(todayJournal.body||'').length>100?'…':''}
+          </div>` : `<button class="btn btn-secondary btn-sm" style="margin-top:10px;width:100%" onclick="navigate('journal')"><i class="fas fa-pen"></i> 今日の執筆を記録する</button>`}
+        </div>
+
+        <!-- 進行中プロジェクト -->
+        <div class="top-card">
+          <div class="top-card-header">
+            <i class="fas fa-film" style="color:var(--accent)"></i>
+            <span>進行中の作品</span>
+            <button class="btn btn-ghost btn-sm" onclick="navigate('dashboard')" style="margin-left:auto;font-size:11px">すべて見る →</button>
+          </div>
+          ${activeProjects.length === 0 ? `
+          <div style="text-align:center;padding:20px;color:var(--text-muted)">
+            <i class="fas fa-plus-circle" style="font-size:24px;margin-bottom:8px;display:block;opacity:.4"></i>
+            <div style="font-size:12px">作品がありません</div>
+            <button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="openNewProjectModal()">最初の作品を作る</button>
+          </div>` : `
+          <div class="top-projects-list">
+            ${activeProjects.map(p => {
+              const waColor = phaseColors[p.phase] || { bg:'var(--bg-hover)',color:'var(--text-muted)',border:'var(--border)' };
+              const phaseIdx = ['着想','リサーチ','コンセプト設計','プロット設計','キャラクター','アウトライン','初稿','大改稿','精密推敲','フィードバック','最終稿','共有・出力'].indexOf(p.phase);
+              const phasePct = phaseIdx >= 0 ? Math.round((phaseIdx / 11) * 100) : 0;
+              return `
+              <div class="top-project-row" onclick="navigate('proj-dash','${p.id}')">
+                <div class="top-proj-phase-dot" style="background:${waColor.color}"></div>
+                <div class="top-proj-info">
+                  <div class="top-proj-title">${esc(p.title)}</div>
+                  <div class="top-proj-meta">
+                    <span style="background:${waColor.bg};color:${waColor.color};border:1px solid ${waColor.border};padding:1px 7px;border-radius:var(--radius-full);font-size:10px;font-weight:700">${esc(p.phase)}</span>
+                    <span style="color:var(--text-muted);font-size:10.5px">${p.genre||''}</span>
+                  </div>
+                  <div class="top-proj-bar-wrap">
+                    <div class="top-proj-bar"><div style="width:${phasePct}%;background:${waColor.color};height:100%;border-radius:2px;transition:width .5s"></div></div>
+                    <span style="font-size:10px;color:var(--text-muted);width:28px;text-align:right">${phasePct}%</span>
+                  </div>
+                </div>
+                <button class="btn btn-ghost btn-sm top-proj-open-btn" onclick="event.stopPropagation();navigate('${PHASES.find(ph=>ph.id===p.phase)?.nav||'ideas'}','${p.id}')">執筆<i class="fas fa-chevron-right" style="font-size:9px;margin-left:2px"></i></button>
+              </div>`;
+            }).join('')}
+          </div>`}
+        </div>
+      </div>
+
+      <!-- 右カラム -->
+      <div class="top-right-col">
+
+        <!-- タスク（今日・期限切れ・緊急） -->
+        <div class="top-card">
+          <div class="top-card-header">
+            <i class="fas fa-calendar-check" style="color:var(--fuji)"></i>
+            <span>タスク</span>
+            <button class="btn btn-ghost btn-sm" onclick="navigate('tasks')" style="margin-left:auto;font-size:11px">タスク管理 →</button>
+          </div>
+          ${(overdueTasks.length > 0 || urgentTasks.length > 0) ? `
+          <div style="display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap">
+            ${overdueTasks.length > 0 ? `<div style="display:inline-flex;align-items:center;gap:4px;background:var(--momo-bg);color:var(--momo);border:1px solid var(--momo-border);border-radius:var(--radius-full);padding:3px 8px;font-size:11px;font-weight:700"><i class="fas fa-exclamation-circle"></i> 期限切れ ${overdueTasks.length}件</div>` : ''}
+            ${urgentTasks.length > 0 ? `<div style="display:inline-flex;align-items:center;gap:4px;background:#fde8ef;color:#d01050;border:1px solid #f5b3c8;border-radius:var(--radius-full);padding:3px 8px;font-size:11px;font-weight:700"><i class="fas fa-fire"></i> 緊急 ${urgentTasks.length}件</div>` : ''}
+          </div>` : ''}
+          ${todayTasks.length === 0 && overdueTasks.length === 0 ? `
+          <div style="text-align:center;padding:14px;color:var(--text-muted);font-size:12px">
+            <i class="fas fa-check-circle" style="font-size:20px;color:var(--matcha);margin-bottom:6px;display:block"></i>今日のタスクはありません
+          </div>` : ''}
+          ${todayTasks.length > 0 ? `
+          <div style="font-size:10.5px;font-weight:700;color:var(--text-muted);margin-bottom:6px;text-transform:uppercase;letter-spacing:.05em">今日 (${todayTasks.length}件)</div>
+          <div class="top-task-list">
+            ${todayTasks.slice(0, 4).map(t => renderTopTaskItem(t)).join('')}
+            ${todayTasks.length > 4 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);padding:4px">あと${todayTasks.length-4}件 <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="navigate('tasks')">すべて見る</button></div>` : ''}
+          </div>` : ''}
+          ${overdueTasks.length > 0 ? `
+          <div style="font-size:10.5px;font-weight:700;color:var(--momo);margin:10px 0 6px;text-transform:uppercase;letter-spacing:.05em">期限切れ (${overdueTasks.length}件)</div>
+          <div class="top-task-list">
+            ${overdueTasks.slice(0, 3).map(t => renderTopTaskItem(t, true)).join('')}
+            ${overdueTasks.length > 3 ? `<div style="text-align:center;font-size:11px;color:var(--text-muted);padding:4px">あと${overdueTasks.length-3}件</div>` : ''}
+          </div>` : ''}
+        </div>
+
+        <!-- 7日間のタスクスケジュール -->
+        ${upcoming7.length > 0 ? `
+        <div class="top-card">
+          <div class="top-card-header">
+            <i class="fas fa-calendar-week" style="color:var(--kogane)"></i>
+            <span>今後7日のスケジュール</span>
+          </div>
+          <div class="top-week-schedule">
+            ${upcoming7.map(({ date, tasks: dayTasks }) => {
+              const d = new Date(date + 'T00:00:00');
+              const isToday = date === today;
+              const label = isToday ? '今日' : `${d.getMonth()+1}/${d.getDate()}(${dayNames[d.getDay()]})`;
+              return `
+              <div class="top-week-row ${isToday?'today':''}">
+                <div class="top-week-date ${isToday?'today':''}">${label}</div>
+                <div class="top-week-tasks">
+                  ${dayTasks.slice(0,2).map(t => {
+                    const pr = TASK_PRIORITIES[t.priority] || TASK_PRIORITIES.medium;
+                    return `<div class="top-week-task-chip" style="border-left:2px solid ${pr.color}" onclick="navigate('tasks')">${esc(t.title.slice(0,20))}${t.title.length>20?'…':''}</div>`;
+                  }).join('')}
+                  ${dayTasks.length > 2 ? `<div class="top-week-task-chip" style="background:transparent;color:var(--text-muted);border:1px dashed var(--border)">+${dayTasks.length-2}</div>` : ''}
+                </div>
+              </div>`;
+            }).join('')}
+          </div>
+        </div>` : ''}
+
+        <!-- クイックリンク -->
+        <div class="top-card">
+          <div class="top-card-header">
+            <i class="fas fa-compass" style="color:var(--asagi)"></i>
+            <span>ツール&リソース</span>
+          </div>
+          <div class="top-links-grid">
+            <button class="top-link-btn" onclick="navigate('board')"><i class="fas fa-film" style="color:var(--fuji)"></i><span>ストーリーボード</span></button>
+            <button class="top-link-btn" onclick="navigate('learn')"><i class="fas fa-book-open" style="color:var(--fuji)"></i><span>学習センター</span></button>
+            <button class="top-link-btn" onclick="navigate('tools')"><i class="fas fa-toolbox" style="color:var(--asagi)"></i><span>ツール集</span></button>
+            <button class="top-link-btn" onclick="navigate('worldbuilding')"><i class="fas fa-globe" style="color:var(--asagi)"></i><span>世界観設計</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderTopTaskItem(task, overdue = false) {
+  const pr = TASK_PRIORITIES[task.priority] || TASK_PRIORITIES.medium;
+  return `
+  <div class="top-task-item" onclick="navigate('tasks')">
+    <div class="top-task-check" onclick="event.stopPropagation();toggleTaskDone('${task.id}');render()">
+      <i class="fas fa-circle" style="color:var(--border);font-size:13px"></i>
+    </div>
+    <div class="top-task-content">
+      <div class="top-task-title ${overdue?'overdue':''}">${esc(task.title.slice(0,30))}${task.title.length>30?'…':''}</div>
+      ${task.dueDate ? `<div class="top-task-due ${overdue?'overdue':''}">${overdue?'<i class="fas fa-exclamation-circle"></i> 期限切れ: ':'<i class="fas fa-clock"></i> '}${task.dueDate}</div>` : ''}
+    </div>
+    <div class="top-task-priority" style="color:${pr.color}"><i class="fas ${pr.icon}" style="font-size:10px"></i></div>
+  </div>`;
+}
+
+function renderTopPageRefreshQuote() {
+  const qEl = document.querySelector('.top-quote-text');
+  const aEl = document.querySelector('.top-quote-author');
+  if (!qEl || !aEl) return;
+  const q = WRITING_QUOTES[Math.floor(Math.random() * WRITING_QUOTES.length)];
+  qEl.textContent = `"${q.text}"`;
+  aEl.textContent = `— ${q.author}`;
+}
+
+function bindTopPage() {
+  // トップページのバインド（将来的な拡張用）
 }
 
 function renderDashboard() {
@@ -4390,6 +4691,28 @@ const ARTICLES = [
     readTime: 10,
     desc: '優れた脚本は感情の「波形」を意図的に設計している。シーンごとのテンション曲線、緊張と弛緩の交代、クライマックスへの積み上げ方を解説。',
   },
+  {
+    id: 'save-the-cat-chart',
+    title: 'Save the Cat — ビジュアル図解・完全版',
+    subtitle: '15ビートシートの構造を視覚的に把握し、物語全体を設計する',
+    category: '構成理論',
+    categoryColor: 'matcha',
+    icon: 'fa-cat',
+    tags: ['Save the Cat','ビート','図解','構造'],
+    readTime: 12,
+    desc: '映画脚本の15ビートシートを視覚的ダイアグラムで解説。各ビートの位置・割合・役割を一覧できる図表と、実際の脚本例での適用方法を詳しく紹介。',
+  },
+  {
+    id: 'scenario-ten',
+    title: 'シナリオ十箇条 — 日本式脚本の黄金律',
+    subtitle: '展開・宿命・宝物・決意・感動・山場・終演・題目・乱調・敵役の10原則',
+    category: '構成理論',
+    categoryColor: 'beni',
+    icon: 'fa-scroll',
+    tags: ['シナリオ十箇条','日本式','構成','原則'],
+    readTime: 10,
+    desc: '日本の脚本術で語り継がれる10の根本原則。Situations（展開）、Destiny（宿命）、Treasure（宝物）、Turning Point（決意）、Feels（感動）、Climax（山場）、Finale（終演）、Theme（題目）、Pinch（乱調）、Antagonist（敵役）。',
+  },
 ];
 
 // ガイドデータ
@@ -4686,6 +5009,7 @@ function renderArticlePage(articleId) {
     'kishotenketsu': renderArticleKishotenketsu(),
     'three-act': renderArticleThreeAct(),
     'save-the-cat': renderArticleSaveTheCat(),
+    'save-the-cat-chart': renderArticleSaveTheCatChart(),
     'story-circle': renderArticleStoryCircle(),
     'hero-journey': renderArticleHeroJourney(),
     'character-arc': renderArticleCharacterArc(),
@@ -4694,6 +5018,7 @@ function renderArticlePage(articleId) {
     'dialogue-craft': renderArticleDialogueCraft(),
     'script-format': renderArticleScriptFormat(),
     'tension-pacing': renderArticleTensionPacing(),
+    'scenario-ten': renderArticleScenarioTen(),
   };
 
   const body = bodies[articleId] || `<p>コンテンツは準備中です。</p>`;
@@ -5672,6 +5997,257 @@ function renderArticleTensionPacing() {
 
   <div class="article-callout kogane">
     <strong>実践チェック：</strong>あなたの脚本を振り返って、「テンションが同じ高さで続くシーン」がないか確認してください。意図的に「谷」を作ることで、次の「山」がより高く感じられます。
+  </div>`;
+}
+
+function renderArticleSaveTheCatChart() {
+  return `
+  <div class="article-callout matcha">
+    <i class="fas fa-cat" style="color:var(--matcha);margin-right:8px;flex-shrink:0"></i>
+    このページでは <strong>Save the Cat! 15ビートシート</strong>を視覚的な図解で学びます。ビートの位置・割合・機能を一覧できる図表と、実際の物語への適用方法を紹介します。
+  </div>
+
+  <h2>ビートシートの全体構造</h2>
+  <p>110ページの脚本に対応したビート配置を視覚化します。横軸がページ数（物語の進行）、各ビートの位置と機能を色分けで表示します。</p>
+
+  <div class="stc-chart-wrapper">
+    <div class="stc-acts-row">
+      <div class="stc-act stc-act1">第一幕 (1〜25p)</div>
+      <div class="stc-act stc-act2">第二幕前半 (25〜55p)</div>
+      <div class="stc-act stc-act2b">第二幕後半 (55〜85p)</div>
+      <div class="stc-act stc-act3">第三幕 (85〜110p)</div>
+    </div>
+    <div class="stc-timeline">
+      <div class="stc-beat" style="left:0.9%;background:#6ba3be" title="p.1 オープニングイメージ"><span>①</span></div>
+      <div class="stc-beat" style="left:4.5%;background:#7eb5c8" title="p.5 テーマの提示"><span>②</span></div>
+      <div class="stc-beat" style="left:9%;background:#90c4d4" title="p.1-10 設定"><span>③</span></div>
+      <div class="stc-beat stc-beat-key" style="left:10.9%;background:#3e8f7e" title="p.12 触媒"><span>④</span></div>
+      <div class="stc-beat" style="left:19%;background:#90c4d4" title="p.12-25 議論"><span>⑤</span></div>
+      <div class="stc-beat stc-beat-key" style="left:22.7%;background:#3e8f7e" title="p.25 第二幕突入"><span>⑥</span></div>
+      <div class="stc-beat" style="left:27.3%;background:#b5d4a8" title="p.30 Bストーリー"><span>⑦</span></div>
+      <div class="stc-beat" style="left:36%;background:#c8e0bc" title="p.30-55 楽しみと遊び"><span>⑧</span></div>
+      <div class="stc-beat stc-beat-key" style="left:50%;background:#c9913d" title="p.55 ミッドポイント"><span>⑨</span></div>
+      <div class="stc-beat" style="left:62%;background:#d4a87e" title="p.55-75 悪役の迫来"><span>⑩</span></div>
+      <div class="stc-beat stc-beat-key" style="left:68.2%;background:#c0392b" title="p.75 すべてを失う"><span>⑪</span></div>
+      <div class="stc-beat" style="left:75%;background:#d4706a" title="p.75-85 暗闇の魂"><span>⑫</span></div>
+      <div class="stc-beat stc-beat-key" style="left:77.3%;background:#8e44ad" title="p.85 クライマックス突入"><span>⑬</span></div>
+      <div class="stc-beat" style="left:86%;background:#b08fd4" title="p.85-110 クライマックス"><span>⑭</span></div>
+      <div class="stc-beat" style="left:99%;background:#6ba3be" title="p.110 クロージングイメージ"><span>⑮</span></div>
+    </div>
+    <div class="stc-page-ruler">
+      <span>p.1</span><span>p.25</span><span>p.55</span><span>p.75</span><span>p.85</span><span>p.110</span>
+    </div>
+  </div>
+
+  <h2>15ビートの詳細・機能マップ</h2>
+  <div class="stc-beat-grid">
+    <div class="stc-beat-card stc-card-setup">
+      <div class="stc-beat-card-header">第一幕 — 設定</div>
+      <div class="stc-beat-item"><span class="stc-beat-no">①</span><span class="stc-beat-name">オープニングイメージ</span><span class="stc-beat-page">p.1</span><div class="stc-beat-role">物語のトーン・テーマを象徴する一場面。クロージングイメージと対比する</div></div>
+      <div class="stc-beat-item"><span class="stc-beat-no">②</span><span class="stc-beat-name">テーマの提示</span><span class="stc-beat-page">p.5</span><div class="stc-beat-role">「あなたが変わるべきこと」が問いかけとして投げかけられる</div></div>
+      <div class="stc-beat-item"><span class="stc-beat-no">③</span><span class="stc-beat-name">設定</span><span class="stc-beat-page">p.1-10</span><div class="stc-beat-role">主人公の日常・世界・欠如・人間関係を素早く描写</div></div>
+      <div class="stc-beat-item stc-beat-item-key"><span class="stc-beat-no">④</span><span class="stc-beat-name">触媒（発端）</span><span class="stc-beat-page">p.12</span><div class="stc-beat-role">🔑 日常を壊す決定的な出来事。もう後戻りできない</div></div>
+      <div class="stc-beat-item"><span class="stc-beat-no">⑤</span><span class="stc-beat-name">議論</span><span class="stc-beat-page">p.12-25</span><div class="stc-beat-role">主人公の葛藤・躊躇・準備。変化への抵抗</div></div>
+      <div class="stc-beat-item stc-beat-item-key"><span class="stc-beat-no">⑥</span><span class="stc-beat-name">第二幕への突入</span><span class="stc-beat-page">p.25</span><div class="stc-beat-role">🔑 主人公が「逆さの世界」へ踏み込む決断</div></div>
+    </div>
+    <div class="stc-beat-card stc-card-fun">
+      <div class="stc-beat-card-header">第二幕前半 — 楽しみと遊び</div>
+      <div class="stc-beat-item"><span class="stc-beat-no">⑦</span><span class="stc-beat-name">Bストーリー</span><span class="stc-beat-page">p.30</span><div class="stc-beat-role">サブプロット開始（多くは恋愛・友情）。テーマの鏡</div></div>
+      <div class="stc-beat-item"><span class="stc-beat-no">⑧</span><span class="stc-beat-name">楽しみと遊び</span><span class="stc-beat-page">p.30-55</span><div class="stc-beat-role">観客が期待していたシーン。「売り」の見せ場</div></div>
+      <div class="stc-beat-item stc-beat-item-key"><span class="stc-beat-no">⑨</span><span class="stc-beat-name">ミッドポイント</span><span class="stc-beat-page">p.55</span><div class="stc-beat-role">🔑 表面的勝利か最低点。主人公の認識が変わる転換</div></div>
+    </div>
+    <div class="stc-beat-card stc-card-dark">
+      <div class="stc-beat-card-header">第二幕後半 — 暗闇へ</div>
+      <div class="stc-beat-item"><span class="stc-beat-no">⑩</span><span class="stc-beat-name">悪役の迫来</span><span class="stc-beat-page">p.55-75</span><div class="stc-beat-role">障害が激化。主人公の計画が崩れ始める</div></div>
+      <div class="stc-beat-item stc-beat-item-key"><span class="stc-beat-no">⑪</span><span class="stc-beat-name">すべてを失う</span><span class="stc-beat-page">p.75</span><div class="stc-beat-role">🔑 最大の失敗・喪失。物語の底（最低点）</div></div>
+      <div class="stc-beat-item"><span class="stc-beat-no">⑫</span><span class="stc-beat-name">暗闇の魂</span><span class="stc-beat-page">p.75-85</span><div class="stc-beat-role">深刻な疑念と絶望。変化の直前の最も暗い瞬間</div></div>
+    </div>
+    <div class="stc-beat-card stc-card-climax">
+      <div class="stc-beat-card-header">第三幕 — クライマックス</div>
+      <div class="stc-beat-item stc-beat-item-key"><span class="stc-beat-no">⑬</span><span class="stc-beat-name">クライマックスへの突入</span><span class="stc-beat-page">p.85</span><div class="stc-beat-role">🔑 主人公が変化した姿で最終決戦へ向かう決断</div></div>
+      <div class="stc-beat-item"><span class="stc-beat-no">⑭</span><span class="stc-beat-name">クライマックス</span><span class="stc-beat-page">p.85-110</span><div class="stc-beat-role">主人公が変化した姿で最大の障害に立ち向かう</div></div>
+      <div class="stc-beat-item stc-beat-item-key"><span class="stc-beat-no">⑮</span><span class="stc-beat-name">クロージングイメージ</span><span class="stc-beat-page">p.110</span><div class="stc-beat-role">🔑 ①と対比。変化を示す最終場面</div></div>
+    </div>
+  </div>
+
+  <h2>ビートの比率と機能</h2>
+  <div class="stc-ratio-chart">
+    <div class="stc-ratio-bar">
+      <div style="width:22.7%;background:#3e8f7e;padding:6px 4px;font-size:10px;color:#fff;text-align:center;border-radius:4px 0 0 4px">第一幕<br>25%</div>
+      <div style="width:27.3%;background:#b5d4a8;padding:6px 4px;font-size:10px;color:#2d5a27;text-align:center">楽しみ&遊び<br>30%</div>
+      <div style="width:27.3%;background:#c0392b;padding:6px 4px;font-size:10px;color:#fff;text-align:center">暗闇へ<br>27%</div>
+      <div style="width:22.7%;background:#8e44ad;padding:6px 4px;font-size:10px;color:#fff;text-align:center;border-radius:0 4px 4px 0">第三幕<br>23%</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:4px;padding:0 2px">
+      <span>p.1</span><span>p.25</span><span>p.55</span><span>p.75 p.85</span><span>p.110</span>
+    </div>
+  </div>
+
+  <h2>物語の「変化」の軸</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0">
+    <div style="background:var(--bg-hover);border-radius:var(--radius-sm);padding:14px;border-left:3px solid var(--accent)">
+      <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:6px">幕開け（オープニングイメージ）</div>
+      <div style="font-size:12px;color:var(--text-secondary)">主人公の「欠如した状態」「変化前」の世界</div>
+    </div>
+    <div style="background:var(--bg-hover);border-radius:var(--radius-sm);padding:14px;border-left:3px solid var(--matcha)">
+      <div style="font-size:11px;font-weight:700;color:var(--matcha);margin-bottom:6px">幕末（クロージングイメージ）</div>
+      <div style="font-size:12px;color:var(--text-secondary)">主人公の「成長した状態」「変化後」の世界</div>
+    </div>
+  </div>
+
+  <div class="article-callout matcha">
+    <strong>図表の使い方：</strong>まずあなたの物語の「触媒（p.12）」「ミッドポイント（p.55）」「すべてを失う（p.75）」の3つの転換点を書き出してみてください。これらが決まれば、物語の骨格が完成します。
+  </div>`;
+}
+
+function renderArticleScenarioTen() {
+  const items = [
+    {
+      no: 1,
+      en: 'Situations',
+      ja: '展開',
+      icon: 'fa-sitemap',
+      color: 'var(--accent)',
+      bg: 'var(--accent-bg)',
+      desc: '物語が「動く」ためのシチュエーション設計。主人公が置かれる状況・環境・制約を意図的に設計する。良い展開は「主人公が選択しなければならない状況」を作り出す。',
+      tips: ['主人公に「逃げ場のない状況」を作る', '時間・場所・人間関係の制約が展開を生む', 'どんな展開も「主人公の欲求」に直結させる'],
+    },
+    {
+      no: 2,
+      en: 'Destiny / Secret',
+      ja: '宿命',
+      icon: 'fa-star',
+      color: 'var(--kogane)',
+      bg: 'var(--kogane-bg)',
+      desc: '主人公が逃れられない「宿命」や「隠された秘密」。これが明かされる時に物語は劇的に動く。観客が知っていて主人公が知らない情報（ドラマティック・アイロニー）も含まれる。',
+      tips: ['宿命は早めに示唆し、後半で明かす', '「秘密」は主人公と観客の関係を作る', '宿命を知った時のキャラクターの反応を準備する'],
+    },
+    {
+      no: 3,
+      en: 'Treasure',
+      ja: '宝物',
+      icon: 'fa-gem',
+      color: 'var(--fuji)',
+      bg: 'var(--fuji-bg)',
+      desc: '主人公が追い求める「宝物」。物理的な目標（金・地位・人）だけでなく、精神的な目標（愛・認知・自己受容）も含む。主人公の「欲求（Want）」と「必要（Need）」の違いが物語の深みを生む。',
+      tips: ['外的宝物（Want）と内的宝物（Need）を区別する', '宝物への道のりが物語の骨格', '宝物を得た時に主人公はどう変わるか'],
+    },
+    {
+      no: 4,
+      en: 'Turning Point',
+      ja: '決意',
+      icon: 'fa-rotate',
+      color: 'var(--matcha)',
+      bg: 'var(--matcha-bg)',
+      desc: '物語を転換させる「決意の瞬間」。主人公が大きな選択をする場面。この選択が主人公のキャラクターを最もよく表す。観客は「もし自分なら？」と自問させられる。',
+      tips: ['決意は「選択肢がある状態」で行わせる', '決意の前後でキャラクターが変わる', '最良の決意は「コスト」を伴う'],
+    },
+    {
+      no: 5,
+      en: 'Feels',
+      ja: '感動',
+      icon: 'fa-heart',
+      color: 'var(--momo)',
+      bg: 'var(--momo-bg)',
+      desc: '観客の感情を揺さぶる「感動の瞬間」。涙・笑い・恐怖・驚き——感情なき物語は記憶に残らない。感動は「期待を外す」か「期待を超える」ことで生まれる。',
+      tips: ['感動は「準備」があって初めて生まれる', '笑いと涙は紙一重——悲劇の直後に笑いを入れる', '感情の「振れ幅」が感動の大きさを決める'],
+    },
+    {
+      no: 6,
+      en: 'Climax',
+      ja: '山場',
+      icon: 'fa-mountain',
+      color: 'var(--accent)',
+      bg: 'var(--accent-bg)',
+      desc: '物語の頂点——すべての要素が集結する「山場」。最大の緊張・最大のステークス・最大の対決。山場は第二幕で積み上げてきたものをすべて解放する瞬間。',
+      tips: ['山場は「主人公が最も変化する場面」', '山場では主人公自身が問題を解決しなければならない', '山場の前に必ず「最低点」を置く'],
+    },
+    {
+      no: 7,
+      en: 'Finale',
+      ja: '終演',
+      icon: 'fa-flag-checkered',
+      color: 'var(--kon-lt)',
+      bg: 'var(--kon-bg)',
+      desc: '山場の後の「収束」。世界の新しい秩序を示し、キャラクターの変化を確認する。終演は「変化後の新しい日常」を垣間見せる。余韻が次の感情を生む。',
+      tips: ['終演は短く、余韻を残す', '「元の世界に戻ったが何かが変わった」を見せる', 'オープニングと呼応させることで物語が完結する'],
+    },
+    {
+      no: 8,
+      en: 'Theme',
+      ja: '題目',
+      icon: 'fa-quote-left',
+      color: 'var(--asagi)',
+      bg: 'var(--asagi-bg)',
+      desc: '物語が伝えようとする「テーマ（主題）」。テーマは「メッセージ」ではなく「問い」として機能するのが理想。観客が自分自身の答えを見つける余地を残す。',
+      tips: ['テーマは台詞で説明せず、出来事で示す', '主人公の変化がそのままテーマを表す', '題目は最初から決めてもよいし、書いた後に発見してもよい'],
+    },
+    {
+      no: 9,
+      en: 'Pinch / Defect',
+      ja: '乱調',
+      icon: 'fa-bolt',
+      color: 'var(--kogane)',
+      bg: 'var(--kogane-bg)',
+      desc: '物語のリズムを揺さぶる「乱れ」や「欠陥」。完璧に進む物語は退屈になる。意図的な乱調——予想外の展開、キャラクターの失敗、サブプロットの割り込み——がテンションを維持する。',
+      tips: ['乱調は「予測可能な展開」の前後に置く', 'キャラクターの欠陥が乱調を生み出す', '乱調からの回復がキャラクターの成長を示す'],
+    },
+    {
+      no: 10,
+      en: 'Antagonist',
+      ja: '敵役',
+      icon: 'fa-user-slash',
+      color: '#d01050',
+      bg: '#fde8ef',
+      desc: '主人公の目標を阻む「敵役（アンタゴニスト）」。人物である必要はない——自然・社会・自分自身の内面が敵役でもよい。優れた敵役は主人公と同じくらい強く、動機が理解できる。',
+      tips: ['敵役の目的は「主人公と同じゴール」が効果的', '敵役の視点でも物語が成立することを確認する', '敵役は主人公の「影（シャドー）」として設計する'],
+    },
+  ];
+
+  return `
+  <div class="article-callout beni">
+    <i class="fas fa-scroll" style="color:var(--accent);margin-right:8px;flex-shrink:0"></i>
+    <strong>シナリオ十箇条</strong>は日本の脚本術で語り継がれる10の根本原則です。物語を「動かす力」の源泉を10の観点から整理し、執筆の指針として活用します。
+  </div>
+
+  <h2>10の原則一覧</h2>
+  <div class="sct-overview">
+    ${items.map(it => `
+    <div class="sct-overview-item" style="border-color:${it.color};background:${it.bg}">
+      <div class="sct-ov-no" style="color:${it.color}">${it.no}</div>
+      <div class="sct-ov-content">
+        <div class="sct-ov-en" style="color:${it.color}">${it.en}</div>
+        <div class="sct-ov-ja">${it.ja}</div>
+      </div>
+      <i class="fas ${it.icon} sct-ov-icon" style="color:${it.color}"></i>
+    </div>`).join('')}
+  </div>
+
+  <h2>各原則の詳細</h2>
+  ${items.map(it => `
+  <div class="sct-item-card">
+    <div class="sct-item-header" style="background:${it.bg};border-left:4px solid ${it.color}">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;background:${it.color};border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;flex-shrink:0">${it.no}</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:${it.color}">${it.ja} <span style="font-weight:400;color:var(--text-muted);font-size:11px">（${it.en}）</span></div>
+          <div style="font-size:10px;color:var(--text-muted)"><i class="fas ${it.icon}" style="margin-right:4px"></i>${it.desc.slice(0,40)}…</div>
+        </div>
+      </div>
+    </div>
+    <div class="sct-item-body">
+      <p style="font-size:13px;line-height:1.75;color:var(--text-secondary);margin:0 0 12px">${it.desc}</p>
+      <div style="background:var(--bg-page);border-radius:var(--radius-sm);padding:10px 12px">
+        <div style="font-size:10.5px;font-weight:700;color:${it.color};margin-bottom:6px"><i class="fas fa-lightbulb" style="margin-right:4px"></i>実践ポイント</div>
+        <ul style="margin:0;padding-left:16px">
+          ${it.tips.map(tip => `<li style="font-size:12px;color:var(--text-secondary);margin-bottom:3px">${tip}</li>`).join('')}
+        </ul>
+      </div>
+    </div>
+  </div>`).join('')}
+
+  <div class="article-callout kogane">
+    <strong>活用法：</strong>脚本を書く前に10箇条それぞれについて1〜2行メモしてみましょう。特に「敵役」「宿命」「宝物」の3つを明確にするだけで、物語の骨格が大きく固まります。
   </div>`;
 }
 
@@ -6805,7 +7381,22 @@ function updateGlobalTimerWidget(timeStr, color) {
 function toggleTimerPopup() {
   const popup = $('#timer-popup');
   if (!popup) return;
-  popup.style.display = popup.style.display === 'none' ? '' : 'none';
+  const isVisible = popup.style.display !== 'none';
+  popup.style.display = isVisible ? 'none' : '';
+  // クリック外で閉じる
+  if (!isVisible) {
+    setTimeout(() => {
+      function closeOnOutside(e) {
+        const popup2 = document.getElementById('timer-popup');
+        const widget = document.getElementById('global-timer-widget');
+        if (popup2 && !popup2.contains(e.target) && widget && !widget.contains(e.target)) {
+          popup2.style.display = 'none';
+          document.removeEventListener('click', closeOnOutside);
+        }
+      }
+      document.addEventListener('click', closeOnOutside);
+    }, 50);
+  }
 }
 
 function closeTimerPopup() {
@@ -6868,6 +7459,159 @@ function updateTimerSettings() {
     TimerState.seconds = (isNaN(work)?25:work) * 60;
     updateTimerDisplay();
   }
+}
+
+// ── 自然音エンジン (Web Audio API) ──────────────────────────────
+const AmbientSound = {
+  ctx: null,
+  nodes: [],
+  current: null,
+  gain: null,
+
+  init() {
+    if (!this.ctx) {
+      try { this.ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { return false; }
+    }
+    return true;
+  },
+
+  stop() {
+    this.nodes.forEach(n => { try { n.stop(); } catch(e) {} });
+    this.nodes = [];
+    if (this.gain) { try { this.gain.disconnect(); } catch(e) {} this.gain = null; }
+    this.current = null;
+  },
+
+  makeGain(vol) {
+    const g = this.ctx.createGain();
+    g.gain.value = vol;
+    g.connect(this.ctx.destination);
+    return g;
+  },
+
+  makeWhiteNoise(color, vol) {
+    const bufSize = this.ctx.sampleRate * 2;
+    const buf = this.ctx.createBuffer(1, bufSize, this.ctx.sampleRate);
+    const data = buf.getChannelData(0);
+    let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+    for (let i = 0; i < bufSize; i++) {
+      const white = Math.random() * 2 - 1;
+      if (color === 'pink') {
+        b0=0.99886*b0+white*0.0555179; b1=0.99332*b1+white*0.0750759;
+        b2=0.96900*b2+white*0.1538520; b3=0.86650*b3+white*0.3104856;
+        b4=0.55000*b4+white*0.5329522; b5=-0.7616*b5-white*0.0168980;
+        data[i] = (b0+b1+b2+b3+b4+b5+b6+white*0.5362) * 0.11;
+        b6 = white * 0.115926;
+      } else {
+        data[i] = white;
+      }
+    }
+    const src = this.ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    return src;
+  },
+
+  playRain(gain) {
+    // ホワイトノイズ + LPF で雨音を模倒
+    const noise = this.makeWhiteNoise('white', 0.3);
+    const lpf = this.ctx.createBiquadFilter();
+    lpf.type = 'lowpass'; lpf.frequency.value = 1200;
+    const g2 = this.ctx.createGain(); g2.gain.value = 0.35;
+    noise.connect(lpf); lpf.connect(g2); g2.connect(gain);
+    noise.start();
+    this.nodes.push(noise);
+  },
+
+  playWaves(gain) {
+    // ピンクノイズ + 周期的な振幅変調で波音
+    const noise = this.makeWhiteNoise('pink', 0.4);
+    const lfo = this.ctx.createOscillator();
+    lfo.frequency.value = 0.15;
+    const lfoGain = this.ctx.createGain();
+    lfoGain.gain.value = 0.28;
+    const biasGain = this.ctx.createGain();
+    biasGain.gain.value = 0.28;
+    const lpf = this.ctx.createBiquadFilter();
+    lpf.type = 'lowpass'; lpf.frequency.value = 800;
+    lfo.connect(lfoGain); lfoGain.connect(biasGain.gain);
+    noise.connect(lpf); lpf.connect(biasGain); biasGain.connect(gain);
+    noise.start(); lfo.start();
+    this.nodes.push(noise, lfo);
+  },
+
+  playForest(gain) {
+    // 高域ピンクノイズで風・鳥の鳴き声的な質感
+    const noise = this.makeWhiteNoise('pink', 0.2);
+    const hpf = this.ctx.createBiquadFilter();
+    hpf.type = 'highpass'; hpf.frequency.value = 400;
+    const bpf = this.ctx.createBiquadFilter();
+    bpf.type = 'bandpass'; bpf.frequency.value = 2000; bpf.Q.value = 0.5;
+    const g2 = this.ctx.createGain(); g2.gain.value = 0.18;
+    noise.connect(hpf); hpf.connect(g2); g2.connect(gain);
+    noise.start();
+    this.nodes.push(noise);
+    // 周期的な高音成分（虫・鳥の鳴き声）
+    const osc = this.ctx.createOscillator();
+    osc.type = 'sine'; osc.frequency.value = 2400;
+    const oscGain = this.ctx.createGain(); oscGain.gain.value = 0;
+    const lfo2 = this.ctx.createOscillator();
+    lfo2.frequency.value = 0.08;
+    lfo2.connect(oscGain.gain);
+    osc.connect(oscGain); oscGain.connect(gain);
+    osc.start(); lfo2.start();
+    this.nodes.push(osc, lfo2);
+  },
+
+  playCafe(gain) {
+    // ブラウンノイズ + 軽い反響で空間感
+    const noise = this.makeWhiteNoise('pink', 0.25);
+    const lpf = this.ctx.createBiquadFilter();
+    lpf.type = 'lowpass'; lpf.frequency.value = 600;
+    const g2 = this.ctx.createGain(); g2.gain.value = 0.25;
+    noise.connect(lpf); lpf.connect(g2); g2.connect(gain);
+    noise.start();
+    this.nodes.push(noise);
+  },
+
+  play(type) {
+    if (!this.init()) { toast('ブラウザがオーディオに対応していません', 'error'); return; }
+    this.stop();
+    if (type === 'none') return;
+    this.current = type;
+    this.gain = this.makeGain(0.6);
+    if (type === 'rain') this.playRain(this.gain);
+    else if (type === 'waves') this.playWaves(this.gain);
+    else if (type === 'forest') this.playForest(this.gain);
+    else if (type === 'cafe') this.playCafe(this.gain);
+    else if (type === 'white') {
+      const n = this.makeWhiteNoise('white', 0.3);
+      const g2 = this.ctx.createGain(); g2.gain.value = 0.2;
+      n.connect(g2); g2.connect(this.gain);
+      n.start(); this.nodes.push(n);
+    }
+  },
+};
+
+function setAmbientSound(type) {
+  DB.set('ambient_sound', type);
+  AmbientSound.play(type);
+  // ボタンの active 状態を更新
+  document.querySelectorAll('.timer-ambient-btn').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('onclick').includes(`'${type}'`));
+  });
+  const names = { none:'なし', rain:'雨音', waves:'波音', forest:'森の音', cafe:'カフェ', white:'ホワイトノイズ' };
+  if (type !== 'none') toast(`${names[type]||type}を再生中`, 'info', 2000);
+}
+
+function timerDisplayClick() {
+  if (TimerState.isRunning) return;
+  const minStr = prompt('タイマーを何分に設定しますか？', String(Math.floor(TimerState.seconds / 60)));
+  if (minStr === null) return;
+  const min = parseInt(minStr);
+  if (isNaN(min) || min < 1 || min > 180) { toast('1〜180の数値を入力してください', 'error'); return; }
+  TimerState.seconds = min * 60;
+  updateTimerDisplay();
 }
 
 function timerReset() {
@@ -8397,6 +9141,8 @@ function renderInspirationPage() {
     { id:'generate', label:'ランダム生成',       icon:'fa-dice' },
     { id:'library',  label:'ライブラリ',          icon:'fa-books' },
     { id:'builder',  label:'構造化ビルダー',       icon:'fa-drafting-compass' },
+    { id:'notes',    label:'プロジェクトノート',   icon:'fa-notebook' },
+    { id:'mindmap',  label:'マインドマップ',        icon:'fa-diagram-project' },
   ];
 
   const tabs = tabData.map(t => `
@@ -8409,6 +9155,8 @@ function renderInspirationPage() {
   else if (tab === 'generate') tabContent = renderInspirationGenerate(rp);
   else if (tab === 'library') tabContent = renderInspirationLibrary();
   else if (tab === 'builder') tabContent = renderInspirationBuilder();
+  else if (tab === 'notes') tabContent = renderInspirationNotes();
+  else if (tab === 'mindmap') tabContent = renderInspirationMindmap();
 
   return `
   <!-- ヒーローバナー -->
@@ -8416,9 +9164,9 @@ function renderInspirationPage() {
     <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:80px;font-weight:900;font-family:'Noto Serif JP',serif;color:var(--kogane);opacity:0.07;pointer-events:none">閃</div>
     <div style="width:28px;height:2.5px;background:linear-gradient(90deg,var(--kogane),var(--fuji));border-radius:2px;margin-bottom:8px"></div>
     <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary)">
-      <i class="fas fa-bolt" style="color:var(--kogane);margin-right:8px"></i>インスピレーション・スタジオ
+      <i class="fas fa-bolt" style="color:var(--kogane);margin-right:8px"></i>インスピレーション・ライブラリ
     </div>
-    <div style="font-size:13px;color:var(--text-muted);margin-top:4px">雑案を集め・整理し・物語の種へ構造化するための統合ワークスペース</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-top:4px">アイデアを集め・分類し・物語の種へ育てる統合ライブラリ</div>
   </div>
 
   <!-- タブナビ -->
@@ -8829,6 +9577,426 @@ function renderInspirationBuilder() {
       </div>
     </div>
   </div>`;
+}
+
+// ── プロジェクトノートタブ ────────────────────────────────────────
+function renderInspirationNotes() {
+  const projects = DB.getProjects();
+  const selectedProj = State.currentTab['insp-notes-proj'] || (projects[0]?.id || '');
+  const proj = projects.find(p => p.id === selectedProj);
+  const notes = DB.get('project_notes_' + selectedProj, []);
+
+  const projOptions = projects.map(p =>
+    `<option value="${p.id}" ${p.id === selectedProj ? 'selected' : ''}>${esc(p.title)}</option>`
+  ).join('');
+
+  const noteCards = notes.length === 0
+    ? `<div class="insp-empty"><i class="fas fa-notebook" style="font-size:28px;display:block;margin-bottom:8px;opacity:.2"></i>ノートがありません。追加してください。</div>`
+    : notes.map((n, i) => `
+      <div class="insp-note-card ${n.pinned?'pinned':''}" id="pn-${i}">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-size:10px;padding:2px 8px;background:${n.color||'var(--bg-hover)'};border-radius:12px;font-weight:700;color:var(--text-secondary)">${esc(n.category||'一般')}</span>
+            ${n.pinned?`<i class="fas fa-thumbtack" style="color:var(--kogane);font-size:10px"></i>`:''}
+          </div>
+          <div style="display:flex;gap:3px">
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="editProjectNote('${selectedProj}',${i})" title="編集"><i class="fas fa-pen" style="font-size:9px"></i></button>
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="togglePinProjectNote('${selectedProj}',${i})" title="ピン"><i class="fas fa-thumbtack" style="font-size:9px;color:${n.pinned?'var(--kogane)':'var(--text-muted)'}"></i></button>
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteProjectNote('${selectedProj}',${i})" title="削除"><i class="fas fa-trash" style="font-size:9px;color:var(--accent)"></i></button>
+          </div>
+        </div>
+        ${n.title ? `<div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:5px;font-family:'Noto Serif JP',serif">${esc(n.title)}</div>` : ''}
+        <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.7;white-space:pre-wrap">${esc((n.body||'').slice(0,200))}${(n.body||'').length>200?'…':''}</div>
+        <div class="insp-note-tags">
+          ${(n.tags||[]).map(t=>`<span class="insp-tag">#${esc(t)}</span>`).join('')}
+        </div>
+        <div style="font-size:10px;color:var(--text-muted);margin-top:8px">${fmtDate(n.updatedAt||n.createdAt)}</div>
+      </div>`
+    ).join('');
+
+  return `
+  <div style="display:grid;grid-template-columns:1fr 300px;gap:20px">
+    <div>
+      <div class="card" style="margin-bottom:16px;border-top:3px solid var(--fuji)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+          <label style="font-size:12px;font-weight:600;color:var(--text-secondary)">作品を選択:</label>
+          <select class="form-select" style="flex:1" onchange="switchInspirationNotesProj(this.value)">
+            ${projects.length===0?'<option>作品がありません</option>':projOptions}
+          </select>
+          <button class="btn btn-primary btn-sm" onclick="openAddProjectNote('${selectedProj}')"><i class="fas fa-plus"></i> 追加</button>
+        </div>
+        ${proj ? `<div style="font-size:12px;color:var(--text-muted);padding:8px 12px;background:var(--bg-subtle);border-radius:var(--radius-sm)">
+          <i class="fas fa-film" style="margin-right:6px;color:var(--accent)"></i>${esc(proj.title)} — ${esc(proj.phase)} フェーズ
+        </div>` : ''}
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
+        ${noteCards}
+      </div>
+    </div>
+
+    <div>
+      <div class="card" style="padding:14px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px"><i class="fas fa-chart-simple" style="color:var(--fuji);margin-right:6px"></i>ノート統計</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+          ${[
+            { label:'総ノート数', val: notes.length, color:'var(--fuji)' },
+            { label:'ピン留め', val: notes.filter(n=>n.pinned).length, color:'var(--kogane)' },
+          ].map(s=>`<div style="text-align:center;padding:10px;background:var(--bg-subtle);border-radius:var(--radius-sm)">
+            <div style="font-size:20px;font-weight:700;color:${s.color}">${s.val}</div>
+            <div style="font-size:10.5px;color:var(--text-muted)">${s.label}</div>
+          </div>`).join('')}
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:14px;padding:14px">
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px"><i class="fas fa-layer-group" style="color:var(--momo);margin-right:6px"></i>カテゴリ別</div>
+        ${(function(){
+          const cats = {};
+          notes.forEach(n => { const c=n.category||'一般'; cats[c]=(cats[c]||0)+1; });
+          if(Object.keys(cats).length===0) return '<div style="font-size:12px;color:var(--text-muted);text-align:center;padding:12px">まだノートがありません</div>';
+          return Object.entries(cats).map(([c,cnt])=>`
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border)">
+              <span style="font-size:12px;color:var(--text-secondary)">${esc(c)}</span>
+              <span style="font-size:11px;font-weight:700;color:var(--fuji)">${cnt}</span>
+            </div>`).join('');
+        })()}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ── マインドマップタブ ────────────────────────────────────────
+function renderInspirationMindmap() {
+  const projects = DB.getProjects();
+  const selectedProj = State.currentTab['insp-mm-proj'] || (projects[0]?.id || '');
+  const scratches = DB.get('inspiration_scratches', []);
+  const projNotes = DB.get('project_notes_' + selectedProj, []);
+  const mmData = DB.get('mindmap_' + selectedProj, { center: '', nodes: [] });
+
+  const projOptions = projects.map(p =>
+    `<option value="${p.id}" ${p.id === selectedProj ? 'selected' : ''}>${esc(p.title)}</option>`
+  ).join('');
+
+  return `
+  <div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <label style="font-size:12px;font-weight:600">作品:</label>
+        <select class="form-select" style="flex:1;max-width:260px" onchange="switchMindmapProj(this.value)">
+          ${projects.length===0?'<option>作品がありません</option>':projOptions}
+        </select>
+        <button class="btn btn-primary btn-sm" onclick="addMindmapNode('${selectedProj}')"><i class="fas fa-plus"></i> ノード追加</button>
+        <button class="btn btn-ghost btn-sm" onclick="clearMindmap('${selectedProj}')"><i class="fas fa-trash"></i> クリア</button>
+      </div>
+    </div>
+
+    <div class="card" style="padding:20px;min-height:400px;position:relative;overflow:hidden">
+      <div style="font-size:13px;font-weight:600;margin-bottom:16px;color:var(--text-muted)"><i class="fas fa-diagram-project" style="color:var(--fuji);margin-right:6px"></i>マインドマップ（ノード接続図）</div>
+
+      <!-- 中心ノード -->
+      <div style="display:flex;flex-direction:column;align-items:center;margin-bottom:24px">
+        <div style="background:linear-gradient(135deg,var(--accent),var(--momo));color:white;padding:14px 24px;border-radius:30px;font-size:14px;font-weight:700;font-family:'Noto Serif JP',serif;cursor:pointer;box-shadow:0 4px 16px rgba(0,0,0,.12);min-width:160px;text-align:center"
+          onclick="editMindmapCenter('${selectedProj}')">
+          ${mmData.center ? esc(mmData.center) : '中心テーマをクリックして設定'}
+        </div>
+        <div style="width:2px;height:20px;background:var(--border)"></div>
+      </div>
+
+      <!-- ノード群 -->
+      ${mmData.nodes.length === 0
+        ? `<div style="text-align:center;padding:28px;color:var(--text-muted)"><i class="fas fa-plus-circle" style="font-size:28px;opacity:.3;display:block;margin-bottom:8px"></i>「ノード追加」でアイデアを追加してください</div>`
+        : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px">
+          ${mmData.nodes.map((node, i) => `
+          <div style="background:${node.color||'var(--bg-subtle)'};border:1.5px solid ${node.borderColor||'var(--border)'};border-radius:var(--radius);padding:12px 14px;position:relative;cursor:default">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">
+              <span style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase">${esc(node.type||'アイデア')}</span>
+              <div style="display:flex;gap:3px">
+                <button class="btn btn-ghost btn-icon btn-sm" onclick="editMindmapNode('${selectedProj}',${i})" title="編集"><i class="fas fa-pen" style="font-size:9px"></i></button>
+                <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteMindmapNode('${selectedProj}',${i})" title="削除"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>
+              </div>
+            </div>
+            <div style="font-size:13px;font-weight:600;color:var(--text-primary);line-height:1.4">${esc(node.text)}</div>
+            ${node.detail ? `<div style="font-size:11px;color:var(--text-muted);margin-top:5px;line-height:1.5">${esc(node.detail.slice(0,80))}${node.detail.length>80?'…':''}</div>` : ''}
+            ${node.linkedTo ? `<div style="font-size:10px;color:var(--fuji);margin-top:6px"><i class="fas fa-link" style="font-size:9px"></i> ${esc(node.linkedTo)}</div>` : ''}
+          </div>`).join('')}
+        </div>`}
+
+      <!-- スクラッチからインポート -->
+      ${scratches.length > 0 ? `
+      <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+        <div style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:10px"><i class="fas fa-import" style="margin-right:6px"></i>スクラッチパッドからインポート</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${scratches.slice(0,6).map((s,i) => `
+          <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="importScratchToMindmap('${selectedProj}','${s.id}')">
+            <i class="fas fa-plus" style="font-size:9px"></i> ${esc((s.title||s.body||'').slice(0,20))}…
+          </button>`).join('')}
+        </div>
+      </div>` : ''}
+    </div>
+  </div>`;
+}
+
+// ── ノートヘルパー ────────────────────────────────────────
+function switchInspirationNotesProj(projId) {
+  State.currentTab['insp-notes-proj'] = projId;
+  const el = document.getElementById('insp-tab-content');
+  if (el) el.innerHTML = renderInspirationNotes();
+}
+
+function switchMindmapProj(projId) {
+  State.currentTab['insp-mm-proj'] = projId;
+  const el = document.getElementById('insp-tab-content');
+  if (el) el.innerHTML = renderInspirationMindmap();
+}
+
+function openAddProjectNote(projId) {
+  if (!projId) { toast('作品を選択してください', 'error'); return; }
+  openModal(
+    '<i class="fas fa-notebook" style="color:var(--fuji)"></i> プロジェクトノートを追加',
+    `<div class="form-group">
+      <label class="form-label">タイトル（任意）</label>
+      <input class="form-input" id="pn-title" placeholder="例: 第2幕の転換点メモ">
+    </div>
+    <div class="form-group">
+      <label class="form-label">内容 <span style="color:var(--accent)">*</span></label>
+      <textarea class="form-textarea" id="pn-body" rows="6" placeholder="詳細なメモを自由に書いてください…"></textarea>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label class="form-label">カテゴリ</label>
+        <select class="form-select" id="pn-cat">
+          <option value="一般">一般</option>
+          <option value="プロット">プロット</option>
+          <option value="キャラクター">キャラクター</option>
+          <option value="世界観">世界観</option>
+          <option value="セリフ">セリフ</option>
+          <option value="構成">構成</option>
+          <option value="テーマ">テーマ</option>
+          <option value="リサーチ">リサーチ</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">タグ（スペース区切り）</label>
+        <input class="form-input" id="pn-tags" placeholder="例: 重要 第2幕">
+      </div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveProjectNote('${projId}')"><i class="fas fa-save"></i> 保存</button>`
+  );
+}
+
+function saveProjectNote(projId) {
+  const title = $('#pn-title')?.value?.trim() || '';
+  const body = $('#pn-body')?.value?.trim() || '';
+  const cat = $('#pn-cat')?.value || '一般';
+  const tagsRaw = $('#pn-tags')?.value?.trim() || '';
+  if (!body) { toast('内容を入力してください', 'error'); return; }
+  const tags = tagsRaw ? tagsRaw.split(/\s+/).filter(Boolean) : [];
+  const notes = DB.get('project_notes_' + projId, []);
+  const n = { id: genId(), title, body, category: cat, tags, pinned: false, createdAt: now(), updatedAt: now() };
+  notes.unshift(n);
+  DB.set('project_notes_' + projId, notes);
+  closeModal();
+  toast('ノートを保存しました', 'success');
+  const el = document.getElementById('insp-tab-content');
+  if (el) el.innerHTML = renderInspirationNotes();
+}
+
+function editProjectNote(projId, idx) {
+  const notes = DB.get('project_notes_' + projId, []);
+  const n = notes[idx];
+  if (!n) return;
+  openModal(
+    '<i class="fas fa-pen" style="color:var(--fuji)"></i> ノートを編集',
+    `<div class="form-group">
+      <label class="form-label">タイトル</label>
+      <input class="form-input" id="pn-title" value="${esc(n.title||'')}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">内容</label>
+      <textarea class="form-textarea" id="pn-body" rows="6">${esc(n.body||'')}</textarea>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label class="form-label">カテゴリ</label>
+        <select class="form-select" id="pn-cat">
+          ${['一般','プロット','キャラクター','世界観','セリフ','構成','テーマ','リサーチ'].map(c=>`<option value="${c}" ${c===n.category?'selected':''}>${c}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">タグ</label>
+        <input class="form-input" id="pn-tags" value="${esc((n.tags||[]).join(' '))}">
+      </div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="updateProjectNote('${projId}',${idx})">保存</button>`
+  );
+}
+
+function updateProjectNote(projId, idx) {
+  const notes = DB.get('project_notes_' + projId, []);
+  if (!notes[idx]) return;
+  const tagsRaw = $('#pn-tags')?.value?.trim() || '';
+  notes[idx] = {
+    ...notes[idx],
+    title: $('#pn-title')?.value?.trim() || '',
+    body: $('#pn-body')?.value?.trim() || '',
+    category: $('#pn-cat')?.value || '一般',
+    tags: tagsRaw ? tagsRaw.split(/\s+/).filter(Boolean) : [],
+    updatedAt: now(),
+  };
+  DB.set('project_notes_' + projId, notes);
+  closeModal();
+  toast('ノートを更新しました', 'success');
+  const el = document.getElementById('insp-tab-content');
+  if (el) el.innerHTML = renderInspirationNotes();
+}
+
+function deleteProjectNote(projId, idx) {
+  if (!confirm('このノートを削除しますか？')) return;
+  const notes = DB.get('project_notes_' + projId, []);
+  notes.splice(idx, 1);
+  DB.set('project_notes_' + projId, notes);
+  toast('ノートを削除しました', 'info');
+  const el = document.getElementById('insp-tab-content');
+  if (el) el.innerHTML = renderInspirationNotes();
+}
+
+function togglePinProjectNote(projId, idx) {
+  const notes = DB.get('project_notes_' + projId, []);
+  if (!notes[idx]) return;
+  notes[idx].pinned = !notes[idx].pinned;
+  DB.set('project_notes_' + projId, notes);
+  const el = document.getElementById('insp-tab-content');
+  if (el) el.innerHTML = renderInspirationNotes();
+}
+
+// ── マインドマップヘルパー ────────────────────────────────────────
+function editMindmapCenter(projId) {
+  const mmData = DB.get('mindmap_' + projId, { center: '', nodes: [] });
+  const val = prompt('中心テーマを入力してください:', mmData.center || '');
+  if (val === null) return;
+  mmData.center = val.trim();
+  DB.set('mindmap_' + projId, mmData);
+  const el = document.getElementById('insp-tab-content');
+  if (el) el.innerHTML = renderInspirationMindmap();
+}
+
+function addMindmapNode(projId) {
+  openModal(
+    '<i class="fas fa-diagram-project" style="color:var(--fuji)"></i> ノードを追加',
+    `<div class="form-group">
+      <label class="form-label">テキスト <span style="color:var(--accent)">*</span></label>
+      <input class="form-input" id="mm-text" placeholder="例: 主人公の動機" autofocus>
+    </div>
+    <div class="form-group">
+      <label class="form-label">詳細メモ（任意）</label>
+      <textarea class="form-textarea" id="mm-detail" rows="3" placeholder="補足説明…"></textarea>
+    </div>
+    <div class="grid-2">
+      <div class="form-group">
+        <label class="form-label">タイプ</label>
+        <select class="form-select" id="mm-type">
+          <option>アイデア</option><option>キャラクター</option><option>シーン</option>
+          <option>テーマ</option><option>設定</option><option>セリフ</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">接続先（任意）</label>
+        <input class="form-input" id="mm-link" placeholder="例: 第2幕の転換点">
+      </div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveMindmapNode('${projId}')">追加</button>`
+  );
+}
+
+function saveMindmapNode(projId) {
+  const text = $('#mm-text')?.value?.trim();
+  if (!text) { toast('テキストを入力してください', 'error'); return; }
+  const mmData = DB.get('mindmap_' + projId, { center: '', nodes: [] });
+  const typeColors = {
+    'アイデア': { bg: 'var(--kogane-bg)', border: 'var(--kogane)' },
+    'キャラクター': { bg: 'var(--fuji-bg)', border: 'var(--fuji)' },
+    'シーン': { bg: 'var(--momo-bg)', border: 'var(--momo)' },
+    'テーマ': { bg: 'var(--asagi-bg)', border: 'var(--asagi)' },
+    '設定': { bg: 'var(--matcha-bg)', border: 'var(--matcha)' },
+    'セリフ': { bg: 'var(--kon-bg)', border: 'var(--kon-lt)' },
+  };
+  const type = $('#mm-type')?.value || 'アイデア';
+  const colors = typeColors[type] || { bg: 'var(--bg-subtle)', border: 'var(--border)' };
+  mmData.nodes.push({
+    id: genId(), text, detail: $('#mm-detail')?.value?.trim() || '',
+    type, linkedTo: $('#mm-link')?.value?.trim() || '',
+    color: colors.bg, borderColor: colors.border, createdAt: now(),
+  });
+  DB.set('mindmap_' + projId, mmData);
+  closeModal();
+  toast('ノードを追加しました', 'success');
+  const el = document.getElementById('insp-tab-content');
+  if (el) el.innerHTML = renderInspirationMindmap();
+}
+
+function deleteMindmapNode(projId, idx) {
+  const mmData = DB.get('mindmap_' + projId, { center: '', nodes: [] });
+  mmData.nodes.splice(idx, 1);
+  DB.set('mindmap_' + projId, mmData);
+  const el = document.getElementById('insp-tab-content');
+  if (el) el.innerHTML = renderInspirationMindmap();
+}
+
+function editMindmapNode(projId, idx) {
+  const mmData = DB.get('mindmap_' + projId, { center: '', nodes: [] });
+  const node = mmData.nodes[idx];
+  if (!node) return;
+  openModal(
+    '<i class="fas fa-pen"></i> ノードを編集',
+    `<div class="form-group">
+      <label class="form-label">テキスト</label>
+      <input class="form-input" id="mm-text" value="${esc(node.text)}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">詳細メモ</label>
+      <textarea class="form-textarea" id="mm-detail" rows="3">${esc(node.detail||'')}</textarea>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="updateMindmapNode('${projId}',${idx})">保存</button>`
+  );
+}
+
+function updateMindmapNode(projId, idx) {
+  const mmData = DB.get('mindmap_' + projId, { center: '', nodes: [] });
+  if (!mmData.nodes[idx]) return;
+  mmData.nodes[idx].text = $('#mm-text')?.value?.trim() || mmData.nodes[idx].text;
+  mmData.nodes[idx].detail = $('#mm-detail')?.value?.trim() || '';
+  DB.set('mindmap_' + projId, mmData);
+  closeModal();
+  const el = document.getElementById('insp-tab-content');
+  if (el) el.innerHTML = renderInspirationMindmap();
+}
+
+function clearMindmap(projId) {
+  if (!confirm('マインドマップをクリアしますか？')) return;
+  DB.set('mindmap_' + projId, { center: '', nodes: [] });
+  const el = document.getElementById('insp-tab-content');
+  if (el) el.innerHTML = renderInspirationMindmap();
+}
+
+function importScratchToMindmap(projId, scratchId) {
+  const scratches = DB.get('inspiration_scratches', []);
+  const s = scratches.find(sc => sc.id === scratchId);
+  if (!s) return;
+  const mmData = DB.get('mindmap_' + projId, { center: '', nodes: [] });
+  mmData.nodes.push({
+    id: genId(), text: s.title || s.body?.slice(0,40) || '無題',
+    detail: s.body || '', type: s.type || 'アイデア',
+    linkedTo: '', color: 'var(--kogane-bg)', borderColor: 'var(--kogane)', createdAt: now(),
+  });
+  DB.set('mindmap_' + projId, mmData);
+  toast('スクラッチからインポートしました', 'success');
+  const el = document.getElementById('insp-tab-content');
+  if (el) el.innerHTML = renderInspirationMindmap();
 }
 
 function renderInspirationCombo(theme, genre, mood) {
@@ -9591,6 +10759,25 @@ function renderTasksPage() {
       </div>
     </div>
     ${summaryBar}
+    ${(todayTasks.length > 0 || overdueTasks.length > 0 || urgentTasks.length > 0) && view === 'list' ? `
+    <div class="tasks-focus-card">
+      <div class="tasks-focus-header">
+        <i class="fas fa-crosshairs" style="color:var(--accent)"></i>
+        <span>今日のフォーカス</span>
+        <span style="font-size:11px;color:var(--text-muted);margin-left:auto">${(todayTasks.length+urgentTasks.filter(t=>t.dueDate!==today).length)} 件優先</span>
+      </div>
+      <div class="tasks-focus-list">
+        ${[...urgentTasks.filter(t=>t.dueDate!==today).slice(0,2), ...todayTasks.slice(0,4)].map(t => {
+          const pr = TASK_PRIORITIES[t.priority] || TASK_PRIORITIES.medium;
+          return `<div class="tasks-focus-item" style="border-left:3px solid ${pr.color}">
+            <div class="tasks-focus-check" onclick="toggleTaskDone('${t.id}')"><i class="fas fa-circle" style="color:${pr.color};font-size:12px"></i></div>
+            <div class="tasks-focus-text">${esc(t.title.slice(0,35))}${t.title.length>35?'…':''}</div>
+            ${t.priority==='urgent'?`<span style="font-size:9px;background:#fde8ef;color:#d01050;border-radius:3px;padding:1px 5px;font-weight:700">緊急</span>`:''}
+            ${t.estimatedMin>0?`<span style="font-size:9px;color:var(--text-muted)">${t.estimatedMin}分</span>`:''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : ''}
     <div class="tasks-main-card">
       ${viewTabs}
       <div class="tasks-view-content">
@@ -9966,6 +11153,10 @@ function deleteTask(taskId) {
   const el2 = document.getElementById('task-' + taskId);
   if (el2) el2.remove();
   toast('タスクを削除しました', 'info');
+}
+
+function openAddTaskModal(prefillDate = '') {
+  return openNewTaskModal(prefillDate);
 }
 
 function openNewTaskModal(prefillDate = '') {
