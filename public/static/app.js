@@ -220,6 +220,33 @@ function render() {
     return;
   }
 
+  // 執筆日誌ページ
+  if (p === 'journal') {
+    app.innerHTML = renderLayout(renderJournalPage());
+    bindJournalPage();
+    return;
+  }
+
+  // 名前辞典ページ
+  if (p === 'namedict') {
+    app.innerHTML = renderLayout(renderNameDictPage());
+    bindNameDictPage();
+    return;
+  }
+
+  // ワールドビルディングページ
+  if (p === 'worldbuilding') {
+    app.innerHTML = renderLayout(renderWorldBuildingPage());
+    return;
+  }
+
+  // インスピレーションページ
+  if (p === 'inspiration') {
+    app.innerHTML = renderLayout(renderInspirationPage());
+    bindInspirationPage();
+    return;
+  }
+
   if (p === 'dashboard' || !State.currentProjectId) {
     app.innerHTML = renderLayout(renderDashboard());
     bindDashboard();
@@ -263,10 +290,14 @@ function renderLayout(content, proj = null) {
 
   const cp = State.currentPage;
   const isLearnPage = cp === 'learn' || cp === 'learn-guide' || cp === 'learn-articles' || (cp && cp.startsWith('article-'));
-  const isToolsPage = cp === 'tools' || cp === 'tool-logline' || cp === 'tool-char-diag' || cp === 'tool-scene' || cp === 'tool-timer';
+  const isToolsPage = cp === 'tools' || cp === 'tool-logline' || cp === 'tool-char-diag' || cp === 'tool-scene' || cp === 'tool-timer' || cp === 'tool-pitch' || cp === 'tool-tension' || cp === 'tool-name-gen';
   const isTemplatesPage = cp === 'templates' || (cp && cp.startsWith('template-'));
   const isSettingsPage = cp === 'settings';
-  const isSpecialPage = isLearnPage || isToolsPage || isTemplatesPage || isSettingsPage;
+  const isJournalPage = cp === 'journal';
+  const isNameDictPage = cp === 'namedict';
+  const isWorldPage = cp === 'worldbuilding';
+  const isInspirationPage = cp === 'inspiration';
+  const isSpecialPage = isLearnPage || isToolsPage || isTemplatesPage || isSettingsPage || isJournalPage || isNameDictPage || isWorldPage || isInspirationPage;
 
   const projectFooter = proj ? `
     <div class="sidebar-footer">
@@ -288,8 +319,15 @@ function renderLayout(content, proj = null) {
     'tool-char-diag': { icon:'fa-user-check',color:'var(--fuji)',   title:'キャラクター診断',   sub:'Want/Need・アーク設計' },
     'tool-scene':     { icon:'fa-film',      color:'var(--momo)',   title:'シーン分析',         sub:'1シーンの構造を分析' },
     'tool-timer':     { icon:'fa-stopwatch', color:'var(--kogane)', title:'執筆タイマー',       sub:'集中執筆セッション' },
+    'tool-pitch':     { icon:'fa-bullhorn',  color:'var(--accent)', title:'ピッチドックメーカー',sub:'企画書・あらすじを自動生成' },
+    'tool-tension':   { icon:'fa-chart-line',color:'var(--momo)',   title:'テンションカーブ分析',sub:'物語の緊張度を可視化' },
+    'tool-name-gen':  { icon:'fa-signature', color:'var(--kon-lt)', title:'キャラクター名ジェネレーター', sub:'和・洋・古風な名前を生成' },
     templates:        { icon:'fa-copy',      color:'var(--kogane)', title:'テンプレート集',     sub:'すぐに使えるフォーマット' },
     settings:         { icon:'fa-gear',      color:'var(--text-muted)', title:'設定',           sub:'アプリの設定' },
+    journal:          { icon:'fa-book',      color:'var(--matcha)', title:'執筆日誌',           sub:'毎日の執筆記録・進捗管理' },
+    namedict:         { icon:'fa-spell-check',color:'var(--kon-lt)',title:'キャラクター名辞典', sub:'登場人物の名前・読みを管理' },
+    worldbuilding:    { icon:'fa-globe',     color:'var(--asagi)',  title:'世界観設計',         sub:'舞台・設定・世界観を構築' },
+    inspiration:      { icon:'fa-bolt',      color:'var(--kogane)', title:'インスピレーション', sub:'アイデア・刺激・乱数プロンプト' },
   };
   const cpKey = TOPBAR_PAGES[cp] ? cp : (cp && cp.startsWith('article-') ? 'learn' : null);
   const tbData = cpKey ? TOPBAR_PAGES[cpKey] : null;
@@ -332,10 +370,19 @@ function renderLayout(content, proj = null) {
       </div>
       <div class="sidebar-nav">
         <div class="sidebar-section">
-          <div class="sidebar-section-title">メニュー</div>
+          <div class="sidebar-section-title">メインメニュー</div>
           <div class="nav-item ${(!proj && cp==='dashboard')?'active':''}" onclick="navigate('dashboard')">
             <span class="nav-icon"><i class="fas fa-house"></i></span> ダッシュボード
           </div>
+          <div class="nav-item ${isJournalPage?'active':''}" onclick="navigate('journal')">
+            <span class="nav-icon"><i class="fas fa-book" style="color:var(--matcha-lt)"></i></span> 執筆日誌
+          </div>
+          <div class="nav-item ${isInspirationPage?'active':''}" onclick="navigate('inspiration')">
+            <span class="nav-icon"><i class="fas fa-bolt" style="color:var(--kogane-lt)"></i></span> インスピレーション
+          </div>
+        </div>
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">執筆サポート</div>
           <div class="nav-item ${isLearnPage?'active':''}" onclick="navigate('learn')">
             <span class="nav-icon"><i class="fas fa-graduation-cap" style="color:var(--fuji-lt)"></i></span> 学習センター
           </div>
@@ -344,6 +391,15 @@ function renderLayout(content, proj = null) {
           </div>
           <div class="nav-item ${isTemplatesPage?'active':''}" onclick="navigate('templates')">
             <span class="nav-icon"><i class="fas fa-copy" style="color:var(--kogane-lt)"></i></span> テンプレート
+          </div>
+        </div>
+        <div class="sidebar-section">
+          <div class="sidebar-section-title">設計・資料</div>
+          <div class="nav-item ${isNameDictPage?'active':''}" onclick="navigate('namedict')">
+            <span class="nav-icon"><i class="fas fa-spell-check" style="color:var(--kon-lt)"></i></span> 名前辞典
+          </div>
+          <div class="nav-item ${isWorldPage?'active':''}" onclick="navigate('worldbuilding')">
+            <span class="nav-icon"><i class="fas fa-globe" style="color:var(--asagi-lt)"></i></span> 世界観設計
           </div>
           <div class="nav-item ${isSettingsPage?'active':''}" onclick="navigate('settings')">
             <span class="nav-icon"><i class="fas fa-gear" style="color:var(--text-sidebar)"></i></span> 設定
@@ -571,7 +627,7 @@ function renderDashboard() {
 
     <!-- 左：作品一覧 -->
     <div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
         <div style="font-size:16px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">
           <i class="fas fa-folder-open" style="color:var(--accent);margin-right:8px"></i>作品一覧
           ${projects.length > 0 ? '<span style="font-size:12px;font-weight:400;color:var(--text-muted);font-family:inherit;margin-left:6px">(' + projects.length + '件)</span>' : ''}
@@ -580,6 +636,17 @@ function renderDashboard() {
           <i class="fas fa-plus"></i> 新規作成
         </button>
       </div>
+      ${projects.length > 0 ? `
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;align-items:center">
+        <div style="position:relative;flex:1;min-width:160px">
+          <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:12px"></i>
+          <input id="db-search" class="form-input" style="padding-left:30px;height:34px;font-size:12.5px" placeholder="作品を検索...">
+        </div>
+        <div style="display:flex;gap:4px;flex-wrap:wrap">
+          <button class="phase-filter-btn active btn btn-ghost btn-sm" data-phase="all" style="font-size:11px">すべて</button>
+          ${['着想','リサーチ','コンセプト設計','プロット設計','キャラクター','アウトライン','初稿','大改稿','精密推敲','フィードバック','最終稿','共有・出力'].slice(0,6).map(ph => `<button class="phase-filter-btn btn btn-ghost btn-sm" data-phase="${ph}" style="font-size:11px">${ph}</button>`).join('')}
+        </div>
+      </div>` : ''}
       <div class="project-grid">${projectCards}</div>
     </div>
 
@@ -601,6 +668,34 @@ function renderDashboard() {
         <div class="writing-tip-body">${tip.body}</div>
       </div>
 
+      <!-- 執筆統計グラフ -->
+      ${projects.length > 0 ? `
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:13px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;background:var(--bg-subtle)">
+          <i class="fas fa-chart-pie" style="color:var(--fuji);font-size:13px"></i>
+          <span style="font-size:13px;font-weight:600;color:var(--text-primary);font-family:'Noto Serif JP',serif">フェーズ分布</span>
+        </div>
+        <div style="padding:14px 14px">
+          ${(function(){
+            const phaseCounts = {};
+            projects.forEach(p => { phaseCounts[p.phase] = (phaseCounts[p.phase]||0)+1; });
+            return Object.entries(phaseCounts).map(([phase, cnt]) => {
+              const waC = PHASE_COLORS_WA[phase] || { bg:'#f8f6f1', color:'#7a6e5e', border:'#e4ddd3' };
+              const pct = Math.round((cnt / projects.length) * 100);
+              return `<div style="margin-bottom:8px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:3px">
+                  <span style="font-size:11.5px;color:${waC.color};font-weight:600">${phase}</span>
+                  <span style="font-size:11px;color:var(--text-muted)">${cnt}件 (${pct}%)</span>
+                </div>
+                <div style="height:6px;background:var(--bg-hover);border-radius:3px;overflow:hidden">
+                  <div style="height:100%;width:${pct}%;background:${waC.color};border-radius:3px;transition:width .4s ease"></div>
+                </div>
+              </div>`;
+            }).join('');
+          })()}
+        </div>
+      </div>` : ''}
+
       <!-- 執筆フローガイド -->
       <div class="card" style="padding:0;overflow:hidden">
         <div style="padding:13px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;background:var(--bg-subtle)">
@@ -614,12 +709,63 @@ function renderDashboard() {
           ${phaseFlowItems}
         </div>
       </div>
+
+      <!-- クイックリンク -->
+      <div class="card" style="padding:14px">
+        <div style="font-size:12.5px;font-weight:600;color:var(--text-secondary);margin-bottom:10px;font-family:'Noto Serif JP',serif"><i class="fas fa-compass" style="color:var(--accent);margin-right:6px"></i>クイックアクセス</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          ${[
+            { icon:'fa-book', label:'執筆日誌', page:'journal', color:'var(--matcha)' },
+            { icon:'fa-bolt', label:'インスピレーション', page:'inspiration', color:'var(--kogane)' },
+            { icon:'fa-graduation-cap', label:'学習センター', page:'learn', color:'var(--fuji)' },
+            { icon:'fa-toolbox', label:'ツール', page:'tools', color:'var(--asagi)' },
+            { icon:'fa-globe', label:'世界観設計', page:'worldbuilding', color:'var(--asagi)' },
+            { icon:'fa-spell-check', label:'名前辞典', page:'namedict', color:'var(--kon-lt)' },
+          ].map(l => `<button class="btn btn-ghost btn-sm" style="justify-content:flex-start;gap:7px;font-size:11.5px" onclick="navigate('${l.page}')">
+            <i class="fas ${l.icon}" style="color:${l.color};width:14px"></i>${l.label}
+          </button>`).join('')}
+        </div>
+      </div>
     </div>
   </div>`;
 }
 
 function bindDashboard() {
-  // ダッシュボードのインタラクション（将来拡張用）
+  // 検索フィルター
+  const searchInput = $('#db-search');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => filterProjects(searchInput.value));
+  }
+  // フェーズフィルター
+  $$('.phase-filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.phase-filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      filterProjectsByPhase(btn.dataset.phase);
+    });
+  });
+}
+
+function filterProjects(query) {
+  const cards = $$('.project-card');
+  cards.forEach(card => {
+    const title = card.querySelector('.project-card-title')?.textContent || '';
+    const genre = card.querySelector('.project-card-genre')?.textContent || '';
+    const match = !query || title.includes(query) || genre.includes(query);
+    card.style.display = match ? '' : 'none';
+  });
+}
+
+function filterProjectsByPhase(phase) {
+  const cards = $$('.project-card');
+  cards.forEach(card => {
+    if (!phase || phase === 'all') {
+      card.style.display = '';
+    } else {
+      const phaseTag = card.querySelector('.tag')?.textContent?.trim() || '';
+      card.style.display = phaseTag.includes(phase) ? '' : 'none';
+    }
+  });
 }
 
 // ── 執筆ガイドモーダル ────────────────────────────────────────
@@ -4222,6 +4368,9 @@ function renderToolsPage() {
   if (cp === 'tool-char-diag') return renderToolCharDiag();
   if (cp === 'tool-scene') return renderToolScene();
   if (cp === 'tool-timer') return renderToolTimer();
+  if (cp === 'tool-pitch') return renderToolPitch();
+  if (cp === 'tool-tension') return renderToolTension();
+  if (cp === 'tool-name-gen') return renderToolNameGen();
 
   // ツール一覧
   const TOOL_LIST = [
@@ -4234,6 +4383,14 @@ function renderToolsPage() {
       badge: 'おすすめ',
     },
     {
+      id: 'tool-pitch',
+      title: 'ピッチドック・メーカー',
+      icon: 'fa-bullhorn',
+      color: 'beni',
+      desc: '企画書・あらすじ・ピッチドキュメントを自動生成。プロデューサーや読者への売り込みに使える文書を即作成。',
+      badge: '新機能',
+    },
+    {
       id: 'tool-char-diag',
       title: 'キャラクター診断シート',
       icon: 'fa-user-check',
@@ -4241,11 +4398,27 @@ function renderToolsPage() {
       desc: 'Want/Need・バックストーリー・口癖・性格特徴を整理してキャラクターの深みを診断。アーク設計のヒントも。',
     },
     {
+      id: 'tool-name-gen',
+      title: 'キャラクター名ジェネレーター',
+      icon: 'fa-signature',
+      color: 'kon',
+      desc: '和風・洋風・古風・SF/ファンタジー系のキャラクター名を自動生成。苗字・名前・読み仮名も提案します。',
+      badge: '新機能',
+    },
+    {
       id: 'tool-scene',
       title: 'シーン構造チェッカー',
       icon: 'fa-film',
       color: 'momo',
       desc: '1シーンを分析して「入口・目的・対立・出口」の4要素が機能しているか診断。シーンの問題点を発見。',
+    },
+    {
+      id: 'tool-tension',
+      title: 'テンションカーブ設計',
+      icon: 'fa-chart-line',
+      color: 'momo',
+      desc: '物語全体の緊張度を視覚化してカーブを設計。山場・谷・クライマックスの配置を確認・調整できます。',
+      badge: '新機能',
     },
     {
       id: 'tool-timer',
@@ -4257,8 +4430,8 @@ function renderToolsPage() {
   ];
 
   const toolCards = TOOL_LIST.map(t => {
-    const c = { beni:'var(--accent)', fuji:'var(--fuji)', momo:'var(--momo)', kogane:'var(--kogane)', asagi:'var(--asagi)' };
-    const bg = { beni:'var(--accent-bg)', fuji:'var(--fuji-bg)', momo:'var(--momo-bg)', kogane:'var(--kogane-bg)', asagi:'var(--asagi-bg)' };
+    const c = { beni:'var(--accent)', fuji:'var(--fuji)', momo:'var(--momo)', kogane:'var(--kogane)', asagi:'var(--asagi)', kon:'var(--kon-lt)' };
+    const bg = { beni:'var(--accent-bg)', fuji:'var(--fuji-bg)', momo:'var(--momo-bg)', kogane:'var(--kogane-bg)', asagi:'var(--asagi-bg)', kon:'var(--kon-bg)' };
     return `
     <div class="guide-card" style="cursor:pointer" onclick="navigate('${t.id}')">
       <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:10px">
@@ -4815,6 +4988,506 @@ function updateTimerLog() {
 }
 
 // ================================================================
+//  TOOL: ピッチドックメーカー
+// ================================================================
+function renderToolPitch() {
+  return `
+  <div class="article-back-btn" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</div>
+  <div class="section-header">
+    <div class="section-title"><i class="fas fa-bullhorn" style="color:var(--accent)"></i> ピッチドック・メーカー</div>
+    <div class="section-desc">企画書・ピッチドキュメントを自動生成します</div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-pen icon" style="color:var(--accent)"></i> 作品情報を入力</div></div>
+        <div class="form-group"><label class="form-label">作品タイトル <span style="color:var(--accent)">*</span></label><input class="form-input" id="pitch-title" placeholder="例：夜明けの証言"></div>
+        <div class="grid-2">
+          <div class="form-group"><label class="form-label">ジャンル</label>
+            <select class="form-select" id="pitch-genre">
+              <option>ドラマ</option><option>サスペンス</option><option>コメディ</option><option>ホラー</option>
+              <option>SF</option><option>ファンタジー</option><option>ラブストーリー</option><option>青春</option>
+            </select>
+          </div>
+          <div class="form-group"><label class="form-label">フォーマット</label>
+            <select class="form-select" id="pitch-format">
+              <option>テレビドラマ（連続）</option><option>映画</option><option>短編映画</option><option>ウェブドラマ</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">ログライン（1〜2文）<span style="color:var(--accent)">*</span></label>
+          <textarea class="form-textarea" id="pitch-logline" rows="2" placeholder="主人公が何をして何に直面する物語かを一言で"></textarea>
+        </div>
+        <div class="form-group"><label class="form-label">主人公</label><input class="form-input" id="pitch-hero" placeholder="名前・年齢・職業・性格特徴"></div>
+        <div class="form-group"><label class="form-label">物語の核（テーマ）</label><input class="form-input" id="pitch-theme" placeholder="例：正義と友情の葛藤"></div>
+        <div class="form-group"><label class="form-label">ターゲット視聴者</label><input class="form-input" id="pitch-target" placeholder="例：20〜40代、社会派ドラマファン"></div>
+        <div class="form-group"><label class="form-label">作家の言葉（なぜこの話を書くか）</label>
+          <textarea class="form-textarea" id="pitch-statement" rows="2" placeholder="この作品に込めた想い・社会的意義など"></textarea>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="generatePitch()">
+          <i class="fas fa-file-alt"></i> ピッチドキュメントを生成
+        </button>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="min-height:500px">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-file-lines icon" style="color:var(--matcha)"></i> 生成されたピッチドック</div>
+          <button class="btn btn-ghost btn-sm" id="pitch-copy-btn" style="display:none" onclick="copyPitchDoc()"><i class="fas fa-copy"></i> コピー</button>
+        </div>
+        <div id="pitch-result">
+          <div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
+            <i class="fas fa-bullhorn" style="font-size:36px;display:block;margin-bottom:12px;opacity:0.2"></i>
+            <div style="font-size:13px">情報を入力して生成ボタンを押すと<br>ここにピッチドキュメントが表示されます</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function generatePitch() {
+  const title    = $('#pitch-title')?.value?.trim() || '（タイトル未入力）';
+  const genre    = $('#pitch-genre')?.value || 'ドラマ';
+  const format   = $('#pitch-format')?.value || 'テレビドラマ（連続）';
+  const logline  = $('#pitch-logline')?.value?.trim() || '（ログライン未入力）';
+  const hero     = $('#pitch-hero')?.value?.trim();
+  const theme    = $('#pitch-theme')?.value?.trim();
+  const target   = $('#pitch-target')?.value?.trim();
+  const statement = $('#pitch-statement')?.value?.trim();
+
+  const today = new Date();
+  const dateStr = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`;
+
+  let doc = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+企　画　書
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ タイトル　　：${title}
+■ ジャンル　　：${genre}
+■ フォーマット：${format}
+■ 作成日　　　：${dateStr}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【ログライン】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${logline}
+
+`;
+  if (hero) {
+    doc += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【主人公】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${hero}
+
+`;
+  }
+  if (theme) {
+    doc += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【テーマ・物語の核】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${theme}
+
+この作品は「${theme}」という問いを観客・読者に投げかけます。
+
+`;
+  }
+  if (target) {
+    doc += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【ターゲット】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${target}
+
+`;
+  }
+  if (statement) {
+    doc += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+【作者より】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+${statement}
+
+`;
+  }
+  doc += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+（以上）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+
+  const resultEl = $('#pitch-result');
+  if (resultEl) {
+    resultEl.innerHTML = `<pre style="white-space:pre-wrap;font-family:'Noto Serif JP',serif;font-size:12.5px;line-height:1.9;color:var(--text-secondary);background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;max-height:460px;overflow-y:auto">${esc(doc)}</pre>`;
+  }
+  const copyBtn = $('#pitch-copy-btn');
+  if (copyBtn) copyBtn.style.display = '';
+  window._pitchDoc = doc;
+  toast('ピッチドキュメントを生成しました', 'success');
+}
+
+function copyPitchDoc() {
+  const doc = window._pitchDoc || '';
+  navigator.clipboard?.writeText(doc).then(() => toast('コピーしました', 'success'));
+}
+
+// ================================================================
+//  TOOL: テンションカーブ設計
+// ================================================================
+function renderToolTension() {
+  const defaultPoints = [20,30,25,45,40,60,55,70,65,80,75,90,100,60,30].map((v,i) => ({ x: i+1, y: v }));
+  const saved = (() => { try { return JSON.parse(localStorage.getItem('sl_tension') || 'null'); } catch { return null; } })();
+  const points = saved || defaultPoints;
+
+  const W = 540, H = 220, PAD = { t:16, r:16, b:36, l:44 };
+  const iW = W - PAD.l - PAD.r, iH = H - PAD.t - PAD.b;
+  const n = points.length;
+  const xStep = iW / (n - 1);
+
+  const pathD = points.map((p, i) => {
+    const x = PAD.l + i * xStep;
+    const y = PAD.t + iH * (1 - p.y / 100);
+    return (i === 0 ? 'M' : 'L') + `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+
+  const areaD = pathD + ` L${(PAD.l + (n-1)*xStep).toFixed(1)},${(PAD.t+iH).toFixed(1)} L${PAD.l.toFixed(1)},${(PAD.t+iH).toFixed(1)} Z`;
+
+  const yLines = [0,25,50,75,100].map(v => {
+    const y = PAD.t + iH * (1 - v/100);
+    return `<line x1="${PAD.l}" y1="${y}" x2="${W-PAD.r}" y2="${y}" stroke="var(--border)" stroke-width="0.8"/>
+            <text x="${PAD.l-6}" y="${y+4}" text-anchor="end" font-size="10" fill="var(--text-light)">${v}</text>`;
+  }).join('');
+
+  const dots = points.map((p, i) => {
+    const x = PAD.l + i * xStep;
+    const y = PAD.t + iH * (1 - p.y / 100);
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="var(--accent)" stroke="white" stroke-width="2" style="cursor:pointer" onclick="editTensionPoint(${i})" title="ポイント${i+1}: ${p.y}%"/>`;
+  }).join('');
+
+  const xLabels = points.map((p, i) => {
+    const x = PAD.l + i * xStep;
+    return `<text x="${x.toFixed(1)}" y="${H-4}" text-anchor="middle" font-size="9" fill="var(--text-light)">${i+1}</text>`;
+  }).join('');
+
+  const TENSION_LABELS = ['序幕','発端','葛藤開始','一時的解決','新たな危機','ミッドポイント','悪化','最低点','暗闇','突破口','クライマックス','余波','解決','収束','終幕'];
+
+  return `
+  <div class="article-back-btn" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</div>
+  <div class="section-header">
+    <div class="section-title"><i class="fas fa-chart-line" style="color:var(--momo)"></i> テンションカーブ設計</div>
+    <div class="section-desc">物語の緊張度を視覚化して、山場・谷・クライマックスの配置を確認・調整します</div>
+  </div>
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-header">
+      <div class="card-title"><i class="fas fa-wave-square icon" style="color:var(--momo)"></i> テンションカーブ</div>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost btn-sm" onclick="resetTensionCurve()"><i class="fas fa-rotate-left"></i> リセット</button>
+        <button class="btn btn-primary btn-sm" onclick="saveTensionCurve()"><i class="fas fa-floppy-disk"></i> 保存</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <svg width="${W}" height="${H}" style="display:block;max-width:100%">
+        ${yLines}
+        <path d="${areaD}" fill="var(--momo-bg)" stroke="none"/>
+        <path d="${pathD}" fill="none" stroke="var(--momo)" stroke-width="2.5" stroke-linejoin="round"/>
+        ${dots}
+        ${xLabels}
+        <text x="${PAD.l-2}" y="${PAD.t-4}" font-size="10" fill="var(--text-muted)">緊張度(%)</text>
+      </svg>
+    </div>
+    <div style="font-size:11.5px;color:var(--text-muted);margin-top:8px"><i class="fas fa-hand-pointer" style="margin-right:4px"></i>各ポイント（●）をクリックして値を編集できます</div>
+  </div>
+
+  <div class="card">
+    <div class="card-header"><div class="card-title"><i class="fas fa-list-ol icon" style="color:var(--momo)"></i> ポイント詳細編集</div></div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px" id="tension-grid">
+      ${points.map((p, i) => `
+        <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-sm);padding:8px;text-align:center">
+          <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">${TENSION_LABELS[i] || `P${i+1}`}</div>
+          <input type="number" class="form-input" id="tp-${i}" value="${p.y}" min="0" max="100" style="text-align:center;padding:4px;height:32px;font-size:13px;font-weight:700" onchange="updateTensionPoint(${i},this.value)">
+          <div style="font-size:9px;color:var(--text-light);margin-top:2px">ポイント ${i+1}</div>
+        </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+let _tensionPoints = null;
+
+function getTensionPoints() {
+  if (_tensionPoints) return _tensionPoints;
+  const saved = (() => { try { return JSON.parse(localStorage.getItem('sl_tension') || 'null'); } catch { return null; } })();
+  _tensionPoints = saved || [20,30,25,45,40,60,55,70,65,80,75,90,100,60,30].map((v,i) => ({ x:i+1, y:v }));
+  return _tensionPoints;
+}
+
+function updateTensionPoint(idx, val) {
+  const pts = getTensionPoints();
+  pts[idx].y = Math.max(0, Math.min(100, parseInt(val)||0));
+  _tensionPoints = pts;
+}
+
+function editTensionPoint(idx) {
+  const pts = getTensionPoints();
+  const TENSION_LABELS = ['序幕','発端','葛藤開始','一時的解決','新たな危機','ミッドポイント','悪化','最低点','暗闇','突破口','クライマックス','余波','解決','収束','終幕'];
+  openModal(
+    `<i class="fas fa-pencil" style="color:var(--momo)"></i> ポイント${idx+1}（${TENSION_LABELS[idx]||''}）を編集`,
+    `<div class="form-group">
+      <label class="form-label">緊張度 (0〜100%)</label>
+      <input class="form-input" id="tp-edit-val" type="number" value="${pts[idx].y}" min="0" max="100">
+    </div>
+    <div class="form-group">
+      <label class="form-label">このポイントのメモ</label>
+      <input class="form-input" id="tp-edit-memo" value="${pts[idx].memo||''}" placeholder="例：主人公が真実を知る瞬間">
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveTensionPointEdit(${idx})">保存</button>`
+  );
+}
+
+function saveTensionPointEdit(idx) {
+  const val = parseInt($('#tp-edit-val')?.value || '0');
+  const memo = $('#tp-edit-memo')?.value || '';
+  const pts = getTensionPoints();
+  pts[idx].y = Math.max(0, Math.min(100, val));
+  pts[idx].memo = memo;
+  _tensionPoints = pts;
+  closeModal();
+  saveTensionCurve();
+  navigate('tool-tension');
+  toast('保存しました', 'success');
+}
+
+function saveTensionCurve() {
+  const pts = getTensionPoints();
+  // 画面上の入力値を反映
+  pts.forEach((p, i) => {
+    const inp = $(`#tp-${i}`);
+    if (inp) p.y = Math.max(0, Math.min(100, parseInt(inp.value)||0));
+  });
+  localStorage.setItem('sl_tension', JSON.stringify(pts));
+  toast('テンションカーブを保存しました', 'success');
+}
+
+function resetTensionCurve() {
+  _tensionPoints = [20,30,25,45,40,60,55,70,65,80,75,90,100,60,30].map((v,i) => ({ x:i+1, y:v }));
+  localStorage.setItem('sl_tension', JSON.stringify(_tensionPoints));
+  navigate('tool-tension');
+  toast('リセットしました', 'info');
+}
+
+// ================================================================
+//  TOOL: キャラクター名ジェネレーター
+// ================================================================
+function renderToolNameGen() {
+  const LAST_JA = ['山田','田中','佐藤','鈴木','渡辺','伊藤','中村','小林','加藤','吉田','松本','井上','木村','清水','山口','橋本','斎藤','石川','前田','藤原','西村','長谷川','村上','近藤','石田','坂本','遠藤','後藤','林','青木'];
+  const FIRST_JA_M = ['拓也','雄太','健一','翔','大輝','優樹','蓮','颯太','悠人','凌','直人','一郎','裕樹','洸','昴'];
+  const FIRST_JA_F = ['葵','陽菜','舞','美咲','凛','優','桜','紅葉','澪','莉子','彩','柚子','七海','麻衣','咲'];
+  const ANCIENT_LAST = ['藤原','橘','源','平','徳川','織田','豊臣','上杉','武田','今川'];
+  const ANCIENT_FIRST = ['義仲','頼朝','義経','忠信','清盛','秀吉','信長','輝元','謙信','信玄'];
+  const EN_FIRST_M = ['James','Oliver','William','Henry','Arthur','Edward','George','Robert','Thomas','Richard'];
+  const EN_FIRST_F = ['Emma','Alice','Eleanor','Catherine','Margaret','Anne','Charlotte','Elizabeth','Victoria','Clara'];
+  const EN_LAST = ['Smith','Johnson','Williams','Brown','Jones','Miller','Davis','Wilson','Taylor','Anderson'];
+  const SCI_PREFIX = ['リン','カエル','ノア','イェン','ゾル','タリア','ヴェン','クロス','シェン','フォン'];
+  const SCI_SUFFIX = ['ネル','テル','ヴィ','サン','カル','リウス','ドーン','ベル','ゼル','アース'];
+
+  const generated = [];
+  function gen(style, gender) {
+    if (style === 'japanese') {
+      const l = LAST_JA[Math.floor(Math.random()*LAST_JA.length)];
+      const f = (gender === 'female' ? FIRST_JA_F : FIRST_JA_M)[Math.floor(Math.random()*(gender==='female'?FIRST_JA_F.length:FIRST_JA_M.length))];
+      return { name: l+' '+f, kana: '', style: '現代日本語' };
+    }
+    if (style === 'ancient') {
+      const l = ANCIENT_LAST[Math.floor(Math.random()*ANCIENT_LAST.length)];
+      const f = ANCIENT_FIRST[Math.floor(Math.random()*ANCIENT_FIRST.length)];
+      return { name: l+' '+f, kana: '', style: '古風・時代劇' };
+    }
+    if (style === 'english') {
+      const first = (gender === 'female' ? EN_FIRST_F : EN_FIRST_M)[Math.floor(Math.random()*(gender==='female'?EN_FIRST_F.length:EN_FIRST_M.length))];
+      const last = EN_LAST[Math.floor(Math.random()*EN_LAST.length)];
+      return { name: first+' '+last, kana: '', style: '洋風（英語）' };
+    }
+    if (style === 'scifi') {
+      const p = SCI_PREFIX[Math.floor(Math.random()*SCI_PREFIX.length)];
+      const s = SCI_SUFFIX[Math.floor(Math.random()*SCI_SUFFIX.length)];
+      return { name: p+s, kana: '', style: 'SF/ファンタジー' };
+    }
+    return { name: '—', kana: '', style: '' };
+  }
+
+  return `
+  <div class="article-back-btn" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</div>
+  <div class="section-header">
+    <div class="section-title"><i class="fas fa-signature" style="color:var(--kon-lt)"></i> キャラクター名ジェネレーター</div>
+    <div class="section-desc">様々なスタイルのキャラクター名を自動生成します</div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+    <div>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-sliders icon" style="color:var(--kon-lt)"></i> 設定</div></div>
+        <div class="form-group">
+          <label class="form-label">スタイル</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px" id="ng-style-selector">
+            ${[
+              { id:'japanese', label:'現代日本語', icon:'fa-torii-gate', color:'var(--accent)' },
+              { id:'ancient',  label:'古風・時代劇',icon:'fa-scroll',    color:'var(--kogane)' },
+              { id:'english',  label:'洋風（英語）', icon:'fa-globe',    color:'var(--kon-lt)' },
+              { id:'scifi',    label:'SF/ファンタジー',icon:'fa-rocket', color:'var(--fuji)' },
+            ].map(s => `
+              <label style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg-subtle);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:12.5px;font-weight:600">
+                <input type="checkbox" id="ng-style-${s.id}" name="ng-style" value="${s.id}" checked style="width:14px;height:14px;accent-color:${s.color}">
+                <i class="fas ${s.icon}" style="color:${s.color}"></i>${s.label}
+              </label>`).join('')}
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">性別</label>
+          <div style="display:flex;gap:8px">
+            ${[
+              { id:'male', label:'男性', icon:'fa-mars' },
+              { id:'female', label:'女性', icon:'fa-venus' },
+              { id:'any', label:'指定なし', icon:'fa-circle' },
+            ].map(g => `
+              <label style="display:flex;align-items:center;gap:6px;padding:7px 12px;background:var(--bg-subtle);border:1.5px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;font-size:12.5px;flex:1;justify-content:center">
+                <input type="radio" name="ng-gender" value="${g.id}" ${g.id==='any'?'checked':''} style="accent-color:var(--kon-lt)">
+                <i class="fas ${g.icon}" style="font-size:11px"></i>${g.label}
+              </label>`).join('')}
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">生成数</label>
+          <input class="form-input" id="ng-count" type="number" value="10" min="5" max="30">
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="generateNames()">
+          <i class="fas fa-dice"></i> 名前を生成する
+        </button>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-title" style="margin-bottom:10px"><i class="fas fa-heart icon" style="color:var(--momo)"></i> お気に入り</div>
+        <div id="ng-favorites" style="min-height:60px;font-size:12.5px;color:var(--text-muted)">
+          お気に入りはここに追加されます
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="card" style="min-height:400px">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-list icon" style="color:var(--kon-lt)"></i> 生成された名前</div>
+          <button class="btn btn-ghost btn-sm" onclick="generateNames()"><i class="fas fa-rotate"></i> 再生成</button>
+        </div>
+        <div id="ng-results">
+          <div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
+            <i class="fas fa-signature" style="font-size:36px;display:block;margin-bottom:12px;opacity:0.2"></i>
+            <div style="font-size:13px">設定を選んでボタンを押すと<br>名前が生成されます</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function generateNames() {
+  const styles = ['japanese','ancient','english','scifi'].filter(s => $(`#ng-style-${s}`)?.checked);
+  const genderEl = document.querySelector('input[name="ng-gender"]:checked');
+  const gender = genderEl?.value || 'any';
+  const count = parseInt($('#ng-count')?.value || '10');
+
+  if (styles.length === 0) { toast('スタイルを選択してください', 'error'); return; }
+
+  const LAST_JA = ['山田','田中','佐藤','鈴木','渡辺','伊藤','中村','小林','加藤','吉田','松本','井上','木村','清水','山口','橋本','斎藤','石川','前田','藤原','西村','長谷川','村上','近藤','石田','坂本','遠藤','後藤','林','青木'];
+  const FIRST_JA_M = ['拓也','雄太','健一','翔','大輝','優樹','蓮','颯太','悠人','凌','直人','一郎','裕樹','洸','昴'];
+  const FIRST_JA_F = ['葵','陽菜','舞','美咲','凛','優','桜','紅葉','澪','莉子','彩','柚子','七海','麻衣','咲'];
+  const ANCIENT_LAST = ['藤原','橘','源','平','徳川','織田','豊臣','上杉','武田','今川'];
+  const ANCIENT_FIRST = ['義仲','頼朝','義経','忠信','清盛','秀吉','信長','輝元','謙信','信玄','姫','若菜','千代','糸','澄乃'];
+  const EN_FIRST_M = ['James','Oliver','William','Henry','Arthur','Edward','George','Robert','Thomas','Richard'];
+  const EN_FIRST_F = ['Emma','Alice','Eleanor','Catherine','Margaret','Anne','Charlotte','Elizabeth','Victoria','Clara'];
+  const EN_LAST = ['Smith','Johnson','Williams','Brown','Jones','Miller','Davis','Wilson','Taylor','Anderson'];
+  const SCI_PREFIX = ['リン','カエル','ノア','イェン','ゾル','タリア','ヴェン','クロス','シェン','フォン'];
+  const SCI_SUFFIX = ['ネル','テル','ヴィ','サン','カル','リウス','ドーン','ベル','ゼル','アース'];
+
+  const styleNames = { japanese:'現代日本語', ancient:'古風・時代劇', english:'洋風（英語）', scifi:'SF/ファンタジー' };
+  const styleColors = { japanese:'var(--accent)', ancient:'var(--kogane)', english:'var(--kon-lt)', scifi:'var(--fuji)' };
+
+  const results = [];
+  for (let i = 0; i < count; i++) {
+    const style = styles[i % styles.length];
+    const g = gender === 'any' ? (i % 2 === 0 ? 'male' : 'female') : gender;
+    let name = '';
+    if (style === 'japanese') {
+      const l = LAST_JA[Math.floor(Math.random()*LAST_JA.length)];
+      const f = (g === 'female' ? FIRST_JA_F : FIRST_JA_M)[Math.floor(Math.random()*(g==='female'?FIRST_JA_F.length:FIRST_JA_M.length))];
+      name = l + ' ' + f;
+    } else if (style === 'ancient') {
+      const l = ANCIENT_LAST[Math.floor(Math.random()*ANCIENT_LAST.length)];
+      const f = ANCIENT_FIRST[Math.floor(Math.random()*ANCIENT_FIRST.length)];
+      name = l + ' ' + f;
+    } else if (style === 'english') {
+      const first = (g === 'female' ? EN_FIRST_F : EN_FIRST_M)[Math.floor(Math.random()*(g==='female'?EN_FIRST_F.length:EN_FIRST_M.length))];
+      const last = EN_LAST[Math.floor(Math.random()*EN_LAST.length)];
+      name = first + ' ' + last;
+    } else {
+      const p = SCI_PREFIX[Math.floor(Math.random()*SCI_PREFIX.length)];
+      const s = SCI_SUFFIX[Math.floor(Math.random()*SCI_SUFFIX.length)];
+      name = p + s;
+    }
+    results.push({ name, style, color: styleColors[style], label: styleNames[style] });
+  }
+
+  const resultsEl = $('#ng-results');
+  if (resultsEl) {
+    resultsEl.innerHTML = `<div style="display:flex;flex-direction:column;gap:6px">` +
+      results.map((r, i) => `
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-sm)">
+          <div style="font-size:14px;font-weight:700;color:var(--text-primary);flex:1;font-family:'Noto Serif JP',serif">${esc(r.name)}</div>
+          <span style="font-size:10px;padding:2px 7px;background:white;border:1px solid var(--border);border-radius:var(--radius-xs);color:${r.color};font-weight:600">${r.label}</span>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="addNameFavorite('${esc(r.name)}','${r.label}')" title="お気に入りに追加"><i class="fas fa-heart" style="color:var(--momo);font-size:11px"></i></button>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="copyToClipboard('${esc(r.name)}')" title="コピー"><i class="fas fa-copy" style="font-size:11px"></i></button>
+        </div>`).join('') + `</div>`;
+  }
+  toast(`${count}件の名前を生成しました`, 'success');
+}
+
+function addNameFavorite(name, style) {
+  const favs = JSON.parse(localStorage.getItem('sl_name_favs') || '[]');
+  if (!favs.find(f => f.name === name)) {
+    favs.unshift({ name, style, addedAt: new Date().toISOString() });
+    localStorage.setItem('sl_name_favs', JSON.stringify(favs));
+  }
+  const el = $('#ng-favorites');
+  if (el) {
+    const items = JSON.parse(localStorage.getItem('sl_name_favs') || '[]');
+    el.innerHTML = items.length === 0 ? 'お気に入りはここに追加されます' :
+      `<div style="display:flex;flex-wrap:wrap;gap:6px">${items.map(f => `
+        <div style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;background:var(--momo-bg);border:1px solid var(--momo-border);border-radius:var(--radius-full);font-size:12px;color:var(--momo)">
+          ${esc(f.name)}
+          <button class="btn btn-ghost btn-icon" style="padding:0;height:16px;width:16px" onclick="removeNameFavorite('${esc(f.name)}')"><i class="fas fa-xmark" style="font-size:9px"></i></button>
+        </div>`).join('')}</div>`;
+  }
+  toast('お気に入りに追加しました', 'success');
+}
+
+function removeNameFavorite(name) {
+  const favs = JSON.parse(localStorage.getItem('sl_name_favs') || '[]').filter(f => f.name !== name);
+  localStorage.setItem('sl_name_favs', JSON.stringify(favs));
+  const el = $('#ng-favorites');
+  if (el) {
+    el.innerHTML = favs.length === 0 ? 'お気に入りはここに追加されます' :
+      `<div style="display:flex;flex-wrap:wrap;gap:6px">${favs.map(f => `
+        <div style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;background:var(--momo-bg);border:1px solid var(--momo-border);border-radius:var(--radius-full);font-size:12px;color:var(--momo)">
+          ${esc(f.name)}
+          <button class="btn btn-ghost btn-icon" style="padding:0;height:16px;width:16px" onclick="removeNameFavorite('${esc(f.name)}')"><i class="fas fa-xmark" style="font-size:9px"></i></button>
+        </div>`).join('')}</div>`;
+  }
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard?.writeText(text).then(() => toast('コピーしました', 'success'));
+}
+
+// ================================================================
 //  PAGE: テンプレート
 // ================================================================
 function renderTemplatesPage() {
@@ -5046,6 +5719,798 @@ function clearAllData() {
   State.currentPage = 'dashboard';
   render();
 }
+
+// ================================================================
+//  PAGE: 執筆日誌
+// ================================================================
+function renderJournalPage() {
+  const entries = DB.get('journal_entries', []);
+  const today = new Date().toISOString().slice(0,10);
+  const todayEntry = entries.find(e => e.date === today);
+  const streak = calcWritingStreak(entries);
+
+  const recentEntries = entries.slice(0, 30).map(e => {
+    const wc = e.wordCount || 0;
+    const mood = e.mood || '😐';
+    return `
+    <div class="card" style="padding:14px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-size:13px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">
+          ${e.date} <span style="font-size:16px;margin-left:6px">${mood}</span>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          ${wc > 0 ? `<span class="tag tag-matcha"><i class="fas fa-font" style="font-size:9px"></i> ${wc.toLocaleString()}字</span>` : ''}
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteJournalEntry('${e.id}')"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+        </div>
+      </div>
+      ${e.goal ? `<div style="font-size:12px;font-weight:600;color:var(--matcha);margin-bottom:5px"><i class="fas fa-bullseye" style="font-size:10px;margin-right:4px"></i>目標: ${esc(e.goal)}</div>` : ''}
+      <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.7;white-space:pre-wrap">${esc(e.body||'').slice(0,200)}${(e.body||'').length>200?'…':''}</div>
+      ${e.reflection ? `<div style="margin-top:8px;font-size:12px;color:var(--text-muted);border-top:1px solid var(--border);padding-top:8px;font-style:italic"><i class="fas fa-comment" style="font-size:9px;margin-right:4px"></i>${esc(e.reflection)}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  // 月別統計
+  const monthMap = {};
+  entries.forEach(e => {
+    const m = e.date.slice(0,7);
+    monthMap[m] = (monthMap[m]||0) + (e.wordCount||0);
+  });
+  const monthStats = Object.entries(monthMap).slice(-6).map(([m, wc]) => {
+    const max = Math.max(...Object.values(monthMap), 1);
+    const pct = Math.round((wc/max)*100);
+    return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div style="width:32px;background:var(--bg-hover);border-radius:4px 4px 0 0;overflow:hidden;height:60px;display:flex;align-items:flex-end">
+        <div style="width:100%;background:var(--matcha);border-radius:3px 3px 0 0;height:${pct}%;transition:height .3s"></div>
+      </div>
+      <div style="font-size:9px;color:var(--text-muted)">${m.slice(5)}月</div>
+      <div style="font-size:10px;font-weight:700;color:var(--matcha)">${wc >= 1000 ? (wc/1000).toFixed(1)+'k' : wc}</div>
+    </div>`;
+  }).join('');
+
+  const totalWords = entries.reduce((a, e) => a + (e.wordCount||0), 0);
+  const avgWords = entries.length > 0 ? Math.round(totalWords / entries.length) : 0;
+
+  return `
+  <div class="section-header">
+    <div class="section-title"><i class="fas fa-book"></i> 執筆日誌</div>
+    <div class="section-desc">毎日の執筆記録・進捗・気づきを記録しましょう</div>
+  </div>
+
+  <!-- 統計バー -->
+  <div class="stat-grid" style="margin-bottom:24px">
+    <div class="stat-card matcha">
+      <div class="stat-icon-wrap"><i class="fas fa-fire"></i></div>
+      <div class="stat-value">${streak}</div>
+      <div class="stat-label">連続執筆日数</div>
+    </div>
+    <div class="stat-card kon">
+      <div class="stat-icon-wrap"><i class="fas fa-calendar-check"></i></div>
+      <div class="stat-value">${entries.length}</div>
+      <div class="stat-label">総記録日数</div>
+    </div>
+    <div class="stat-card kogane">
+      <div class="stat-icon-wrap"><i class="fas fa-font"></i></div>
+      <div class="stat-value">${totalWords >= 10000 ? Math.round(totalWords/1000)+'k' : totalWords.toLocaleString()}</div>
+      <div class="stat-label">総執筆文字数</div>
+    </div>
+    <div class="stat-card beni">
+      <div class="stat-icon-wrap"><i class="fas fa-chart-line"></i></div>
+      <div class="stat-value">${avgWords >= 1000 ? (avgWords/1000).toFixed(1)+'k' : avgWords.toLocaleString()}</div>
+      <div class="stat-label">平均文字/日</div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:24px">
+    <!-- 左: 記録フォーム + 一覧 -->
+    <div>
+      <!-- 今日の記録 -->
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-pen icon" style="color:var(--matcha)"></i> ${today} の記録</div>
+          ${todayEntry ? '<span style="font-size:11px;color:var(--matcha);font-weight:600;padding:3px 9px;background:var(--matcha-bg);border-radius:var(--radius-full)">✓ 記録済み</span>' : ''}
+        </div>
+        <div class="grid-2" style="margin-bottom:10px">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">今日の目標</label>
+            <input class="form-input" id="j-goal" value="${todayEntry?.goal||''}" placeholder="例：第3シーンを書ききる">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">執筆文字数</label>
+            <input class="form-input" id="j-wordcount" type="number" value="${todayEntry?.wordCount||''}" placeholder="0">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">気分・コンディション</label>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            ${['😊','🔥','😐','😔','😤','💤','✨','🤔'].map(m =>
+              `<button onclick="selectMood('${m}')" id="mood-${m}" class="btn btn-ghost btn-sm" style="font-size:18px;padding:4px 8px;${(todayEntry?.mood||'😐')===m?'background:var(--bg-hover);border-color:var(--accent)':''}">${m}</button>`
+            ).join('')}
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">今日の執筆メモ・進捗</label>
+          <textarea class="form-textarea" id="j-body" rows="4" placeholder="今日書いた内容・気づき・詰まった点などを自由に記録...">${todayEntry?.body||''}</textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">振り返り・反省</label>
+          <textarea class="form-textarea" id="j-reflection" rows="2" placeholder="明日に活かしたいこと...">${todayEntry?.reflection||''}</textarea>
+        </div>
+        <button class="btn btn-primary" onclick="saveJournalEntry()" style="width:100%">
+          <i class="fas fa-floppy-disk"></i> ${todayEntry ? '更新する' : '記録を保存する'}
+        </button>
+      </div>
+
+      <!-- 過去の記録 -->
+      <div style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif;margin-bottom:12px">
+        <i class="fas fa-clock-rotate-left" style="color:var(--momo);margin-right:8px"></i>過去の記録
+        <span style="font-size:12px;font-weight:400;color:var(--text-muted);margin-left:6px">(${entries.length}件)</span>
+      </div>
+      ${entries.length === 0 ?
+        `<div style="text-align:center;padding:40px;color:var(--text-muted);background:var(--bg-subtle);border-radius:var(--radius-md);border:2px dashed var(--border)">
+          <i class="fas fa-book" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.3"></i>
+          まだ記録がありません。今日の執筆を記録しましょう！
+        </div>`
+        : recentEntries}
+    </div>
+
+    <!-- 右: グラフ・カレンダー -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <!-- 月別執筆量グラフ -->
+      ${Object.keys(monthMap).length > 0 ? `
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg-subtle);font-size:13px;font-weight:600;color:var(--text-primary);font-family:'Noto Serif JP',serif">
+          <i class="fas fa-chart-bar" style="color:var(--matcha);margin-right:6px"></i>月別執筆量
+        </div>
+        <div style="padding:16px;display:flex;align-items:flex-end;gap:8px;height:100px">
+          ${monthStats}
+        </div>
+      </div>` : ''}
+
+      <!-- 執筆習慣カレンダー -->
+      <div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:12px 16px;border-bottom:1px solid var(--border);background:var(--bg-subtle);font-size:13px;font-weight:600;color:var(--text-primary);font-family:'Noto Serif JP',serif">
+          <i class="fas fa-calendar" style="color:var(--asagi);margin-right:6px"></i>執筆カレンダー
+        </div>
+        <div style="padding:14px">
+          ${renderJournalCalendar(entries)}
+        </div>
+      </div>
+
+      <!-- ヒント -->
+      <div class="writing-tip-box">
+        <div class="writing-tip-title"><i class="fas fa-lightbulb"></i> 継続のコツ</div>
+        <div class="writing-tip-body">「毎日1行」を目標に設定すると継続しやすくなります。完璧な1時間より、不完全な10分の方が長期的に意味があります。日誌は振り返りのためのもので、評価されるためのものではありません。</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function calcWritingStreak(entries) {
+  if (entries.length === 0) return 0;
+  const dates = [...new Set(entries.map(e => e.date))].sort().reverse();
+  if (!dates.length) return 0;
+  const today = new Date().toISOString().slice(0,10);
+  let streak = 0;
+  let cur = new Date(today);
+  for (const d of dates) {
+    const dc = cur.toISOString().slice(0,10);
+    if (d === dc) {
+      streak++;
+      cur.setDate(cur.getDate()-1);
+    } else break;
+  }
+  return streak;
+}
+
+function renderJournalCalendar(entries) {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const entryDates = new Set(entries.map(e => e.date));
+  const days = ['日','月','火','水','木','金','土'];
+
+  let html = `<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;font-size:10px;text-align:center;margin-bottom:6px">`;
+  html += days.map(d => `<div style="color:var(--text-muted);font-weight:600;padding:2px 0">${d}</div>`).join('');
+  html += '</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px">';
+
+  for (let i = 0; i < firstDay; i++) {
+    html += `<div></div>`;
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const hasEntry = entryDates.has(dateStr);
+    const isToday = dateStr === today.toISOString().slice(0,10);
+    html += `<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:10px;font-weight:${isToday?'700':'400'};
+      ${hasEntry ? 'background:var(--matcha);color:white' : isToday ? 'background:var(--accent);color:white' : 'color:var(--text-muted)'}">${d}</div>`;
+  }
+  html += '</div>';
+  html += `<div style="margin-top:8px;font-size:10.5px;color:var(--text-muted);display:flex;gap:10px;align-items:center">
+    <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:var(--matcha);border-radius:50%;display:inline-block"></span>執筆記録あり</span>
+    <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:10px;background:var(--accent);border-radius:50%;display:inline-block"></span>今日</span>
+  </div>`;
+  return html;
+}
+
+let _selectedMood = '😐';
+function selectMood(mood) {
+  _selectedMood = mood;
+  ['😊','🔥','😐','😔','😤','💤','✨','🤔'].forEach(m => {
+    const btn = $(`#mood-${m}`);
+    if (btn) btn.style.background = m === mood ? 'var(--bg-hover)' : '';
+    if (btn) btn.style.borderColor = m === mood ? 'var(--accent)' : '';
+  });
+}
+
+function saveJournalEntry() {
+  const entries = DB.get('journal_entries', []);
+  const today = new Date().toISOString().slice(0,10);
+  const body = $('#j-body')?.value?.trim();
+  const goal = $('#j-goal')?.value?.trim();
+  const wordCount = parseInt($('#j-wordcount')?.value||'0') || 0;
+  const reflection = $('#j-reflection')?.value?.trim();
+  const mood = _selectedMood || '😐';
+
+  const existing = entries.findIndex(e => e.date === today);
+  const entry = { id: existing >= 0 ? entries[existing].id : uid(), date: today, body, goal, wordCount, reflection, mood, updatedAt: new Date().toISOString() };
+
+  if (existing >= 0) entries[existing] = entry;
+  else entries.unshift(entry);
+
+  DB.set('journal_entries', entries);
+  toast('執筆日誌を保存しました', 'success');
+  navigate('journal');
+}
+
+function deleteJournalEntry(id) {
+  openModal(
+    `<i class="fas fa-trash" style="color:var(--accent)"></i> 記録を削除`,
+    `<p style="color:var(--text-secondary)">この記録を削除しますか？元に戻せません。</p>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-danger" onclick="confirmDeleteJournalEntry('${id}')"><i class="fas fa-trash"></i> 削除</button>`
+  );
+}
+
+function confirmDeleteJournalEntry(id) {
+  const entries = DB.get('journal_entries', []).filter(e => e.id !== id);
+  DB.set('journal_entries', entries);
+  closeModal();
+  toast('削除しました', 'info');
+  navigate('journal');
+}
+
+function bindJournalPage() {
+  const today = new Date().toISOString().slice(0,10);
+  const entries = DB.get('journal_entries', []);
+  const todayEntry = entries.find(e => e.date === today);
+  _selectedMood = todayEntry?.mood || '😐';
+}
+
+// ================================================================
+//  PAGE: キャラクター名辞典
+// ================================================================
+function renderNameDictPage() {
+  const names = DB.get('namedict', []);
+  const categories = ['主人公','敵役','脇役','助演','その他'];
+  const catCounts = {};
+  categories.forEach(c => { catCounts[c] = names.filter(n => n.category === c).length; });
+
+  const nameCards = names.length === 0
+    ? `<div style="text-align:center;padding:48px;color:var(--text-muted);grid-column:1/-1;border:2px dashed var(--border);border-radius:var(--radius-md)">
+        <i class="fas fa-spell-check" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.3"></i>
+        名前辞典はまだ空です。キャラクターを追加しましょう。
+      </div>`
+    : names.map(n => {
+        const catColor = { '主人公':'var(--accent)', '敵役':'var(--momo)', '脇役':'var(--asagi)', '助演':'var(--kogane)', 'その他':'var(--text-muted)' };
+        return `
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+            <div>
+              <div style="font-size:16px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${esc(n.name)}</div>
+              ${n.kana ? `<div style="font-size:11px;color:var(--text-muted)">${esc(n.kana)}</div>` : ''}
+            </div>
+            <div style="display:flex;gap:4px">
+              <span style="font-size:10px;padding:2px 8px;background:var(--bg-hover);border:1px solid var(--border);border-radius:var(--radius-full);color:${catColor[n.category]||'var(--text-muted)'};">${esc(n.category||'その他')}</span>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="openEditNameDict('${n.id}')"><i class="fas fa-pen" style="font-size:10px"></i></button>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteNameDict('${n.id}')"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+            </div>
+          </div>
+          ${n.reading ? `<div style="font-size:12px;color:var(--kon-lt);margin-bottom:4px"><i class="fas fa-volume-high" style="font-size:9px;margin-right:4px"></i>読み: ${esc(n.reading)}</div>` : ''}
+          ${n.tags ? `<div style="margin-bottom:6px;display:flex;flex-wrap:wrap;gap:4px">${n.tags.split(',').map(t => `<span class="tag tag-gray" style="font-size:10px">${esc(t.trim())}</span>`).join('')}</div>` : ''}
+          ${n.note ? `<div style="font-size:12px;color:var(--text-secondary);line-height:1.6">${esc(n.note)}</div>` : ''}
+          ${n.project ? `<div style="font-size:10.5px;color:var(--text-muted);margin-top:6px"><i class="fas fa-film" style="font-size:9px;margin-right:3px"></i>${esc(n.project)}</div>` : ''}
+        </div>`;
+      }).join('');
+
+  return `
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div>
+      <h2 style="font-size:22px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin:0"><i class="fas fa-spell-check" style="color:var(--kon-lt);margin-right:10px"></i>キャラクター名辞典</h2>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:4px">登場人物の名前・読み・メモを一元管理</div>
+    </div>
+    <button class="btn btn-primary" onclick="openAddNameDict()"><i class="fas fa-plus"></i> 新規追加</button>
+  </div>
+
+  <!-- カテゴリー統計 -->
+  <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+    <div style="padding:8px 16px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-full);font-size:12.5px">
+      <i class="fas fa-users" style="color:var(--text-muted);margin-right:5px"></i>総登録数: <strong>${names.length}</strong>
+    </div>
+    ${categories.map(c => catCounts[c] > 0 ? `
+      <div style="padding:8px 14px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-full);font-size:12px">
+        ${c}: <strong>${catCounts[c]}</strong>
+      </div>` : '').join('')}
+  </div>
+
+  <!-- 検索 -->
+  ${names.length > 0 ? `
+  <div style="position:relative;margin-bottom:16px;max-width:400px">
+    <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:12px"></i>
+    <input class="form-input" id="namedict-search" style="padding-left:30px" placeholder="名前・読みで検索..." oninput="filterNameDict(this.value)">
+  </div>` : ''}
+
+  <div class="project-grid" id="namedict-grid">${nameCards}</div>`;
+}
+
+function openAddNameDict() {
+  const projects = DB.getProjects().map(p => `<option>${esc(p.title)}</option>`).join('');
+  openModal(
+    `<i class="fas fa-plus" style="color:var(--kon-lt)"></i> 名前を追加`,
+    `<div class="form-group"><label class="form-label">名前 <span style="color:var(--accent)">*</span></label><input class="form-input" id="nd-name" placeholder="例：木村 拓也"></div>
+     <div class="grid-2">
+       <div class="form-group"><label class="form-label">読み（ひらがな）</label><input class="form-input" id="nd-kana" placeholder="例：きむら たくや"></div>
+       <div class="form-group"><label class="form-label">カテゴリー</label>
+         <select class="form-select" id="nd-cat">
+           <option>主人公</option><option>敵役</option><option>脇役</option><option>助演</option><option>その他</option>
+         </select>
+       </div>
+     </div>
+     <div class="form-group"><label class="form-label">タグ（カンマ区切り）</label><input class="form-input" id="nd-tags" placeholder="例：刑事, 男性, 30代"></div>
+     <div class="form-group"><label class="form-label">関連作品</label><select class="form-select" id="nd-project"><option value="">未選択</option>${projects}</select></div>
+     <div class="form-group"><label class="form-label">メモ・説明</label><textarea class="form-textarea" id="nd-note" rows="2" placeholder="このキャラクターについてのメモ"></textarea></div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="addNameDict()"><i class="fas fa-plus"></i> 追加</button>`
+  );
+}
+
+function addNameDict() {
+  const name = $('#nd-name')?.value?.trim();
+  if (!name) { toast('名前は必須です', 'error'); return; }
+  const entry = {
+    id: uid(), name,
+    kana: $('#nd-kana')?.value?.trim() || '',
+    category: $('#nd-cat')?.value || 'その他',
+    tags: $('#nd-tags')?.value?.trim() || '',
+    project: $('#nd-project')?.value || '',
+    note: $('#nd-note')?.value?.trim() || '',
+    createdAt: new Date().toISOString(),
+  };
+  const names = DB.get('namedict', []);
+  names.unshift(entry);
+  DB.set('namedict', names);
+  closeModal();
+  toast('追加しました', 'success');
+  navigate('namedict');
+}
+
+function openEditNameDict(id) {
+  const names = DB.get('namedict', []);
+  const n = names.find(x => x.id === id);
+  if (!n) return;
+  const projects = DB.getProjects().map(p => `<option ${p.title===n.project?'selected':''}>${esc(p.title)}</option>`).join('');
+  openModal(
+    `<i class="fas fa-pen" style="color:var(--kon-lt)"></i> 名前を編集`,
+    `<div class="form-group"><label class="form-label">名前</label><input class="form-input" id="nd-edit-name" value="${esc(n.name)}"></div>
+     <div class="grid-2">
+       <div class="form-group"><label class="form-label">読み</label><input class="form-input" id="nd-edit-kana" value="${esc(n.kana||'')}"></div>
+       <div class="form-group"><label class="form-label">カテゴリー</label>
+         <select class="form-select" id="nd-edit-cat">
+           ${['主人公','敵役','脇役','助演','その他'].map(c => `<option ${c===n.category?'selected':''}>${c}</option>`).join('')}
+         </select>
+       </div>
+     </div>
+     <div class="form-group"><label class="form-label">タグ</label><input class="form-input" id="nd-edit-tags" value="${esc(n.tags||'')}"></div>
+     <div class="form-group"><label class="form-label">関連作品</label><select class="form-select" id="nd-edit-project"><option value="">未選択</option>${projects}</select></div>
+     <div class="form-group"><label class="form-label">メモ</label><textarea class="form-textarea" id="nd-edit-note" rows="2">${esc(n.note||'')}</textarea></div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveEditNameDict('${id}')">保存</button>`
+  );
+}
+
+function saveEditNameDict(id) {
+  const names = DB.get('namedict', []);
+  const idx = names.findIndex(x => x.id === id);
+  if (idx < 0) return;
+  names[idx] = { ...names[idx],
+    name: $('#nd-edit-name')?.value?.trim() || names[idx].name,
+    kana: $('#nd-edit-kana')?.value?.trim() || '',
+    category: $('#nd-edit-cat')?.value || 'その他',
+    tags: $('#nd-edit-tags')?.value?.trim() || '',
+    project: $('#nd-edit-project')?.value || '',
+    note: $('#nd-edit-note')?.value?.trim() || '',
+  };
+  DB.set('namedict', names);
+  closeModal();
+  toast('更新しました', 'success');
+  navigate('namedict');
+}
+
+function deleteNameDict(id) {
+  openModal(
+    `<i class="fas fa-trash" style="color:var(--accent)"></i> 名前を削除`,
+    `<p style="color:var(--text-secondary)">この名前の記録を削除しますか？</p>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-danger" onclick="confirmDeleteNameDict('${id}')">削除</button>`
+  );
+}
+
+function confirmDeleteNameDict(id) {
+  const names = DB.get('namedict', []).filter(x => x.id !== id);
+  DB.set('namedict', names);
+  closeModal();
+  toast('削除しました', 'info');
+  navigate('namedict');
+}
+
+function filterNameDict(q) {
+  const cards = $$('#namedict-grid .card');
+  cards.forEach(card => {
+    const text = card.textContent;
+    card.style.display = !q || text.includes(q) ? '' : 'none';
+  });
+}
+
+function bindNameDictPage() {}
+
+// ================================================================
+//  PAGE: 世界観設計
+// ================================================================
+function renderWorldBuildingPage() {
+  const wb = DB.get('worldbuilding', {
+    title: '',
+    era: '',
+    setting: '',
+    rules: '',
+    geography: '',
+    culture: '',
+    politics: '',
+    technology: '',
+    magic: '',
+    history: '',
+    conflicts: '',
+    glossary: [],
+  });
+
+  const glossaryHtml = (wb.glossary || []).map((g, i) => `
+    <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:0 0 100px;font-size:12.5px;font-weight:700;color:var(--kon-lt);font-family:'Noto Serif JP',serif">${esc(g.term)}</div>
+      <div style="flex:1;font-size:12.5px;color:var(--text-secondary);line-height:1.6">${esc(g.def)}</div>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteWbGlossary(${i})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+    </div>`).join('');
+
+  const fields = [
+    { id:'title',      label:'世界観タイトル',   placeholder:'例：近未来の新東京',         rows:1 },
+    { id:'era',        label:'時代・時期設定',    placeholder:'例：2045年、AIが人権を獲得した時代', rows:1 },
+    { id:'setting',    label:'舞台・場所',         placeholder:'例：海面上昇後の東京。高層都市と水上スラムが並立する', rows:2 },
+    { id:'rules',      label:'世界のルール（物理法則・超自然）', placeholder:'例：特定の感情を持つ者だけが「境界」を越えられる', rows:2 },
+    { id:'geography',  label:'地理・地図',         placeholder:'例：三つの島に分かれた都市構造。北島は富裕層、南島は労働者層', rows:2 },
+    { id:'culture',    label:'文化・習慣・宗教',   placeholder:'例：死者の日は年に一度全市民が白い仮面を着けて外出する', rows:2 },
+    { id:'politics',   label:'政治・権力構造',     placeholder:'例：三つの財閥が都市を分割支配。警察は財閥傭兵が担当', rows:2 },
+    { id:'technology', label:'科学技術・魔法体系', placeholder:'例：記憶を「書き換え」できるナノマシン技術が普及している', rows:2 },
+    { id:'history',    label:'重要な歴史・出来事', placeholder:'例：30年前の「大分断」で旧東京が三分割された', rows:2 },
+    { id:'conflicts',  label:'内在する葛藤・矛盾', placeholder:'例：AI市民権vs人間優位主義の対立が社会の根底にある', rows:2 },
+  ];
+
+  return `
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+    <div>
+      <h2 style="font-size:22px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin:0"><i class="fas fa-globe" style="color:var(--asagi);margin-right:10px"></i>世界観設計ノート</h2>
+      <div style="font-size:13px;color:var(--text-muted);margin-top:4px">作品の舞台・世界観・設定を詳細に設計・記録します</div>
+    </div>
+    <button class="btn btn-primary" onclick="saveWorldBuilding()"><i class="fas fa-floppy-disk"></i> 保存</button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 340px;gap:24px">
+    <div>
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header"><div class="card-title"><i class="fas fa-earth-asia icon" style="color:var(--asagi)"></i> 世界設定の基本</div></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          ${fields.slice(0,2).map(f => `
+            <div class="form-group">
+              <label class="form-label">${f.label}</label>
+              <input class="form-input" id="wb-${f.id}" value="${esc(wb[f.id]||'')}" placeholder="${f.placeholder}">
+            </div>`).join('')}
+        </div>
+        ${fields.slice(2).map(f => `
+          <div class="form-group">
+            <label class="form-label">${f.label}</label>
+            <textarea class="form-textarea" id="wb-${f.id}" rows="${f.rows}" placeholder="${f.placeholder}">${esc(wb[f.id]||'')}</textarea>
+          </div>`).join('')}
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <!-- 用語集 -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-book icon" style="color:var(--kon-lt)"></i> 用語集・固有名詞</div>
+          <button class="btn btn-primary btn-sm" onclick="openAddWbGlossary()"><i class="fas fa-plus"></i></button>
+        </div>
+        ${(wb.glossary||[]).length === 0 ?
+          `<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:12.5px">用語を追加しましょう</div>`
+          : `<div style="max-height:300px;overflow-y:auto">${glossaryHtml}</div>`}
+      </div>
+
+      <!-- ヒント -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:10px"><i class="fas fa-lightbulb icon" style="color:var(--kogane)"></i> 世界観構築のコツ</div>
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.9">
+          <div>🌍 「見える世界」と「見えないルール」を分けて考える</div>
+          <div>⚡ 内在する矛盾・葛藤が物語を生む</div>
+          <div>🔬 設定は物語に使う分だけ深掘りする</div>
+          <div>📚 固有名詞は読者が覚えやすい数に絞る</div>
+          <div>🗺️ 地図・年表があると整合性が取りやすい</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function saveWorldBuilding() {
+  const fields = ['title','era','setting','rules','geography','culture','politics','technology','history','conflicts'];
+  const wb = DB.get('worldbuilding', { glossary: [] });
+  fields.forEach(f => {
+    const el = $(`#wb-${f}`);
+    if (el) wb[f] = el.value.trim();
+  });
+  DB.set('worldbuilding', wb);
+  toast('世界観設計を保存しました', 'success');
+}
+
+function openAddWbGlossary() {
+  openModal(
+    `<i class="fas fa-plus" style="color:var(--kon-lt)"></i> 用語を追加`,
+    `<div class="form-group"><label class="form-label">用語・固有名詞 <span style="color:var(--accent)">*</span></label><input class="form-input" id="wbg-term" placeholder="例：境界石"></div>
+     <div class="form-group"><label class="form-label">説明</label><textarea class="form-textarea" id="wbg-def" rows="3" placeholder="例：二つの世界の境界に存在する古代の石柱。特定の血筋を持つ者にのみ反応する"></textarea></div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="addWbGlossary()">追加</button>`
+  );
+}
+
+function addWbGlossary() {
+  const term = $('#wbg-term')?.value?.trim();
+  const def = $('#wbg-def')?.value?.trim();
+  if (!term) { toast('用語を入力してください', 'error'); return; }
+  const wb = DB.get('worldbuilding', { glossary: [] });
+  if (!wb.glossary) wb.glossary = [];
+  wb.glossary.push({ term, def });
+  DB.set('worldbuilding', wb);
+  closeModal();
+  toast('用語を追加しました', 'success');
+  navigate('worldbuilding');
+}
+
+function deleteWbGlossary(idx) {
+  const wb = DB.get('worldbuilding', { glossary: [] });
+  if (!wb.glossary) return;
+  wb.glossary.splice(idx, 1);
+  DB.set('worldbuilding', wb);
+  toast('削除しました', 'info');
+  navigate('worldbuilding');
+}
+
+// ================================================================
+//  PAGE: インスピレーション
+// ================================================================
+const INSPIRATION_DB = {
+  prompts: [
+    '二人の見知らぬ人が、同じ日に同じ電車で同じ席を予約していた。',
+    '主人公が20年ぶりに実家に帰ったとき、自分の部屋がまるで別人のものになっていた。',
+    '「もし昨日死んでいたら、今日誰が悲しんでいたか」と考えながら生きている人物。',
+    '嘘をつくたびに体の一部が消えていく世界で、政治家として生きる話。',
+    '末期がんの父親が残したのは不動産でもお金でもなく、一冊の「謝罪の手紙リスト」だった。',
+    '音楽の天才だが、音楽を聞くと発作を起こす体になってしまった指揮者。',
+    '「完璧な結婚」を演じてきた夫婦が、離婚届を書くその日に初めて本音で話す。',
+    '探偵が依頼された失踪人は、20年前に自分が関わった事件の被害者の子供だった。',
+    '記憶を売って生活できる社会で、「忘れたい記憶」を持つ人々の話。',
+    '死ぬ前に「やり残したこと」を叶える会社に、自分自身を依頼しに来た老人。',
+    '生まれた瞬間に「死ぬ日」が分かる世界で、今日死ぬはずの人が翌日も生きていた。',
+    '島に残された最後の図書館司書と、その図書館を壊しに来た官僚の話。',
+    '宇宙船の修理工が、廃棄予定の人工知能に「生きたい」と言われる。',
+    '写真を撮るたびに、そこに写っていない「はずだった人」が映り込む。',
+    '10年間文通を続けてきた相手が、実は亡くなっていたと知る日。',
+  ],
+  themes: ['愛と喪失','アイデンティティの危機','許しと和解','正義と悪の曖昧な境界','成長と痛み','孤独と繋がり','真実と嘘','変化への抵抗','信頼と裏切り','自由の代償'],
+  genres: ['社会派サスペンス','青春ラブストーリー','SF的ディストピア','家族ドラマ','歴史×現代','犯罪捜査もの','心理ホラー','ロードムービー','コメディ×シリアス','武士道時代劇'],
+  moods: ['静かな絶望の中に希望','笑いながら泣ける','息が詰まるほどの緊張','疾走感と爽快感','ゆったりとした余韻','うずうずするスリル','じわりと温かい','底冷えするような孤独'],
+};
+
+function renderInspirationPage() {
+  const saved = DB.get('inspiration_history', []);
+  const rp = INSPIRATION_DB.prompts[Math.floor(Math.random()*INSPIRATION_DB.prompts.length)];
+  const rt = INSPIRATION_DB.themes[Math.floor(Math.random()*INSPIRATION_DB.themes.length)];
+  const rg = INSPIRATION_DB.genres[Math.floor(Math.random()*INSPIRATION_DB.genres.length)];
+  const rm = INSPIRATION_DB.moods[Math.floor(Math.random()*INSPIRATION_DB.moods.length)];
+
+  const historyHtml = saved.length > 0
+    ? saved.slice(0,10).map(h => `
+      <div style="padding:10px 12px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px">
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">${h.date}</div>
+        <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6">${esc(h.combo)}</div>
+      </div>`).join('')
+    : `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px">「アイデアを生成」ボタンで組み合わせが保存されます</div>`;
+
+  return `
+  <div class="section-header">
+    <div class="section-title"><i class="fas fa-bolt"></i> インスピレーション</div>
+    <div class="section-desc">執筆のきっかけ・刺激・アイデアプロンプトを取得しましょう</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+    <!-- 左: プロンプトジェネレーター -->
+    <div>
+      <!-- ランダムプロンプト -->
+      <div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,var(--kogane-bg),var(--bg-white));border-top:3px solid var(--kogane)">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+          <div class="card-title"><i class="fas fa-random icon" style="color:var(--kogane)"></i> 今日のプロンプト</div>
+          <button class="btn btn-ghost btn-sm" onclick="refreshInspiration()"><i class="fas fa-rotate"></i> 別のを見る</button>
+        </div>
+        <div id="insp-prompt" style="font-size:14px;color:var(--text-primary);line-height:1.8;padding:14px;background:white;border-radius:var(--radius-md);border:1px solid var(--kogane-border);font-family:'Noto Serif JP',serif;font-style:italic">
+          「${esc(rp)}」
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="btn btn-secondary btn-sm" onclick="copyPrompt()"><i class="fas fa-copy"></i> コピー</button>
+          <button class="btn btn-primary btn-sm" onclick="savePromptToIdeas()"><i class="fas fa-lightbulb"></i> アイデアに追加</button>
+        </div>
+      </div>
+
+      <!-- ランダムコンビネーター -->
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-header"><div class="card-title"><i class="fas fa-shuffle icon" style="color:var(--fuji)"></i> ランダム組み合わせ</div></div>
+        <div id="insp-combo" style="display:flex;flex-direction:column;gap:8px">
+          ${renderInspirationCombo(rt, rg, rm)}
+        </div>
+        <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="generateInspirationCombo()">
+          <i class="fas fa-dice"></i> 別の組み合わせを生成
+        </button>
+      </div>
+
+      <!-- 全プロンプト一覧 -->
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-list icon" style="color:var(--asagi)"></i> プロンプト集</div></div>
+        <div style="max-height:300px;overflow-y:auto">
+          ${INSPIRATION_DB.prompts.map((p, i) => `
+            <div style="padding:8px 10px;border-bottom:1px solid var(--border);font-size:12.5px;color:var(--text-secondary);line-height:1.6;cursor:pointer" onclick="selectPrompt(${i})">
+              ${i+1}. ${esc(p)}
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+
+    <!-- 右: カテゴリー別ブレスト + 履歴 -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <!-- テーマ集 -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:10px"><i class="fas fa-heart icon" style="color:var(--momo)"></i> テーマ集</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${INSPIRATION_DB.themes.map(t => `
+            <span class="tag" style="cursor:pointer;background:var(--momo-bg);color:var(--momo);border-color:var(--momo-border)" onclick="copyToClipboard('${esc(t)}')" title="クリックでコピー">${t}</span>`).join('')}
+        </div>
+      </div>
+
+      <!-- ジャンル -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:10px"><i class="fas fa-film icon" style="color:var(--kon-lt)"></i> ジャンルヒント</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${INSPIRATION_DB.genres.map(g => `
+            <span class="tag" style="cursor:pointer;background:var(--kon-bg);color:var(--kon-lt);border-color:var(--kon-border)" onclick="copyToClipboard('${esc(g)}')" title="クリックでコピー">${g}</span>`).join('')}
+        </div>
+      </div>
+
+      <!-- ムード -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:10px"><i class="fas fa-theater-masks icon" style="color:var(--asagi)"></i> 作品のムード</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${INSPIRATION_DB.moods.map(m => `
+            <span class="tag" style="cursor:pointer;background:var(--asagi-bg);color:var(--asagi);border-color:var(--asagi-border)" onclick="copyToClipboard('${esc(m)}')" title="クリックでコピー">${m}</span>`).join('')}
+        </div>
+      </div>
+
+      <!-- 生成履歴 -->
+      <div class="card">
+        <div class="card-title" style="margin-bottom:10px"><i class="fas fa-clock-rotate-left icon" style="color:var(--text-muted)"></i> 生成履歴</div>
+        <div id="insp-history">${historyHtml}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderInspirationCombo(theme, genre, mood) {
+  return [
+    { label:'テーマ', val: theme, color:'var(--momo)', bg:'var(--momo-bg)' },
+    { label:'ジャンル', val: genre, color:'var(--kon-lt)', bg:'var(--kon-bg)' },
+    { label:'ムード', val: mood, color:'var(--asagi)', bg:'var(--asagi-bg)' },
+  ].map(item => `
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:${item.bg};border-radius:var(--radius-sm);border-left:3px solid ${item.color}">
+      <span style="font-size:10px;font-weight:700;color:${item.color};min-width:48px;letter-spacing:0.05em">${item.label}</span>
+      <span style="font-size:13px;font-weight:600;color:var(--text-primary)">${esc(item.val)}</span>
+    </div>`).join('');
+}
+
+function refreshInspiration() {
+  navigate('inspiration');
+}
+
+function generateInspirationCombo() {
+  const rt = INSPIRATION_DB.themes[Math.floor(Math.random()*INSPIRATION_DB.themes.length)];
+  const rg = INSPIRATION_DB.genres[Math.floor(Math.random()*INSPIRATION_DB.genres.length)];
+  const rm = INSPIRATION_DB.moods[Math.floor(Math.random()*INSPIRATION_DB.moods.length)];
+  const comboEl = $('#insp-combo');
+  if (comboEl) comboEl.innerHTML = renderInspirationCombo(rt, rg, rm);
+
+  // 履歴に保存
+  const history = DB.get('inspiration_history', []);
+  const combo = `テーマ: ${rt} / ジャンル: ${rg} / ムード: ${rm}`;
+  history.unshift({ combo, date: new Date().toLocaleDateString('ja-JP') });
+  DB.set('inspiration_history', history.slice(0,20));
+
+  const histEl = $('#insp-history');
+  if (histEl) {
+    histEl.innerHTML = history.slice(0,10).map(h => `
+      <div style="padding:10px 12px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px">
+        <div style="font-size:10px;color:var(--text-muted);margin-bottom:4px">${h.date}</div>
+        <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6">${esc(h.combo)}</div>
+      </div>`).join('');
+  }
+  toast('新しい組み合わせを生成しました', 'success');
+}
+
+function selectPrompt(idx) {
+  const p = INSPIRATION_DB.prompts[idx];
+  const promptEl = $('#insp-prompt');
+  if (promptEl) promptEl.textContent = `「${p}」`;
+  window._currentPrompt = p;
+}
+
+function copyPrompt() {
+  const promptEl = $('#insp-prompt');
+  const text = promptEl?.textContent || '';
+  navigator.clipboard?.writeText(text.replace(/^「|」$/g,'')).then(() => toast('コピーしました', 'success'));
+}
+
+function savePromptToIdeas() {
+  const promptEl = $('#insp-prompt');
+  const text = (promptEl?.textContent || '').replace(/^「|」$/g,'');
+  if (!text) return;
+  const projects = DB.getProjects();
+  if (projects.length === 0) {
+    toast('先に作品を作成してください', 'error');
+    return;
+  }
+  const projOptions = projects.map(p => `<option value="${p.id}">${esc(p.title)}</option>`).join('');
+  openModal(
+    `<i class="fas fa-lightbulb" style="color:var(--kogane)"></i> アイデアとして保存`,
+    `<div class="form-group"><label class="form-label">保存する作品</label><select class="form-select" id="insp-save-proj">${projOptions}</select></div>
+     <div style="padding:10px 12px;background:var(--bg-subtle);border-radius:var(--radius-sm);font-size:13px;color:var(--text-secondary);line-height:1.6;font-style:italic">${esc(text)}</div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="confirmSavePromptToIdeas('${esc(text).replace(/'/g,'\\\'').replace(/"/g,'\\"')}')">保存</button>`
+  );
+}
+
+function confirmSavePromptToIdeas(text) {
+  const projId = $('#insp-save-proj')?.value;
+  if (!projId) return;
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  if (!proj.ideas) proj.ideas = [];
+  proj.ideas.unshift({ id: uid(), title: text.slice(0,30)+'…', body: text, type: 'メモ', priority: '中', createdAt: new Date().toISOString() });
+  DB.saveProject(proj);
+  closeModal();
+  toast('アイデアに保存しました！', 'success');
+}
+
+function bindInspirationPage() {}
 
 // ================================================================
 //  INIT
