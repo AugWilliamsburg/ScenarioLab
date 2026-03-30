@@ -261,9 +261,11 @@ function render() {
     return;
   }
 
-  // ストーリー構成ボードページ
+  // ストーリー構成ボードページ（boardに統合・リダイレクト）
   if (p === 'storymap') {
-    app.innerHTML = renderLayout(renderStoryMapPage());
+    BoardState.listTab = 'maps';
+    app.innerHTML = renderLayout(renderBoardPage());
+    bindBoardPage();
     return;
   }
 
@@ -317,7 +319,7 @@ function renderLayout(content, proj = null) {
   const isNameDictPage = cp === 'namedict';
   const isWorldPage = cp === 'worldbuilding';
   const isInspirationPage = cp === 'inspiration';
-  const isBoardPage = cp === 'board';
+  const isBoardPage = cp === 'board' || cp === 'storymap';
   const isTasksPage = cp === 'tasks';
   const isStorymapPage = cp === 'storymap';
   const isSpecialPage = isLearnPage || isToolsPage || isTemplatesPage || isSettingsPage || isJournalPage || isNameDictPage || isWorldPage || isInspirationPage || isBoardPage || isTasksPage || isStorymapPage;
@@ -351,9 +353,9 @@ function renderLayout(content, proj = null) {
     namedict:         { icon:'fa-spell-check',color:'var(--kon-lt)',title:'キャラクター名辞典', sub:'登場人物の名前・読みを管理' },
     worldbuilding:    { icon:'fa-globe',     color:'var(--asagi)',  title:'世界観設計',         sub:'舞台・設定・世界観を構築' },
     inspiration:      { icon:'fa-bolt',      color:'var(--kogane)', title:'インスピレーション', sub:'アイデア・刺激・乱数プロンプト' },
-    board:            { icon:'fa-table-cells-large', color:'var(--fuji)',   title:'ストーリーボード',  sub:'カードで物語を視覚的に整理・設計' },
+    board:            { icon:'fa-film',              color:'var(--fuji)',   title:'ストーリーボード',  sub:'カンバンボード＆シーンマップで物語を視覚設計' },
     tasks:            { icon:'fa-calendar-check',   color:'var(--matcha)', title:'タスク管理',        sub:'執筆タスク・スケジュール・習慣管理' },
-    storymap:         { icon:'fa-clapperboard',     color:'var(--momo)',   title:'ストーリーマップ',  sub:'幕・シーン構成を横×縦で視覚設計' },
+    storymap:         { icon:'fa-film',              color:'var(--fuji)',   title:'ストーリーボード',  sub:'カンバンボード＆シーンマップで物語を視覚設計' },
   };
   const cpKey = TOPBAR_PAGES[cp] ? cp : (cp && cp.startsWith('article-') ? 'learn' : null);
   const tbData = cpKey ? TOPBAR_PAGES[cpKey] : null;
@@ -406,11 +408,8 @@ function renderLayout(content, proj = null) {
           <div class="nav-item ${isInspirationPage?'active':''}" onclick="navigate('inspiration')">
             <span class="nav-icon"><i class="fas fa-bolt" style="color:var(--kogane-lt)"></i></span> インスピレーション
           </div>
-          <div class="nav-item ${ cp==='board'?'active':''}" onclick="navigate('board')">
-            <span class="nav-icon"><i class="fas fa-table-cells-large" style="color:var(--fuji-lt)"></i></span> ストーリーボード
-          </div>
-          <div class="nav-item ${ cp==='storymap'?'active':''}" onclick="navigate('storymap')">
-            <span class="nav-icon"><i class="fas fa-clapperboard" style="color:var(--momo-lt, #f7a0b8)"></i></span> ストーリーマップ
+          <div class="nav-item ${ (cp==='board'||cp==='storymap')?'active':''}" onclick="navigate('board')">
+            <span class="nav-icon"><i class="fas fa-film" style="color:var(--fuji-lt)"></i></span> ストーリーボード
           </div>
           <div class="nav-item ${ cp==='tasks'?'active':''}" onclick="navigate('tasks')">
             <span class="nav-icon"><i class="fas fa-calendar-check" style="color:var(--matcha-lt)"></i></span> タスク管理
@@ -3914,6 +3913,39 @@ const ARTICLES = [
     readTime: 10,
     desc: 'すべての優れたシーンには「目的・葛藤・変化」が含まれている。シーンをゼロから設計する手順と、よくある失敗パターンの回避法を解説。',
   },
+  {
+    id: 'dialogue-craft',
+    title: 'セリフの書き方 — キャラクターの声を設計する',
+    subtitle: '自然で個性的なセリフを書くための7つの原則',
+    category: 'セリフ技法',
+    categoryColor: 'asagi',
+    icon: 'fa-comment',
+    tags: ['セリフ','対話','キャラクター'],
+    readTime: 9,
+    desc: '「セリフはキャラクターのX線写真だ」——良いセリフは性格・欲求・関係性を同時に表現する。自然で個性的なセリフを書く具体的な技法を解説。',
+  },
+  {
+    id: 'script-format',
+    title: '脚本フォーマット完全ガイド',
+    subtitle: '映画・TV・舞台脚本の書式ルールを体系的に学ぶ',
+    category: '執筆技術',
+    categoryColor: 'kon',
+    icon: 'fa-file-alt',
+    tags: ['フォーマット','書式','プロ技術'],
+    readTime: 11,
+    desc: 'プロの脚本家が使うフォーマットルール。シーンヘッダー・アクション・セリフ・指示の書き方から、日本独自のドラマ脚本書式まで完全解説。',
+  },
+  {
+    id: 'tension-pacing',
+    title: 'テンションとペーシング — 感情の波形を設計する',
+    subtitle: '起伏のある物語を作るためのリズムとテンポの技法',
+    category: '構成技法',
+    categoryColor: 'beni',
+    icon: 'fa-wave-square',
+    tags: ['テンション','ペーシング','リズム'],
+    readTime: 10,
+    desc: '優れた脚本は感情の「波形」を意図的に設計している。シーンごとのテンション曲線、緊張と弛緩の交代、クライマックスへの積み上げ方を解説。',
+  },
 ];
 
 // ガイドデータ
@@ -3996,7 +4028,7 @@ function renderLearnPage() {
       <i class="fas fa-map"></i> ガイド
     </div>
     <div class="learn-subnav-item ${activeTab==='articles'?'active':''}" onclick="navigate('learn-articles')">
-      <i class="fas fa-newspaper"></i> 記事
+      <i class="fas fa-newspaper"></i> 記事 <span style="font-size:9px;padding:1px 5px;background:var(--fuji);color:white;border-radius:8px;margin-left:3px">${ARTICLES.length}</span>
     </div>
   </div>`;
 
@@ -4014,65 +4046,103 @@ function renderLearnPage() {
     const readArticles = DB.get('read_articles', []);
     const bookmarkedArticles = DB.get('bookmarked_articles', []);
     const readCount = ARTICLES.filter(a => readArticles.includes(a.id)).length;
+    const learnFilter = DB.get('learn_article_filter', { category: '', search: '', showBookmark: false });
 
-    // 記事一覧
-    const articleCards = ARTICLES.map(a => {
-      const c = COLOR_MAP[a.categoryColor] || COLOR_MAP['beni'];
-      const isRead = readArticles.includes(a.id);
-      const isBm   = bookmarkedArticles.includes(a.id);
-      return `
-      <div class="article-card ${isRead?'read':''}" onclick="navigate('article-${a.id}')" style="position:relative">
-        ${isRead ? `<div style="position:absolute;top:10px;right:10px;font-size:10px;padding:2px 8px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border);border-radius:var(--radius-full);font-weight:600"><i class="fas fa-check" style="font-size:9px;margin-right:2px"></i>既読</div>` : ''}
-        ${isBm ? `<div style="position:absolute;top:10px;right:${isRead?'70':'10'}px;font-size:10px;color:var(--kogane)"><i class="fas fa-bookmark"></i></div>` : ''}
-        <div class="article-card-header">
-          <div class="article-card-icon" style="background:${c.bg};color:${c.color}">
-            <i class="fas ${a.icon}"></i>
-          </div>
-          <div>
-            <div class="article-card-title">${esc(a.title)}</div>
-          </div>
-        </div>
-        <div class="article-card-body">
-          <div class="article-card-desc">${esc(a.desc)}</div>
-          <div class="article-card-tags">
-            ${a.tags.map(t => `<span class="tag tag-gray">${t}</span>`).join('')}
-          </div>
-        </div>
-        <div class="article-card-footer">
-          <div class="article-read-time"><i class="fas fa-clock"></i> 約${a.readTime}分で読む</div>
-          <span style="font-size:11px;color:var(--accent);font-weight:600">読む <i class="fas fa-arrow-right" style="font-size:9px"></i></span>
-        </div>
-      </div>`;
-    }).join('');
+    // カテゴリ一覧（動的生成）
+    const allCategories = [...new Set(ARTICLES.map(a => a.category))];
+
+    // フィルタリング
+    let filteredArticles = ARTICLES.filter(a => {
+      if (learnFilter.category && a.category !== learnFilter.category) return false;
+      if (learnFilter.search && !a.title.toLowerCase().includes(learnFilter.search.toLowerCase())
+          && !a.desc.toLowerCase().includes(learnFilter.search.toLowerCase())) return false;
+      if (learnFilter.showBookmark && !bookmarkedArticles.includes(a.id)) return false;
+      return true;
+    });
+
+    // 記事カード
+    const articleCards = filteredArticles.length === 0
+      ? `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-search" style="font-size:24px;opacity:.3;display:block;margin-bottom:10px"></i>条件に合う記事が見つかりません</div>`
+      : filteredArticles.map(a => {
+          const c = COLOR_MAP[a.categoryColor] || COLOR_MAP['beni'];
+          const isRead = readArticles.includes(a.id);
+          const isBm   = bookmarkedArticles.includes(a.id);
+          return `
+          <div class="article-card ${isRead?'read':''}" onclick="navigate('article-${a.id}')" style="position:relative">
+            ${isRead ? `<div style="position:absolute;top:10px;right:10px;font-size:10px;padding:2px 8px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border);border-radius:var(--radius-full);font-weight:600"><i class="fas fa-check" style="font-size:9px;margin-right:2px"></i>既読</div>` : ''}
+            ${isBm ? `<div style="position:absolute;top:10px;right:${isRead?'70':'10'}px;font-size:13px;color:var(--kogane)"><i class="fas fa-bookmark"></i></div>` : ''}
+            <div class="article-card-header">
+              <div class="article-card-icon" style="background:${c.bg};color:${c.color}">
+                <i class="fas ${a.icon}"></i>
+              </div>
+              <div>
+                <div style="font-size:10px;padding:2px 7px;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:var(--radius-full);display:inline-block;margin-bottom:3px;font-weight:600">${a.category}</div>
+                <div class="article-card-title">${esc(a.title)}</div>
+              </div>
+            </div>
+            <div class="article-card-body">
+              <div class="article-card-desc">${esc(a.desc)}</div>
+              <div class="article-card-tags">
+                ${a.tags.map(t => `<span class="tag tag-gray">${t}</span>`).join('')}
+              </div>
+            </div>
+            <div class="article-card-footer">
+              <div class="article-read-time"><i class="fas fa-clock"></i> 約${a.readTime}分で読む</div>
+              <span style="font-size:11px;color:var(--accent);font-weight:600">読む <i class="fas fa-arrow-right" style="font-size:9px"></i></span>
+            </div>
+          </div>`;
+        }).join('');
 
     // 進捗バッジ
     const progressPct = Math.round(readCount / ARTICLES.length * 100);
     const progressBadge = `
-    <div style="margin-bottom:16px;padding:12px 16px;background:var(--fuji-bg);border:1px solid var(--fuji-border);border-radius:var(--radius-md);display:flex;align-items:center;gap:16px">
+    <div class="learn-progress-bar-wrap">
       <div style="flex:1">
-        <div style="font-size:12px;font-weight:600;color:var(--fuji);margin-bottom:5px">
-          <i class="fas fa-trophy" style="margin-right:6px"></i>学習進捗: ${readCount}/${ARTICLES.length}本読了 (${progressPct}%)
+        <div style="font-size:12px;font-weight:600;color:var(--fuji);margin-bottom:6px;display:flex;align-items:center;gap:8px">
+          <i class="fas fa-trophy" style="margin-right:2px"></i>学習進捗
+          <span style="font-size:13px;color:var(--text-primary)">${readCount}<span style="font-size:11px;color:var(--text-muted)">/${ARTICLES.length}本</span></span>
+          <span style="margin-left:auto;font-size:13px;font-weight:700;color:var(--fuji)">${progressPct}%</span>
         </div>
-        <div style="height:6px;background:var(--bg-hover);border-radius:3px;overflow:hidden">
-          <div style="height:100%;width:${progressPct}%;background:var(--fuji);border-radius:3px;transition:width .4s ease"></div>
+        <div style="height:8px;background:var(--bg-hover);border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${progressPct}%;background:linear-gradient(90deg,var(--fuji),var(--fuji-lt));border-radius:4px;transition:width .5s ease"></div>
         </div>
       </div>
-      ${bookmarkedArticles.length > 0 ? `
-      <div style="font-size:12px;color:var(--kogane);font-weight:600;text-align:center;min-width:80px">
-        <i class="fas fa-bookmark" style="font-size:14px;display:block;margin-bottom:2px"></i>
-        ${bookmarkedArticles.length}本 保存済み
-      </div>` : ''}
-      ${progressPct >= 100 ? `<div style="font-size:13px;color:var(--matcha);font-weight:700">🏆 全記事コンプリート！</div>` : ''}
+      <div style="display:flex;gap:12px;flex-shrink:0">
+        ${bookmarkedArticles.length > 0 ? `
+        <div style="font-size:12px;color:var(--kogane);font-weight:600;text-align:center">
+          <i class="fas fa-bookmark" style="font-size:15px;display:block;margin-bottom:2px"></i>
+          ${bookmarkedArticles.length}本保存
+        </div>` : ''}
+        ${progressPct >= 100 ? `<div style="font-size:13px;color:var(--matcha);font-weight:700">🏆 コンプリート！</div>` : ''}
+      </div>
+    </div>`;
+
+    // フィルターバー
+    const filterBar = `
+    <div class="learn-filter-bar">
+      <div style="position:relative;flex:1">
+        <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:12px;pointer-events:none"></i>
+        <input class="form-input" style="padding-left:30px;height:34px;font-size:12px" placeholder="記事を検索…" value="${esc(learnFilter.search)}"
+          oninput="setLearnFilter('search',this.value)">
+      </div>
+      <select class="form-select" style="height:34px;font-size:12px;width:auto" onchange="setLearnFilter('category',this.value)">
+        <option value="">全カテゴリ</option>
+        ${allCategories.map(cat=>`<option value="${cat}" ${learnFilter.category===cat?'selected':''}>${cat}</option>`).join('')}
+      </select>
+      <button class="btn ${learnFilter.showBookmark?'btn-primary':'btn-ghost'} btn-sm" onclick="setLearnFilter('showBookmark',${!learnFilter.showBookmark})" style="white-space:nowrap">
+        <i class="fas fa-bookmark"></i> ブックマーク
+      </button>
+      ${(learnFilter.category||learnFilter.search||learnFilter.showBookmark) ? `<button class="btn btn-ghost btn-sm" onclick="clearLearnFilter()" style="white-space:nowrap"><i class="fas fa-rotate-left"></i></button>` : ''}
     </div>`;
 
     return `${hero}${subnav}
-    <div style="margin-bottom:14px">
-      <div style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif;margin-bottom:4px">
-        <i class="fas fa-newspaper" style="color:var(--fuji);margin-right:7px"></i>構成理論 記事
-      </div>
-      <div style="font-size:12px;color:var(--text-muted)">各構成理論を詳細に解説した専用記事です。クリックして読む。</div>
-    </div>
     ${progressBadge}
+    ${filterBar}
+    <div style="margin-bottom:10px;font-size:12px;color:var(--text-muted)">
+      ${filteredArticles.length === ARTICLES.length
+        ? `全 ${ARTICLES.length} 本の記事`
+        : `${filteredArticles.length} 本 (全 ${ARTICLES.length} 本中)`}
+    </div>
     <div class="article-grid">${articleCards}</div>`;
 
   } else {
@@ -4131,6 +4201,9 @@ function renderArticlePage(articleId) {
     'character-arc': renderArticleCharacterArc(),
     'subtext': renderArticleSubtext(),
     'scene-craft': renderArticleSceneCraft(),
+    'dialogue-craft': renderArticleDialogueCraft(),
+    'script-format': renderArticleScriptFormat(),
+    'tension-pacing': renderArticleTensionPacing(),
   };
 
   const body = bodies[articleId] || `<p>コンテンツは準備中です。</p>`;
@@ -4533,6 +4606,18 @@ function toggleArticleBookmark(articleId) {
   navigate('article-' + articleId);
 }
 
+function setLearnFilter(key, val) {
+  const f = DB.get('learn_article_filter', { category: '', search: '', showBookmark: false });
+  f[key] = val;
+  DB.set('learn_article_filter', f);
+  navigate('learn-articles');
+}
+
+function clearLearnFilter() {
+  DB.set('learn_article_filter', { category: '', search: '', showBookmark: false });
+  navigate('learn-articles');
+}
+
 function renderArticleSubtext() {
   return `
   <div class="article-callout asagi">
@@ -4817,6 +4902,286 @@ function renderArticleCharacterArc() {
   <p>主人公が変容せず、または間違った方向に変化する。トラジック（悲劇）やアンチヒーローの物語に使われます。「マクベス」「ウォルター・ホワイト（ブレイキング・バッド）」など。</p>
   <div class="article-callout">
     ネガティブアークでは、視聴者は主人公の間違いが明らかなのに止められない悲しさを体験する。「変化できた可能性」を描くことが重要。
+  </div>`;
+}
+
+// ── 新記事: セリフの書き方 ──────────────────────────────────────
+function renderArticleDialogueCraft() {
+  return `
+  <div class="article-callout fuji">
+    <i class="fas fa-info-circle" style="color:var(--fuji);margin-right:8px;flex-shrink:0"></i>
+    <strong>「セリフはX線だ」</strong>——スクリーンライターのハル・エイシュカーは言いました。良いセリフは、その人物の内面・背景・欲求をすべて照らし出します。
+  </div>
+
+  <h2>セリフの三層構造</h2>
+  <p>脚本のセリフには3つの層があります。プロの脚本家はこれら全てを意識して書きます。</p>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0">
+    <div style="background:var(--fuji-bg);border:1px solid var(--fuji-border);border-radius:var(--radius-md);padding:14px;text-align:center">
+      <div style="font-size:22px;margin-bottom:6px">📣</div>
+      <div style="font-size:12px;font-weight:700;color:var(--fuji);margin-bottom:6px">テキスト層</div>
+      <div style="font-size:11px;color:var(--text-secondary);line-height:1.6">実際に言っている言葉。表面的な意味。</div>
+    </div>
+    <div style="background:var(--momo-bg);border:1px solid var(--momo-border);border-radius:var(--radius-md);padding:14px;text-align:center">
+      <div style="font-size:22px;margin-bottom:6px">💭</div>
+      <div style="font-size:12px;font-weight:700;color:var(--momo);margin-bottom:6px">サブテキスト層</div>
+      <div style="font-size:11px;color:var(--text-secondary);line-height:1.6">本当に言いたいこと。隠された感情・意図。</div>
+    </div>
+    <div style="background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:var(--radius-md);padding:14px;text-align:center">
+      <div style="font-size:22px;margin-bottom:6px">🎭</div>
+      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px">コンテキスト層</div>
+      <div style="font-size:11px;color:var(--text-secondary);line-height:1.6">誰が・いつ・どんな状況で言うか。</div>
+    </div>
+  </div>
+
+  <h2>良いセリフの7原則</h2>
+
+  <div class="beat-list">
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--fuji)">1</div>
+      <div class="beat-content">
+        <div class="beat-title">キャラクターの声が個別化されている</div>
+        <div class="beat-desc">名前を隠してもどのキャラクターか分かる。語彙・リズム・話し方が全員違う。</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--asagi)">2</div>
+      <div class="beat-content">
+        <div class="beat-title">説明しすぎない（ダイアログとしての自然さ）</div>
+        <div class="beat-desc">人は普通、知っていることを言い直さない。「そうだよ、君が昨日話していたことだよ、つまり…」は避ける。</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--momo)">3</div>
+      <div class="beat-content">
+        <div class="beat-title">アクションを持っている（能動的セリフ）</div>
+        <div class="beat-desc">セリフには目的がある。「説得する」「脅す」「距離を置く」「気を引く」——何をしているか分かる。</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--kogane)">4</div>
+      <div class="beat-content">
+        <div class="beat-title">サブテキストを持つ（言わない技術）</div>
+        <div class="beat-desc">本音は絶対に直接言わない。感情は行動・言葉の選択・沈黙で伝える。「愛してる」の代わりに「コーヒーを持ってきた」。</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--matcha)">5</div>
+      <div class="beat-content">
+        <div class="beat-title">短く・鋭く（テレビドラマは特に重要）</div>
+        <div class="beat-desc">1つのセリフは原則3行以内。長い独白は舞台演劇。映像では会話のキャッチボールが命。</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--accent)">6</div>
+      <div class="beat-content">
+        <div class="beat-title">「はい/いいえ」では答えない（間接的反応）</div>
+        <div class="beat-desc">現実の会話でも人は質問に直接答えない。「今日何してたの？」「コーヒーが飲みたい」——これでキャラクターが生きる。</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--kon-lt)">7</div>
+      <div class="beat-content">
+        <div class="beat-title">声に出して確認する</div>
+        <div class="beat-desc">書いたセリフは必ず声に出して読む。不自然なリズム・言いにくい音の連なり・不要な語尾が見つかる。</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>よくある失敗パターン</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0">
+    <div style="background:#fde8e8;border:1px solid #f7c0c0;border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:8px">❌ やりがちなミス</div>
+      <ul style="font-size:12px;color:var(--text-secondary);line-height:1.8;margin:0;padding-left:16px">
+        <li>「私は〇〇という気持ちです」（感情の直接説明）</li>
+        <li>ト書きの説明をセリフで繰り返す</li>
+        <li>全員が同じ話し方をする</li>
+        <li>観客への情報提供が目的になる</li>
+        <li>長すぎる独白（3行超え）</li>
+      </ul>
+    </div>
+    <div style="background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--matcha);margin-bottom:8px">✅ プロの書き方</div>
+      <ul style="font-size:12px;color:var(--text-secondary);line-height:1.8;margin:0;padding-left:16px">
+        <li>感情は行動・選択・間で示す</li>
+        <li>必要な情報は自然な文脈に埋め込む</li>
+        <li>各キャラに独自の口癖・語彙を持たせる</li>
+        <li>セリフの目的（動詞）を明確にする</li>
+        <li>短い交換でテンポを作る</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="article-callout matcha">
+    <strong>実践課題：</strong>お気に入りのドラマの1シーンを書き起こし、各セリフに「このキャラクターは今何をしているか（動詞）」を書いてみましょう。セリフの目的が見えてくるはずです。
+  </div>`;
+}
+
+// ── 新記事: 脚本フォーマット ──────────────────────────────────────
+function renderArticleScriptFormat() {
+  return `
+  <div class="article-callout kon">
+    <i class="fas fa-info-circle" style="color:var(--kon-lt);margin-right:8px;flex-shrink:0"></i>
+    <strong>フォーマットは「業界の共通言語」</strong>——正しい書式で書かれた脚本は、監督・俳優・スタッフ全員が同じイメージを持てる「設計図」になります。
+  </div>
+
+  <h2>シーンヘッダー（スラッグライン）</h2>
+  <p>すべてのシーンはシーンヘッダーから始まります。以下の3要素を大文字で書きます。</p>
+  <div style="background:var(--bg-hover);border-radius:var(--radius-md);padding:16px;font-family:monospace;font-size:13px;line-height:2;margin:14px 0">
+    <div style="color:var(--text-primary);font-weight:700">INT. 東京駅 構内 — 朝</div>
+    <div style="color:var(--text-muted);font-size:11px;margin-top:4px">場所の種類（INT./EXT.） + 場所名 + ダッシュ + 時刻</div>
+    <div style="height:1px;background:var(--border);margin:10px 0"></div>
+    <div style="color:var(--text-primary);font-weight:700">EXT. 上野公園 — 夕暮れ</div>
+    <div style="color:var(--text-muted);font-size:11px;margin-top:4px">INT.=屋内 / EXT.=屋外 / INT./EXT.=両方にまたがる</div>
+  </div>
+
+  <h2>アクション（ト書き）のルール</h2>
+  <p>シーンヘッダーの後に書く視覚的描写です。現在形で書きます。</p>
+  <div class="article-callout matcha">
+    <strong>原則：</strong>「見えるもの・聞こえるもの」だけ書く。キャラクターの内面（「〜と思った」）は書かない。カメラ指示も原則書かない（演出家の領域）。
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0">
+    <div style="background:#fde8e8;border:1px solid #f7c0c0;border-radius:var(--radius-md);padding:12px">
+      <div style="font-size:10px;font-weight:700;color:var(--accent);margin-bottom:6px">❌ 避けるべき書き方</div>
+      <div style="font-size:11.5px;color:var(--text-secondary);font-family:monospace;line-height:1.8">勇気を振り絞って、<br>彼女は立ち上がる。<br>（心が痛かった）</div>
+    </div>
+    <div style="background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-md);padding:12px">
+      <div style="font-size:10px;font-weight:700;color:var(--matcha);margin-bottom:6px">✅ 正しい書き方</div>
+      <div style="font-size:11.5px;color:var(--text-secondary);font-family:monospace;line-height:1.8">彼女はゆっくりと立ち上がる。<br>手が小刻みに震えている。</div>
+    </div>
+  </div>
+
+  <h2>セリフの書式</h2>
+  <div style="background:var(--bg-hover);border-radius:var(--radius-md);padding:16px;font-family:monospace;font-size:13px;line-height:2;margin:14px 0">
+    <div style="text-align:center;font-weight:700;color:var(--text-primary)">田中（怒りをこらえて）</div>
+    <div style="text-align:center;color:var(--text-secondary)">それが本当のことだと思っているのか。</div>
+    <div style="color:var(--text-muted);font-size:11px;margin-top:8px;text-align:center">キャラクター名（大文字または太字）→ （演技指示）→ セリフ本文</div>
+  </div>
+  <div class="article-callout kogane">
+    <strong>演技指示（括弧内）について：</strong>「（笑いながら）」「（怒りをこらえて）」などは最小限に。俳優の演技を縛りすぎてはいけません。セリフ自体が感情を表せているなら不要。
+  </div>
+
+  <h2>日本のドラマ脚本の特徴</h2>
+  <p>ハリウッド形式と日本のTV脚本には以下の違いがあります。</p>
+  <div style="overflow-x:auto;margin:14px 0">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead>
+        <tr style="background:var(--kon-bg)">
+          <th style="padding:8px 12px;text-align:left;color:var(--kon-lt);border-bottom:2px solid var(--kon-border)">項目</th>
+          <th style="padding:8px 12px;text-align:left;color:var(--kon-lt);border-bottom:2px solid var(--kon-border)">ハリウッド形式</th>
+          <th style="padding:8px 12px;text-align:left;color:var(--kon-lt);border-bottom:2px solid var(--kon-border)">日本TV形式</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:8px 12px;color:var(--text-secondary)">ページ長</td>
+          <td style="padding:8px 12px;color:var(--text-secondary)">1ページ≒1分</td>
+          <td style="padding:8px 12px;color:var(--text-secondary)">25〜30ページ（1話45分）</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:8px 12px;color:var(--text-secondary)">シーンヘッダー</td>
+          <td style="padding:8px 12px;color:var(--text-secondary)">英語大文字</td>
+          <td style="padding:8px 12px;color:var(--text-secondary)">○番 場所 時刻</td>
+        </tr>
+        <tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:8px 12px;color:var(--text-secondary)">キャラクター名</td>
+          <td style="padding:8px 12px;color:var(--text-secondary)">中央揃え大文字</td>
+          <td style="padding:8px 12px;color:var(--text-secondary)">左端・太字・括弧なし</td>
+        </tr>
+        <tr>
+          <td style="padding:8px 12px;color:var(--text-secondary)">ト書き</td>
+          <td style="padding:8px 12px;color:var(--text-secondary)">左マージン1.5インチ</td>
+          <td style="padding:8px 12px;color:var(--text-secondary)">Oで囲む・全角書き</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="article-callout fuji">
+    <strong>まず大切なのは：</strong>完璧なフォーマットより「書き続けること」です。フォーマットは後から整えられます。ただし、プロの現場に提出する際は正しい書式が必須。
+  </div>`;
+}
+
+// ── 新記事: テンションとペーシング ──────────────────────────────────────
+function renderArticleTensionPacing() {
+  return `
+  <div class="article-callout beni">
+    <i class="fas fa-wave-square" style="color:var(--accent);margin-right:8px;flex-shrink:0"></i>
+    <strong>感情の「波形」</strong>——優れた物語は山と谷を繰り返します。ずっと高いテンションも、ずっと低いテンションも、観客は疲れてしまいます。
+  </div>
+
+  <h2>テンション曲線の設計</h2>
+  <p>物語全体のテンション（緊張感）は、以下のような曲線を描くのが理想的です。</p>
+  <div class="structure-diagram">
+    <div class="structure-diagram-title"><i class="fas fa-wave-square"></i> 理想的なテンション曲線</div>
+    <div style="position:relative;height:80px;background:var(--bg-hover);border-radius:var(--radius-sm);overflow:hidden;margin:10px 0">
+      <svg width="100%" height="100%" viewBox="0 0 400 80" preserveAspectRatio="none">
+        <polyline points="0,70 40,50 80,60 120,30 160,45 200,20 240,35 280,10 320,25 360,5 400,15" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+        <polyline points="0,70 400,70" fill="none" stroke="var(--border)" stroke-width="1" stroke-dasharray="4,4"/>
+      </svg>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted)">
+      <span>幕開け</span><span>中盤</span><span>クライマックス</span>
+    </div>
+  </div>
+
+  <h2>緊張と弛緩のパターン</h2>
+  <div class="beat-list">
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--accent)">↑</div>
+      <div class="beat-content">
+        <div class="beat-title">緊張を高める技法</div>
+        <div class="beat-desc">時間制限を設定する・情報の隠蔽（観客は知っているがキャラは知らない）・対立の激化・予期しない裏切り</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--matcha)">↓</div>
+      <div class="beat-content">
+        <div class="beat-title">弛緩させる技法（必ず必要）</div>
+        <div class="beat-desc">コメディリリーフ・キャラクター同士の穏やかな交流・回想シーン・勝利の瞬間（束の間の）</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--fuji)">⚡</div>
+      <div class="beat-content">
+        <div class="beat-title">サプライズの活用</div>
+        <div class="beat-desc">予測を裏切ることでテンションが急上昇する。ただし「ルールの範囲内でのサプライズ」が重要。</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>ペーシング（テンポ）のコントロール</h2>
+  <p>「テンション」は感情の高低、「ペーシング」はシーンの速さです。この2つは独立して調整できます。</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0">
+    <div style="background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:8px">⚡ 速いペース</div>
+      <ul style="font-size:11.5px;color:var(--text-secondary);line-height:1.8;margin:0;padding-left:16px">
+        <li>短いセリフの応酬</li>
+        <li>素早い場面転換</li>
+        <li>アクション多め</li>
+        <li>ト書きを短く書く</li>
+        <li>情報を素早く提示</li>
+      </ul>
+    </div>
+    <div style="background:var(--kon-bg);border:1px solid var(--kon-border);border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:11px;font-weight:700;color:var(--kon-lt);margin-bottom:8px">🌊 遅いペース</div>
+      <ul style="font-size:11.5px;color:var(--text-secondary);line-height:1.8;margin:0;padding-left:16px">
+        <li>長い沈黙・間</li>
+        <li>1つの場面を丁寧に</li>
+        <li>感情的な描写を増やす</li>
+        <li>ト書きに詩的な文章</li>
+        <li>情報を少しずつ開示</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>クライマックスへの積み上げ方</h2>
+  <p>クライマックスが「最高潮」になるためには、それまでの積み上げが必要です。</p>
+  <div class="article-callout matcha">
+    <strong>積み上げの公式：</strong>問題を3回繰り返す → 毎回ステークス（賭けるもの）が大きくなる → 3回目が最大の試練 → クライマックス。これが「三度の繰り返し」のパターン。
+  </div>
+
+  <div class="article-callout kogane">
+    <strong>実践チェック：</strong>あなたの脚本を振り返って、「テンションが同じ高さで続くシーン」がないか確認してください。意図的に「谷」を作ることで、次の「山」がより高く感じられます。
   </div>`;
 }
 
@@ -8526,39 +8891,46 @@ function renderTaskItem(task) {
     ${task.repeat && task.repeat !== 'none' ? `<span style="font-size:11px;color:var(--fuji);margin-left:8px"><i class="fas fa-rotate" style="margin-right:3px"></i>${task.repeat==='daily'?'毎日':task.repeat==='weekly'?'毎週':'毎月'}</span>` : ''}
   </div>` : '';
 
+  const repeatLabel = task.repeat && task.repeat !== 'none'
+    ? (task.repeat==='daily'?'毎日':task.repeat==='weekly'?'毎週':'毎月') : '';
+
   return `
   <div class="task-item ${task.done?'done':''} ${isOverdue?'overdue':''} ${isUrgent?'urgent':''} ${isExpanded?'expanded':''}" id="task-${task.id}">
-    <div class="task-check-area" onclick="toggleTaskDone('${task.id}')">
+    <!-- チェックボックス -->
+    <div class="task-check-area" onclick="toggleTaskDone('${task.id}')" title="${task.done?'未完了に戻す':'完了にする'}">
       <div class="task-checkbox ${task.done?'checked':''} ${isUrgent?'urgent':''}">${task.done?'<i class="fas fa-check" style="font-size:9px;color:white"></i>':''}</div>
     </div>
+    <!-- メインコンテンツ -->
     <div class="task-content" onclick="expandTask('${task.id}')">
       <div class="task-title-row">
-        <span class="task-title ${task.done?'done':''}">${esc(task.title)}</span>
+        <span class="task-title ${task.done?'done':''}">${isUrgent ? '<i class="fas fa-fire" style="color:#d01050;font-size:10px;margin-right:3px"></i>' : ''}${esc(task.title)}</span>
         <div class="task-meta-chips">
-          <span class="task-cat-chip" style="color:${cat.color}"><i class="fas ${cat.icon}"></i> ${cat.label}</span>
-          <span class="task-pri-chip" style="color:${pri.color};background:${pri.bg}"><i class="fas ${pri.icon}"></i> ${pri.label}</span>
+          <span class="task-cat-chip" style="background:${cat.color}18;color:${cat.color};border:1px solid ${cat.color}30"><i class="fas ${cat.icon}" style="font-size:8px"></i> ${cat.label}</span>
+          <span class="task-pri-chip" style="color:${pri.color};background:${pri.bg}"><i class="fas ${pri.icon}" style="font-size:8px"></i> ${pri.label}</span>
           ${dueDateStr}
-          ${proj ? `<span class="task-proj-chip"><i class="fas fa-film"></i> ${esc(proj.title.slice(0,8))}</span>` : ''}
-          ${subtaskTotal > 0 ? `<span class="task-sub-chip"><i class="fas fa-list-check"></i> ${subtaskDone}/${subtaskTotal}</span>` : ''}
+          ${proj ? `<span class="task-proj-chip"><i class="fas fa-film" style="font-size:8px"></i> ${esc(proj.title.slice(0,10))}</span>` : ''}
+          ${subtaskTotal > 0 ? `<span class="task-sub-chip" style="color:${subtaskDone===subtaskTotal?'var(--matcha)':'var(--text-muted)'}"><i class="fas fa-list-check" style="font-size:8px"></i> ${subtaskDone}/${subtaskTotal}</span>` : ''}
+          ${repeatLabel ? `<span class="task-sub-chip" style="color:var(--fuji)"><i class="fas fa-rotate" style="font-size:8px"></i> ${repeatLabel}</span>` : ''}
           ${(task.tags||[]).slice(0,2).map(tg=>`<span class="task-tag-chip">#${esc(tg)}</span>`).join('')}
         </div>
       </div>
-      ${!isExpanded && task.body ? `<div class="task-body">${esc(task.body.slice(0,100))}${task.body.length>100?'…':''}</div>` : ''}
+      ${!isExpanded && task.body ? `<div class="task-body" style="font-size:11.5px;color:var(--text-secondary);margin-top:3px;line-height:1.5">${esc(task.body.slice(0,100))}${task.body.length>100?'…':''}</div>` : ''}
       ${bodyExpanded}
       ${subtasksExpanded}
       ${timeExpanded}
       ${subtaskTotal > 0 && !isExpanded ? `
       <div class="task-subtask-progress">
         <div style="height:3px;flex:1;background:var(--bg-hover);border-radius:2px;overflow:hidden">
-          <div style="height:100%;width:${Math.round(subtaskDone/subtaskTotal*100)}%;background:var(--matcha);transition:width .3s"></div>
+          <div style="height:100%;width:${Math.round(subtaskDone/subtaskTotal*100)}%;background:${subtaskDone===subtaskTotal?'var(--matcha)':'var(--fuji)'};transition:width .3s"></div>
         </div>
         <span style="font-size:10px;color:var(--text-muted)">${subtaskDone}/${subtaskTotal}</span>
       </div>` : ''}
     </div>
+    <!-- アクションボタン -->
     <div class="task-item-actions">
       <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();openEditTaskModal('${task.id}')" title="編集"><i class="fas fa-pen" style="font-size:10px"></i></button>
       <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();deleteTask('${task.id}')" title="削除"><i class="fas fa-trash" style="font-size:10px;color:var(--text-light)"></i></button>
-      <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();expandTask('${task.id}')" title="${isExpanded?'折りたたむ':'展開'}">
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();expandTask('${task.id}')" title="${isExpanded?'折りたたむ':'詳細を表示'}">
         <i class="fas fa-chevron-${isExpanded?'up':'down'}" style="font-size:9px;color:var(--text-muted)"></i>
       </button>
     </div>
@@ -9915,6 +10287,7 @@ const BoardState = {
   dragCard: null,
   dragCol: null,
   flippedCards: new Set(),
+  listTab: 'boards', // boards | maps (統合タブ)
 };
 
 // ── CARD LABEL COLORS ───────────────────────────────────────
@@ -9990,21 +10363,72 @@ function renderBoardList(boards) {
         </div>`;
       }).join('');
 
+  // ── ストーリーマップ統合タブ ──
+  const maps = STORYMAP_DB.getMaps();
+  const boardTab = BoardState.listTab || 'boards';
+
+  const mapCardsHtml = maps.length === 0
+    ? `<div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
+        <div style="font-size:52px;margin-bottom:16px;opacity:0.2">🎬</div>
+        <div style="font-size:15px;font-weight:700;margin-bottom:6px;font-family:'Noto Serif JP',serif">シーンマップがありません</div>
+        <div style="font-size:12px;margin-bottom:20px;line-height:1.7;color:var(--text-muted)">幕・シーンを横スクロールで視覚的に設計</div>
+        <button class="btn btn-primary" onclick="openNewStorymapModal()"><i class="fas fa-plus"></i> 最初のマップを作成</button>
+      </div>`
+    : maps.map(m => {
+        const proj = m.projectId ? projects.find(p => p.id === m.projectId) : null;
+        const sceneCount = (m.acts||[]).reduce((a,act) => a+(act.cards||[]).length, 0);
+        return `
+        <div class="board-list-card" onclick="openStorymap('${m.id}')" style="border-left:4px solid #6ab8f7">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div style="display:flex;gap:12px;align-items:center">
+              <div style="width:40px;height:40px;border-radius:var(--radius-sm);background:#e8f4fd;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">🎬</div>
+              <div>
+                <div style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${esc(m.title)}</div>
+                ${m.description ? `<div style="font-size:12px;color:var(--text-muted);margin-top:2px">${esc(m.description.slice(0,60))}${m.description.length>60?'…':''}</div>` : ''}
+                ${proj ? `<div style="font-size:11px;color:var(--text-light);margin-top:3px"><i class="fas fa-film" style="margin-right:3px"></i>${esc(proj.title)}</div>` : ''}
+              </div>
+            </div>
+            <div style="display:flex;gap:4px;flex-shrink:0">
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();confirmDeleteStorymap('${m.id}')" title="削除"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+            </div>
+          </div>
+          <div style="display:flex;gap:12px;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">
+            <span style="font-size:12px;color:var(--text-muted)"><i class="fas fa-layer-group" style="margin-right:4px;color:#6ab8f7"></i>${(m.acts||[]).length}幕</span>
+            <span style="font-size:12px;color:var(--text-muted)"><i class="fas fa-film" style="margin-right:4px;color:#6ab8f7"></i>${sceneCount}シーン</span>
+            <span style="font-size:12px;color:var(--text-muted);margin-left:auto"><i class="fas fa-clock" style="margin-right:4px"></i>${fmtDate(m.updatedAt)}</span>
+          </div>
+        </div>`;
+      }).join('');
+
   return `
-  <div style="max-width:960px;margin:0 auto;padding:0 4px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+  <div style="max-width:1020px;margin:0 auto;padding:0 4px">
+    <!-- ヘッダー -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px">
       <div>
         <h1 style="font-size:22px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif;margin-bottom:4px">
-          <i class="fas fa-table-cells-large" style="color:var(--fuji);margin-right:8px"></i>ストーリーボード
+          <i class="fas fa-film" style="color:var(--fuji);margin-right:8px"></i>ストーリーボード
         </h1>
-        <p style="font-size:13px;color:var(--text-muted)">カードで物語のアイデアを視覚的に整理・設計</p>
+        <p style="font-size:13px;color:var(--text-muted)">カンバンボードとシーンマップで物語を視覚的に設計</p>
       </div>
-      <button class="btn btn-primary" onclick="openNewBoardModal()">
-        <i class="fas fa-plus"></i> 新しいボード
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${boardTab === 'boards'
+          ? `<button class="btn btn-primary" onclick="openNewBoardModal()"><i class="fas fa-plus"></i> 新しいボード</button>`
+          : `<button class="btn btn-primary" onclick="openNewStorymapModal()"><i class="fas fa-plus"></i> 新しいマップ</button>`
+        }
+      </div>
+    </div>
+    <!-- タブ切り替え -->
+    <div class="sb-list-tabs">
+      <button class="sb-list-tab ${boardTab==='boards'?'active':''}" onclick="setBoardListTab('boards')">
+        <i class="fas fa-table-cells-large"></i> カンバンボード <span class="sb-tab-count">${boards.length}</span>
+      </button>
+      <button class="sb-list-tab ${boardTab==='maps'?'active':''}" onclick="setBoardListTab('maps')">
+        <i class="fas fa-film"></i> シーンマップ <span class="sb-tab-count">${maps.length}</span>
       </button>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px">
-      ${boardCards}
+    <!-- コンテンツ -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px;margin-top:16px">
+      ${boardTab === 'boards' ? boardCards : mapCardsHtml}
     </div>
   </div>`;
 }
@@ -10284,6 +10708,11 @@ function openBoard(boardId) {
 function closeBoardToList() {
   BoardState.currentBoardId = null;
   BoardState.flippedCards.clear();
+  render();
+}
+
+function setBoardListTab(tab) {
+  BoardState.listTab = tab;
   render();
 }
 

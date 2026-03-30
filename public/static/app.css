@@ -3702,3 +3702,137 @@ body {
   .kanban-col { width: 170px; }
   .tasks-filter-chips { flex-wrap: wrap; }
 }
+
+/* ================================================================
+   ストーリーボード統合タブ スタイル
+   ================================================================ */
+
+/* リストページのタブ */
+.sb-list-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--bg-hover);
+  padding: 4px;
+  border-radius: var(--radius-md);
+  width: fit-content;
+}
+
+.sb-list-tab {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+}
+
+.sb-list-tab:hover {
+  background: var(--bg-white);
+  color: var(--text-primary);
+}
+
+.sb-list-tab.active {
+  background: var(--bg-white);
+  color: var(--fuji);
+  box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+
+.sb-tab-count {
+  font-size: 10px;
+  padding: 1px 6px;
+  background: var(--fuji-bg);
+  color: var(--fuji);
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.sb-list-tab.active .sb-tab-count {
+  background: var(--fuji);
+  color: white;
+}
+
+/* ================================================================
+   学習センター強化スタイル
+   ================================================================ */
+
+.learn-progress-bar-wrap {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  background: var(--fuji-bg);
+  border: 1px solid var(--fuji-border);
+  border-radius: var(--radius-md);
+  margin-bottom: 14px;
+}
+
+.learn-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 10px 14px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 14px;
+}
+
+.learn-filter-bar .form-input {
+  min-width: 180px;
+}
+
+/* 記事カードにカテゴリバッジ追加 */
+.article-card .article-card-header {
+  gap: 12px;
+}
+
+/* タスク管理 項目スタイル改善 */
+.task-cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.task-item.urgent {
+  border-left-color: #d01050 !important;
+  background: #fff5f8;
+}
+
+.task-item.urgent .task-title {
+  color: #d01050;
+}
+
+/* かんばんビュー改善 */
+.kanban-col {
+  min-width: 200px;
+  max-width: 240px;
+}
+
+/* 週間ビュー改善 */
+.weekly-grid {
+  overflow-x: auto;
+}
+
+/* ================================================================
+   モバイル対応追加
+   ================================================================ */
+@media (max-width: 768px) {
+  .sb-list-tabs { width: 100%; }
+  .sb-list-tab { flex: 1; justify-content: center; padding: 7px 10px; font-size: 12px; }
+  .learn-filter-bar { gap: 6px; }
+  .learn-filter-bar .form-input { min-width: 120px; }
+  .learn-progress-bar-wrap { flex-direction: column; align-items: stretch; gap: 10px; }
+}
