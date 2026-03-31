@@ -204,13 +204,13 @@ function render() {
   const p = State.currentPage;
 
   // 学習センター
-  if (p === 'learn' || p === 'learn-guide' || p === 'learn-articles' || p === 'learn-exercises' || p === 'learn-glossary' || p === 'learn-notes' || (p && (p.startsWith('article-') || p.startsWith('exercise-')))) {
+  if (p === 'learn' || p === 'learn-guide' || p === 'learn-articles' || p === 'learn-exercises' || p === 'learn-glossary' || p === 'learn-notes' || (p && (p.startsWith('article-') || p.startsWith('exercise-') || p.startsWith('glossary-cat-') || p.startsWith('glossary-term-') || p.startsWith('articles-cat-')))) {
     app.innerHTML = renderLayout(renderLearnPage());
     return;
   }
 
   // ツールページ
-  if (p === 'tools' || p === 'tool-logline' || p === 'tool-char-diag' || p === 'tool-scene' || p === 'tool-timer' || p === 'tool-pitch' || p === 'tool-tension' || p === 'tool-name-gen' || p === 'tool-structure' || p === 'tool-emotion-arc' || p === 'tool-world-notes' || p === 'tool-dialogue-check' || p === 'tool-plot-holes' || p === 'tool-beat-counter') {
+  if (p === 'tools' || p === 'tool-logline' || p === 'tool-char-diag' || p === 'tool-scene' || p === 'tool-timer' || p === 'tool-pitch' || p === 'tool-tension' || p === 'tool-name-gen' || p === 'tool-structure' || p === 'tool-emotion-arc' || p === 'tool-world-notes' || p === 'tool-dialogue-check' || p === 'tool-plot-holes' || p === 'tool-beat-counter' || p === 'tool-conflict-escalation' || p === 'tool-subtext-rewriter' || p === 'tool-act-health') {
     app.innerHTML = renderLayout(renderToolsPage());
     bindToolsPage();
     return;
@@ -5970,8 +5970,247 @@ window._EXERCISES = [
     relatedArticles: ['theme-integration', 'visual-storytelling', 'subtext'],
     tags: ['テーマ', '象徴', '上級', '脚本設計'],
   },
+  {
+    id: 'ex-format-01',
+    category: '執筆技術',
+    difficulty: '初級',
+    title: '日本式フォーマット変換',
+    estimatedTime: 15,
+    icon: 'fa-scroll',
+    color: 'kon',
+    overview: '小説形式で書かれた文章を日本式脚本フォーマット（柱書き・ト書き・セリフ）に変換します。脚本の書式を体で覚えるための基礎演習です。',
+    question: `以下の小説形式の文章を、日本式脚本フォーマットに変換してください。
+
+【小説文】
+深夜の病院の廊下。看護師の佐藤（27歳）は急いで病室に向かっていた。心臓がドキドキしていた。前の病室のベッドに、意識不明の老人が横たわっている。彼女は老人の手を握り、「大丈夫ですよ」と小さく言った。老人の指がかすかに動いた。佐藤は泣きそうになったが、ぐっとこらえた。
+
+【変換条件】
+① 柱書き：「○内・外」「場所」「時間帯」の書式で書く
+② ト書き：内面（心臓がドキドキ）は「行動・状態」で書き換える
+③ セリフ：キャラクター名を中央に、セリフをインデントして書く
+④ 「泣きそうになったがこらえた」を行動のみで表現する`,
+    rubric: [
+      { point: '柱書きの書式が正しい（○内・場所・時間帯）', weight: 25 },
+      { point: '内面描写をト書きの行動・状態に書き換えられているか', weight: 25 },
+      { point: 'セリフの書式が正しい（名前→インデントでセリフ）', weight: 25 },
+      { point: '「泣きそうをこらえる」を行動のみで表現できているか', weight: 25 },
+    ],
+    hint: '内面（心臓がドキドキ）は、「急ぎ足で廊下を歩く」「立ち止まる」など外から見える行動に変換します。「泣きそうになったがこらえた」は、「目を細める」「唇を噛む」「視線を外す」など俳優が演じられる行動で。',
+    sampleAnswer: `○内・病院・廊下・深夜
+
+　　蛍光灯の白い光。
+　　佐藤（27）が早足で廊下を歩く。
+
+　　扉を押して病室に入る。
+　　ベッドに横たわる老人（80代）。モニターの音。
+
+　　佐藤、老人の手をそっと握る。
+
+　　　　佐藤
+　　「……大丈夫ですよ」
+
+　　老人の指が、ゆっくりと動く。
+
+　　佐藤の目が細くなる。
+　　奥歯を噛む。
+　　視線を老人の顔に戻す。`,
+    relatedArticles: ['script-format'],
+    tags: ['フォーマット', '変換', '初級', '基礎'],
+  },
+  {
+    id: 'ex-tension-01',
+    category: '感情設計',
+    difficulty: '中級',
+    title: 'テンション曲線の設計',
+    estimatedTime: 20,
+    icon: 'fa-chart-line',
+    color: 'beni',
+    overview: '物語の感情的緊張度（テンション）を1〜10で設計し、その流れを言語化します。脚本全体の「感情の波形」を意識的にコントロールする技術を身につけます。',
+    question: `以下の物語設定に対して、シーン別のテンション曲線を設計してください。
+
+【物語設定】
+タイトル：「最後の授業」
+主人公：鈴木先生（38歳・高校教師）。解雇通知を受け取り、今日が最後の授業。
+クラスの生徒たちは事情を知らない。
+
+【課題】
+以下の5つのシーンに対して、テンション値（1〜10）を設定し、その理由（1〜2行）を書いてください。
+
+①【シーン1】 職員室で解雇通知書を受け取る（Act1）
+②【シーン2】 廊下で生徒に「今日の授業楽しみ」と声をかけられる
+③【シーン3】 授業中、いつも通りに教える。生徒たちの集中した顔
+④【シーン4】 授業終了のチャイム。「先生、来週は？」と聞かれる
+⑤【シーン5】 帰り道、一人教室に戻って黒板を見つめる
+
+さらに、このシーンをどの順番で並べると最大のカタルシスが生まれるか、並び替え提案（理由付き）を書いてください。`,
+    rubric: [
+      { point: '5つのシーンそれぞれにテンション値（1〜10）が設定されているか', weight: 20 },
+      { point: 'テンション値の根拠・理由が論理的か（感情・葛藤の観点から）', weight: 30 },
+      { point: '全体の曲線が「山と谷」のパターンを意識しているか', weight: 25 },
+      { point: '並び替え提案がカタルシス理論に基づき説明されているか', weight: 25 },
+    ],
+    hint: 'テンション値は「主人公の感情的プレッシャー」の強さです。外から見えない内的プレッシャー（解雇を知っているのに知らないふりをする）が積み上がるほどテンションは高まります。並び替えでは「観客が何を知っているか・いつ知るか」が鍵。',
+    sampleAnswer: `①【シーン1】 テンション：4
+　解雇通知は重大だが、まだ一人の部屋。感情を押し殺す場面——内的緊張の始まり。
+
+②【シーン2】 テンション：7
+　生徒の無邪気な言葉が、先生の「知っている苦しみ」を際立たせる。劇的アイロニーがテンションを跳ね上げる。
+
+③【シーン3】 テンション：8
+　最後の授業と知らずに授業を受ける生徒の顔——最大の劇的アイロニー。「いつも通り」が最もつらい。
+
+④【シーン4】 テンション：9.5
+　「来週は？」の一言で全てが集約される。答えられない。これが感情的頂点。
+
+⑤【シーン5】 テンション：3
+　カタルシス後の静けさ。一人黒板を見つめる——感情的解放と余韻。
+
+【並び替え提案】
+①→②→③→④→⑤ がそのままカタルシス設計として正しい。
+ただし、上級アレンジ: ⑤を先に（ラストシーンを冒頭に置いて謎を作る）→①から再開するインメディアス・レス構造も効果的。観客は「なぜ先生は一人なのか」と引き込まれる。`,
+    relatedArticles: ['tension-pacing', 'emotional-design'],
+    tags: ['テンション', '感情設計', '中級', 'カタルシス'],
+  },
+  {
+    id: 'ex-rewrite-01',
+    category: 'セリフ技法',
+    difficulty: '中級',
+    title: 'オン・ザ・ノーズ撲滅リライト',
+    estimatedTime: 20,
+    icon: 'fa-comment-slash',
+    color: 'asagi',
+    overview: '「言いたいことをそのまま言っている（オン・ザ・ノーズ）」セリフを、サブテキストを使った表現に書き直します。脚本の最も基本的な改善技術を実践します。',
+    question: `以下のオン・ザ・ノーズなセリフを、それぞれサブテキスト（言外の意味）を使って書き直してください。
+
+各セリフについて：
+A）何の感情・意図が「表面に出すぎているか」を1行で分析
+B）サブテキストを使った書き直し版を書く（ト書き付きでもOK）
+C）書き直しでどのサブテキスト技法を使ったかを1行で説明
+
+【セリフ1】
+　　山田
+　「俺はずっとお前を愛していたんだ。でも言えなかった。怖かったんだ。お前に嫌われるのが。だから離れていたんだ」
+
+【セリフ2】
+　　社長
+　「この会社は君がいないと困る。辞めないでほしい。君はうちには欠かせない存在だ」
+
+【セリフ3】
+　　母親
+　「あなたが心配なの。子供じゃないってわかってる。でも、ついつい気になってしまうのよ。親ってそういうものよね」`,
+    rubric: [
+      { point: '各セリフの「何が表面に出すぎているか」を正確に分析できているか', weight: 20 },
+      { point: 'サブテキスト版が直接言わずに同じ感情・意図を伝えているか', weight: 40 },
+      { point: '使ったサブテキスト技法（間接表現・行動・話題すり替え等）を説明できているか', weight: 20 },
+      { point: '3つすべての書き直しが「キャラクターの声」として自然か', weight: 20 },
+    ],
+    hint: 'サブテキスト技法の代表：①間接的な行動（手を出しかけて止める）②話題のすり替え（言いたいことを別の話で示す）③沈黙（何も言わないことが最大の表現）④逆の言葉（「どうでもいい」と言いながら気にしている）',
+    sampleAnswer: `【セリフ1】
+A) 「愛していた・怖かった・嫌われたくなかった」——感情のラベリングがそのまま。
+
+B）書き直し：
+　　山田の目が、写真立ての方へ向く。
+　　彼女の写真。
+　　　　山田
+　　「……あの夏祭り、覚えてるか」
+　　（間）
+　　「もう一度行こうって、言おうとして——毎年言えなかったんだ」
+
+C) 技法：話題すり替え＋間（「愛」を言わず具体的な場面と「言えなかった」という行動で示す）
+
+【セリフ2】
+A) 感謝・依存・引き止めを直接説明している。
+
+B）書き直し：
+　　社長は窓の外を見る。少し間があって、
+　　　　社長
+　　「……先月の例のプロジェクト、後任が担当することになる」
+　　（ファイルを閉じる）
+　　「難しいな」
+
+C) 技法：行動（ファイルを閉じる）＋間接的な示唆（「難しい」が「君がいないと困る」を言わずに伝える）
+
+【セリフ3】
+A) 心配・過干渉の自覚・正当化をすべて言葉で説明している。
+
+B）書き直し：
+　　母親、台所で鍋をかき混ぜている。
+　　　　母親
+　　「ご飯は食べてるの」
+　　（少し間）
+　　「……お味噌汁、送ってもいい？ 余ったから」
+
+C) 技法：具体的な行動（お味噌汁を送る）で愛情・心配を示す（直接言わない）`,
+    relatedArticles: ['subtext', 'dialogue-craft'],
+    tags: ['サブテキスト', 'セリフ', '中級', 'リライト'],
+  },
+  {
+    id: 'ex-character-01',
+    category: 'キャラクター設計',
+    difficulty: '上級',
+    title: 'キャラクターのウーンドから設計する',
+    estimatedTime: 25,
+    icon: 'fa-person-walking',
+    color: 'momo',
+    overview: 'キャラクターの「過去の傷（ウーンド）」から逆算して、現在の行動パターン・誤信念・目標を設計します。立体的なキャラクターを作るための最も深い技術を実践します。',
+    question: `以下のウーンド（過去の傷）を持つキャラクターを設計してください。
+
+【ウーンド】
+17歳のとき、親友が事故で亡くなった。その直前に些細なことで口論をして、仲直りできなかった。「あの一言を言わなければよかった」という後悔が今も消えない。
+
+現在は35歳。
+
+【設計課題】
+以下の5項目をすべて埋めてください。
+
+①【誤信念（Lie）】
+　ウーンドから生まれた「歪んだ世界観」：「〜だから〜してはいけない」「〜は必ず〜だ」の形式で書く。
+
+②【Want（外的目標）】
+　現在のこのキャラクターが意識的に追いかけているもの（職業的・対人的）
+
+③【Need（内的成長）】
+　Lieを克服することで得られるもの（WantとNeedを対立させること）
+
+④【行動パターン】
+　Lieに基づく特徴的な行動を3つ書く（「人間関係において〜する」の形式で）
+
+⑤【アーク（変化）】
+　どんな出来事・関係性がきっかけで、LieからTruthへと変化するか（1〜3行）
+
+最後に、このキャラクターのログライン（1文）を作成してください。`,
+    rubric: [
+      { point: 'ウーンドから論理的に導かれるLieが設計されているか', weight: 25 },
+      { point: 'WantとNeedが対立・矛盾しているか（内外の二重構造）', weight: 20 },
+      { point: '行動パターン3つがLieと一貫して繋がっているか', weight: 25 },
+      { point: 'アーク（Lie→Truth）の変化が具体的・説得力があるか', weight: 20 },
+      { point: 'ログラインが主人公の欠如・目標・障害を一文で表現しているか', weight: 10 },
+    ],
+    hint: 'Lieは「〜すれば裏切られる」「〜を大切にすると失う」のような過度な一般化が多い。WantとNeedは逆方向に設計すると最も強い。例：Want「誰にも頼らず一人で生きる」 Need「誰かと深く繋がる」——この矛盾が物語を動かす。',
+    sampleAnswer: `①【誤信念（Lie）】
+「人との別れを怖れているから、深く関わってはいけない。いつか失うなら、最初から大切にしなければよかった」
+
+②【Want（外的目標）】
+国境なき医師団の医師として活動中。次の派遣地でも「誰とも個人的に親しくならない」ことを決意している。
+
+③【Need（内的成長）】
+「永遠に続く関係はないが、それでも今この人と関わること自体に価値がある」という真実を受け入れること。
+（Want「孤独を守る」 vs Need「繋がりを受け入れる」）
+
+④【行動パターン】
+・出会いを「業務的」に処理し、相手の名前を覚えても使わない
+・誰かが懐いてきたとき、わざと冷淡にふるまって距離を作る
+・仕事が終わると次の場所に移り、振り返らない習慣がある
+
+⑤【アーク（変化）】
+派遣地で出会った少女が、全てを失っても「また会いに来て」と言う——「別れは喪失ではなく、出会いの証明だ」という真実を行動で見せてくれる。この出会いがLieを崩す。
+
+【ログライン】
+別れを恐れ誰とも親しくならない国際医師が、戦地の少女と出会い「繋がること」の意味を問い直す物語。`,
+    relatedArticles: ['character-arc', 'subtext', 'antagonist-design'],
+    tags: ['キャラクター', 'ウーンド', '上級', 'アーク設計'],
+  },
 ];
-// ── 道場ページ ────────────────────────────────────────────────
 // ── 道場ページ ─────────────────────────────────────────────
 function renderLearnExercises(hero, subnav) {
   const exercises = window._EXERCISES || [];
@@ -5989,6 +6228,30 @@ function renderLearnExercises(hero, subnav) {
   const diffColor = { '初級':'var(--matcha)', '中級':'var(--kogane)', '上級':'var(--accent)' };
   const doneCount = doneExercises.filter(id => exercises.some(e => e.id === id)).length;
   const pct = Math.round(doneCount / Math.max(exercises.length, 1) * 100);
+
+  // ── ストリーク計算 ──
+  const streakData = DB.get('ex_streak', { count: 0, lastDate: null, dates: [] });
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const streak = streakData.count || 0;
+  const lastSubmit = streakData.lastDate;
+  const isActiveToday = lastSubmit === todayStr;
+
+  // ── デイリーチャレンジ（日付ベースで決定論的に選出） ──
+  const dayIndex = Math.floor(Date.now() / 86400000);
+  const dailyChallengeId = exercises[dayIndex % exercises.length]?.id;
+  const dailyEx = exercises.find(e => e.id === dailyChallengeId);
+  const dailyDone = doneExercises.includes(dailyChallengeId);
+
+  // ── 実績バッジ ──
+  const achievements = [];
+  if (doneCount >= 1) achievements.push({ icon: 'fa-star', label: '初稽古', color: 'var(--matcha)' });
+  if (doneCount >= 3) achievements.push({ icon: 'fa-fire', label: '3問突破', color: 'var(--kogane)' });
+  if (doneCount >= exercises.length) achievements.push({ icon: 'fa-trophy', label: '全問制覇', color: 'var(--accent)' });
+  const hasAllBeginner = exercises.filter(e=>e.difficulty==='初級').every(e=>doneExercises.includes(e.id));
+  if (hasAllBeginner && exercises.filter(e=>e.difficulty==='初級').length > 0) achievements.push({ icon: 'fa-seedling', label: '初級マスター', color: 'var(--matcha)' });
+  const hasAllIntermediate = exercises.filter(e=>e.difficulty==='中級').every(e=>doneExercises.includes(e.id));
+  if (hasAllIntermediate && exercises.filter(e=>e.difficulty==='中級').length > 0) achievements.push({ icon: 'fa-mountain', label: '中級マスター', color: 'var(--fuji)' });
+  if (streak >= 3) achievements.push({ icon: 'fa-bolt', label: `${streak}日連続`, color: 'var(--accent)' });
 
   const filterBar = `
   <div class="learn-filter-bar">
@@ -6008,8 +6271,10 @@ function renderLearnExercises(hero, subnav) {
     const c = COLOR_MAP[ex.color] || COLOR_MAP['beni'];
     const savedAnswer = DB.get(`ex_answer_${ex.id}`, '');
     const hasDraft = savedAnswer.length > 0;
+    const isDaily = ex.id === dailyChallengeId;
     return `
-    <div class="card" style="cursor:pointer;padding:0;overflow:hidden;border-top:3px solid ${c.color}" onclick="navigate('exercise-${ex.id}')">
+    <div class="card" style="cursor:pointer;padding:0;overflow:hidden;border-top:3px solid ${c.color}${isDaily?';box-shadow:0 0 0 2px var(--kogane)':''}" onclick="navigate('exercise-${ex.id}')">
+      ${isDaily && !dailyDone ? `<div style="background:var(--kogane);color:white;font-size:10px;font-weight:700;padding:3px 10px;display:flex;align-items:center;gap:5px"><i class="fas fa-star" style="font-size:9px"></i> 今日のデイリーチャレンジ</div>` : ''}
       <div style="padding:16px 18px">
         <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:10px">
           <div style="width:44px;height:44px;border-radius:var(--radius-md);background:${c.bg};color:${c.color};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
@@ -6034,16 +6299,47 @@ function renderLearnExercises(hero, subnav) {
     </div>`;
   }).join('');
 
+  const achievementBadges = achievements.length > 0 ? `
+  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
+    ${achievements.map(a=>`<div style="display:flex;align-items:center;gap:5px;padding:4px 10px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-full);font-size:11px;color:${a.color};font-weight:600"><i class="fas ${a.icon}" style="font-size:10px"></i>${a.label}</div>`).join('')}
+  </div>` : '';
+
+  const dailyChallengeCard = dailyEx ? `
+  <div style="margin-bottom:16px;border:2px solid var(--kogane);border-radius:var(--radius-lg);overflow:hidden">
+    <div style="background:linear-gradient(135deg,var(--kogane-bg),var(--bg-subtle));padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--kogane-border)">
+      <i class="fas fa-calendar-star" style="color:var(--kogane);font-size:15px"></i>
+      <span style="font-size:13px;font-weight:700;color:var(--text-primary)">今日のデイリーチャレンジ</span>
+      <span style="font-size:10px;color:var(--text-muted);margin-left:auto">${new Date().toLocaleDateString('ja-JP',{month:'short',day:'numeric'})}</span>
+    </div>
+    <div style="padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;background:var(--bg-card)" onclick="navigate('exercise-${dailyEx.id}')">
+      <div style="width:40px;height:40px;border-radius:var(--radius-md);background:${(COLOR_MAP[dailyEx.color]||COLOR_MAP['beni']).bg};color:${(COLOR_MAP[dailyEx.color]||COLOR_MAP['beni']).color};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">
+        <i class="fas ${dailyEx.icon}"></i>
+      </div>
+      <div style="flex:1">
+        <div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-bottom:2px">${esc(dailyEx.title)}</div>
+        <div style="font-size:11.5px;color:var(--text-muted)">${esc(dailyEx.difficulty)} · 約${dailyEx.estimatedTime}分</div>
+      </div>
+      ${dailyDone
+        ? `<span style="font-size:11px;padding:3px 10px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border);border-radius:var(--radius-full);font-weight:700"><i class="fas fa-check"></i> 完了</span>`
+        : `<span style="font-size:12px;color:var(--kogane);font-weight:700">挑戦する <i class="fas fa-arrow-right" style="font-size:10px"></i></span>`}
+    </div>
+  </div>` : '';
+
   return `${hero}${subnav}
-  <div style="padding:14px 16px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:16px;display:flex;align-items:center;gap:16px">
+  <div style="padding:14px 16px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
     <div style="width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#7a0000,#c0392b);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 3px 10px #c0392b44">
       <i class="fas fa-fist-raised" style="color:white;font-size:20px"></i>
     </div>
-    <div style="flex:1">
+    <div style="flex:1;min-width:200px">
       <div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-bottom:5px">道場: ${doneCount}/${exercises.length}問 修了 (${pct}%)</div>
       <div style="height:8px;background:var(--bg-hover);border-radius:4px;overflow:hidden">
         <div style="height:100%;width:${pct}%;background:${pct>=100?'var(--matcha)':'linear-gradient(90deg,#c0392b,#e67e22)'};border-radius:4px;transition:width .5s ease"></div>
       </div>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0">
+      <div style="font-size:20px;font-weight:900;color:${isActiveToday?'var(--accent)':'var(--text-muted)'};line-height:1">${streak}</div>
+      <div style="font-size:10px;color:var(--text-muted)">日連続</div>
+      <i class="fas fa-fire" style="font-size:12px;color:${streak>=1?'var(--accent)':'var(--border)'}"></i>
     </div>
     <button class="btn btn-sm" onclick="rollDicePractice()" title="ランダム稽古" style="background:linear-gradient(135deg,#e67e22,#c0392b);color:white;border:none;border-radius:var(--radius-md);padding:10px 16px;font-size:13px;font-weight:700;box-shadow:0 2px 8px #c0392b44;cursor:pointer;display:flex;align-items:center;gap:6px">
       <i class="fas fa-dice" style="font-size:16px"></i> ランダム稽古
@@ -6053,8 +6349,10 @@ function renderLearnExercises(hero, subnav) {
   <div style="padding:12px 14px;background:var(--asagi-bg);border:1px solid var(--asagi-border);border-radius:var(--radius-md);margin-bottom:16px;font-size:12.5px;color:var(--text-secondary);line-height:1.7">
     <i class="fas fa-info-circle" style="color:var(--asagi);margin-right:6px"></i>
     各稽古は専用ページで取り組みます。解答を書いて提出すると、採点基準に沿って<strong style="color:var(--text-primary)">師範添削</strong>を行います。ヒント・模範解答・関連記事もリンクされています。<br>
-    <i class="fas fa-dice" style="color:var(--kogane);margin-right:4px;margin-top:4px"></i><strong>サイコロボタン</strong>で問題をランダムシャッフル（1万通り以上）。毎回違う問題に挑戦できます。
+    <i class="fas fa-fire" style="color:var(--accent);margin-right:4px;margin-top:4px"></i><strong>毎日1問</strong>続けると連続日数が積み上がります。デイリーチャレンジで今日の課題に挑戦しましょう。
   </div>
+  ${achievementBadges}
+  ${dailyChallengeCard}
   ${filterBar}
   <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">${filtered.length}問（全${exercises.length}問）</div>
   <div style="display:grid;gap:12px">${cards || '<div style="text-align:center;padding:40px;color:var(--text-muted)">条件に合う演習が見つかりません</div>'}</div>`;
@@ -6365,6 +6663,18 @@ function submitExercise(exId) {
     if (!done.includes(exId)) done.push(exId);
     DB.set('done_exercises', done);
     DB.set(`ex_answer_${exId}`, answer);
+
+    // ストリーク更新
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const streakData = DB.get('ex_streak', { count: 0, lastDate: null, dates: [] });
+    if (streakData.lastDate !== todayStr) {
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      const newCount = streakData.lastDate === yesterday ? streakData.count + 1 : 1;
+      const dates = [...(streakData.dates || []).slice(-29), todayStr];
+      DB.set('ex_streak', { count: newCount, lastDate: todayStr, dates });
+      if (newCount >= 3) toast(`🔥 ${newCount}日連続！ 素晴らしい稽古精神です！`, 'success');
+    }
+
     toast('添削が完了しました！', 'success');
     render();
     setTimeout(() => {
@@ -7964,84 +8274,173 @@ function renderLearnBadges(hero, subnav) {
 //  学習ノートタブ
 // ================================================================
 function renderLearnNotes(hero, subnav) {
-  const notes     = DB.get('learn_notes', []);
-  const noteFilter = DB.get('learn_note_filter', { search:'', tag:'' });
-  const allTags   = [...new Set(notes.flatMap(n => n.tags||[]))];
+  const notes      = DB.get('learn_notes', []);
+  const noteFilter = DB.get('learn_note_filter', { search: '', tag: '', sortBy: 'updated', view: 'list' });
+  const allTags    = [...new Set(notes.flatMap(n => n.tags || []))];
+  const editingId  = DB.get('note_editing_id', null);
+  const editingNote = editingId ? notes.find(n => n.id === editingId) : null;
+  const pinnedIds  = notes.filter(n => n.pinned).map(n => n.id);
 
   let filtered = notes.filter(n => {
-    if (noteFilter.search && !n.content.toLowerCase().includes(noteFilter.search.toLowerCase())
-        && !n.title.toLowerCase().includes(noteFilter.search.toLowerCase())) return false;
+    if (noteFilter.search) {
+      const q = noteFilter.search.toLowerCase();
+      if (!n.content?.toLowerCase().includes(q) && !n.title?.toLowerCase().includes(q) && !(n.tags||[]).some(t=>t.toLowerCase().includes(q))) return false;
+    }
     if (noteFilter.tag && !(n.tags||[]).includes(noteFilter.tag)) return false;
     return true;
   });
-  filtered = [...filtered].sort((a,b) => (b.updatedAt||0)-(a.updatedAt||0));
 
-  const editingId  = DB.get('note_editing_id', null);
-  const editingNote = editingId ? notes.find(n=>n.id===editingId) : null;
+  // ソート
+  const sortBy = noteFilter.sortBy || 'updated';
+  filtered = [...filtered].sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    if (sortBy === 'created') return (b.createdAt||0) - (a.createdAt||0);
+    if (sortBy === 'title') return (a.title||'').localeCompare(b.title||'');
+    return (b.updatedAt||0) - (a.updatedAt||0);
+  });
+
+  // ── テンプレート ──
+  const NOTE_TEMPLATES = [
+    { id: 'reflection', label: '記事メモ', icon: 'fa-book-open', color: 'fuji',
+      content: '【記事タイトル】\n\n【学んだこと】\n\n【自分の脚本に活かすには】\n\n【疑問・深掘りしたいこと】', tags: ['学習メモ'] },
+    { id: 'exercise', label: '演習振り返り', icon: 'fa-fist-raised', color: 'beni',
+      content: '【演習タイトル】\n\n【解答で気づいたこと】\n\n【師範添削のフィードバック要点】\n\n【次回改善したいこと】', tags: ['演習'] },
+    { id: 'idea', label: 'アイデアメモ', icon: 'fa-lightbulb', color: 'kogane',
+      content: '【アイデア】\n\n【主人公のイメージ】\n\n【物語の核（テーマ）】\n\n【鍵となるシーン】', tags: ['アイデア'] },
+    { id: 'scene', label: 'シーン設計', icon: 'fa-film', color: 'matcha',
+      content: '【場所・時間】\n\n【入場目的】\n\n【葛藤・対立】\n\n【変化（シーン前後の差）】\n\n【退場の状態】', tags: ['シーン'] },
+    { id: 'character', label: 'キャラメモ', icon: 'fa-person-walking', color: 'momo',
+      content: '【名前・年齢・職業】\n\n【Want（外的目標）】\n\n【Need（内的成長）】\n\n【ウーンド（傷）】\n\n【口癖・話し方の特徴】', tags: ['キャラクター'] },
+    { id: 'free', label: '自由メモ', icon: 'fa-note-sticky', color: 'asagi',
+      content: '', tags: [] },
+  ];
+
+  // ── カード表示 ──
+  const renderNoteCard = (n) => {
+    const c = COLOR_MAP[n.color||'asagi'] || COLOR_MAP['asagi'];
+    const dt = n.updatedAt ? new Date(n.updatedAt).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+    const wordCount = (n.content||'').replace(/\s/g,'').length;
+    return `
+    <div class="card" style="cursor:pointer;border-left:3px solid ${c.color};padding:14px 16px;position:relative${n.pinned?';box-shadow:0 0 0 1.5px var(--kogane)':''}" onclick="editLearnNote('${n.id}')">
+      ${n.pinned ? `<i class="fas fa-thumbtack" style="position:absolute;top:10px;right:38px;color:var(--kogane);font-size:11px;transform:rotate(45deg)"></i>` : ''}
+      <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:6px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(n.title||'無題')}</div>
+        </div>
+        <div style="display:flex;gap:4px;flex-shrink:0">
+          <button onclick="event.stopPropagation();toggleNotePin('${n.id}')" style="background:none;border:none;color:${n.pinned?'var(--kogane)':'var(--text-muted)'};cursor:pointer;font-size:11px;padding:3px 5px" title="${n.pinned?'ピン解除':'ピン留め'}">
+            <i class="fas fa-thumbtack"></i>
+          </button>
+          <button onclick="event.stopPropagation();deleteLearnNote('${n.id}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:11px;padding:3px 5px" title="削除">
+            <i class="fas fa-trash-can"></i>
+          </button>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--text-secondary);line-height:1.7;white-space:pre-wrap;max-height:64px;overflow:hidden">${esc((n.content||'').substring(0,120))}${(n.content||'').length>120?'…':''}</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap">
+        ${(n.tags||[]).slice(0,3).map(t=>`<span style="font-size:10px;padding:1px 7px;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:var(--radius-full);font-weight:600">${esc(t)}</span>`).join('')}
+        <span style="margin-left:auto;font-size:10.5px;color:var(--text-muted)">${wordCount}字 · ${dt}</span>
+      </div>
+    </div>`;
+  };
 
   const noteCards = filtered.length === 0
     ? `<div style="text-align:center;padding:50px;color:var(--text-muted)">
         <i class="fas fa-note-sticky" style="font-size:28px;opacity:.3;display:block;margin-bottom:10px"></i>
-        ${notes.length===0?'まだノートがありません。「＋ 新規ノート」から最初のメモを作りましょう。':'条件に合うノートが見つかりません'}
+        ${notes.length===0?'まだノートがありません。「＋ 新規ノート」または「テンプレート」から作りましょう。':'条件に合うノートが見つかりません'}
        </div>`
-    : filtered.map(n => {
-        const c = COLOR_MAP[n.color||'asagi'] || COLOR_MAP['asagi'];
-        const dt = n.updatedAt ? new Date(n.updatedAt).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
-        return `
-        <div class="card" style="cursor:pointer;border-left:3px solid ${c.color};padding:14px 16px;position:relative" onclick="editLearnNote('${n.id}')">
-          <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:5px">${esc(n.title||'無題')}</div>
-          <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.7;white-space:pre-wrap;max-height:72px;overflow:hidden">${esc((n.content||'').substring(0,120))}${(n.content||'').length>120?'…':''}</div>
-          <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
-            ${(n.tags||[]).map(t=>`<span style="font-size:10px;padding:1px 7px;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:var(--radius-full);font-weight:600">${esc(t)}</span>`).join('')}
-            <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">${dt}</span>
-          </div>
-          <button onclick="event.stopPropagation();deleteLearnNote('${n.id}')" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;padding:4px" title="削除">
-            <i class="fas fa-trash-can"></i>
-          </button>
-        </div>`;
-      }).join('');
+    : filtered.map(renderNoteCard).join('');
 
+  // ── エディタ ──
+  const colorLabels = { asagi:'水色', beni:'赤', matcha:'緑', kogane:'金', fuji:'紫', momo:'桃', kon:'紺' };
   const editorHtml = editingNote ? `
-  <div class="card" style="margin-bottom:20px;border-top:3px solid var(--asagi)">
-    <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:12px"><i class="fas fa-pen" style="color:var(--asagi);margin-right:6px"></i>ノートを編集</div>
-    <input id="note-edit-title" class="form-input" style="margin-bottom:8px;font-size:13px" placeholder="タイトル（省略可）" value="${esc(editingNote.title||'')}">
-    <textarea id="note-edit-content" class="form-input" rows="8" style="font-size:13px;line-height:1.9;resize:vertical" placeholder="メモを入力…">${esc(editingNote.content||'')}</textarea>
-    <input id="note-edit-tags" class="form-input" style="margin-top:8px;font-size:12px" placeholder="タグをカンマ区切りで入力（例: 三幕構成,キャラクター）" value="${esc((editingNote.tags||[]).join(','))}">
-    <div style="display:flex;gap:10px;margin-top:10px;align-items:center">
+  <div class="card" style="margin-bottom:20px;border-top:3px solid ${(COLOR_MAP[editingNote.color||'asagi']||COLOR_MAP['asagi']).color}">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="font-size:13px;font-weight:700;color:var(--text-primary)"><i class="fas fa-pen" style="color:${(COLOR_MAP[editingNote.color||'asagi']||COLOR_MAP['asagi']).color};margin-right:6px"></i>ノートを編集</div>
+      <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="exportLearnNote('${editingNote.id}')"><i class="fas fa-file-export"></i> エクスポート</button>
+        <button class="btn btn-ghost btn-sm" onclick="cancelEditNote()"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
+    <input id="note-edit-title" class="form-input" style="margin-bottom:8px;font-size:14px;font-weight:600" placeholder="タイトル（省略可）" value="${esc(editingNote.title||'')}">
+    <textarea id="note-edit-content" class="form-input" rows="10" style="font-size:13px;line-height:1.9;resize:vertical;font-family:'Noto Serif JP',serif" placeholder="メモを入力…&#10;&#10;Markdown風の記法も使えます：&#10;## 見出し  **太字**  - リスト">${esc(editingNote.content||'')}</textarea>
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">
+      <input id="note-edit-tags" class="form-input" style="flex:1;min-width:140px;font-size:12px;height:32px" placeholder="タグ（カンマ区切り）例: 三幕構成, アイデア" value="${esc((editingNote.tags||[]).join(','))}">
       <select id="note-edit-color" class="form-select" style="font-size:12px;height:32px;width:auto">
-        ${['asagi','beni','matcha','kogane','fuji','momo','kon'].map(col=>`<option value="${col}" ${(editingNote.color||'asagi')===col?'selected':''}>${col}</option>`).join('')}
+        ${Object.entries(colorLabels).map(([col,lbl])=>`<option value="${col}" ${(editingNote.color||'asagi')===col?'selected':''}>${lbl}</option>`).join('')}
       </select>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" onclick="saveLearnNote('${editingNote.id}')"><i class="fas fa-save"></i> 保存</button>
       <button class="btn btn-ghost btn-sm" onclick="cancelEditNote()"><i class="fas fa-times"></i> キャンセル</button>
+      <span id="note-char-count" style="font-size:11px;color:var(--text-muted);margin-left:auto"></span>
+    </div>
+  </div>
+  <script>
+    (function() {
+      const ta = document.getElementById('note-edit-content');
+      const ct = document.getElementById('note-char-count');
+      if (ta && ct) {
+        ct.textContent = ta.value.replace(/\\s/g,'').length + '字';
+        ta.addEventListener('input', () => { ct.textContent = ta.value.replace(/\\s/g,'').length + '字'; });
+      }
+    })();
+  </script>` : '';
+
+  // ── テンプレートセクション ──
+  const templateSection = !editingNote ? `
+  <div style="margin-bottom:16px">
+    <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px"><i class="fas fa-clone" style="margin-right:4px"></i>テンプレートから作成</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">
+      ${NOTE_TEMPLATES.map(t => {
+        const tc = COLOR_MAP[t.color] || COLOR_MAP['asagi'];
+        return `<button class="btn btn-ghost btn-sm" style="border-color:${tc.border};color:${tc.color};background:${tc.bg};font-size:11px;padding:4px 10px" onclick="newLearnNoteFromTemplate('${t.id}')">
+          <i class="fas ${t.icon}" style="font-size:10px"></i> ${t.label}
+        </button>`;
+      }).join('')}
     </div>
   </div>` : '';
 
   return `${hero}${subnav}
   <!-- ヘッダー行 -->
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-    <div style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif"><i class="fas fa-note-sticky" style="color:var(--asagi);margin-right:7px"></i>学習ノート</div>
-    <span style="font-size:12px;color:var(--text-muted)">${notes.length}件のメモ</span>
-    <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="newLearnNote()"><i class="fas fa-plus"></i> 新規ノート</button>
+    <div style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">
+      <i class="fas fa-note-sticky" style="color:var(--asagi);margin-right:7px"></i>学習ノート
+    </div>
+    <span style="font-size:12px;color:var(--text-muted)">${notes.length}件</span>
+    ${pinnedIds.length > 0 ? `<span style="font-size:11px;color:var(--kogane)"><i class="fas fa-thumbtack" style="font-size:10px"></i> ${pinnedIds.length}件ピン</span>` : ''}
+    <div style="margin-left:auto;display:flex;gap:6px">
+      <button class="btn btn-ghost btn-sm" onclick="exportAllNotes()" title="全ノートをエクスポート"><i class="fas fa-file-export"></i></button>
+      <button class="btn btn-primary btn-sm" onclick="newLearnNote()"><i class="fas fa-plus"></i> 新規ノート</button>
+    </div>
   </div>
   <!-- エディタ（編集中のみ） -->
   ${editorHtml}
+  <!-- テンプレート -->
+  ${templateSection}
   <!-- フィルターバー -->
   <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
     <div style="position:relative;flex:1;min-width:150px">
       <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:12px;pointer-events:none"></i>
-      <input class="form-input" style="padding-left:30px;height:34px;font-size:12px" placeholder="ノートを検索…" value="${esc(noteFilter.search)}" oninput="setNoteFilter('search',this.value)">
+      <input class="form-input" style="padding-left:30px;height:34px;font-size:12px" placeholder="タイトル・内容・タグで検索…" value="${esc(noteFilter.search)}" oninput="setNoteFilter('search',this.value)">
     </div>
     ${allTags.length > 0 ? `
     <select class="form-select" style="height:34px;font-size:12px;width:auto" onchange="setNoteFilter('tag',this.value)">
       <option value="">全タグ</option>
-      ${allTags.map(t=>`<option value="${t}" ${noteFilter.tag===t?'selected':''}>${t}</option>`).join('')}
+      ${allTags.map(t=>`<option value="${t}" ${noteFilter.tag===t?'selected':''}>${esc(t)}</option>`).join('')}
     </select>` : ''}
+    <select class="form-select" style="height:34px;font-size:12px;width:auto" onchange="setNoteFilter('sortBy',this.value)">
+      <option value="updated" ${sortBy==='updated'?'selected':''}>更新順</option>
+      <option value="created" ${sortBy==='created'?'selected':''}>作成順</option>
+      <option value="title" ${sortBy==='title'?'selected':''}>タイトル順</option>
+    </select>
     ${(noteFilter.search||noteFilter.tag)?`<button class="btn btn-ghost btn-sm" onclick="clearNoteFilter()"><i class="fas fa-rotate-left"></i></button>`:''}
   </div>
-  <!-- ノート説明 -->
+  <!-- 説明（初回のみ） -->
   ${notes.length===0 ? `<div style="padding:12px 16px;background:var(--asagi-bg);border:1px solid var(--asagi-border);border-radius:var(--radius-md);margin-bottom:16px;font-size:12.5px;color:var(--text-secondary);line-height:1.7">
     <i class="fas fa-lightbulb" style="color:var(--asagi);margin-right:6px"></i>
-    記事や演習を読んで気づいたこと・学んだこと・自分の作品への活かし方などを自由にメモしましょう。タグで分類すれば後から探しやすくなります。
+    記事や演習を読んで気づいたこと・アイデア・キャラクターメモなどを自由に記録しましょう。<strong>テンプレート</strong>から始めると書きやすくなります。<strong>ピン留め</strong>で重要ノートを上に固定、<strong>エクスポート</strong>でテキスト保存もできます。
   </div>`:''}
   <!-- ノート一覧 -->
   <div style="display:grid;gap:10px">${noteCards}</div>`;
@@ -8050,12 +8449,33 @@ function renderLearnNotes(hero, subnav) {
 function newLearnNote() {
   const notes = DB.get('learn_notes', []);
   const id = 'note-' + Date.now();
-  const newNote = { id, title:'', content:'', tags:[], color:'asagi', createdAt: Date.now(), updatedAt: Date.now() };
+  const newNote = { id, title: '', content: '', tags: [], color: 'asagi', pinned: false, createdAt: Date.now(), updatedAt: Date.now() };
   notes.unshift(newNote);
   DB.set('learn_notes', notes);
   DB.set('note_editing_id', id);
   render();
   setTimeout(() => document.getElementById('note-edit-title')?.focus(), 100);
+}
+
+function newLearnNoteFromTemplate(templateId) {
+  const NOTE_TEMPLATES = [
+    { id: 'reflection', label: '記事メモ', color: 'fuji', content: '【記事タイトル】\n\n【学んだこと】\n\n【自分の脚本に活かすには】\n\n【疑問・深掘りしたいこと】', tags: ['学習メモ'] },
+    { id: 'exercise', label: '演習振り返り', color: 'beni', content: '【演習タイトル】\n\n【解答で気づいたこと】\n\n【師範添削のフィードバック要点】\n\n【次回改善したいこと】', tags: ['演習'] },
+    { id: 'idea', label: 'アイデアメモ', color: 'kogane', content: '【アイデア】\n\n【主人公のイメージ】\n\n【物語の核（テーマ）】\n\n【鍵となるシーン】', tags: ['アイデア'] },
+    { id: 'scene', label: 'シーン設計', color: 'matcha', content: '【場所・時間】\n\n【入場目的】\n\n【葛藤・対立】\n\n【変化（シーン前後の差）】\n\n【退場の状態】', tags: ['シーン'] },
+    { id: 'character', label: 'キャラメモ', color: 'momo', content: '【名前・年齢・職業】\n\n【Want（外的目標）】\n\n【Need（内的成長）】\n\n【ウーンド（傷）】\n\n【口癖・話し方の特徴】', tags: ['キャラクター'] },
+    { id: 'free', label: '自由メモ', color: 'asagi', content: '', tags: [] },
+  ];
+  const tpl = NOTE_TEMPLATES.find(t => t.id === templateId);
+  if (!tpl) { newLearnNote(); return; }
+  const notes = DB.get('learn_notes', []);
+  const id = 'note-' + Date.now();
+  const newNote = { id, title: tpl.label, content: tpl.content, tags: [...tpl.tags], color: tpl.color, pinned: false, createdAt: Date.now(), updatedAt: Date.now() };
+  notes.unshift(newNote);
+  DB.set('learn_notes', notes);
+  DB.set('note_editing_id', id);
+  render();
+  setTimeout(() => document.getElementById('note-edit-content')?.focus(), 100);
 }
 
 function editLearnNote(noteId) {
@@ -8083,12 +8503,11 @@ function saveLearnNote(noteId) {
 
 function cancelEditNote() {
   const notes = DB.get('learn_notes', []);
-  // 空の新規ノートなら削除
   const editId = DB.get('note_editing_id', null);
   if (editId) {
-    const n = notes.find(x=>x.id===editId);
+    const n = notes.find(x => x.id === editId);
     if (n && !n.title && !n.content) {
-      DB.set('learn_notes', notes.filter(x=>x.id!==editId));
+      DB.set('learn_notes', notes.filter(x => x.id !== editId));
     }
   }
   DB.set('note_editing_id', null);
@@ -8097,22 +8516,62 @@ function cancelEditNote() {
 
 function deleteLearnNote(noteId) {
   if (!confirm('このノートを削除しますか？')) return;
-  const notes = DB.get('learn_notes', []).filter(n=>n.id!==noteId);
+  const notes = DB.get('learn_notes', []).filter(n => n.id !== noteId);
   DB.set('learn_notes', notes);
   DB.set('note_editing_id', null);
   toast('ノートを削除しました', 'success');
   render();
 }
 
+function toggleNotePin(noteId) {
+  const notes = DB.get('learn_notes', []);
+  const idx = notes.findIndex(n => n.id === noteId);
+  if (idx === -1) return;
+  notes[idx].pinned = !notes[idx].pinned;
+  DB.set('learn_notes', notes);
+  toast(notes[idx].pinned ? 'ピン留めしました' : 'ピンを解除しました', 'success');
+  render();
+}
+
+function exportLearnNote(noteId) {
+  const notes = DB.get('learn_notes', []);
+  const n = notes.find(x => x.id === noteId);
+  if (!n) return;
+  const dt = n.updatedAt ? new Date(n.updatedAt).toLocaleString('ja-JP') : '';
+  const text = `${n.title || '無題'}\n${'='.repeat(30)}\n更新: ${dt}\nタグ: ${(n.tags||[]).join(', ')}\n\n${n.content || ''}`;
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `note_${(n.title||'memo').slice(0,20).replace(/\s/g,'_')}.txt`;
+  a.click();
+  toast('ノートをエクスポートしました', 'success');
+}
+
+function exportAllNotes() {
+  const notes = DB.get('learn_notes', []);
+  if (notes.length === 0) { toast('エクスポートするノートがありません', 'error'); return; }
+  const sorted = [...notes].sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));
+  const text = sorted.map(n => {
+    const dt = n.updatedAt ? new Date(n.updatedAt).toLocaleString('ja-JP') : '';
+    return `# ${n.title || '無題'}\n更新: ${dt}  タグ: ${(n.tags||[]).join(', ')}\n\n${n.content || ''}\n\n${'─'.repeat(40)}\n`;
+  }).join('\n');
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `scenario_lab_notes_${new Date().toISOString().slice(0,10)}.txt`;
+  a.click();
+  toast(`${notes.length}件のノートをエクスポートしました`, 'success');
+}
+
 function setNoteFilter(key, val) {
-  const f = DB.get('learn_note_filter', { search:'', tag:'' });
+  const f = DB.get('learn_note_filter', { search: '', tag: '', sortBy: 'updated' });
   f[key] = val;
   DB.set('learn_note_filter', f);
   render();
 }
 
 function clearNoteFilter() {
-  DB.set('learn_note_filter', { search:'', tag:'' });
+  DB.set('learn_note_filter', { search: '', tag: '', sortBy: 'updated' });
   render();
 }
 
