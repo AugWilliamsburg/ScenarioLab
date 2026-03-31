@@ -320,7 +320,7 @@ function render() {
 function renderLayout(content, proj = null) {
   const cp = State.currentPage;
   const isLearnPage = cp === 'learn' || cp === 'learn-guide' || cp === 'learn-articles' || (cp && cp.startsWith('article-'));
-  const isToolsPage = cp === 'tools' || cp === 'tool-logline' || cp === 'tool-char-diag' || cp === 'tool-scene' || cp === 'tool-timer' || cp === 'tool-pitch' || cp === 'tool-tension' || cp === 'tool-name-gen';
+  const isToolsPage = cp === 'tools' || cp === 'tool-logline' || cp === 'tool-char-diag' || cp === 'tool-scene' || cp === 'tool-timer' || cp === 'tool-pitch' || cp === 'tool-tension' || cp === 'tool-name-gen' || cp === 'tool-structure' || cp === 'tool-emotion-arc' || cp === 'tool-world-notes';
   const isTemplatesPage = cp === 'templates' || (cp && cp.startsWith('template-'));
   const isSettingsPage = cp === 'settings';
   const isJournalPage = cp === 'journal';
@@ -3601,11 +3601,12 @@ function renderEditor(proj) {
   const scriptContent = activeDraft ? activeDraft.content || '' : '';
   const wordCount = countWords(scriptContent);
   const pageCount = Math.max(1, Math.ceil(wordCount / 400));
+  const lastSaved = activeDraft?.updatedAt ? new Date(activeDraft.updatedAt).toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'}) : '未保存';
 
   return `
   <div class="section-header">
     <div class="section-title"><i class="fas fa-pen-nib" style="color:#6af7c8"></i> 脚本エディタ <span class="phase-badge-lg">Phase 7</span></div>
-    <div class="section-desc">日本の脚本フォーマットで執筆しましょう</div>
+    <div class="section-desc">日本の脚本フォーマットで執筆しましょう。オートセーブ有効（1.5秒）</div>
   </div>
   <div class="editor-layout">
     <div class="editor-main">
@@ -3615,16 +3616,20 @@ function renderEditor(proj) {
           <button class="btn btn-ghost btn-sm" onclick="addNewDraft('${proj.id}')"><i class="fas fa-plus"></i></button>
         </div>
         <div class="editor-toolbar-group">
-          <button class="btn btn-secondary btn-sm" onclick="insertElement('scene-heading')"><i class="fas fa-clapperboard"></i> シーン</button>
-          <button class="btn btn-secondary btn-sm" onclick="insertElement('action')"><i class="fas fa-align-left"></i> ト書き</button>
-          <button class="btn btn-secondary btn-sm" onclick="insertElement('character')"><i class="fas fa-user"></i> キャラ</button>
-          <button class="btn btn-secondary btn-sm" onclick="insertElement('dialogue')"><i class="fas fa-comment"></i> セリフ</button>
-          <button class="btn btn-secondary btn-sm" onclick="insertElement('parenthetical')"><i class="fas fa-brackets-round"></i> 指定</button>
-          <button class="btn btn-secondary btn-sm" onclick="insertElement('transition')"><i class="fas fa-right-long"></i> 転換</button>
+          <button class="btn btn-secondary btn-sm" onclick="insertElement('scene-heading')" title="シーン見出し【○○】"><i class="fas fa-clapperboard"></i> シーン</button>
+          <button class="btn btn-secondary btn-sm" onclick="insertElement('action')" title="ト書き（情景・動作）"><i class="fas fa-align-left"></i> ト書き</button>
+          <button class="btn btn-secondary btn-sm" onclick="insertElement('character')" title="キャラクター名"><i class="fas fa-user"></i> キャラ</button>
+          <button class="btn btn-secondary btn-sm" onclick="insertElement('dialogue')" title="セリフ「」"><i class="fas fa-comment"></i> セリフ</button>
+          <button class="btn btn-secondary btn-sm" onclick="insertElement('parenthetical')" title="演技指定（）"><i class="fas fa-brackets-round"></i> 指定</button>
+          <button class="btn btn-secondary btn-sm" onclick="insertElement('transition')" title="転換OP/カット"><i class="fas fa-right-long"></i> 転換</button>
         </div>
-        <div class="editor-toolbar-group" style="margin-left:auto">
+        <div class="editor-toolbar-group" style="margin-left:auto;gap:8px">
+          <span id="editor-autosave-indicator" style="font-size:11px;color:var(--matcha);display:flex;align-items:center;gap:4px" title="最終保存: ${lastSaved}">
+            <i class="fas fa-cloud-arrow-up" style="font-size:10px"></i><span>${lastSaved}</span>
+          </span>
           <span style="font-size:11px;color:var(--text-muted)">${wordCount.toLocaleString()}字 / 約${pageCount}ページ</span>
           <button class="btn btn-ghost btn-sm" onclick="toggleFocusMode()" id="focus-mode-btn" title="集中執筆モード"><i class="fas fa-expand"></i></button>
+          <button class="btn btn-ghost btn-sm" onclick="openWordGoalModal('${proj.id}')" title="目標文字数設定"><i class="fas fa-bullseye"></i></button>
           <div style="display:flex;align-items:center;gap:4px">
             <button class="btn btn-ghost btn-icon btn-sm" onclick="changeEditorFontSize(-1)" title="文字を小さく"><i class="fas fa-minus" style="font-size:9px"></i></button>
             <span id="editor-font-size" style="font-size:11px;color:var(--text-muted);min-width:28px;text-align:center">13</span>
@@ -3656,7 +3661,7 @@ function renderEditor(proj) {
       </div>
       <div class="editor-panel">
         <div class="editor-panel-header"><i class="fas fa-chart-pie"></i> 統計</div>
-        <div class="editor-panel-body">
+        <div class="editor-panel-body" id="editor-stats-live">
           ${renderEditorStats(proj, scriptContent)}
         </div>
       </div>
@@ -3681,6 +3686,16 @@ function renderEditor(proj) {
             <div style="margin-top:6px"><span style="color:var(--accent2);font-weight:600">セリフ：</span><br>　「〜〜〜」</div>
             <div style="margin-top:6px"><span style="color:var(--text-secondary);font-weight:600">転換：</span><br>ＯＬ / カットＴＯ / ＦＩ / ＦＯ</div>
           </div>
+          <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+            <div style="font-size:10.5px;font-weight:700;color:var(--text-muted);margin-bottom:6px">執筆のヒント</div>
+            <div style="font-size:10.5px;color:var(--text-muted);line-height:1.8">
+              ✏️ まず最後まで書ききること<br>
+              🎬 内面より行動で感情を表現<br>
+              💬 セリフは短く・個性的に<br>
+              ✂️ 1シーン = 1つの変化<br>
+              🔄 推敲は2稿目以降で
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -3702,19 +3717,32 @@ function renderEditorStats(proj, content) {
   const wc = countWords(content);
   const lines = (content||'').split('\n').length;
   const dialogueLines = (content||'').split('\n').filter(l => l.trim().startsWith('「') || l.trim().startsWith('『')).length;
+  const sceneCount = (content||'').split('\n').filter(l => /^【\d+】/.test(l.trim()) || l.includes('（外）') || l.includes('（内）')).length;
+  const charLines = (content||'').split('\n').filter(l => /^[A-Z\u3040-\u30ff\u4e00-\u9fff]{1,10}$/.test(l.trim())).length;
   const target = proj.wordTarget || 12000;
   const pct = Math.min(100, Math.round(wc/target*100));
+  const pctColor = pct >= 80 ? 'var(--matcha)' : pct >= 50 ? 'var(--kogane)' : 'var(--accent)';
   return `
-  <div style="margin-bottom:10px">
+  <div style="margin-bottom:12px">
     <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:3px">
-      <span>文字数</span><span>${wc.toLocaleString()} / ${target.toLocaleString()}</span>
+      <span>目標達成率</span><span style="color:${pctColor};font-weight:600">${pct}%</span>
     </div>
-    <div class="wc-bar"><div class="wc-fill" style="width:${pct}%"></div></div>
+    <div class="wc-bar"><div class="wc-fill" style="width:${pct}%;background:${pctColor}"></div></div>
+    <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${wc.toLocaleString()} / ${target.toLocaleString()}字</div>
   </div>
-  <div style="font-size:11px;color:var(--text-muted);line-height:2">
-    <div>行数: <span style="color:var(--text-primary)">${lines}</span></div>
-    <div>セリフ行: <span style="color:var(--text-primary)">${dialogueLines}</span></div>
-    <div>約ページ数: <span style="color:var(--text-primary)">${Math.ceil(wc/400)}</span></div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+    ${[
+      {label:'文字数', val: wc.toLocaleString(), icon:'fa-text-height', color:'var(--kon-lt)'},
+      {label:'ページ数', val: Math.ceil(wc/400)+'p', icon:'fa-file', color:'var(--fuji)'},
+      {label:'シーン数', val: sceneCount, icon:'fa-clapperboard', color:'var(--momo)'},
+      {label:'行数', val: lines, icon:'fa-align-left', color:'var(--matcha)'},
+      {label:'セリフ行', val: dialogueLines, icon:'fa-comment', color:'var(--kogane)'},
+      {label:'キャラ登場', val: charLines+'行', icon:'fa-user', color:'var(--asagi)'},
+    ].map(s=>`
+    <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-xs);padding:6px 8px;text-align:center">
+      <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px"><i class="fas ${s.icon}" style="color:${s.color};margin-right:3px"></i>${s.label}</div>
+      <div style="font-size:13px;font-weight:700;color:var(--text-primary)">${s.val}</div>
+    </div>`).join('')}
   </div>`;
 }
 
@@ -3725,7 +3753,59 @@ function onEditorInput(projId, draftId) {
   const content = $('#script-editor')?.value || '';
   const navEl = $('#scene-nav');
   if (navEl) navEl.innerHTML = renderSceneNav(content);
-  editorSaveTimer = setTimeout(() => saveEditorContent(projId, draftId), 1500);
+  // Update live stats
+  const statsEl = document.getElementById('editor-stats-live');
+  if (statsEl) {
+    const proj = DB.getProject(projId);
+    if (proj) statsEl.innerHTML = renderEditorStats(proj, content);
+  }
+  // Update word count in toolbar
+  const wc = countWords(content);
+  const pc = Math.max(1, Math.ceil(wc / 400));
+  const wcEl = document.querySelector('.editor-toolbar-group [data-wc]');
+  if (wcEl) wcEl.textContent = `${wc.toLocaleString()}字 / 約${pc}ページ`;
+  // Show saving indicator
+  const ind = document.getElementById('editor-autosave-indicator');
+  if (ind) ind.innerHTML = '<i class="fas fa-circle-notch fa-spin" style="font-size:10px;color:var(--text-muted)"></i><span style="color:var(--text-muted)">保存中…</span>';
+  editorSaveTimer = setTimeout(() => {
+    saveEditorContent(projId, draftId);
+    if (ind) ind.innerHTML = '<i class="fas fa-cloud-check" style="font-size:10px;color:var(--matcha)"></i><span style="color:var(--matcha)">保存済み</span>';
+  }, 1500);
+}
+
+function openWordGoalModal(projId) {
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const current = proj.wordTarget || 12000;
+  openModal(`
+  <div class="modal-header"><div class="modal-title"><i class="fas fa-bullseye" style="color:var(--accent)"></i> 目標文字数を設定</div></div>
+  <div class="modal-body">
+    <div class="form-group">
+      <label class="form-label">目標文字数</label>
+      <input class="form-input" id="word-goal-input" type="number" value="${current}" min="100" step="100" placeholder="例：12000">
+      <div style="font-size:11px;color:var(--text-muted);margin-top:4px">目安：短編=4,000〜8,000字 / 1時間ドラマ=10,000〜14,000字 / 映画=12,000〜18,000字</div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+      ${[4000,8000,12000,16000].map(v=>`<button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="document.getElementById('word-goal-input').value=${v}">${v.toLocaleString()}字</button>`).join('')}
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeModal()">キャンセル</button>
+    <button class="btn btn-primary" onclick="saveWordGoal('${projId}')"><i class="fas fa-check"></i> 設定</button>
+  </div>`);
+}
+
+function saveWordGoal(projId) {
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const val = parseInt(document.getElementById('word-goal-input')?.value);
+  if (isNaN(val) || val < 100) { toast('有効な文字数を入力してください', 'error'); return; }
+  proj.wordTarget = val;
+  proj.updatedAt = now();
+  DB.saveProject(proj);
+  closeModal();
+  toast(`目標文字数を ${val.toLocaleString()}字 に設定しました`, 'success');
+  render();
 }
 
 function saveEditorContent(projId, draftId) {
@@ -4883,6 +4963,50 @@ const ARTICLES = [
     readTime: 10,
     desc: 'プロの脚本家は「初稿は捨て稿」と言う。7段階の推敲プロセス（大局→構造→シーン→セリフ→ト書き→テクニカル→最終読み）で、初稿を傑作に磨き上げる方法論。',
   },
+  {
+    id: 'genre-conventions',
+    title: 'ジャンル別・お約束と裏切り方',
+    subtitle: 'ホラー・コメディ・サスペンスなど各ジャンルの定石とその覆し方',
+    category: '執筆技法',
+    categoryColor: 'fuji',
+    icon: 'fa-masks-theater',
+    tags: ['ジャンル','ホラー','コメディ','サスペンス'],
+    readTime: 10,
+    desc: '各ジャンルには観客が「期待するもの」がある。その期待を満たしながら、どこかで意外性を出すことがジャンル脚本の醍醐味。ジャンル別の定石と破り方を解説。',
+  },
+  {
+    id: 'world-building',
+    title: '世界観設計の技法 — 観客を異世界に没入させる',
+    subtitle: 'SF・ファンタジー・時代劇の世界観を脚本でどう表現するか',
+    category: '執筆技法',
+    categoryColor: 'asagi',
+    icon: 'fa-globe',
+    tags: ['世界観','SF','ファンタジー','設定'],
+    readTime: 9,
+    desc: '世界観は「説明」ではなく「体験」として提示する。設定の出し方・見せ方・観客への情報の渡し方を設計するテクニックを解説。情報過多による「設定おたく罠」の回避法も。',
+  },
+  {
+    id: 'opening-scenes',
+    title: '最初の10ページで勝負は決まる',
+    subtitle: 'プロデューサーの心を掴む脚本の冒頭設計術',
+    category: '執筆技法',
+    categoryColor: 'beni',
+    icon: 'fa-door-open',
+    tags: ['冒頭','オープニング','フック','掴み'],
+    readTime: 8,
+    desc: '脚本の最初の10ページで読者は「続きを読むか」を決める。強力なフック、キャラクターの即時提示、世界観の確立、ジャンルのトーン設定——冒頭10ページに込めるべきすべてを解説。',
+  },
+  {
+    id: 'theme-integration',
+    title: 'テーマを「隠す」技術',
+    subtitle: '説教臭くならずにテーマを物語に織り込む方法',
+    category: '執筆技法',
+    categoryColor: 'kogane',
+    icon: 'fa-thread',
+    tags: ['テーマ','サブテキスト','象徴','物語'],
+    readTime: 9,
+    desc: '良い脚本はテーマを語らない——テーマを見せる。「これはこういう話です」と説明することなく、キャラクターの行動・対話・イメージによってテーマを伝える技術を解説。',
+  },
 ];
 
 // ガイドデータ
@@ -5115,6 +5239,8 @@ function renderLearnPage() {
     const guideCards = GUIDES.map(g => {
       const c = COLOR_MAP[g.color] || COLOR_MAP['fuji'];
       const isRead = readGuides.includes(`guide-${g.id}`);
+      const completedSteps = DB.get(`guide_steps_guide-${g.id}`, []);
+      const stepPct = g.steps > 0 ? Math.round(completedSteps.length / g.steps * 100) : 0;
       return `
       <div class="guide-card" style="position:relative" onclick="navigate('article-guide-${g.id}')">
         ${isRead ? `<div style="position:absolute;top:10px;right:10px;width:22px;height:22px;border-radius:50%;background:var(--matcha);display:flex;align-items:center;justify-content:center;z-index:1"><i class="fas fa-check" style="color:white;font-size:10px"></i></div>` : ''}
@@ -5123,6 +5249,12 @@ function renderLearnPage() {
         </div>
         <div class="guide-card-title">${esc(g.title)}</div>
         <div class="guide-card-desc">${esc(g.desc)}</div>
+        ${stepPct > 0 ? `<div style="margin-top:8px">
+          <div style="height:4px;background:var(--bg-hover);border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:${stepPct}%;background:${c.color};border-radius:2px;transition:width .4s"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${completedSteps.length}/${g.steps}ステップ完了 (${stepPct}%)</div>
+        </div>` : ''}
         <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between">
           <span style="font-size:10.5px;color:var(--text-muted)"><i class="fas fa-list-check" style="font-size:9px;margin-right:3px"></i>${g.steps}ステップ</span>
           <span style="font-size:11px;color:${isRead?'var(--matcha)':c.color};font-weight:600">${isRead?'<i class="fas fa-redo" style="font-size:9px"></i> 読み直す':'読む <i class="fas fa-arrow-right" style="font-size:9px"></i>'}</span>
@@ -5192,6 +5324,10 @@ function renderArticlePage(articleId) {
     'emotional-design': renderArticleEmotionalDesign(),
     'act2-breakthrough': renderArticleAct2Breakthrough(),
     'professional-revision': renderArticleProfessionalRevision(),
+    'genre-conventions': renderArticleGenreConventions(),
+    'world-building': renderArticleWorldBuilding(),
+    'opening-scenes': renderArticleOpeningScenes(),
+    'theme-integration': renderArticleThemeIntegration(),
   };
 
   const body = bodies[articleId] || `<p>コンテンツは準備中です。</p>`;
@@ -5604,6 +5740,32 @@ function setLearnFilter(key, val) {
 function clearLearnFilter() {
   DB.set('learn_article_filter', { category: '', search: '', showBookmark: false });
   navigate('learn-articles');
+}
+
+function toggleGuideStep(guideId, stepNum, checked) {
+  const key = `guide_steps_${guideId}`;
+  let steps = DB.get(key, []);
+  if (checked) {
+    if (!steps.includes(stepNum)) steps.push(stepNum);
+  } else {
+    steps = steps.filter(s => s !== stepNum);
+  }
+  DB.set(key, steps);
+  // Update progress display without full re-render
+  const pct = Math.round(steps.length / (GUIDES.find(g=>`guide-${g.id}`===guideId)?.steps||1) * 100);
+  const bar = document.querySelector('.article-header ~ div .card [style*="border-radius:3px"]:last-of-type > div');
+  if (bar) bar.style.width = pct + '%';
+  const countEl = document.querySelector('.article-header ~ div .card [style*="text-align:center"]');
+  if (countEl && countEl.textContent.includes('ステップ完了')) {
+    const guide = GUIDES.find(g=>`guide-${g.id}`===guideId);
+    if (guide) countEl.textContent = `${steps.length}/${guide.steps} ステップ完了`;
+  }
+}
+
+function resetGuideSteps(guideId) {
+  DB.set(`guide_steps_${guideId}`, []);
+  render();
+  toast('進捗をリセットしました', 'info');
 }
 
 function renderArticleSubtext() {
@@ -6700,6 +6862,141 @@ function renderArticleProfessionalRevision() {
   </div>`;
 }
 
+function renderArticleGenreConventions() {
+  return `
+  <div class="article-callout fuji">
+    ジャンルは「観客との約束」です。その約束を守りながらどこかで裏切ることで、印象に残る作品になります。
+  </div>
+  <h2>ジャンルとは観客との契約</h2>
+  <p>ホラーを観に行った観客は「怖がらせてくれ」という期待を持っています。コメディを観に行った観客は「笑わせてくれ」という期待を持っています。この期待を無視することはできません。しかし、期待通りにすべてを満たすだけでは「凡作」になります。</p>
+  <div class="article-callout kogane">
+    <strong>鉄則：</strong>ジャンルの定石を「知った上で」破ること。定石を知らずに破ると単なる失敗作になります。
+  </div>
+  <h2>主要ジャンルの定石と裏切り方</h2>
+  <div class="beat-list">
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--momo)">🎭</div>
+      <div class="beat-content">
+        <div class="beat-title">ホラー</div>
+        <div class="beat-desc"><strong>定石：</strong>孤立した場所、徐々に迫る恐怖、キャラクターの愚かな行動、謎の解明。<br><strong>裏切り方：</strong>怪物を日常に持ち込む（「ゲット・アウト」）、ホラーを家族ドラマに変換する（「ヘレディタリー」）</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--kogane)">😄</div>
+      <div class="beat-content">
+        <div class="beat-title">コメディ</div>
+        <div class="beat-desc"><strong>定石：</strong>誤解・すれ違い・立場の逆転、笑いのリズム（テンポ）、フィジカル・バーバル・シチュエーション。<br><strong>裏切い方：</strong>社会問題をコメディで包む（「SORRY TO BOTHER YOU」）、真剣な感情をコメディの中に突然挿入</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--kon-lt)">🔍</div>
+      <div class="beat-content">
+        <div class="beat-title">サスペンス・ミステリー</div>
+        <div class="beat-desc"><strong>定石：</strong>謎の提示→手がかりの収集→誤方向→解決。情報の非対称性（観客は知っているが主人公は知らない）。<br><strong>裏切い方：</strong>「誰が」より「なぜ」を問う構造（心理サスペンス）、探偵が犯人だった</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--fuji)">💙</div>
+      <div class="beat-content">
+        <div class="beat-title">ラブストーリー</div>
+        <div class="beat-desc"><strong>定石：</strong>出会い・引力・障害・危機・再結合。「おじゃまキャラ」の存在。「人は変われる」というメッセージ。<br><strong>裏切り方：</strong>ハッピーエンドにしない（「ラ・ラ・ランド」）、愛の定義を問い直す（「her/世界でひとつの彼女」）</div>
+      </div>
+    </div>
+  </div>
+  <h2>ジャンルミックスの技法</h2>
+  <p>現代の優れた映画・ドラマの多くはジャンルをミックスしています。コメディ×ホラー（「ジョーダン・ピール作品」）、SF×恋愛（「エターナル・サンシャイン」）、ファンタジー×社会問題（「シェイプ・オブ・ウォーター」）。</p>
+  <div class="article-callout matcha">
+    <strong>実践：</strong>次に観る映画・ドラマで「このジャンルの定石は何か？」「どこで裏切っているか？」を意識して観てみてください。これが最速の勉強法です。
+  </div>`;
+}
+
+function renderArticleWorldBuilding() {
+  return `
+  <div class="article-callout asagi">
+    優れた世界観設計は「見せる」もの。「私の世界にはこんなルールがあります」と説明するのではなく、観客に自然に「体験」させます。
+  </div>
+  <h2>世界観設計の基本原則</h2>
+  <p>SF・ファンタジー・時代劇など、リアルとは異なる世界を舞台にする場合、世界観設計は脚本作業の核心になります。しかし多くの初心者がはまる罠があります。</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0">
+    <div style="background:var(--momo-bg);border:1px solid var(--momo-border);border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--momo);margin-bottom:8px">❌ 設定説明の罠</div>
+      <div style="font-size:12px;color:var(--text-secondary);line-height:1.8">「この世界では魔法は17歳以下しか使えません。なぜならば……」と冒頭から延々と説明するオープニング。観客は眠る。</div>
+    </div>
+    <div style="background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--matcha);margin-bottom:8px">✅ 体験から学ばせる</div>
+      <div style="font-size:12px;color:var(--text-secondary);line-height:1.8">「18歳になった主人公が魔法を使おうとして失敗する」→観客は「大人になると使えないのか」と自然に学ぶ。</div>
+    </div>
+  </div>
+  <h2>世界観の3レイヤー構造</h2>
+  <div class="beat-list">
+    <div class="beat-item"><div class="beat-num" style="background:var(--asagi)">表</div><div class="beat-content"><div class="beat-title">表層（Surface）: 観客に見えるもの</div><div class="beat-desc">衣装・建築・テクノロジー・言語。これが「世界の顔」。凝りすぎると本末転倒。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--kon-lt)">中</div><div class="beat-content"><div class="beat-title">中層（Rules）: 世界のルール</div><div class="beat-desc">物理法則・魔法のコスト・権力構造。主人公と対立に影響するルールを優先設計。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--fuji)">深</div><div class="beat-content"><div class="beat-title">深層（History）: 歴史と文化</div><div class="beat-desc">なぜこの世界はこうなっているか。観客には見えなくても作者は知っている必要がある。</div></div></div>
+  </div>
+  <h2>情報の出し方：砂糖の一粒ずつ</h2>
+  <p>世界観情報は「物語が必要とするタイミング」で出す。これが「Need-to-Know Principle（知る必要があるときの原則）」です。</p>
+  <div class="article-callout kogane">
+    <strong>実践ワーク：</strong>あなたの世界観設定リストを作り、「この情報はどのシーンで必要になるか」を書き込んでください。必要なシーンがない情報は削除またはメモに留めておく。
+  </div>`;
+}
+
+function renderArticleOpeningScenes() {
+  return `
+  <div class="article-callout beni">
+    プロデューサーや評価者が脚本を読むとき、最初の10ページで「読み続けるかどうか」を決めます。10ページは命綱です。
+  </div>
+  <h2>最初の10ページが持つべき5つの要素</h2>
+  <div class="beat-list">
+    <div class="beat-item"><div class="beat-num" style="background:var(--accent)">1</div><div class="beat-content"><div class="beat-title">フック（引き）</div><div class="beat-desc">冒頭1〜3ページで「これはどんな話だろう」という疑問・緊張・好奇心を生む出来事。映像的なインパクトが効果的。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--accent)">2</div><div class="beat-content"><div class="beat-title">主人公の即時提示</div><div class="beat-desc">主人公は遅くとも5ページ以内に登場し、彼/彼女が「どんな人物か」が行動で伝わること。セリフや説明でなく「何をするか」で見せる。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--accent)">3</div><div class="beat-content"><div class="beat-title">世界観・ジャンルの宣言</div><div class="beat-desc">冒頭10ページで「この作品はどんなジャンル・トーンか」が明確になること。コメディなら笑い、ホラーなら不安、サスペンスなら謎。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--accent)">4</div><div class="beat-content"><div class="beat-title">日常世界の確立</div><div class="beat-desc">主人公の「特別な出来事が起きる前の日常」を見せる。変化はコントラストで際立つ。日常がなければ非日常は伝わらない。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--accent)">5</div><div class="beat-content"><div class="beat-title">テーマの種を蒔く</div><div class="beat-desc">テーマに関わる「疑問」または「イメージ」を冒頭に忍ばせる。これが作品全体の伏線となり、ラストで回収される。</div></div></div>
+  </div>
+  <h2>よくある冒頭の失敗パターン</h2>
+  <ul style="font-size:12.5px;line-height:2;color:var(--text-secondary)">
+    <li>❌ <strong>夢オチオープニング：</strong>最初に衝撃的な場面を見せて「目が覚めると…」。観客の信頼を失う最速の方法。</li>
+    <li>❌ <strong>設定説明ナレーション：</strong>「西暦2087年、地球は…」と延々と説明。映像ではなく言葉で解決しようとする癖。</li>
+    <li>❌ <strong>主人公の独白的自己紹介：</strong>「私の名前は田中一郎、35歳で…」という直接的な人物説明。行動で見せること。</li>
+    <li>❌ <strong>スロースタート：</strong>最初の5ページで何も起きない。平凡な朝の描写が続く。</li>
+  </ul>
+  <div class="article-callout matcha">
+    <strong>実践ワーク：</strong>好きな映画・ドラマの最初の5〜10分を「どんな要素が含まれているか」を分析してみましょう。上の5要素がいつ・どのように提示されているかをメモすることが最速の学習法です。
+  </div>`;
+}
+
+function renderArticleThemeIntegration() {
+  return `
+  <div class="article-callout kogane">
+    「このドラマが言いたいことは愛の大切さです」と脚本に書いてはいけません。テーマは語るのではなく、体験させるものです。
+  </div>
+  <h2>テーマとは何か</h2>
+  <p>テーマとは「この物語が問いかける根本的な命題」のことです。「義務と自由」「報復と赦し」「個人と社会」——これらは答えではなく問いです。優れた物語はテーマについて答えを押し付けるのではなく、観客に考えさせます。</p>
+  <h2>テーマを「隠す」5つの技法</h2>
+  <div class="beat-list">
+    <div class="beat-item"><div class="beat-num" style="background:var(--kogane)">1</div><div class="beat-content"><div class="beat-title">対立構造でテーマを体現</div><div class="beat-desc">テーマの両側を代表するキャラクター同士を対立させる。「自由」と「責任」をそれぞれ体現する登場人物が衝突するとき、テーマは自動的に浮かび上がる。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--kogane)">2</div><div class="beat-content"><div class="beat-title">象徴・イメージの反復</div><div class="beat-desc">テーマに関連する物・色・場所を繰り返し登場させる。「扉」が開放性の象徴として冒頭と末尾に登場することで、テーマを視覚的に伝える。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--kogane)">3</div><div class="beat-content"><div class="beat-title">プレミス文にテーマを埋め込む</div><div class="beat-desc">「〜すれば〜になる」という形でテーマを格言化し、脚本家だけが知っている「指針」にする。例：「正義を求めすぎると、自分が怪物になる」</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--kogane)">4</div><div class="beat-content"><div class="beat-title">脇役にテーマの別の回答をさせる</div><div class="beat-desc">主人公と同じ問題に直面した脇役が「別の選択をする」ことで、テーマの複数の側面を見せる。主人公の選択の意味が深まる。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--kogane)">5</div><div class="beat-content"><div class="beat-title">結末でテーマを問い直す</div><div class="beat-desc">ラストシーンでオープニングのイメージ・セリフ・状況を変奏して繰り返す。「同じ状況で主人公がどう変わったか」がテーマを答えとして静かに伝える。</div></div></div>
+  </div>
+  <h2>「説教」にならないために</h2>
+  <p>テーマを直接語らせることを「オン・ザ・ノーズ（On the nose）」と呼び、脚本界では最大のタブーの一つです。</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0">
+    <div style="background:var(--momo-bg);border:1px solid var(--momo-border);border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--momo);margin-bottom:6px">❌ オン・ザ・ノーズ</div>
+      <div style="font-size:12px;color:var(--text-secondary);line-height:1.8;font-style:italic">「大切なのはお金じゃない。家族なんだよ。それがわかってよかったよ」</div>
+    </div>
+    <div style="background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--matcha);margin-bottom:6px">✅ テーマを行動で見せる</div>
+      <div style="font-size:12px;color:var(--text-secondary);line-height:1.8;font-style:italic">昇進の書類にサインするペンを置き、父の電話に出る。「もしもし、父さん？……うん、今から行くよ」</div>
+    </div>
+  </div>
+  <div class="article-callout fuji">
+    <strong>実践ワーク：</strong>自分の脚本の「テーマ」を一文で書いてみましょう（例：「信頼は裏切られることで初めて本物になる」）。そのテーマが「セリフで語られている場所」を探し、行動・イメージ・状況に置き換えてください。
+  </div>`;
+}
+
 function renderGuidePage(guideId) {
   const guide = GUIDES.find(g => `guide-${g.id}` === guideId);
   if (!guide) {
@@ -6727,10 +7024,10 @@ function renderGuidePage(guideId) {
   // ガイド進捗トラッキング
   const readGuides = DB.get('read_guides', []);
   const isRead = readGuides.includes(guideId);
-  function markGuideRead() {
-    const rg = DB.get('read_guides', []);
-    if (!rg.includes(guideId)) { rg.push(guideId); DB.set('read_guides', rg); }
-  }
+  // 各ガイドのステップ完了トラッキング
+  const guideStepsKey = `guide_steps_${guideId}`;
+  const completedSteps = DB.get(guideStepsKey, []);
+
   // 自動既読マーク
   setTimeout(() => {
     const rg = DB.get('read_guides', []);
@@ -6740,6 +7037,19 @@ function renderGuidePage(guideId) {
   const guideIdx = GUIDES.findIndex(g => `guide-${g.id}` === guideId);
   const prevGuide = guideIdx > 0 ? GUIDES[guideIdx - 1] : null;
   const nextGuide = guideIdx < GUIDES.length - 1 ? GUIDES[guideIdx + 1] : null;
+
+  // ステップチェックリスト生成
+  const stepChecks = Array.from({length: guide.steps}, (_,i) => {
+    const stepNum = i + 1;
+    const isDone = completedSteps.includes(stepNum);
+    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:${isDone?'var(--matcha-bg)':'var(--bg-subtle)'};border:1px solid ${isDone?'var(--matcha-border)':'var(--border)'};border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-weight:600;color:${isDone?'var(--matcha)':'var(--text-secondary)'};transition:all .2s">
+      <input type="checkbox" ${isDone?'checked':''} onchange="toggleGuideStep('${guideId}',${stepNum},this.checked)" style="accent-color:var(--matcha);width:15px;height:15px">
+      <i class="fas fa-${isDone?'check-circle':'circle'}" style="font-size:11px;color:${isDone?'var(--matcha)':'var(--text-muted)'}"></i>
+      Step ${stepNum}
+    </label>`;
+  }).join('');
+
+  const stepPct = guide.steps > 0 ? Math.round(completedSteps.length / guide.steps * 100) : 0;
 
   return `
   <div style="max-width:820px">
@@ -6753,15 +7063,42 @@ function renderGuidePage(guideId) {
           <i class="fas ${guide.icon}"></i> ステップバイステップガイド
         </div>
         ${isRead ? `<span style="font-size:11px;padding:3px 10px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border);border-radius:10px;font-weight:600"><i class="fas fa-check"></i> 読了</span>` : ''}
+        ${stepPct > 0 ? `<span style="font-size:11px;padding:3px 10px;background:var(--fuji-bg);color:var(--fuji);border:1px solid var(--fuji-border);border-radius:10px;font-weight:600"><i class="fas fa-tasks"></i> ${stepPct}% 完了</span>` : ''}
       </div>
       <div class="article-title">${esc(guide.title)}</div>
       <div class="article-subtitle">${esc(guide.desc)}</div>
       <div class="article-meta-row">
         <span><i class="fas fa-list-check" style="margin-right:3px"></i>${guide.steps}ステップ</span>
         <span style="color:var(--text-muted)">ガイド ${guideIdx+1}/${GUIDES.length}</span>
+        <span style="color:var(--text-muted)"><i class="fas fa-clock" style="margin-right:3px"></i>約${Math.ceil(guide.steps*2)}〜${guide.steps*3}分</span>
       </div>
     </div>
-    <div class="article-body">${body}</div>
+
+    <div style="display:grid;grid-template-columns:1fr 200px;gap:20px;align-items:start">
+      <div>
+        <div class="article-body">${body}</div>
+      </div>
+      <div style="position:sticky;top:80px">
+        <div class="card" style="padding:14px">
+          <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:10px">
+            <i class="fas fa-tasks" style="color:${c.color};margin-right:5px"></i>進捗チェック
+          </div>
+          <div style="height:6px;background:var(--bg-hover);border-radius:3px;overflow:hidden;margin-bottom:10px">
+            <div style="height:100%;width:${stepPct}%;background:${c.color};border-radius:3px;transition:width .4s"></div>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;text-align:center">${completedSteps.length}/${guide.steps} ステップ完了</div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            ${stepChecks}
+          </div>
+          ${completedSteps.length === guide.steps ? `
+          <div style="margin-top:12px;padding:8px;background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-sm);text-align:center;font-size:11.5px;font-weight:700;color:var(--matcha)">
+            🎉 全ステップ完了！
+          </div>` : ''}
+          ${nextGuide ? `<button class="btn btn-primary btn-sm" style="width:100%;margin-top:10px" onclick="navigate('article-guide-${nextGuide.id}')"><i class="fas fa-chevron-right"></i> 次のガイドへ</button>` : ''}
+        </div>
+      </div>
+    </div>
+
     <div style="margin-top:36px;padding-top:20px;border-top:1px solid var(--border)">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
         <button class="btn btn-secondary" onclick="navigate('learn-guide')">
@@ -6775,6 +7112,7 @@ function renderGuidePage(guideId) {
       <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" onclick="navigate('learn-articles')"><i class="fas fa-newspaper"></i> 記事も見る</button>
         <button class="btn btn-ghost btn-sm" onclick="navigate('learn-guide')"><i class="fas fa-list"></i> すべてのガイド</button>
+        <button class="btn btn-ghost btn-sm" onclick="resetGuideSteps('${guideId}')"><i class="fas fa-rotate-left"></i> 進捗リセット</button>
       </div>
     </div>
   </div>`;
@@ -6791,15 +7129,41 @@ function renderGuideBasics() {
     <div class="concept-card-sm"><span class="icon">🎬</span><div class="label">映像のみ</div><div class="sub">カメラに映るものだけを書く</div></div>
     <div class="concept-card-sm"><span class="icon">🎭</span><div class="label">行動と対話</div><div class="sub">キャラクターは行動と言葉で語る</div></div>
     <div class="concept-card-sm"><span class="icon">⏱️</span><div class="label">1ページ≒1分</div><div class="sub">日本式は概ね1ページ1〜1.5分</div></div>
+    <div class="concept-card-sm"><span class="icon">🤝</span><div class="label">協業の設計図</div><div class="sub">監督・俳優・スタッフが読む文書</div></div>
   </div>
   <h2>Step 2 — 小説との違い</h2>
   <p>最大の違いは「内面を直接書けない」こと。「彼女は悲しかった」ではなく「彼女は窓の外を見つめ、何も言わなかった」と書く。感情は行動と映像で表現します。</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0">
+    <div style="background:var(--momo-bg);border:1px solid var(--momo-border);border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--momo);margin-bottom:6px">❌ 小説的な書き方</div>
+      <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.8;font-style:italic">「彼女は深い悲しみを感じながら、窓の外の灰色の空を見た。もう会えないと思うと、胸が締め付けられた。」</div>
+    </div>
+    <div style="background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--matcha);margin-bottom:6px">✅ 脚本的な書き方</div>
+      <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.8;font-style:italic">「美咲、窓の外を見つめる。<br>雨が降り始める。<br>美咲は何も言わない。」</div>
+    </div>
+  </div>
   <h2>Step 3 — 必要なマインドセット</h2>
   <p>脚本執筆に最も大切な心構えは「<strong>完璧な初稿は存在しない</strong>」ということ。プロの脚本家も初稿は荒削りです。まず書き切ることを最優先にしましょう。</p>
+  <div class="article-callout matcha">
+    <strong>「初稿は泥、最終稿は宝石」</strong> — Aaron Sorkin（ソーシャル・ネットワーク脚本家）。最初の一稿は「書き切る」ことだけを目標にする。判断・批評は後回しにする。
+  </div>
   <h2>Step 4 — ツールと環境</h2>
   <p>専用ソフトは不要。シナリオラボを使えば日本式フォーマットで書けます。重要なのはツールより習慣。毎日少しでも書く時間を確保することです。</p>
+  <div class="beat-list">
+    <div class="beat-item"><div class="beat-num" style="background:var(--fuji)">1</div><div class="beat-content"><div class="beat-title">固定時間で書く</div><div class="beat-desc">「起きてから30分」「昼休み」など、毎日同じ時間に書く習慣が最強の生産性向上策</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--fuji)">2</div><div class="beat-content"><div class="beat-title">最小単位で始める</div><div class="beat-desc">「1シーンだけ書く」という小さなゴール設定が継続の鍵。完璧主義は後回しに</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--fuji)">3</div><div class="beat-content"><div class="beat-title">書く場所を決める</div><div class="beat-desc">同じ場所・環境で書く習慣は、脳に「ここが執筆モードだ」と教える強力なトリガー</div></div></div>
+  </div>
   <h2>Step 5 — 最初の一歩</h2>
-  <p>まずは「どんな物語を書きたいか」を一文で書きましょう。「誰が」「何をしたいのか」「何が邪魔をするのか」の三要素が揃えば、あなたはもう脚本を書き始められます。</p>`;
+  <p>まずは「どんな物語を書きたいか」を一文で書きましょう。「誰が」「何をしたいのか」「何が邪魔をするのか」の三要素が揃えば、あなたはもう脚本を書き始められます。</p>
+  <div class="article-callout kogane">
+    <strong>実践ワーク：</strong>今すぐ「メモ」や「インスピレーション」に以下の3つを書いてみましょう。<br>
+    ① 主人公は誰？（職業・年齢・特徴を1行で）<br>
+    ② 何をしようとしている？（具体的なゴール）<br>
+    ③ 何が邪魔をする？（外的または内的な障害）<br>
+    この3行があれば、あなたはもう脚本の骨格を持っています。
+  </div>`;
 }
 
 function renderGuideFormat() {
@@ -7209,6 +7573,9 @@ function renderToolsPage() {
   if (cp === 'tool-pitch') return renderToolPitch();
   if (cp === 'tool-tension') return renderToolTension();
   if (cp === 'tool-name-gen') return renderToolNameGen();
+  if (cp === 'tool-structure') return renderToolStructure();
+  if (cp === 'tool-emotion-arc') return renderToolEmotionArc();
+  if (cp === 'tool-world-notes') return renderToolWorldNotes();
 
   // カテゴリ分けされたツール一覧
   const TOOL_CATEGORIES = [
@@ -7224,6 +7591,7 @@ function renderToolsPage() {
         { id:'tool-logline', title:'ログラインメーカー', icon:'fa-quote-left', color:'beni', desc:'4要素入力でプロ品質のログラインを複数生成', badge:'おすすめ' },
         { id:'tool-pitch', title:'ピッチドック・メーカー', icon:'fa-bullhorn', color:'beni', desc:'企画書・あらすじ・ピッチ文書を自動生成', badge:'新機能' },
         { id:'tool-tension', title:'テンションカーブ設計', icon:'fa-chart-line', color:'momo', desc:'物語全体の緊張度を視覚化・設計', badge:'新機能' },
+        { id:'tool-structure', title:'構成チェッカー', icon:'fa-diagram-project', color:'kon', desc:'三幕構成・Save the Cat など複数フレームで物語を検証', badge:'新機能' },
       ],
     },
     {
@@ -7237,6 +7605,7 @@ function renderToolsPage() {
       tools: [
         { id:'tool-char-diag', title:'キャラクター診断シート', icon:'fa-user-check', color:'fuji', desc:'Want/Need・バックストーリー・アーク設計を整理' },
         { id:'tool-name-gen', title:'キャラクター名ジェネレーター', icon:'fa-signature', color:'kon', desc:'和風・洋風・古風・SF系の名前を自動生成', badge:'新機能' },
+        { id:'tool-emotion-arc', title:'感情アーク設計', icon:'fa-heart-pulse', color:'momo', desc:'キャラクターの感情変化曲線を視覚的に設計', badge:'新機能' },
       ],
     },
     {
@@ -7250,6 +7619,7 @@ function renderToolsPage() {
       tools: [
         { id:'tool-scene', title:'シーン構造チェッカー', icon:'fa-film', color:'momo', desc:'入口・目的・対立・出口の4要素を診断' },
         { id:'tool-timer', title:'執筆タイマー（ポモドーロ）', icon:'fa-stopwatch', color:'kogane', desc:'25分集中＋5分休憩で生産性アップ' },
+        { id:'tool-world-notes', title:'世界観メモパッド', icon:'fa-globe', color:'asagi', desc:'設定・ルール・用語・地名などを素早くメモ', badge:'新機能' },
       ],
     },
   ];
@@ -8767,6 +9137,377 @@ function removeNameFavorite(name) {
 
 function copyToClipboard(text) {
   navigator.clipboard?.writeText(text).then(() => toast('コピーしました', 'success'));
+}
+
+// ================================================================
+//  TOOL: 構成チェッカー
+// ================================================================
+function renderToolStructure() {
+  return `
+  <div class="article-back-btn" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</div>
+  <div class="section-header">
+    <div class="section-title"><i class="fas fa-diagram-project" style="color:var(--kon-lt)"></i> 構成チェッカー</div>
+    <div class="section-desc">三幕構成・Save the Cat・起承転結など複数フレームワークで物語の骨格を検証します</div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-pen icon" style="color:var(--kon-lt)"></i> 物語の要素を入力</div></div>
+        <div class="form-group"><label class="form-label">タイトル</label><input class="form-input" id="strchk-title" placeholder="例：夜明けの証言"></div>
+        <div class="form-group"><label class="form-label">主人公と目標 <span style="color:var(--accent)">*</span></label><textarea class="form-textarea" id="strchk-hero" rows="2" placeholder="例：元刑事の木村が、15年前の冤罪事件の真犯人を見つけようとしている"></textarea></div>
+        <div class="form-group"><label class="form-label">主な障害 <span style="color:var(--accent)">*</span></label><textarea class="form-textarea" id="strchk-obstacle" rows="2" placeholder="例：権力者による隠蔽工作、信頼できる証人の不在"></textarea></div>
+        <div class="form-group"><label class="form-label">物語の中盤（ミッドポイント）</label><textarea class="form-textarea" id="strchk-mid" rows="2" placeholder="例：木村が真犯人の一部を掴んだが逆に追われる立場に"></textarea></div>
+        <div class="form-group"><label class="form-label">クライマックス・結末</label><textarea class="form-textarea" id="strchk-climax" rows="2" placeholder="例：証拠を公開、真実が明かされ主人公が変化する"></textarea></div>
+        <div class="form-group">
+          <label class="form-label">チェックするフレームワーク</label>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            ${[
+              {id:'three-act', label:'三幕構成'},
+              {id:'save-cat', label:'Save the Cat'},
+              {id:'kishotenketsu', label:'起承転結'},
+              {id:'hero-journey', label:'英雄の旅'},
+            ].map(f=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer;padding:5px 10px;background:var(--bg-subtle);border:1.5px solid var(--border);border-radius:var(--radius-sm)">
+              <input type="checkbox" id="strchk-fw-${f.id}" checked style="accent-color:var(--kon-lt)"> ${f.label}
+            </label>`).join('')}
+          </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="checkStructure()"><i class="fas fa-magnifying-glass"></i> 構成を分析する</button>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="min-height:500px">
+        <div class="card-header"><div class="card-title"><i class="fas fa-chart-bar icon" style="color:var(--kon-lt)"></i> 分析結果</div></div>
+        <div id="strchk-results">
+          <div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
+            <i class="fas fa-diagram-project" style="font-size:40px;display:block;margin-bottom:14px;opacity:0.2"></i>
+            <div style="font-size:13px">物語の要素を入力して<br>分析ボタンを押してください</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function checkStructure() {
+  const hero = document.getElementById('strchk-hero')?.value.trim();
+  const obstacle = document.getElementById('strchk-obstacle')?.value.trim();
+  const mid = document.getElementById('strchk-mid')?.value.trim();
+  const climax = document.getElementById('strchk-climax')?.value.trim();
+  if (!hero || !obstacle) { toast('主人公と障害は必須です', 'error'); return; }
+
+  const frameworks = [
+    {id:'three-act', name:'三幕構成'},
+    {id:'save-cat', name:'Save the Cat'},
+    {id:'kishotenketsu', name:'起承転結'},
+    {id:'hero-journey', name:'英雄の旅'},
+  ].filter(f => document.getElementById(`strchk-fw-${f.id}`)?.checked);
+
+  const scores = {};
+  let totalScore = 0;
+  const checks = {
+    hasHero: hero.length >= 10,
+    hasGoal: hero.includes('が') || hero.includes('を') || hero.includes('しよう'),
+    hasObstacle: obstacle.length >= 8,
+    hasMidpoint: mid.length >= 10,
+    hasClimax: climax.length >= 10,
+    hasChange: climax.includes('変化') || climax.includes('気づ') || climax.includes('成長') || climax.includes('解決'),
+  };
+
+  const items = [
+    { key:'hasHero', label:'主人公の設定', desc:'主人公が具体的に設定されている', ok: checks.hasHero },
+    { key:'hasGoal', label:'明確な目標', desc:'主人公が何を達成しようとするか明確', ok: checks.hasGoal },
+    { key:'hasObstacle', label:'具体的な障害', desc:'目標達成を阻む障害が具体的', ok: checks.hasObstacle },
+    { key:'hasMidpoint', label:'ミッドポイント', desc:'物語中盤に転換点がある', ok: checks.hasMidpoint },
+    { key:'hasClimax', label:'クライマックス', desc:'物語の頂点と結末が設定されている', ok: checks.hasClimax },
+    { key:'hasChange', label:'キャラクターの変化', desc:'主人公が変化・成長する要素がある', ok: checks.hasChange },
+  ];
+
+  const passCount = items.filter(i => i.ok).length;
+  const pct = Math.round(passCount / items.length * 100);
+
+  const checklistHtml = items.map(item => `
+  <div style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border-light)">
+    <div style="width:22px;height:22px;border-radius:50%;background:${item.ok?'var(--matcha-bg)':'var(--bg-hover)'};color:${item.ok?'var(--matcha)':'var(--text-muted)'};display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0">
+      <i class="fas ${item.ok?'fa-check':'fa-xmark'}"></i>
+    </div>
+    <div>
+      <div style="font-size:12.5px;font-weight:600;color:${item.ok?'var(--text-primary)':'var(--text-muted)'}">${item.label}</div>
+      <div style="font-size:11px;color:var(--text-muted)">${item.desc}</div>
+    </div>
+  </div>`).join('');
+
+  const fwResultHtml = frameworks.map(fw => {
+    const tips = {
+      'three-act': !checks.hasMidpoint ? '⚠️ 第二幕のミッドポイントが不明確です。物語中盤の転換を追加してください。' : '✅ 三幕の基本構造が揃っています。',
+      'save-cat': !checks.hasHero || !checks.hasChange ? '⚠️ Save the Catでは「オープニングイメージ」と「ファイナルイメージ」の対比が重要です。主人公の変化を明確に。' : '✅ Save the Cat の変化フレームに対応しています。',
+      'kishotenketsu': !checks.hasObstacle ? '⚠️ 「転」の要素（予想外の転換）が弱いです。障害をさらに具体化してください。' : '✅ 起承転結の流れが確認できます。',
+      'hero-journey': !checks.hasMidpoint ? '⚠️ 英雄の旅では「試練」の段階が重要です。中盤の挑戦を追加してください。' : '✅ 英雄の旅の基本要素が含まれています。',
+    };
+    return `
+    <div style="padding:10px;background:var(--bg-subtle);border-radius:var(--radius-sm);border:1px solid var(--border);margin-bottom:8px">
+      <div style="font-size:12px;font-weight:700;color:var(--kon-lt);margin-bottom:4px"><i class="fas fa-check-square" style="margin-right:5px"></i>${fw.name}</div>
+      <div style="font-size:11.5px;color:var(--text-secondary)">${tips[fw.id]||''}</div>
+    </div>`;
+  }).join('');
+
+  const el = document.getElementById('strchk-results');
+  if (el) el.innerHTML = `
+  <div style="margin-bottom:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:14px;font-weight:700;color:var(--text-primary)">総合スコア</div>
+      <div style="font-size:20px;font-weight:700;color:${pct>=80?'var(--matcha)':pct>=50?'var(--kogane)':'var(--accent)'}">${pct}<span style="font-size:12px">%</span></div>
+    </div>
+    <div style="height:8px;background:var(--bg-hover);border-radius:4px;overflow:hidden;margin-bottom:6px">
+      <div style="height:100%;width:${pct}%;background:linear-gradient(90deg,${pct>=80?'var(--matcha)':pct>=50?'var(--kogane)':'var(--accent)'},${pct>=80?'var(--matcha-lt)':pct>=50?'#e8c96e':'#f87a9a'});border-radius:4px;transition:width .6s"></div>
+    </div>
+    <div style="font-size:11.5px;color:var(--text-muted)">${pct>=80?'優れた構成です！':'いくつかの要素を追加するとさらに強くなります。'}</div>
+  </div>
+  <div style="margin-bottom:16px">
+    <div style="font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:8px">要素チェックリスト</div>
+    ${checklistHtml}
+  </div>
+  ${frameworks.length > 0 ? `<div><div style="font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:8px">フレームワーク別診断</div>${fwResultHtml}</div>` : ''}`;
+  toast('分析完了！', 'success');
+}
+
+// ================================================================
+//  TOOL: 感情アーク設計
+// ================================================================
+function renderToolEmotionArc() {
+  const arcData = JSON.parse(localStorage.getItem('sl_emotion_arc') || '{"scenes":[],"title":""}');
+  const scenes = arcData.scenes || [];
+
+  return `
+  <div class="article-back-btn" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</div>
+  <div class="section-header">
+    <div class="section-title"><i class="fas fa-heart-pulse" style="color:var(--momo)"></i> 感情アーク設計</div>
+    <div class="section-desc">各シーンのキャラクター感情変化を記録し、感情曲線を可視化します</div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-plus icon" style="color:var(--momo)"></i> シーンを追加</div></div>
+        <div class="form-group"><label class="form-label">シーン名/場面</label><input class="form-input" id="ea-scene-name" placeholder="例：警察署の尋問シーン"></div>
+        <div class="form-group">
+          <label class="form-label">感情レベル (1=最低 / 10=最高)</label>
+          <div style="display:flex;align-items:center;gap:10px">
+            <input type="range" id="ea-emotion-level" min="1" max="10" value="5" style="flex:1;accent-color:var(--momo)" oninput="document.getElementById('ea-level-display').textContent=this.value">
+            <span id="ea-level-display" style="font-size:16px;font-weight:700;color:var(--momo);min-width:20px">5</span>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">感情タイプ</label>
+          <div style="display:flex;flex-wrap:wrap;gap:6px" id="ea-emotion-select">
+            ${['希望','絶望','怒り','悲しみ','喜び','恐怖','驚き','安堵','葛藤','決意'].map(e=>`
+              <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="this.classList.toggle('active');this.style.background=this.classList.contains('active')?'var(--momo-bg)':''">${e}</button>
+            `).join('')}
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">メモ</label><textarea class="form-textarea" id="ea-memo" rows="2" placeholder="感情が動く理由・演出のポイント"></textarea></div>
+        <button class="btn btn-primary" style="width:100%" onclick="addEmotionScene()"><i class="fas fa-plus"></i> シーンを追加</button>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-list icon" style="color:var(--momo)"></i> シーン一覧</div>
+          <button class="btn btn-ghost btn-sm" onclick="clearEmotionArc()"><i class="fas fa-trash"></i> クリア</button>
+        </div>
+        <div id="ea-scene-list">
+          ${scenes.length === 0 ? '<div style="font-size:12px;color:var(--text-muted);text-align:center;padding:20px">シーンがありません</div>' :
+            scenes.map((s,i) => `
+            <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border-light)">
+              <div style="width:26px;height:26px;border-radius:50%;background:var(--momo-bg);color:var(--momo);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0">${s.level}</div>
+              <div style="flex:1;overflow:hidden">
+                <div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.name)}</div>
+                ${s.emotions?.length > 0 ? `<div style="font-size:10.5px;color:var(--text-muted)">${s.emotions.join('・')}</div>` : ''}
+              </div>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="removeEmotionScene(${i})"><i class="fas fa-xmark" style="font-size:10px"></i></button>
+            </div>`).join('')}
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-chart-line icon" style="color:var(--momo)"></i> 感情曲線</div></div>
+        <div id="ea-chart-wrap">
+          ${scenes.length < 2 ? `<div style="text-align:center;padding:60px 20px;color:var(--text-muted)"><i class="fas fa-heart-pulse" style="font-size:40px;display:block;margin-bottom:14px;opacity:0.2"></i><div style="font-size:13px">2シーン以上追加すると<br>感情曲線が表示されます</div></div>` : renderEmotionArcChart(scenes)}
+        </div>
+        ${scenes.length >= 2 ? `
+        <div style="margin-top:12px;padding:12px;background:var(--bg-subtle);border-radius:var(--radius-sm);font-size:12px">
+          <div style="font-weight:700;color:var(--text-primary);margin-bottom:6px"><i class="fas fa-lightbulb" style="color:var(--kogane);margin-right:5px"></i>分析コメント</div>
+          ${(() => {
+            const avg = scenes.reduce((a,s)=>a+s.level,0)/scenes.length;
+            const max = Math.max(...scenes.map(s=>s.level));
+            const min = Math.min(...scenes.map(s=>s.level));
+            const range = max - min;
+            const tips = [];
+            if (range < 3) tips.push('⚠️ 感情の振れ幅が小さいです。もっと起伏を作りましょう。');
+            if (avg > 7) tips.push('⚠️ 平均テンションが高すぎます。低いシーンを意図的に作りましょう。');
+            if (avg < 4) tips.push('⚠️ 全体的にテンションが低めです。山場の強化を検討してください。');
+            const lastScene = scenes[scenes.length-1];
+            if (lastScene && lastScene.level < 5) tips.push('💡 ラストシーンの感情レベルが低め。余韻を意識した設計かどうか確認してください。');
+            if (tips.length === 0) tips.push('✅ バランスの良い感情曲線です！');
+            return tips.map(t=>`<div style="color:var(--text-secondary);line-height:1.7">${t}</div>`).join('');
+          })()}
+        </div>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderEmotionArcChart(scenes) {
+  if (!scenes || scenes.length < 2) return '';
+  const w = 420, h = 160, pad = 30;
+  const maxL = 10, minL = 1;
+  const stepX = (w - pad*2) / (scenes.length - 1);
+  const scaleY = (l) => pad + (h - pad*2) * (1 - (l - minL) / (maxL - minL));
+  const pts = scenes.map((s,i) => ({ x: pad + i * stepX, y: scaleY(s.level), ...s }));
+  const pathD = pts.map((p,i) => (i===0?`M${p.x},${p.y}`:`L${p.x},${p.y}`)).join(' ');
+  const areaD = `${pathD} L${pts[pts.length-1].x},${h-pad} L${pad},${h-pad} Z`;
+
+  const gridLines = [2,4,6,8,10].map(l => {
+    const y = scaleY(l);
+    return `<line x1="${pad}" y1="${y}" x2="${w-pad}" y2="${y}" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,3"/>
+    <text x="${pad-4}" y="${y+4}" font-size="8" fill="var(--text-muted)" text-anchor="end">${l}</text>`;
+  }).join('');
+
+  const dots = pts.map((p,i) => `
+    <circle cx="${p.x}" cy="${p.y}" r="5" fill="var(--momo)" stroke="white" stroke-width="2"/>
+    <text x="${p.x}" y="${h-10}" font-size="8" fill="var(--text-muted)" text-anchor="middle">${esc(p.name?.slice(0,6)||'')}</text>`).join('');
+
+  return `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;overflow:visible">
+    ${gridLines}
+    <path d="${areaD}" fill="var(--momo)" opacity="0.08"/>
+    <path d="${pathD}" fill="none" stroke="var(--momo)" stroke-width="2.5" stroke-linejoin="round"/>
+    ${dots}
+  </svg>`;
+}
+
+function addEmotionScene() {
+  const name = document.getElementById('ea-scene-name')?.value.trim();
+  const level = parseInt(document.getElementById('ea-emotion-level')?.value || '5');
+  const emotions = [...document.querySelectorAll('#ea-emotion-select .btn.active')].map(b => b.textContent.trim());
+  const memo = document.getElementById('ea-memo')?.value.trim();
+  if (!name) { toast('シーン名を入力してください', 'error'); return; }
+  const arcData = JSON.parse(localStorage.getItem('sl_emotion_arc') || '{"scenes":[]}');
+  arcData.scenes = arcData.scenes || [];
+  arcData.scenes.push({ name, level, emotions, memo, addedAt: new Date().toISOString() });
+  localStorage.setItem('sl_emotion_arc', JSON.stringify(arcData));
+  toast('シーンを追加しました', 'success');
+  render();
+}
+
+function removeEmotionScene(idx) {
+  const arcData = JSON.parse(localStorage.getItem('sl_emotion_arc') || '{"scenes":[]}');
+  arcData.scenes.splice(idx, 1);
+  localStorage.setItem('sl_emotion_arc', JSON.stringify(arcData));
+  render();
+}
+
+function clearEmotionArc() {
+  localStorage.removeItem('sl_emotion_arc');
+  render();
+}
+
+// ================================================================
+//  TOOL: 世界観メモパッド
+// ================================================================
+function renderToolWorldNotes() {
+  const notes = JSON.parse(localStorage.getItem('sl_world_notes') || '[]');
+  const WORLD_CATS = ['設定・ルール','地名・場所','用語・専門語','キャラ設定メモ','時代・時系列','その他'];
+  const filterCat = localStorage.getItem('sl_world_filter') || '';
+  const searchQ = localStorage.getItem('sl_world_search') || '';
+  let filtered = notes;
+  if (filterCat) filtered = filtered.filter(n => n.category === filterCat);
+  if (searchQ) filtered = filtered.filter(n => n.title.includes(searchQ) || n.body.includes(searchQ));
+
+  return `
+  <div class="article-back-btn" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</div>
+  <div class="section-header">
+    <div class="section-title"><i class="fas fa-globe" style="color:var(--asagi)"></i> 世界観メモパッド</div>
+    <div class="section-desc">設定・ルール・用語・地名などを素早く記録し、カテゴリで管理します</div>
+  </div>
+  <div style="display:grid;grid-template-columns:340px 1fr;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-plus icon" style="color:var(--asagi)"></i> メモを追加</div></div>
+        <div class="form-group"><label class="form-label">タイトル <span style="color:var(--accent)">*</span></label><input class="form-input" id="wn-title" placeholder="例：魔法システムのルール"></div>
+        <div class="form-group">
+          <label class="form-label">カテゴリ</label>
+          <select class="form-select" id="wn-category">
+            ${WORLD_CATS.map(c=>`<option>${c}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group"><label class="form-label">内容</label><textarea class="form-textarea" id="wn-body" rows="4" placeholder="詳細を記入…"></textarea></div>
+        <button class="btn btn-primary" style="width:100%" onclick="addWorldNote()"><i class="fas fa-plus"></i> 追加する</button>
+      </div>
+      <div class="card">
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px">カテゴリフィルター</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <button class="btn btn-sm ${!filterCat?'btn-primary':'btn-ghost'}" onclick="setWorldFilter('')">すべて (${notes.length})</button>
+          ${WORLD_CATS.map(c=>{
+            const cnt = notes.filter(n=>n.category===c).length;
+            return cnt>0?`<button class="btn btn-sm ${filterCat===c?'btn-primary':'btn-ghost'}" onclick="setWorldFilter('${c}')" style="font-size:11px">${c} (${cnt})</button>`:'';
+          }).join('')}
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="margin-bottom:12px;padding:10px 14px">
+        <div style="position:relative">
+          <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:12px;pointer-events:none"></i>
+          <input class="form-input" style="padding-left:32px" placeholder="メモを検索…" value="${esc(searchQ)}" oninput="setWorldSearch(this.value)">
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px" id="wn-list">
+        ${filtered.length === 0 ? `<div style="text-align:center;padding:60px 20px;color:var(--text-muted)"><i class="fas fa-globe" style="font-size:40px;display:block;margin-bottom:14px;opacity:0.2"></i><div style="font-size:13px">メモがありません<br>左のフォームから追加してください</div></div>` :
+          filtered.map((n,i)=>{
+            const realIdx = notes.indexOf(n);
+            return `<div class="card" style="padding:14px">
+              <div style="display:flex;align-items:flex-start;gap:10px">
+                <div style="flex:1">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                    <div style="font-size:13.5px;font-weight:700;color:var(--text-primary)">${esc(n.title)}</div>
+                    <span style="font-size:10px;padding:2px 7px;background:var(--asagi-bg);color:var(--asagi);border:1px solid var(--asagi-border);border-radius:10px;font-weight:600">${esc(n.category)}</span>
+                  </div>
+                  <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.7;white-space:pre-wrap">${esc(n.body)}</div>
+                  <div style="font-size:10px;color:var(--text-muted);margin-top:6px">${n.createdAt?.slice(0,10)||''}</div>
+                </div>
+                <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteWorldNote(${realIdx})"><i class="fas fa-trash" style="font-size:11px;color:var(--text-muted)"></i></button>
+              </div>
+            </div>`;
+          }).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+
+function addWorldNote() {
+  const title = document.getElementById('wn-title')?.value.trim();
+  const category = document.getElementById('wn-category')?.value;
+  const body = document.getElementById('wn-body')?.value.trim();
+  if (!title) { toast('タイトルを入力してください', 'error'); return; }
+  const notes = JSON.parse(localStorage.getItem('sl_world_notes') || '[]');
+  notes.unshift({ title, category, body, createdAt: new Date().toISOString() });
+  localStorage.setItem('sl_world_notes', JSON.stringify(notes));
+  toast('メモを追加しました', 'success');
+  render();
+}
+
+function deleteWorldNote(idx) {
+  const notes = JSON.parse(localStorage.getItem('sl_world_notes') || '[]');
+  notes.splice(idx, 1);
+  localStorage.setItem('sl_world_notes', JSON.stringify(notes));
+  render();
+}
+
+function setWorldFilter(cat) {
+  localStorage.setItem('sl_world_filter', cat);
+  render();
+}
+
+function setWorldSearch(q) {
+  localStorage.setItem('sl_world_search', q);
+  render();
 }
 
 // ================================================================
@@ -11532,6 +12273,35 @@ function renderTasksPage() {
     mainContent = filterBar + groupsHtml + quickAddBar;
   }
 
+  // 期限が迫るタスク（今後7日間）
+  const next7Days = Array.from({length:7},(_,i)=>{
+    const d = new Date(); d.setDate(d.getDate()+i);
+    return d.toISOString().slice(0,10);
+  });
+  const upcomingDeadlines = TASK_DB.getTasks().filter(t=>!t.done && t.dueDate && next7Days.includes(t.dueDate));
+  const deadlinePanel = upcomingDeadlines.length > 0 && (view==='list') ? `
+  <div class="card" style="padding:0;overflow:hidden;border-top:3px solid var(--kogane);margin-bottom:16px">
+    <div style="padding:10px 14px;background:var(--kogane-bg);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:12.5px;font-weight:700;color:var(--kogane)"><i class="fas fa-clock" style="margin-right:6px"></i>今後7日間の締切 (${upcomingDeadlines.length})</div>
+    </div>
+    <div style="padding:10px 14px;display:flex;flex-direction:column;gap:6px">
+      ${upcomingDeadlines.sort((a,b)=>a.dueDate.localeCompare(b.dueDate)).slice(0,5).map(t=>{
+        const daysLeft = Math.ceil((new Date(t.dueDate)-new Date())/86400000);
+        const urgColor = daysLeft <= 1 ? 'var(--accent)' : daysLeft <= 3 ? 'var(--kogane)' : 'var(--matcha)';
+        const pri = TASK_PRIORITIES[t.priority]||TASK_PRIORITIES.medium;
+        return `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:var(--bg-subtle);border-radius:var(--radius-sm);border-left:3px solid ${urgColor}" onclick="expandTask('${t.id}');setTasksView('list')" style="cursor:pointer">
+          <div style="flex:1;overflow:hidden">
+            <div style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(t.title)}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+            <span style="font-size:10px;font-weight:700;color:${urgColor};background:${urgColor}22;padding:2px 6px;border-radius:10px">${daysLeft===0?'今日':daysLeft===1?'明日':daysLeft+'日後'}</span>
+            <span style="font-size:10px;color:${pri.color}">${pri.label}</span>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>` : '';
+
   return `
   <div class="tasks-page-wrap">
     <div class="tasks-page-header">
@@ -11570,6 +12340,7 @@ function renderTasksPage() {
     <div class="tasks-main-card">
       ${viewTabs}
       <div class="tasks-view-content">
+        ${deadlinePanel}
         ${mainContent}
       </div>
     </div>
@@ -11709,6 +12480,12 @@ function renderTasksCalendar(tasks) {
       <button class="btn btn-ghost btn-icon btn-sm" onclick="shiftCalMonth(1)"><i class="fas fa-chevron-right"></i></button>
       ${calMonth ? `<button class="btn btn-ghost btn-sm" onclick="resetCalMonth()" style="font-size:11px">今月</button>` : ''}
       <button class="btn btn-ghost btn-sm" onclick="openScheduleEventModal()" style="margin-left:auto;font-size:11px"><i class="fas fa-plus" style="color:var(--matcha)"></i> イベント</button>
+      <button class="btn btn-ghost btn-sm" onclick="openNewTaskModal()" style="font-size:11px"><i class="fas fa-plus" style="color:var(--fuji)"></i> タスク</button>
+    </div>
+    <div style="display:flex;gap:12px;padding:8px 0;font-size:11px;color:var(--text-muted);flex-wrap:wrap;margin-bottom:4px">
+      <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:2px;background:var(--matcha-bg);border:1px solid var(--matcha)"></div> 全完了</div>
+      <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:2px;background:var(--momo-bg);border:1px solid var(--momo)"></div> 期限切れ</div>
+      <div style="display:flex;align-items:center;gap:4px"><div style="width:10px;height:10px;border-radius:2px;background:var(--accent-bg);border:1px solid var(--accent)"></div> 今日</div>
     </div>
     <div class="cal-grid-header">
       ${dayNames.map((d,i)=>`<div class="cal-header-cell" style="color:${i===0?'var(--accent)':i===6?'var(--fuji)':'var(--text-muted)'}">${d}</div>`).join('')}
@@ -11783,38 +12560,86 @@ function renderTasksWeekly(tasks) {
     return `${s.getFullYear()}年 ${s.getMonth()+1}月${s.getDate()}日 〜 ${e.getMonth()+1}月${e.getDate()}日`;
   })();
 
+  // 週間サマリー
+  const weekTasks = tasks.filter(t => weekDates.includes(t.dueDate));
+  const weekDone = weekTasks.filter(t => t.done).length;
+  const weekTotal = weekTasks.length;
+  const weekOverdue = tasks.filter(t => !t.done && t.dueDate && t.dueDate < todayStr && weekDates.includes(t.dueDate)).length;
+  const totalEstMin = weekTasks.filter(t=>!t.done&&t.estimatedMin>0).reduce((a,t)=>a+t.estimatedMin,0);
+
+  const weekSummaryBar = `
+  <div style="display:flex;gap:12px;flex-wrap:wrap;padding:10px 14px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:12px">
+    <div style="display:flex;align-items:center;gap:6px;font-size:12px">
+      <i class="fas fa-calendar-week" style="color:var(--fuji)"></i>
+      <span style="font-weight:700;color:var(--fuji)">${weekDone}/${weekTotal}</span>
+      <span style="color:var(--text-muted)">タスク完了</span>
+    </div>
+    ${weekOverdue > 0 ? `<div style="display:flex;align-items:center;gap:6px;font-size:12px">
+      <i class="fas fa-exclamation-circle" style="color:var(--momo)"></i>
+      <span style="font-weight:700;color:var(--momo)">${weekOverdue}</span>
+      <span style="color:var(--text-muted)">期限切れ</span>
+    </div>` : ''}
+    ${totalEstMin > 0 ? `<div style="display:flex;align-items:center;gap:6px;font-size:12px">
+      <i class="fas fa-clock" style="color:var(--kogane)"></i>
+      <span style="font-weight:700;color:var(--kogane)">${Math.floor(totalEstMin/60)}h${totalEstMin%60}m</span>
+      <span style="color:var(--text-muted)">残り作業時間</span>
+    </div>` : ''}
+    ${weekTotal > 0 ? `<div style="flex:1;display:flex;align-items:center;gap:8px;min-width:120px">
+      <div style="flex:1;height:5px;background:var(--bg-hover);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${Math.round(weekDone/weekTotal*100)}%;background:var(--matcha);border-radius:3px"></div>
+      </div>
+      <span style="font-size:11px;color:var(--text-muted);white-space:nowrap">${Math.round(weekDone/weekTotal*100)}%</span>
+    </div>` : ''}
+  </div>`;
+
   const colsHtml = weekDates.map((ds, di) => {
     const dayTasks = tasks.filter(t=>t.dueDate===ds);
     const dayEvents = events.filter(e=>e.date===ds);
     const isToday = ds === todayStr;
+    const isPast = ds < todayStr;
     const done = dayTasks.filter(t=>t.done).length;
     const total = dayTasks.length;
     const d = new Date(ds);
+    const hasOverdue = isPast && dayTasks.some(t=>!t.done);
 
-    return `<div class="weekly-day-col ${isToday?'today':''}">
+    // Sort events by time
+    const sortedEvents = [...dayEvents].sort((a,b)=>(a.time||'').localeCompare(b.time||''));
+    const sortedTasks = [...dayTasks].sort((a,b)=>{
+      if (a.done !== b.done) return a.done ? 1 : -1;
+      const priOrder = {urgent:0, high:1, medium:2, low:3};
+      return (priOrder[a.priority]||2) - (priOrder[b.priority]||2);
+    });
+
+    return `<div class="weekly-day-col ${isToday?'today':''} ${hasOverdue?'has-overdue':''}">
       <div class="weekly-day-header">
         <div class="weekly-day-label ${isToday?'today':''}" style="color:${di===0?'var(--accent)':di===6?'var(--fuji)':''}">
           <span class="weekly-day-name">${dayNames[di]}</span>
           <span class="weekly-day-date">${d.getDate()}</span>
         </div>
-        ${total>0 ? `<span class="weekly-day-count">${done}/${total}</span>` : ''}
+        <div style="display:flex;align-items:center;gap:4px">
+          ${total>0 ? `<span class="weekly-day-count ${done===total&&total>0?'all-done':hasOverdue?'has-overdue':''}">${done}/${total}</span>` : ''}
+          ${hasOverdue ? `<i class="fas fa-exclamation-circle" style="font-size:9px;color:var(--momo)" title="期限切れタスクあり"></i>` : ''}
+        </div>
       </div>
       <div class="weekly-day-body">
-        ${dayEvents.map(ev=>`
+        ${sortedEvents.map(ev=>`
         <div class="weekly-event-chip" style="background:${ev.color||'var(--fuji)'}22;border-left:3px solid ${ev.color||'var(--fuji)'}" onclick="editScheduleEvent('${ev.id}')">
           <i class="fas ${ev.icon||'fa-calendar'}" style="color:${ev.color||'var(--fuji)'};font-size:10px"></i>
           <span>${esc(ev.title.slice(0,20))}</span>
           ${ev.time ? `<span class="weekly-event-time">${ev.time}</span>` : ''}
         </div>`).join('')}
-        ${dayTasks.map(t=>{
+        ${sortedTasks.map(t=>{
           const pri = TASK_PRIORITIES[t.priority]||TASK_PRIORITIES.medium;
-          const cat = TASK_CATEGORIES.find(c=>c.id===t.category)||TASK_CATEGORIES[0];
-          return `<div class="weekly-task-chip ${t.done?'done':''}" style="border-left:3px solid ${pri.color}" onclick="expandTask('${t.id}')">
+          const isOverdue = !t.done && t.dueDate < todayStr;
+          return `<div class="weekly-task-chip ${t.done?'done':''} ${isOverdue?'overdue':''}" style="border-left:3px solid ${isOverdue?'var(--momo)':pri.color}" onclick="expandTask('${t.id}')">
             <div class="weekly-task-check ${t.done?'done':''}" onclick="event.stopPropagation();toggleTaskDone('${t.id}')">
               ${t.done?'<i class="fas fa-check" style="font-size:8px;color:white"></i>':''}
             </div>
             <span class="weekly-task-title ${t.done?'done':''}">${esc(t.title.slice(0,24))}</span>
-            ${t.estimatedMin>0?`<span class="weekly-task-time">${t.estimatedMin}分</span>`:''}
+            <div style="display:flex;align-items:center;gap:3px;flex-shrink:0">
+              ${t.estimatedMin>0?`<span class="weekly-task-time">${t.estimatedMin}分</span>`:''}
+              ${isOverdue?`<i class="fas fa-exclamation-triangle" style="font-size:8px;color:var(--momo)" title="期限切れ"></i>`:''}
+            </div>
           </div>`;
         }).join('')}
         <button class="weekly-add-btn" onclick="openNewTaskModalForDate('${ds}')">
@@ -11831,7 +12656,9 @@ function renderTasksWeekly(tasks) {
       <span class="weekly-nav-label">${weekLabel}</span>
       <button class="btn btn-ghost btn-sm btn-icon" onclick="shiftWeek(1)"><i class="fas fa-chevron-right"></i></button>
       ${offset!==0?`<button class="btn btn-ghost btn-sm" onclick="shiftWeek(0,true)" style="font-size:11px">今週</button>`:''}
+      <button class="btn btn-ghost btn-sm" onclick="openScheduleEventModal()" style="margin-left:auto;font-size:11px"><i class="fas fa-calendar-plus" style="color:var(--matcha)"></i> イベント</button>
     </div>
+    ${weekSummaryBar}
     <div class="weekly-grid">${colsHtml}</div>
   </div>`;
 }
