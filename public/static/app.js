@@ -7902,34 +7902,63 @@ function renderGlossaryCategoryPage(catName) {
 
   return `
   <div style="max-width:820px">
-    <div class="article-back-btn" onclick="navigate('learn-glossary')">
-      <i class="fas fa-arrow-left"></i> 用語辞典トップに戻る
-    </div>
-    <div style="background:linear-gradient(135deg,${c.bg},var(--bg-subtle));border:1px solid ${c.border};border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:22px;position:relative;overflow:hidden">
-      <div style="width:24px;height:2.5px;background:${c.color};border-radius:2px;margin-bottom:10px"></div>
-      <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:6px">
-        <i class="fas ${catDef?.icon||'fa-book'}" style="color:${c.color};margin-right:8px"></i>${decodedCat}
+    <!-- パンくずナビ -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="article-back-btn" style="margin-bottom:0" onclick="navigate('learn-glossary')">
+        <i class="fas fa-arrow-left"></i> 用語辞典
       </div>
-      <div style="font-size:13px;color:var(--text-muted)">${catDef?.desc||''} — ${terms.length}語収録</div>
+      <span style="color:var(--text-muted);font-size:12px">›</span>
+      <span style="font-size:12px;color:var(--text-muted)">${decodedCat}</span>
     </div>
-    <div style="display:flex;flex-direction:column;gap:10px">
-      ${terms.map(g => `
-      <div class="card" style="cursor:pointer;padding:16px 18px;border-left:3px solid ${c.color};transition:all .15s" onclick="navigate('glossary-term-${g.id}')" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
-        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:5px;flex-wrap:wrap">
-          <span style="font-size:16px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${g.term}</span>
-          <span style="font-size:12px;color:var(--text-muted)">${g.reading}</span>
-          <span style="margin-left:auto;font-size:11px;color:${c.color};font-weight:600">詳細を読む <i class="fas fa-chevron-right" style="font-size:9px"></i></span>
+
+    <!-- カテゴリヘッダー -->
+    <div style="background:linear-gradient(135deg,${c.bg},var(--bg-subtle));border:1px solid ${c.border};border-radius:var(--radius-lg);padding:22px 26px;margin-bottom:24px;position:relative;overflow:hidden">
+      <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:60px;opacity:.06;color:${c.color};font-weight:700;font-family:'Noto Serif JP',serif;pointer-events:none">${decodedCat.charAt(0)}</div>
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="width:48px;height:48px;border-radius:var(--radius-md);background:${c.color}18;border:1.5px solid ${c.border};display:flex;align-items:center;justify-content:center;font-size:20px;color:${c.color};flex-shrink:0">
+          <i class="fas ${catDef?.icon||'fa-book'}"></i>
         </div>
-        <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.75">${g.def}</div>
-        ${g.related && g.related.length > 0 ? `
-        <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">
-          <span style="font-size:10px;color:var(--text-muted)">関連：</span>
-          ${g.related.map(rid => {
-            const rel = GLOSSARY_DATA.find(x => x.id === rid);
-            return rel ? `<span style="font-size:10px;padding:1px 7px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-full);color:var(--text-secondary)">${rel.term}</span>` : '';
-          }).join('')}
-        </div>` : ''}
+        <div>
+          <div style="width:20px;height:2px;background:${c.color};border-radius:1px;margin-bottom:6px"></div>
+          <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:4px">${decodedCat}</div>
+          <div style="font-size:12.5px;color:var(--text-secondary)">${catDef?.desc||''}</div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;margin-top:14px;padding-top:12px;border-top:1px solid ${c.border}">
+        <span style="font-size:12px;color:${c.color};font-weight:700"><i class="fas fa-book" style="margin-right:5px"></i>${terms.length}語収録</span>
+        <span style="font-size:11px;color:var(--text-muted)">クリックして用語の詳細を確認できます</span>
+      </div>
+    </div>
+
+    <!-- 用語一覧 -->
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${terms.map((g, i) => `
+      <div class="card" style="cursor:pointer;padding:16px 20px;border-left:3px solid ${c.color};transition:all .15s;position:relative" onclick="navigate('glossary-term-${g.id}')" onmouseover="this.style.transform='translateX(2px)';this.style.boxShadow='0 2px 12px rgba(0,0,0,.08)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div style="width:28px;height:28px;border-radius:50%;background:${c.bg};border:1px solid ${c.border};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${c.color};flex-shrink:0;margin-top:1px">${i+1}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+              <span style="font-size:16px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${g.term}</span>
+              <span style="font-size:12px;color:var(--text-muted);font-style:italic">${g.reading}</span>
+              <span style="margin-left:auto;font-size:11px;color:${c.color};font-weight:600;flex-shrink:0">詳しく見る <i class="fas fa-chevron-right" style="font-size:9px"></i></span>
+            </div>
+            <div style="font-size:13px;color:var(--text-secondary);line-height:1.75;margin-bottom:${g.related&&g.related.length?'8px':'0'}">${g.def}</div>
+            ${g.related && g.related.length > 0 ? `
+            <div style="display:flex;flex-wrap:wrap;gap:5px;align-items:center">
+              <span style="font-size:10.5px;color:var(--text-muted)"><i class="fas fa-link" style="font-size:9px;margin-right:3px"></i>関連：</span>
+              ${g.related.slice(0,4).map(rid => {
+                const rel = GLOSSARY_DATA.find(x => x.id === rid);
+                return rel ? `<span style="font-size:10.5px;padding:2px 8px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-full);color:var(--text-secondary);cursor:pointer" onclick="event.stopPropagation();navigate('glossary-term-${rel.id}')">${rel.term}</span>` : '';
+              }).join('')}
+            </div>` : ''}
+          </div>
+        </div>
       </div>`).join('')}
+    </div>
+
+    <!-- フッターナビ -->
+    <div style="margin-top:20px;display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" onclick="navigate('learn-glossary')"><i class="fas fa-book-bookmark"></i> 用語辞典トップ</button>
     </div>
   </div>`;
 }
@@ -7938,66 +7967,87 @@ function renderGlossaryTermPage(termId) {
   const g = GLOSSARY_DATA.find(x => x.id === termId);
   if (!g) return `<div class="article-page"><div class="article-back-btn" onclick="navigate('learn-glossary')"><i class="fas fa-arrow-left"></i> 用語辞典に戻る</div><div style="text-align:center;padding:60px;color:var(--text-muted)">用語が見つかりません</div></div>`;
   const c = COLOR_MAP[g.color] || COLOR_MAP['fuji'];
+  const catDef = GLOSSARY_CATEGORIES.find(cat => cat.id === g.category);
   const catTerms = GLOSSARY_DATA.filter(x => x.category === g.category && x.id !== g.id);
+  const totalCatTerms = GLOSSARY_DATA.filter(x => x.category === g.category).length;
+  const termIndex = GLOSSARY_DATA.filter(x => x.category === g.category).findIndex(x => x.id === g.id);
 
   return `
   <div style="max-width:820px">
+    <!-- パンくずナビ -->
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-      <div class="article-back-btn" style="margin-bottom:0" onclick="navigate('learn-glossary')">
-        <i class="fas fa-arrow-left"></i> 用語辞典
+      <div class="article-back-btn" style="margin-bottom:0" onclick="navigate('glossary-cat-${encodeURIComponent(g.category)}')">
+        <i class="fas fa-arrow-left"></i> ${g.category}に戻る
       </div>
       <span style="color:var(--text-muted);font-size:12px">›</span>
-      <span style="font-size:12px;color:var(--text-muted);cursor:pointer" onclick="navigate('glossary-cat-${g.category}')">${g.category}</span>
-    </div>
-    <div class="article-header" style="margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--border);position:relative">
-      <div style="position:absolute;bottom:-1px;left:0;width:40px;height:2px;background:${c.color};border-radius:1px"></div>
-      <span style="font-size:11px;padding:3px 12px;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:var(--radius-full);font-weight:600;display:inline-block;margin-bottom:10px">
-        <i class="fas fa-book-bookmark" style="margin-right:4px;font-size:9px"></i>${g.category}
-      </span>
-      <div class="article-title" style="font-family:'Noto Serif JP',serif;font-size:26px">${g.term}</div>
-      <div style="font-size:14px;color:var(--text-muted);margin-top:4px;font-style:italic">${g.reading}</div>
-      <div style="margin-top:12px;font-size:14px;color:var(--text-secondary);line-height:1.8;background:${c.bg};border:1px solid ${c.border};border-radius:var(--radius-md);padding:12px 16px">${g.def}</div>
+      <span style="font-size:12px;color:var(--text-muted);cursor:pointer" onclick="navigate('learn-glossary')">用語辞典</span>
+      <span style="color:var(--text-muted);font-size:12px">›</span>
+      <span style="font-size:12px;color:${c.color};cursor:pointer" onclick="navigate('glossary-cat-${encodeURIComponent(g.category)}')">${g.category}</span>
+      <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">${termIndex+1} / ${totalCatTerms}語</span>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 220px;gap:20px;align-items:start">
+    <!-- 用語ヘッダー -->
+    <div style="background:linear-gradient(135deg,${c.bg},var(--bg-subtle));border:1px solid ${c.border};border-radius:var(--radius-lg);padding:22px 26px;margin-bottom:24px;position:relative;overflow:hidden">
+      <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:70px;opacity:.05;color:${c.color};font-weight:900;font-family:'Noto Serif JP',serif;pointer-events:none">${g.term.charAt(0)}</div>
+      <div style="display:inline-flex;align-items:center;gap:6px;padding:3px 12px;background:${c.color}18;color:${c.color};border:1px solid ${c.border};border-radius:var(--radius-full);font-size:11px;font-weight:700;margin-bottom:12px">
+        <i class="fas ${catDef?.icon||'fa-book'}"></i>
+        <span>${g.category}</span>
+      </div>
+      <div style="font-size:28px;font-weight:800;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:5px;letter-spacing:.02em">${g.term}</div>
+      <div style="font-size:14px;color:${c.color};margin-bottom:14px;font-style:italic;font-weight:500">${g.reading}</div>
+      <div style="font-size:14px;color:var(--text-secondary);line-height:1.85;padding:14px 16px;background:rgba(255,255,255,.5);border:1px solid ${c.border};border-radius:var(--radius-md);border-left:3px solid ${c.color}">
+        ${g.def}
+      </div>
+    </div>
+
+    <!-- メインコンテンツ + サイドバー -->
+    <div style="display:grid;grid-template-columns:1fr 230px;gap:20px;align-items:start">
+      <!-- 詳細本文 -->
       <div>
         <div class="article-body">
-          ${g.detail || '<p style="color:var(--text-muted)">詳細は準備中です。</p>'}
+          ${g.detail || '<p style="color:var(--text-muted);font-style:italic">詳細コンテンツは準備中です。</p>'}
         </div>
       </div>
+
+      <!-- サイドバー -->
       <div style="position:sticky;top:80px;display:flex;flex-direction:column;gap:12px">
         ${g.related && g.related.length > 0 ? `
-        <div class="card" style="padding:14px">
-          <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:10px">
-            <i class="fas fa-link" style="color:${c.color};margin-right:5px"></i>関連用語
+        <div class="card" style="padding:15px;border-top:2px solid ${c.color}">
+          <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:11px;display:flex;align-items:center;gap:5px">
+            <i class="fas fa-link" style="color:${c.color}"></i>関連用語
           </div>
           ${g.related.map(rid => {
             const rel = GLOSSARY_DATA.find(x => x.id === rid);
             if (!rel) return '';
             const rc = COLOR_MAP[rel.color] || COLOR_MAP['fuji'];
-            return `<div style="padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;margin-bottom:5px;border-left:2px solid ${rc.color}" onclick="navigate('glossary-term-${rel.id}')">
-              <div style="font-size:13px;font-weight:700;color:var(--text-primary)">${rel.term}</div>
-              <div style="font-size:10.5px;color:var(--text-muted)">${rel.reading}</div>
+            return `<div style="padding:9px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;margin-bottom:6px;transition:all .15s;border-left:2px solid ${rc.color}" onclick="navigate('glossary-term-${rel.id}')" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+              <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:2px">${rel.term}</div>
+              <div style="font-size:10px;color:${rc.color};font-style:italic">${rel.reading}</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${rel.def.slice(0,35)}…</div>
             </div>`;
           }).join('')}
         </div>` : ''}
-        <div class="card" style="padding:14px">
-          <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:10px">
-            <i class="fas fa-folder" style="color:${c.color};margin-right:5px"></i>${g.category}の他の用語
+
+        <div class="card" style="padding:15px">
+          <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:11px;display:flex;align-items:center;gap:5px">
+            <i class="fas fa-folder" style="color:${c.color}"></i>
+            <span>${g.category}の用語</span>
+            <span style="margin-left:auto;font-size:10px;color:var(--text-muted)">${totalCatTerms}語</span>
           </div>
-          ${catTerms.slice(0,5).map(rel => `
-          <div style="padding:6px 0;border-bottom:1px solid var(--border-subtle);cursor:pointer" onclick="navigate('glossary-term-${rel.id}')">
+          ${catTerms.slice(0,6).map(rel => `
+          <div style="padding:7px 0;border-bottom:1px solid var(--border-subtle);cursor:pointer;transition:all .1s" onclick="navigate('glossary-term-${rel.id}')" onmouseover="this.style.paddingLeft='5px';this.style.color='${c.color}'" onmouseout="this.style.paddingLeft='';this.style.color=''">
             <div style="font-size:12.5px;font-weight:600;color:var(--text-primary)">${rel.term}</div>
-            <div style="font-size:10.5px;color:var(--text-muted)">${rel.reading}</div>
+            <div style="font-size:10px;color:var(--text-muted);font-style:italic">${rel.reading}</div>
           </div>`).join('')}
-          ${catTerms.length > 5 ? `<div style="margin-top:6px;font-size:11px;color:var(--text-muted);cursor:pointer" onclick="navigate('glossary-cat-${g.category}')">他${catTerms.length-5}語を見る →</div>` : ''}
+          ${catTerms.length > 6 ? `<div style="margin-top:8px;font-size:11.5px;color:${c.color};cursor:pointer;font-weight:600;text-align:center;padding:6px;background:${c.bg};border-radius:var(--radius-sm);border:1px solid ${c.border}" onclick="navigate('glossary-cat-${encodeURIComponent(g.category)}')">カテゴリ一覧を見る →</div>` : ''}
         </div>
       </div>
     </div>
 
+    <!-- フッターナビ -->
     <div style="margin-top:28px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="navigate('learn-glossary')"><i class="fas fa-book-bookmark"></i> 用語辞典トップ</button>
-      <button class="btn btn-ghost btn-sm" onclick="navigate('glossary-cat-${g.category}')"><i class="fas fa-folder"></i> ${g.category}一覧</button>
+      <button class="btn btn-ghost btn-sm" onclick="navigate('glossary-cat-${encodeURIComponent(g.category)}')"><i class="fas fa-folder"></i> ${g.category}一覧</button>
       <button class="btn btn-ghost btn-sm" onclick="navigate('learn-articles')"><i class="fas fa-newspaper"></i> 記事を読む</button>
     </div>
   </div>`;
@@ -8303,15 +8353,19 @@ function renderLearnNotes(hero, subnav) {
   // ── テンプレート ──
   const NOTE_TEMPLATES = [
     { id: 'reflection', label: '記事メモ', icon: 'fa-book-open', color: 'fuji',
-      content: '【記事タイトル】\n\n【学んだこと】\n\n【自分の脚本に活かすには】\n\n【疑問・深掘りしたいこと】', tags: ['学習メモ'] },
+      content: '【記事タイトル】\n\n【この記事の要点（3点以内）】\n1. \n2. \n3. \n\n【印象に残ったフレーズ・概念】\n\n【自分の脚本への応用アイデア】\n→ 現在のプロジェクトで試せること：\n→ 将来の作品で使えるパターン：\n\n【疑問・さらに深掘りしたいこと】\n\n【関連記事・次に読む予定】', tags: ['学習メモ'] },
     { id: 'exercise', label: '演習振り返り', icon: 'fa-fist-raised', color: 'beni',
-      content: '【演習タイトル】\n\n【解答で気づいたこと】\n\n【師範添削のフィードバック要点】\n\n【次回改善したいこと】', tags: ['演習'] },
+      content: '【演習タイトル】　　【実施日】\n【難易度】\n\n【自分の解答サマリー】\n\n【うまくいった点】\n✓ \n✓ \n\n【うまくいかなかった点 / 改善が必要な点】\n△ \n△ \n\n【フィードバックの要点】\n\n【この演習から学んだ一番大事なこと】\n\n【次の演習に向けて意識すること】', tags: ['演習'] },
     { id: 'idea', label: 'アイデアメモ', icon: 'fa-lightbulb', color: 'kogane',
-      content: '【アイデア】\n\n【主人公のイメージ】\n\n【物語の核（テーマ）】\n\n【鍵となるシーン】', tags: ['アイデア'] },
+      content: '【タイトル仮案】\n\n【一行でいうと（プレミス）】\n\n【主人公】\n・名前・年齢・職業：\n・一番の欠如（ウーンド）：\n・外的目標（Want）：\n・内的成長（Need）：\n\n【対立軸・アンタゴニスト】\n\n【物語の核（テーマ）】\n\n【鍵となるシーン・ビート】\n1. \n2. \n3. \n\n【ジャンル・トーン】\n\n【メモ・連想ワード】', tags: ['アイデア'] },
     { id: 'scene', label: 'シーン設計', icon: 'fa-film', color: 'matcha',
-      content: '【場所・時間】\n\n【入場目的】\n\n【葛藤・対立】\n\n【変化（シーン前後の差）】\n\n【退場の状態】', tags: ['シーン'] },
+      content: '【シーン番号・タイトル】\n【場所】　　【時間帯】\n【登場人物】\n\n■ 入場（直前の状況）\n\n■ このシーンの目的\n・プロット上の目的：\n・キャラクター上の目的：\n\n■ 葛藤・対立（何が邪魔するか）\n\n■ サブテキスト（言葉の裏に何があるか）\n\n■ 変化（シーン終わりに何が変わるか）\n\n■ 退場（シーン後の状況）\n\n■ このシーンを削れるか？（削れないなら理由）', tags: ['シーン'] },
     { id: 'character', label: 'キャラメモ', icon: 'fa-person-walking', color: 'momo',
-      content: '【名前・年齢・職業】\n\n【Want（外的目標）】\n\n【Need（内的成長）】\n\n【ウーンド（傷）】\n\n【口癖・話し方の特徴】', tags: ['キャラクター'] },
+      content: '【キャラクター名】\n【年齢・職業・立場】\n\n■ 外見・第一印象\n\n■ Want（表面的な欲求 / 外的目標）\n\n■ Need（内面の必要 / 内的成長）\n\n■ ウーンド（過去のトラウマ・欠如）\n\n■ 誤った信念（Lie）\n\n■ 話し方の特徴・口癖\n\n■ このキャラクターの魅力・独自性\n\n■ 物語の中での役割・機能\n\n■ アークの方向性（成長/堕落/不変）', tags: ['キャラクター'] },
+    { id: 'logline', label: 'ログライン設計', icon: 'fa-pen-to-square', color: 'beni',
+      content: '【作品タイトル】\n【ジャンル】\n\n■ プロタゴニスト（主人公）\n・誰：\n・欠如・弱点：\n\n■ 発端事件（触媒）\n\n■ 目標・ゴール\n・外的目標（見える目標）：\n・内的目標（見えない成長）：\n\n■ 主な障害・対立\n\n■ ステークス（失敗したらどうなるか）\n\n【ログライン（60字以内）】\n\n\n【フックライン（一言キャッチ）】', tags: ['企画', 'ログライン'] },
+    { id: 'revision', label: '改稿プラン', icon: 'fa-arrows-rotate', color: 'kon',
+      content: '【作品タイトル】　【稿数】\n【改稿日】\n\n■ 今回の改稿の目的・方針\n\n■ 構造レベルで直す問題\n□ \n□ \n\n■ シーンレベルで直す問題\n□ \n□ \n\n■ キャラクター・セリフレベルで直す問題\n□ \n□ \n\n■ 削除・追加するシーン\n・削除：\n・追加：\n\n■ 優先順位（高 → 低）\n1. \n2. \n3. \n\n■ 改稿後に確認すること', tags: ['改稿', '推敲'] },
     { id: 'free', label: '自由メモ', icon: 'fa-note-sticky', color: 'asagi',
       content: '', tags: [] },
   ];
@@ -8459,11 +8513,13 @@ function newLearnNote() {
 
 function newLearnNoteFromTemplate(templateId) {
   const NOTE_TEMPLATES = [
-    { id: 'reflection', label: '記事メモ', color: 'fuji', content: '【記事タイトル】\n\n【学んだこと】\n\n【自分の脚本に活かすには】\n\n【疑問・深掘りしたいこと】', tags: ['学習メモ'] },
-    { id: 'exercise', label: '演習振り返り', color: 'beni', content: '【演習タイトル】\n\n【解答で気づいたこと】\n\n【師範添削のフィードバック要点】\n\n【次回改善したいこと】', tags: ['演習'] },
-    { id: 'idea', label: 'アイデアメモ', color: 'kogane', content: '【アイデア】\n\n【主人公のイメージ】\n\n【物語の核（テーマ）】\n\n【鍵となるシーン】', tags: ['アイデア'] },
-    { id: 'scene', label: 'シーン設計', color: 'matcha', content: '【場所・時間】\n\n【入場目的】\n\n【葛藤・対立】\n\n【変化（シーン前後の差）】\n\n【退場の状態】', tags: ['シーン'] },
-    { id: 'character', label: 'キャラメモ', color: 'momo', content: '【名前・年齢・職業】\n\n【Want（外的目標）】\n\n【Need（内的成長）】\n\n【ウーンド（傷）】\n\n【口癖・話し方の特徴】', tags: ['キャラクター'] },
+    { id: 'reflection', label: '記事メモ', color: 'fuji', content: '【記事タイトル】\n\n【この記事の要点（3点以内）】\n1. \n2. \n3. \n\n【印象に残ったフレーズ・概念】\n\n【自分の脚本への応用アイデア】\n→ 現在のプロジェクトで試せること：\n→ 将来の作品で使えるパターン：\n\n【疑問・さらに深掘りしたいこと】\n\n【関連記事・次に読む予定】', tags: ['学習メモ'] },
+    { id: 'exercise', label: '演習振り返り', color: 'beni', content: '【演習タイトル】　　【実施日】\n【難易度】\n\n【自分の解答サマリー】\n\n【うまくいった点】\n✓ \n✓ \n\n【うまくいかなかった点 / 改善が必要な点】\n△ \n△ \n\n【フィードバックの要点】\n\n【この演習から学んだ一番大事なこと】\n\n【次の演習に向けて意識すること】', tags: ['演習'] },
+    { id: 'idea', label: 'アイデアメモ', color: 'kogane', content: '【タイトル仮案】\n\n【一行でいうと（プレミス）】\n\n【主人公】\n・名前・年齢・職業：\n・一番の欠如（ウーンド）：\n・外的目標（Want）：\n・内的成長（Need）：\n\n【対立軸・アンタゴニスト】\n\n【物語の核（テーマ）】\n\n【鍵となるシーン・ビート】\n1. \n2. \n3. \n\n【ジャンル・トーン】\n\n【メモ・連想ワード】', tags: ['アイデア'] },
+    { id: 'scene', label: 'シーン設計', color: 'matcha', content: '【シーン番号・タイトル】\n【場所】　　【時間帯】\n【登場人物】\n\n■ 入場（直前の状況）\n\n■ このシーンの目的\n・プロット上の目的：\n・キャラクター上の目的：\n\n■ 葛藤・対立（何が邪魔するか）\n\n■ サブテキスト（言葉の裏に何があるか）\n\n■ 変化（シーン終わりに何が変わるか）\n\n■ 退場（シーン後の状況）\n\n■ このシーンを削れるか？（削れないなら理由）', tags: ['シーン'] },
+    { id: 'character', label: 'キャラメモ', color: 'momo', content: '【キャラクター名】\n【年齢・職業・立場】\n\n■ 外見・第一印象\n\n■ Want（表面的な欲求 / 外的目標）\n\n■ Need（内面の必要 / 内的成長）\n\n■ ウーンド（過去のトラウマ・欠如）\n\n■ 誤った信念（Lie）\n\n■ 話し方の特徴・口癖\n\n■ このキャラクターの魅力・独自性\n\n■ 物語の中での役割・機能\n\n■ アークの方向性（成長/堕落/不変）', tags: ['キャラクター'] },
+    { id: 'logline', label: 'ログライン設計', color: 'beni', content: '【作品タイトル】\n【ジャンル】\n\n■ プロタゴニスト（主人公）\n・誰：\n・欠如・弱点：\n\n■ 発端事件（触媒）\n\n■ 目標・ゴール\n・外的目標（見える目標）：\n・内的目標（見えない成長）：\n\n■ 主な障害・対立\n\n■ ステークス（失敗したらどうなるか）\n\n【ログライン（60字以内）】\n\n\n【フックライン（一言キャッチ）】', tags: ['企画', 'ログライン'] },
+    { id: 'revision', label: '改稿プラン', color: 'kon', content: '【作品タイトル】　【稿数】\n【改稿日】\n\n■ 今回の改稿の目的・方針\n\n■ 構造レベルで直す問題\n□ \n□ \n\n■ シーンレベルで直す問題\n□ \n□ \n\n■ キャラクター・セリフレベルで直す問題\n□ \n□ \n\n■ 削除・追加するシーン\n・削除：\n・追加：\n\n■ 優先順位（高 → 低）\n1. \n2. \n3. \n\n■ 改稿後に確認すること', tags: ['改稿', '推敲'] },
     { id: 'free', label: '自由メモ', color: 'asagi', content: '', tags: [] },
   ];
   const tpl = NOTE_TEMPLATES.find(t => t.id === templateId);
@@ -8634,11 +8690,21 @@ function renderArticlePage(articleId) {
   const bookmarkedArticles = DB.get('bookmarked_articles', []);
   const isBookmarked = bookmarkedArticles.includes(articleId);
 
+  const catEncoded = article.category ? encodeURIComponent(article.category) : '';
+  const backNav = article.category ? `navigate('articles-cat-${catEncoded}')` : `navigate('learn-articles')`;
+  const backLabel = article.category ? `${article.category}に戻る` : '記事一覧に戻る';
+  const bottomBackNav = article.category ? `navigate('articles-cat-${catEncoded}')` : `navigate('learn-articles')`;
+  const bottomBackLabel = article.category || '記事一覧';
+
   return `
   <div style="max-width:820px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div class="article-back-btn" style="margin-bottom:0" onclick="navigate('learn-articles')">
-        <i class="fas fa-arrow-left"></i> 記事一覧に戻る
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <div class="article-back-btn" style="margin-bottom:0" onclick="${backNav}">
+          <i class="fas fa-arrow-left"></i> ${backLabel}
+        </div>
+        <span style="color:var(--text-muted);font-size:12px">›</span>
+        <span style="font-size:12px;color:var(--text-muted);cursor:pointer" onclick="navigate('learn-articles')">記事一覧</span>
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost btn-sm" onclick="toggleArticleBookmark('${articleId}')" style="color:${isBookmarked?'var(--kogane)':'var(--text-muted)'}">
@@ -8663,8 +8729,8 @@ function renderArticlePage(articleId) {
     </div>
     <div class="article-body">${body}</div>
     <div style="margin-top:36px;padding-top:20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
-      <button class="btn btn-secondary" onclick="navigate('learn-articles')">
-        <i class="fas fa-arrow-left"></i> 記事一覧
+      <button class="btn btn-secondary" onclick="${bottomBackNav}">
+        <i class="fas fa-arrow-left"></i> ${bottomBackLabel}
       </button>
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost btn-sm" onclick="toggleArticleBookmark('${articleId}')">
@@ -14402,6 +14468,7 @@ function rewriteSubtext() {
 // ================================================================
 function renderTemplatesPage() {
   const cp = State.currentPage;
+  const activeFilter = DB.get('template_filter', 'all');
 
   const TEMPLATE_CATS = [
     {
@@ -14409,10 +14476,13 @@ function renderTemplatesPage() {
       title: '構成テンプレート',
       icon: 'fa-diagram-project',
       color: 'beni',
+      badge: '構成',
       items: [
-        { id:'three-act', name:'三幕構成シート', desc:'Act1/Act2/Act3の主要ビートを埋めるだけ' },
-        { id:'save-cat', name:'Save the Cat 15ビートシート', desc:'ブレイク・スナイダー式の15ポイント' },
-        { id:'kishotenketsu', name:'起承転結設計シート', desc:'日本式四段構成の各フェーズを整理' },
+        { id:'three-act', name:'三幕構成シート', desc:'Act1/Act2/Act3の主要ビートを埋めるだけ', tags:['構成','定番'] },
+        { id:'save-cat', name:'Save the Cat 15ビートシート', desc:'ブレイク・スナイダー式の15ポイント完全版', tags:['構成','映画'] },
+        { id:'kishotenketsu', name:'起承転結設計シート', desc:'日本式四段構成の各フェーズを整理', tags:['構成','日本式'] },
+        { id:'story-circle', name:'ストーリーサークル設計', desc:'ダン・ハーモンの8ステップ円環構造', tags:['構成','サークル'] },
+        { id:'logline-sheet', name:'ログライン＆企画書シート', desc:'プレミス・ログライン・ピッチを一枚で完成させる', tags:['企画','ログライン'] },
       ]
     },
     {
@@ -14420,21 +14490,27 @@ function renderTemplatesPage() {
       title: 'キャラクターシート',
       icon: 'fa-users',
       color: 'fuji',
+      badge: 'キャラ',
       items: [
-        { id:'char-basic', name:'キャラクター基本シート', desc:'名前・年齢・役割・外見・性格' },
-        { id:'char-deep', name:'キャラクター深掘りシート', desc:'Want/Need/ウーンド/バックストーリー' },
-        { id:'char-arc', name:'キャラクターアーク設計', desc:'ポジティブ/ネガティブ/フラットアーク' },
+        { id:'char-basic', name:'キャラクター基本シート', desc:'名前・年齢・役割・外見・性格の基礎情報', tags:['キャラクター','基礎'] },
+        { id:'char-deep', name:'キャラクター深掘りシート', desc:'Want/Need/ウーンド/Lie/Truthの内面設計', tags:['キャラクター','深掘り'] },
+        { id:'char-arc', name:'キャラクターアーク設計', desc:'ポジティブ/ネガティブ/フラットアーク', tags:['キャラクター','アーク'] },
+        { id:'antagonist-sheet', name:'アンタゴニスト設計シート', desc:'強い敵役の信念・動機・対立軸を設計する', tags:['キャラクター','敵役'] },
+        { id:'relationship-map', name:'人物関係マップ', desc:'主要登場人物の関係性と対立構図を整理', tags:['キャラクター','関係性'] },
       ]
     },
     {
       id: 'scene',
-      title: 'シーン・ト書き',
+      title: 'シーン・セリフ',
       icon: 'fa-film',
       color: 'momo',
+      badge: 'シーン',
       items: [
-        { id:'scene-check', name:'シーンチェックリスト', desc:'1シーンの4要素確認' },
-        { id:'dialogue-check', name:'セリフ診断リスト', desc:'サブテキスト・キャラクターの声' },
-        { id:'format-sample', name:'脚本フォーマット見本', desc:'日本式フォーマットの記述例' },
+        { id:'scene-check', name:'シーンチェックリスト', desc:'目的・対立・変化の1シーン4要素確認', tags:['シーン','チェック'] },
+        { id:'dialogue-check', name:'セリフ診断リスト', desc:'サブテキスト・キャラクターの声・オンザノーズ確認', tags:['セリフ','診断'] },
+        { id:'format-sample', name:'脚本フォーマット見本', desc:'日本式フォーマットの完全記述例付き', tags:['フォーマット','見本'] },
+        { id:'scene-sequence', name:'シーンシーケンス設計', desc:'5〜8シーンのシーケンス構造を設計する', tags:['シーン','構成'] },
+        { id:'subtext-guide', name:'サブテキスト変換ガイド', desc:'直接的なセリフを間接的に変換するための指針', tags:['セリフ','サブテキスト'] },
       ]
     },
     {
@@ -14442,86 +14518,1199 @@ function renderTemplatesPage() {
       title: '改稿・推敲',
       icon: 'fa-rotate',
       color: 'kogane',
+      badge: '改稿',
       items: [
-        { id:'revision-sheet', name:'改稿チェックシート', desc:'大改稿で確認すべき全項目' },
-        { id:'polish-sheet', name:'精密推敲チェックシート', desc:'セリフ・ト書きの磨き方' },
-        { id:'feedback-form', name:'フィードバック記録フォーム', desc:'読み合わせ後の整理に' },
+        { id:'revision-sheet', name:'大改稿チェックシート', desc:'構造・シーン・キャラクター全レベルの確認', tags:['改稿','チェック'] },
+        { id:'polish-sheet', name:'精密推敲チェックシート', desc:'セリフ・ト書きの細部磨き方', tags:['推敲','仕上げ'] },
+        { id:'feedback-form', name:'フィードバック記録フォーム', desc:'読み合わせ後のフィードバックを整理して改稿に活かす', tags:['フィードバック','記録'] },
+        { id:'draft-log', name:'改稿ログシート', desc:'稿ごとの変更内容・目的・結果を記録する', tags:['改稿','管理'] },
+      ]
+    },
+    {
+      id: 'planning',
+      title: '企画・開発',
+      icon: 'fa-lightbulb',
+      color: 'matcha',
+      badge: '企画',
+      items: [
+        { id:'pitch-sheet', name:'ピッチドックシート', desc:'タイトル・ジャンル・ログライン・世界観・キャスト', tags:['企画','ピッチ'] },
+        { id:'theme-sheet', name:'テーマ設計シート', desc:'テーマ・モラル・プレミスを物語に埋め込む方法', tags:['テーマ','設計'] },
+        { id:'genre-check', name:'ジャンルお約束チェック', desc:'ジャンル別の必須要素と期待を外さないためのリスト', tags:['ジャンル','チェック'] },
+        { id:'world-building', name:'世界観設計シート', desc:'時代・場所・ルール・社会構造の設定整理', tags:['世界観','設定'] },
       ]
     },
   ];
 
-  const colorMap = { beni:'var(--accent)', fuji:'var(--fuji)', momo:'var(--momo)', kogane:'var(--kogane)' };
-  const bgMap    = { beni:'var(--accent-bg)', fuji:'var(--fuji-bg)', momo:'var(--momo-bg)', kogane:'var(--kogane-bg)' };
+  const colorMap = { beni:'var(--accent)', fuji:'var(--fuji)', momo:'var(--momo)', kogane:'var(--kogane)', matcha:'var(--matcha)', asagi:'var(--asagi)', kon:'var(--kon-lt)' };
+  const bgMap    = { beni:'var(--accent-bg)', fuji:'var(--fuji-bg)', momo:'var(--momo-bg)', kogane:'var(--kogane-bg)', matcha:'var(--matcha-bg)', asagi:'var(--asagi-bg)', kon:'var(--kon-bg)' };
+  const borderMap = { beni:'var(--accent-border)', fuji:'var(--fuji-border)', momo:'var(--momo-border)', kogane:'var(--kogane-border)', matcha:'var(--matcha-border)', asagi:'var(--asagi-border)', kon:'var(--kon-border)' };
 
-  const sections = TEMPLATE_CATS.map(cat => {
+  // フィルタータブ
+  const filterTabs = `
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px">
+    <button class="btn btn-sm ${activeFilter==='all'?'btn-primary':'btn-ghost'}" onclick="DB.set('template_filter','all');render()">すべて</button>
+    ${TEMPLATE_CATS.map(c=>`<button class="btn btn-sm ${activeFilter===c.id?'btn-primary':'btn-ghost'}" onclick="DB.set('template_filter','${c.id}');render()" style="${activeFilter===c.id?'':'border-color:'+borderMap[c.color]+';color:'+colorMap[c.color]}">
+      <i class="fas ${c.icon}" style="font-size:10px"></i> ${c.badge}
+    </button>`).join('')}
+  </div>`;
+
+  const filteredCats = activeFilter === 'all' ? TEMPLATE_CATS : TEMPLATE_CATS.filter(c => c.id === activeFilter);
+
+  const sections = filteredCats.map(cat => {
     const col = colorMap[cat.color] || 'var(--text-muted)';
     const bg = bgMap[cat.color] || 'var(--bg-hover)';
+    const bdr = borderMap[cat.color] || 'var(--border)';
     const cards = cat.items.map(item => `
-      <div class="guide-card" onclick="showTemplate('${item.id}')">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
-          <i class="fas ${cat.icon}" style="color:${col};font-size:14px"></i>
-          <div class="guide-card-title" style="margin-bottom:0;font-size:13.5px">${esc(item.name)}</div>
+      <div class="card" style="cursor:pointer;padding:14px 16px;transition:all .18s;border-top:2px solid ${col};position:relative" onclick="showTemplate('${item.id}')" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(0,0,0,.09)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">
+          <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:${bg};border:1px solid ${bdr};display:flex;align-items:center;justify-content:center;font-size:13px;color:${col};flex-shrink:0">
+            <i class="fas ${cat.icon}"></i>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:4px;line-height:1.4">${esc(item.name)}</div>
+            <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.5">${esc(item.desc)}</div>
+          </div>
         </div>
-        <div class="guide-card-desc" style="font-size:11.5px">${esc(item.desc)}</div>
-        <div style="margin-top:10px;text-align:right"><span style="font-size:11px;color:${col};font-weight:600">コピーして使う <i class="fas fa-copy" style="font-size:10px"></i></span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+          <div style="display:flex;flex-wrap:wrap;gap:4px">
+            ${(item.tags||[]).map(t=>`<span style="font-size:10px;padding:1px 7px;background:${bg};color:${col};border:1px solid ${bdr};border-radius:var(--radius-full)">${t}</span>`).join('')}
+          </div>
+          <span style="font-size:11px;color:${col};font-weight:600;white-space:nowrap">コピー <i class="fas fa-copy" style="font-size:10px"></i></span>
+        </div>
       </div>`).join('');
 
     return `
-    <div style="margin-bottom:26px">
-      <div style="display:flex;align-items:center;gap:9px;margin-bottom:14px">
-        <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:${bg};color:${col};display:flex;align-items:center;justify-content:center;font-size:14px">
+    <div style="margin-bottom:28px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+        <div style="width:36px;height:36px;border-radius:var(--radius-md);background:${bg};border:1px solid ${bdr};color:${col};display:flex;align-items:center;justify-content:center;font-size:15px">
           <i class="fas ${cat.icon}"></i>
         </div>
-        <div style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${esc(cat.title)}</div>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${esc(cat.title)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${cat.items.length}テンプレート</div>
+        </div>
       </div>
-      <div class="guide-grid">${cards}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">${cards}</div>
     </div>`;
   }).join('');
 
+  const totalTemplates = TEMPLATE_CATS.reduce((a, c) => a + c.items.length, 0);
+
   return `
-  <div style="background:linear-gradient(135deg,var(--kogane-bg),var(--bg-subtle));border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px 26px;margin-bottom:24px;position:relative;overflow:hidden">
+  <!-- ヘッダー -->
+  <div style="background:linear-gradient(135deg,var(--kogane-bg),var(--bg-subtle));border:1px solid var(--kogane-border);border-radius:var(--radius-lg);padding:22px 26px;margin-bottom:22px;position:relative;overflow:hidden">
     <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:70px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--kogane);opacity:0.06;pointer-events:none">型</div>
     <div style="width:28px;height:2.5px;background:linear-gradient(90deg,var(--kogane),var(--accent));border-radius:2px;margin-bottom:10px"></div>
     <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:5px">
-      <i class="fas fa-copy" style="color:var(--kogane);margin-right:8px"></i>テンプレート集
+      <i class="fas fa-layer-group" style="color:var(--kogane);margin-right:8px"></i>テンプレート集
     </div>
-    <div style="font-size:13px;color:var(--text-muted)">プロが使う設計シート・チェックリストをそのままコピーして使えます</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">プロが使う設計シート・チェックリスト${totalTemplates}種 — コピーしてすぐに使えます</div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap">
+      ${TEMPLATE_CATS.map(c=>`<span style="font-size:12px;color:${colorMap[c.color]};font-weight:600"><i class="fas ${c.icon}" style="margin-right:4px;font-size:10px"></i>${c.title} ${c.items.length}件</span>`).join('')}
+    </div>
   </div>
-  ${sections}`;
+
+  <!-- フィルター -->
+  ${filterTabs}
+
+  <!-- テンプレートカテゴリ -->
+  ${sections}
+
+  <!-- ヒント -->
+  <div style="padding:12px 16px;background:var(--asagi-bg);border:1px solid var(--asagi-border);border-radius:var(--radius-md);font-size:12.5px;color:var(--text-secondary);line-height:1.7">
+    <i class="fas fa-lightbulb" style="color:var(--asagi);margin-right:6px"></i>
+    <strong>使い方のコツ：</strong>テンプレートはコピー後、お使いのエディタ（Word・Google Docs等）に貼り付けて使います。「ノートに保存」でアプリ内学習ノートにも記録できます。
+  </div>`;
 }
 
 function showTemplate(id) {
+  const TEMPLATE_NAMES = {
+    'three-act': '三幕構成シート',
+    'save-cat': 'Save the Cat 15ビートシート',
+    'kishotenketsu': '起承転結設計シート',
+    'story-circle': 'ストーリーサークル設計',
+    'logline-sheet': 'ログライン＆企画書シート',
+    'char-basic': 'キャラクター基本シート',
+    'char-deep': 'キャラクター深掘りシート',
+    'char-arc': 'キャラクターアーク設計',
+    'antagonist-sheet': 'アンタゴニスト設計シート',
+    'relationship-map': '人物関係マップ',
+    'scene-check': 'シーンチェックリスト',
+    'dialogue-check': 'セリフ診断リスト',
+    'format-sample': '脚本フォーマット見本',
+    'scene-sequence': 'シーンシーケンス設計',
+    'subtext-guide': 'サブテキスト変換ガイド',
+    'revision-sheet': '大改稿チェックシート',
+    'polish-sheet': '精密推敲チェックシート',
+    'feedback-form': 'フィードバック記録フォーム',
+    'draft-log': '改稿ログシート',
+    'pitch-sheet': 'ピッチドックシート',
+    'theme-sheet': 'テーマ設計シート',
+    'genre-check': 'ジャンルお約束チェック',
+    'world-building': '世界観設計シート',
+  };
+
   const TEMPLATES = {
-    'three-act': `【三幕構成シート】\n\n■ Act1 — 序幕（約25%）\n・オープニングイメージ：\n・主人公の日常・欠如：\n・発端事件：\n・ターニングポイント1：\n\n■ Act2a — 本幕前半（約25%）\n・新世界への適応：\n・Bストーリー（サブプロット）開始：\n・ミッドポイント（転換）：\n\n■ Act2b — 本幕後半（約25%）\n・悪役の迫来・状況悪化：\n・すべてを失う（最低点）：\n・暗闇の魂：\n\n■ Act3 — 終幕（約25%）\n・クライマックスへの突入：\n・クライマックス（主人公の変化した選択）：\n・クロージングイメージ：\n\n■ テーマ：\n■ ターニングポイント2（Act2→3の境界）：`,
-    'save-cat': `【Save the Cat — 15ビートシート】\n\n1. オープニングイメージ（p.1）：\n2. テーマの提示（p.5）：\n3. 設定（p.1〜10）：\n4. 触媒・発端（p.12）：\n5. 議論（p.12〜25）：\n6. 第二幕への突入（p.25）：\n7. Bストーリー（p.30）：\n8. 楽しみと遊び（p.30〜55）：\n9. ミッドポイント（p.55）：\n10. 悪役の迫来（p.55〜75）：\n11. すべてを失う（p.75）：\n12. 暗闇の魂（p.75〜85）：\n13. クライマックスへの突入（p.85）：\n14. クライマックス（p.85〜110）：\n15. クロージングイメージ（p.110）：`,
-    'kishotenketsu': `【起承転結 設計シート】\n\n■ 起（約15-25%）\n・主人公：\n・設定・世界：\n・問題の提示：\n・なぜ今始まるか：\n\n■ 承（約40-50%）\n・展開・発展：\n・障害の登場：\n・転への伏線：\n\n■ 転（約15-25%）\n・転換の内容：\n・なぜ驚きがあるか：\n・なぜ必然性があるか：\n・感情的インパクト：\n\n■ 結（約15-20%）\n・収束の内容：\n・余韻・余白：\n・最後に何が残るか：`,
-    'char-basic': `【キャラクター基本シート】\n\n■ 名前：\n■ ふりがな：\n■ 年齢：\n■ 性別：\n■ 役割（主人公・敵・相棒など）：\n■ 職業・立場：\n■ 外見・風貌：\n■ 性格（3〜5つの特徴）：\n■ 口癖・話し方：\n■ 趣味・特技：\n■ 弱点・コンプレックス：\n■ キャッチコピー（一言で言うなら）：`,
-    'char-deep': `【キャラクター深掘りシート】\n\n■ Want（表面的な欲求）：\n  → 意識的に追い求める外的目標\n\n■ Need（内面の必要）：\n  → 無意識に必要としている内的成長\n\n■ 欠如・ウーンド（過去のトラウマ）：\n  → 現在の行動を歪めている過去の出来事\n\n■ ゴースト（過去の出来事）：\n  → バックストーリーの核心\n\n■ 誤った信念（Lie the Character Believes）：\n  → キャラクターが信じている誤りや思い込み\n\n■ 真実（Truth）：\n  → 物語を通じて学ぶべき真実\n\n■ Wantを追うことでNeedを見つける過程：\n`,
-    'char-arc': `【キャラクターアーク設計シート】\n\nアークタイプ（◎を選ぶ）：\n[ ] ポジティブアーク（成長・変容）\n[ ] ネガティブアーク（堕落・悲劇）\n[ ] フラットアーク（信念・不変）\n\n■ 冒頭の状態：\n  欠如・誤信：\n  外的状況：\n\n■ 第一幕末（転換点1）での変化：\n\n■ ミッドポイントでの変化：\n\n■ 最低点での状態：\n\n■ クライマックスでの選択（変化の証明）：\n  以前なら→（旧来の選択）\n  今は→（変化後の選択）\n\n■ エピローグでの状態：\n`,
-    'scene-check': `【シーンチェックリスト】\n\nシーン番号：　　場所：　　時間帯：\n登場人物：\n\n□ 入口（シーン前の状況）：\n□ このシーンの目的（誰が何を達成しようとするか）：\n□ 対立・障害（何が目的を妨げるか）：\n□ 出口（シーン後に何が変わるか）：\n\n品質チェック：\n□ このシーンは物語を前進させているか？\n□ 主人公の感情・認識が変化するか？\n□ 「遅く入り、早く出る」を守っているか？\n□ このシーンを削ったとき物語に穴があくか？（穴がなければ削るべき）\n□ 1シーンに複数の役割があるか？（情報提供+感情描写など）`,
-    'dialogue-check': `【セリフ診断リスト】\n\nキャラクター名：\n\n□ このセリフに目的はあるか？（情報・感情・影響のどれか）\n□ このキャラクターらしいか？（名前を隠しても誰かわかる？）\n□ サブテキスト（言外の意味）はあるか？\n□ 直接的すぎないか？（嘘・隠す・遠回しにする）\n□ 説明的すぎないか？（セリフでテーマを直接言っていない？）\n□ 感情をラベリングしていないか？（「私は悲しい」はダメ）\n□ 声に出して読んで自然か？\n□ 長すぎないか？（3行以上は分割を検討）\n□ 沈黙・間を効果的に使っているか？`,
-    'format-sample': `【日本式脚本フォーマット見本】\n\n　○内・警察署・取調室・夜\n\n　　蛍光灯の光。木村（38）が椅子に座っている。\n　　向かいの椅子は空だ。\n\n\n\t\t　　木村\n　　「……先生？」\n\n　　ドアが開く。田中教授（64）が入ってくる。\n\n\n\t\t　　田中教授\n　　「久しぶりだな、木村」\n\n\n\t\t　　木村\n\t\t　　（震える声で）\n　　「なぜ……なぜここに」\n\n\t\t\t\t\t\tカット ＴＯ：\n\n　○外・渋谷・雑踏・昼\n\n　　人々が行き交う。木村が一人、立ちつくしている。`,
-    'revision-sheet': `【大改稿チェックシート】\n\n■ 構造レベル\n□ 第一幕で主人公・目標・障害が明確に提示されているか？\n□ ターニングポイント1・2・クライマックスが機能しているか？\n□ 各幕の長さバランスは適切か？（中弛みはないか？）\n□ ミッドポイントで主人公の立場・認識が変化しているか？\n□ キャラクターアークは完結しているか？（変化が証明されているか？）\n\n■ シーンレベル\n□ 不要なシーンを特定して削除したか？\n□ 各シーンが物語を前進させているか？\n□ 伏線とその回収を全て確認したか？\n□ サブプロットはメインと絡んでいるか？\n\n■ キャラクターレベル\n□ 主人公の動機・行動が一貫しているか？\n□ 敵役・障害の動機は理解できるか？\n□ テーマはセリフではなく行動で示されているか？`,
-    'polish-sheet': `【精密推敲チェックシート】\n\n■ セリフ全般\n□ すべてのセリフを声に出して読んだか？\n□ 「言わなくてもわかるセリフ」を削ったか？\n□ 各キャラクターの口調が一貫しているか？\n□ 感情を直接言っているセリフはないか？\n□ テーマを直接言っているセリフはないか？\n\n■ ト書き全般\n□ 4行以上の長いト書きを分割したか？\n□ カメラに映らないものを書いていないか？\n□ 「〜と思う」など内面描写を避けているか？\n□ 主語が明確か？\n□ 演技指定（括弧書き）を最小限にしたか？\n\n■ 全体\n□ 誤字・脱字・表記ゆれを確認したか？\n□ 冒頭3ページにフックがあるか？\n□ ラストシーンに余韻があるか？`,
-    'feedback-form': `【フィードバック記録フォーム】\n\n日時：　　　　出所（誰から）：\n\n■ 良い点（継続すべき）：\n1.\n2.\n3.\n\n■ 問題点（修正が必要）：\n1.　場所：　内容：　対応：\n2.　場所：　内容：　対応：\n3.　場所：　内容：　対応：\n\n■ 疑問・確認事項：\n1.\n2.\n\n■ その他メモ：\n\n対応優先度：\n□ 高（構造的問題）\n□ 中（シーン・キャラクター）\n□ 低（セリフ・細部）\n\n次の改稿で行うこと：\n`,
+    'three-act': `【三幕構成シート】
+作品タイトル：
+
+■ Act1 — 序幕（約25%）
+・オープニングイメージ（開幕の象徴的シーン）：
+・主人公の日常・欠如（何が足りないか）：
+・発端事件（Inciting Incident）：
+・議論（行くか行かないかの葛藤）：
+・ターニングポイント1（日常世界を離れる決断）：
+
+■ Act2a — 本幕前半（約25%）
+・新世界への適応：
+・Bストーリー（サブプロット / テーマを体現するキャラクター）開始：
+・楽しみと遊び（ジャンルの「お約束」を見せる）：
+・ミッドポイント（偽りの勝利 or 偽りの敗北）：
+
+■ Act2b — 本幕後半（約25%）
+・悪役の迫来・状況悪化：
+・すべてを失う（All is Lost）：
+・暗闇の魂（Dark Night of the Soul）：
+・ターニングポイント2（新しい計画・視点の転換）：
+
+■ Act3 — 終幕（約25%）
+・クライマックスへの突入：
+・クライマックス（主人公の変化した選択を証明するシーン）：
+・クロージングイメージ（オープニングと対になる象徴的シーン）：
+
+■ テーマ（物語が言いたいこと）：
+■ 主人公のアーク（冒頭の信念 → クライマックスでの選択）：`,
+
+    'save-cat': `【Save the Cat — 15ビートシート（ブレイク・スナイダー式）】
+作品タイトル：　　全ページ数（目標）：
+
+1. オープニングイメージ（p.1）：
+   → 変化前の主人公の「世界のスナップショット」
+
+2. テーマの提示（p.5）：
+   → 誰かが「物語の真実」を主人公に語る（主人公はまだ理解しない）
+   内容：
+
+3. 設定（p.1〜10）：
+   → 主人公の日常世界・欠如・動きたくない理由
+   内容：
+
+4. 触媒・発端（p.12）：
+   → 主人公の世界を変える出来事
+   内容：
+
+5. 議論（p.12〜25）：
+   → 「行くか行かないか」の葛藤と準備
+   内容：
+
+6. 第二幕への突入（p.25）：
+   → 主人公が日常を離れる決断・行動
+   内容：
+
+7. Bストーリー（p.30）：
+   → テーマを体現する新しい人物・関係の登場
+   人物：　関係：
+
+8. 楽しみと遊び（p.30〜55）：
+   → ジャンルの「お約束」「予告編シーン」を見せる
+   主なシーン：
+
+9. ミッドポイント（p.55）：
+   → 偽りの勝利（ハッピー）or 偽りの敗北（アンハッピー）
+   内容：
+
+10. 悪役の迫来（p.55〜75）：
+    → Bストーリーとのクロス・状況が暗くなる
+    内容：
+
+11. すべてを失う（p.75）：
+    → 最低点：主人公は何もかも失う
+    内容：
+
+12. 暗闇の魂（p.75〜85）：
+    → 反省と準備：新しい真実の受容
+    内容：
+
+13. クライマックスへの突入（p.85）：
+    → 最終決戦への覚悟
+    内容：
+
+14. クライマックス（p.85〜110）：
+    → 主人公が変化を証明する究極の選択
+    内容：
+
+15. クロージングイメージ（p.110）：
+    → 変化後の世界のスナップショット（オープニングの対比）
+    内容：`,
+
+    'kishotenketsu': `【起承転結 設計シート】
+作品タイトル：
+
+■ 起（約15-25%）— 問題の提示
+・主人公（名前・年齢・職業・欠如）：
+・設定・世界（時代・場所・社会状況）：
+・日常の問題・矛盾の提示：
+・なぜ今この話が始まるか（発端）：
+・オープニングイメージ：
+
+■ 承（約40-50%）— 展開と発展
+・承の展開内容：
+・登場する障害・困難：
+・転への伏線（複数の仕込み）：
+  1.
+  2.
+  3.
+・Bストーリー（サブプロット）：
+
+■ 転（約15-25%）— 劇的な転換（最重要）
+・転換の内容：
+・なぜ驚きがあるか（意外性）：
+・なぜ必然性があるか（後から考えると納得できる理由）：
+・感情的インパクト：
+・起承の何が「ひっくり返る」か：
+
+■ 結（約15-20%）— 収束と余韻
+・収束の内容：
+・主人公の変化・成長：
+・余韻・余白（説明しないこと）：
+・クロージングイメージ：
+・最後に何が残るか（観客の心に残るもの）：
+
+■ テーマ（作品が伝えたいこと）：
+■ 転で「起承」が「結」の意味を変える仕組み：`,
+
+    'story-circle': `【ストーリーサークル設計シート（ダン・ハーモン式）】
+作品タイトル：
+
+サークル概要：
+　1. コンフォートゾーン → 2. 欲求 → 3. 旅立ち → 4. 適応
+　→ 5. 代償 → 6. 帰還 → 7. 変化の証明 → 8. 完全
+
+■ 1. 「ゾーン（コンフォートゾーン）」— You
+　主人公の日常世界と欠如：
+　日常の問題・矛盾：
+
+■ 2. 「欲求（Desire）」— Need
+　主人公が意識的に追い求めるもの（外的目標）：
+　主人公が無意識に必要としているもの（内的成長）：
+
+■ 3. 「旅立ち（Crossing the Threshold）」— Go
+　日常を離れるきっかけ・決断：
+　新しい状況・環境：
+
+■ 4. 「適応（Adapting to the Road of Trials）」— Search
+　新しい世界での挑戦：
+　試行錯誤の内容：
+
+■ 5. 「代償（Paying the Price）」— Find
+　最も暗い瞬間・何かを失う：
+　見つけたもの（しかし代償がある）：
+
+■ 6. 「帰還（Return with the Elixir）」— Take
+　変化を持ち帰る決断：
+　日常世界との再遭遇：
+
+■ 7. 「変化の証明（New Master Status）」— Return
+　主人公が変化を証明する最終選択：
+　クライマックスのシーン：
+
+■ 8. 「完成（New Life）」— Changed
+　変化後の新しい日常：
+　テーマが体現されているシーン：`,
+
+    'logline-sheet': `【ログライン＆企画書シート】
+作品タイトル：
+ジャンル：
+フォーマット（映画/連続ドラマ/短編 等）：
+想定尺：
+
+─────────────────────────────
+■ STEP 1: 構成要素の整理
+─────────────────────────────
+主人公（誰が）：
+　特徴・欠如：
+発端事件（何が起きて）：
+目標（何をしようとするか）：
+　外的目標（見える目標）：
+　内的目標（内的成長・Need）：
+主な障害（何が立ちはだかるか）：
+ステークス（失敗したらどうなるか）：
+テーマ・モラル（物語が言いたいこと）：
+
+─────────────────────────────
+■ STEP 2: ログライン（60字以内）
+─────────────────────────────
+【バージョン1 — 基本型】
+「[主人公]は、[発端事件]をきっかけに、[目標]を目指すが、[障害]に直面する。」
+→ 
+
+【バージョン2 — テーマ強調型】
+→ 
+
+【バージョン3 — フック強調型】
+→ 
+
+─────────────────────────────
+■ STEP 3: フックライン（15字以内のキャッチコピー）
+─────────────────────────────
+→ 
+
+─────────────────────────────
+■ STEP 4: 簡易ピッチ（100字以内）
+─────────────────────────────
+→ 
+
+─────────────────────────────
+■ STEP 5: ジャンル別「お約束」チェック
+─────────────────────────────
+このジャンルで必ず押さえるべき要素：
+□ 
+□ 
+□ `,
+
+    'char-basic': `【キャラクター基本シート】
+作品タイトル：
+
+─────────────────────────────
+基本情報
+─────────────────────────────
+■ 名前：
+■ ふりがな：
+■ 年齢：　　　■ 性別：
+■ 役割（主人公・敵・相棒・メンター等）：
+■ 職業・立場：
+■ 登場時の状況・居場所：
+
+─────────────────────────────
+外見・第一印象
+─────────────────────────────
+■ 外見・風貌（観客が最初に受け取る印象）：
+■ 服装・持ち物・クセのある外見：
+■ キャッチコピー（一言で言うなら）：
+
+─────────────────────────────
+性格・行動特性
+─────────────────────────────
+■ 性格（3〜5つの特徴）：
+　1.　　2.　　3.　　4.　　5.
+■ 強み：
+■ 弱点・コンプレックス：
+■ 口癖・話し方の特徴：
+■ 他者に与える第一印象：
+
+─────────────────────────────
+背景
+─────────────────────────────
+■ 趣味・特技：
+■ 家族・重要な人物関係：
+■ バックストーリーの要点：`,
+
+    'char-deep': `【キャラクター深掘りシート】
+作品タイトル：　　キャラクター名：
+
+─────────────────────────────
+動機の構造
+─────────────────────────────
+■ Want（表面的な欲求 / 外的目標）：
+  → 意識的に追い求める外的目標・行動の理由
+
+■ Need（内面の必要 / 内的成長）：
+  → 無意識に必要としている内的変化・テーマとの接点
+
+■ 欠如・ウーンド（過去のトラウマ）：
+  → 現在の行動を歪めている過去の出来事
+
+■ ゴースト（過去の出来事の具体的内容）：
+  → バックストーリーの核心：いつ・何が起きたか
+
+─────────────────────────────
+信念の構造
+─────────────────────────────
+■ 誤った信念（Lie the Character Believes）：
+  → キャラクターが信じている「誤り」や「思い込み」
+  例：「人を信じれば傷つく」「自分は成功できない」
+
+■ 真実（Truth）：
+  → 物語を通じて主人公が学ぶべき真実
+  例：「傷を負っても信頼した相手は助けてくれる」
+
+─────────────────────────────
+変化の軌跡
+─────────────────────────────
+■ 冒頭のキャラクター状態（誤信を持っている）：
+
+■ Wantを追いかけることでNeedを発見する過程：
+  ・転換点1（誤信が揺らぐ瞬間）：
+  ・ミッドポイント（変化の兆し）：
+  ・最低点（誤信と向き合う）：
+  ・クライマックス（真実を選ぶ）：
+
+■ クライマックスでの選択（変化の証明）：
+  以前なら →（旧来の選択）
+  今は    →（変化後の選択）`,
+
+    'char-arc': `【キャラクターアーク設計シート】
+作品タイトル：　　キャラクター名：
+
+アークタイプ（一つ選ぶ）：
+[ ] ポジティブアーク — 誤信を捨て真実を掴む（成長・変容）
+[ ] ネガティブアーク — 真実を拒絶し誤信に沈む（堕落・悲劇）
+[ ] フラットアーク  — 信念を揺るがす世界を変える（不変・触媒）
+
+─────────────────────────────
+変化の設計
+─────────────────────────────
+■ 冒頭の状態：
+  誤信（Lie）：
+  外的状況（日常の欠如）：
+  最初の目標（Want）：
+
+■ 第一幕末（転換点1）での変化：
+  出来事：　　変化：
+
+■ ミッドポイントでの変化：
+  出来事：　　変化：
+
+■ 最低点での状態：
+  何を失ったか：
+  誤信と真実のどちらに近いか：
+
+■ 暗闇の魂（変化直前の内省）：
+
+■ クライマックスでの選択（変化の証明）：
+  以前なら → （旧来の選択）
+  今は    → （変化後の選択）
+
+■ エピローグでの状態：
+  外的状況：
+  内的変化の証：
+
+─────────────────────────────
+アーク整合性チェック
+─────────────────────────────
+□ 冒頭の欠如・誤信が物語全体を動かしているか？
+□ 各転換点で誤信が揺れているか？
+□ クライマックスで誤信か真実かを「選択」しているか？
+□ ポジティブアークなら、変化が信頼できるか？
+□ フラットアークなら、周囲が変化したか？`,
+
+    'antagonist-sheet': `【アンタゴニスト設計シート】
+作品タイトル：　　アンタゴニスト名：
+
+─────────────────────────────
+基本設計
+─────────────────────────────
+■ アンタゴニストのタイプ：
+[ ] 人物型（直接対立する敵役）
+[ ] 社会・組織型（制度・システムが敵）
+[ ] 内面型（主人公自身の内なる敵）
+[ ] 環境・運命型（自然・状況・偶然）
+
+■ アンタゴニストの目標（What）：
+■ アンタゴニストの動機（Why）：
+  → 観客が「それは理解できる」と思える理由：
+
+─────────────────────────────
+対立設計
+─────────────────────────────
+■ プロタゴニストの鏡（Mirror）：
+  → 主人公が「こうなり得た別の選択肢」である理由：
+  → 同じ欠如・過去を持ちながら異なる選択をした点：
+
+■ プロタゴニストの弱点を突く方法：
+
+■ アンタゴニストの三つの行動原則：
+  1. 能動的（受け身でなく自ら動く）：
+  2. 主人公の弱点を利用する具体的行動：
+  3. 人間性を見せる瞬間（共感の瞬間）：
+
+─────────────────────────────
+クライマックス設計
+─────────────────────────────
+■ 最終対決の設計：
+  場所・状況：
+  主人公が勝てる理由（成長があるから）：
+  アンタゴニストの最後の姿：
+
+■ アンタゴニストの信念（主人公と対立するもの）：
+■ アンタゴニストが「正しい」と思っている論理：`,
+
+    'relationship-map': `【人物関係マップ】
+作品タイトル：
+
+─────────────────────────────
+主要登場人物リスト
+─────────────────────────────
+1. 主人公：
+   役割：　欠如/Want/Need：
+
+2. 
+   役割：　関係：
+
+3. 
+   役割：　関係：
+
+4. 
+   役割：　関係：
+
+5. 
+   役割：　関係：
+
+─────────────────────────────
+主要な対立構図
+─────────────────────────────
+■ 主対立（プロタゴニスト vs アンタゴニスト）：
+  対立の核：
+  それぞれの立場・主張：
+
+■ 副対立（サブプロット）：
+  対立する人物：
+  対立の核・テーマとの接点：
+
+─────────────────────────────
+プロタゴニストとの関係
+─────────────────────────────
+■ メンター（助ける/教える人物）：
+  名前：　役割：
+■ アライ（仲間）：
+  名前：　役割：
+■ ラブインタレスト：
+  名前：　関係の変化：
+■ トリックスター（混乱をもたらす）：
+  名前：　役割：
+
+─────────────────────────────
+テーマとの接点
+─────────────────────────────
+■ Bストーリーのキャラクター（テーマを体現）：
+  名前：　テーマとの接点：
+
+■ 主人公のアークに影響を与える人物関係：
+  1. 
+  2. `,
+
+    'scene-check': `【シーンチェックリスト】
+
+シーン番号：　　　タイトル（任意）：
+場所：　　　　　　時間帯：
+登場人物：
+このシーンの段階（Act1 / Act2a / 中間点 / Act2b / Act3）：
+
+─────────────────────────────
+基本4要素
+─────────────────────────────
+□ 入場（シーン直前の状況・なぜここにいるか）：
+□ このシーンの目標（誰が何を達成しようとするか）：
+□ 対立・障害（何が目標を妨げるか）：
+□ 出場（シーン後に何が変わるか・決定的なターン）：
+
+─────────────────────────────
+機能チェック
+─────────────────────────────
+□ このシーンを削ったとき、物語に穴があくか？（なければ削るべき）
+□ このシーンは物語を前進させているか？（逆行 or 停滞していないか？）
+□ 主人公の感情・認識が変化するか？
+□ 「遅く入り、早く出る」を守っているか？（無駄な入退場がない）
+□ 1シーンに複数の役割があるか？（例：情報提供＋感情描写＋フォア）
+
+─────────────────────────────
+品質チェック
+─────────────────────────────
+□ このシーンの「感情的トーン」は適切か？
+□ サブテキスト（言わないこと）はあるか？
+□ ビジュアルで語れているか？（内面を映像で表現）
+□ 入場時と出場時の感情状態を書き出す：
+  入場時：　→　出場時：`,
+
+    'dialogue-check': `【セリフ診断リスト】
+
+作品タイトル：　　シーン番号：
+チェック対象のキャラクター：
+
+─────────────────────────────
+目的・機能チェック
+─────────────────────────────
+□ このセリフに目的はあるか？（情報・感情・影響・攻防のどれか）
+□ このセリフはシーンのゴールに向かっているか？
+□ 削れるセリフはないか？（なくても意味が通じるセリフは削除候補）
+
+─────────────────────────────
+キャラクター性チェック
+─────────────────────────────
+□ このキャラクターらしいか？（名前を隠しても誰かわかるか？）
+□ 年齢・職業・教育・地域のリアリティはあるか？
+□ 感情状態が話し方に反映されているか？
+
+─────────────────────────────
+サブテキストチェック（最重要）
+─────────────────────────────
+□ サブテキスト（言外の意味・本音）はあるか？
+□ 直接的すぎないか？（本音を隠す・嘘をつく・遠回しにする）
+□ 説明的すぎないか？（テーマ・感情・情報を直接言っていない？）
+□ 感情をラベリングしていないか？（「悲しい」「怒っている」など直接言わない）
+
+─────────────────────────────
+声・音楽性チェック
+─────────────────────────────
+□ 声に出して読んで自然か？（舌を嚙む・言いにくい表現はないか）
+□ リズム・テンポは適切か？（長すぎ・短すぎのバランス）
+□ 長すぎないか？（3行以上は分割を検討）
+□ 沈黙・間を効果的に使っているか？
+□ 括弧書き（演技指定）は最小限か？`,
+
+    'format-sample': `【日本式脚本フォーマット完全見本】
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+書式ルール
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+・柱書き（シーンヘッダー）：○ + 内外 + 場所 + 時
+・ト書き：2字下げ（全角スペース2つ）
+・人物名：中央または4〜5字下げ
+・セリフ：「」に入れ、人物名の下に
+・情感指定：（　）内に、セリフ前に
+・Ｔ　Ｏ（転換指示）：行末右寄せ
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+サンプル（A4縦・一段組の標準書式）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+　○内・警察署・取調室・夜
+
+　　蛍光灯の灯り。スチール椅子が二脚。
+　　木村（38）が片方に座り、正面の空席を見ている。
+
+　　ドアが開く。
+
+　　田中教授（64）が入ってくる。白髪。穏やかな顔。
+　　が、その目は笑っていない。
+
+　　　　木村
+　　「……先生？」
+
+　　教授、無言で向かいの椅子に座る。
+　　しばらく沈黙。
+
+　　　　田中教授
+　　「久しぶりだな、木村」
+
+　　　　木村
+　　　　（震える声で）
+　　「なぜ……なぜここに」
+
+　　　　田中教授
+　　「君が呼んだんだろう」
+
+　　木村、立ち上がろうとして――できない。
+
+　　　　　　　　　　　　　　カット　Ｔ　Ｏ：
+
+　○外・渋谷・スクランブル交差点・昼
+
+　　人々が行き交う。ノイズ。喧騒。
+　　そこに一人だけ、静止している男がいる。木村だ。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+よくある書式ミス
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✗ セリフに「と言った」「と答えた」を使う
+✗ 「〜と思った」など内面描写を書く
+✗ 4行以上の連続したト書き（分割する）
+✗ カメラ指示を書きすぎる（映像は監督に任せる）
+✗ 人物名を太字にしない・インデントがバラバラ`,
+
+    'scene-sequence': `【シーンシーケンス設計シート】
+作品タイトル：　　シーケンス名（例：逃走シーケンス）：
+このシーケンスの幕（Act1 / Act2a / Act2b / Act3）：
+
+─────────────────────────────
+シーケンスの設計
+─────────────────────────────
+■ このシーケンスが始まる前の状況：
+■ このシーケンスが終わった後の状況（必ず変化させる）：
+■ このシーケンスのミニゴール（小目標）：
+■ シーケンスの感情的トーン：
+
+─────────────────────────────
+各シーンの設計（5〜8シーン）
+─────────────────────────────
+#1
+場所・時：　　登場人物：
+目標/障害：
+変化（前→後）：
+感情トーン：
+
+#2
+場所・時：　　登場人物：
+目標/障害：
+変化（前→後）：
+感情トーン：
+
+#3
+場所・時：　　登場人物：
+目標/障害：
+変化（前→後）：
+感情トーン：
+
+#4
+場所・時：　　登場人物：
+目標/障害：
+変化（前→後）：
+感情トーン：
+
+#5
+場所・時：　　登場人物：
+目標/障害：
+変化（前→後）：
+感情トーン：
+
+─────────────────────────────
+シーケンス全体チェック
+─────────────────────────────
+□ 最初と最後で状況が変わっているか？
+□ テンション（緊張感）が適切に変化しているか？
+□ 不要なシーンはないか？
+□ このシーケンスの目的は何か（1文で）：`,
+
+    'subtext-guide': `【サブテキスト変換ガイド】
+
+─────────────────────────────
+サブテキストとは
+─────────────────────────────
+「言葉の下に流れる本音・感情・意図」のこと。
+優れた脚本は「言われたこと」ではなく「言われなかったこと」を描く。
+
+─────────────────────────────
+直接表現 → サブテキスト変換の5技法
+─────────────────────────────
+技法1: 全く別のことを話す
+直接：「私はあなたのことが好きです」
+変換：「……昨日、変な夢を見た」「このコーヒー、前より薄い」
+
+技法2: 行動・仕草で代替する
+直接：「申し訳ない」
+変換：[相手が落とした書類を黙って拾い、手渡す]
+
+技法3: 沈黙と間を使う
+直接：「返事できない」
+変換：[長い沈黙]「……そう」[また沈黙]「今日、寒いね」
+
+技法4: 反対のことを言う
+直接：「怖い」
+変換：「別に。大丈夫です」（体が小さく震えている）
+
+技法5: 関係のないことにこだわる
+直接：「もう終わりにしたい」
+変換：「この部屋、電球が切れかかってる。ずっと気になってた」
+
+─────────────────────────────
+チェックシート
+─────────────────────────────
+変換したいセリフ：
+その裏にある本音・感情：
+
+変換後（技法　を使用）：
+
+□ 変換後のセリフを読んで、本音が「伝わる」か（観客が感じるか）？
+□ キャラクターの性格・状況と一致しているか？
+□ 「なぜここでこれを言うのか」に必然性があるか？`,
+
+    'revision-sheet': `【大改稿チェックシート】
+作品タイトル：　　　稿数：
+改稿の目的（今回何を直すか）：
+
+─────────────────────────────
+構造レベル（最優先）
+─────────────────────────────
+□ 第一幕で主人公・目標・障害が明確に提示されているか？
+□ ターニングポイント1・2の位置とインパクトは適切か？
+□ クライマックスで主人公の変化が「選択」で証明されているか？
+□ 各幕の長さバランスは適切か？（中弛みはないか？）
+□ ミッドポイントで主人公の立場・認識が変化しているか？
+□ 「すべてを失う」場面は機能しているか？
+□ キャラクターアークは完結しているか？
+
+─────────────────────────────
+シーンレベル
+─────────────────────────────
+□ 不要なシーン（削っても穴があかない）を特定したか？
+□ 各シーンが物語を前進させているか？（逆行・停滞がない）
+□ 伏線とその回収を全て確認したか？
+□ サブプロット（Bストーリー）はメインと絡んでいるか？
+□ シーンの感情的変化（前→後）が全シーンであるか？
+
+─────────────────────────────
+キャラクターレベル
+─────────────────────────────
+□ 主人公の動機・行動が一貫しているか？
+□ 敵役・障害の動機は観客が理解できるか？
+□ テーマはセリフではなく行動・選択で示されているか？
+□ 各キャラクターの口調・話し方が一貫しているか？
+
+─────────────────────────────
+改稿優先リスト
+─────────────────────────────
+高優先（構造的問題）：
+1.
+2.
+中優先（シーン・キャラクター）：
+1.
+2.
+低優先（セリフ・ト書き）：
+1.
+2.`,
+
+    'polish-sheet': `【精密推敲チェックシート】
+作品タイトル：　　稿数：
+推敲対象ページ（　　p 〜　　p）：
+
+─────────────────────────────
+セリフ全般
+─────────────────────────────
+□ すべてのセリフを声に出して読んだか？
+□ 「言わなくてもわかるセリフ」を削ったか？
+□ 各キャラクターの口調・語彙が一貫しているか？
+□ 感情を直接言っているセリフはないか？（「悲しい」「嬉しい」等）
+□ テーマを直接言っているセリフはないか？
+□ オン・ザ・ノーズ（ぼかしのない直接的表現）はないか？
+□ 説明セリフ（exposition dumping）はないか？
+□ サブテキストがあるか？（言葉の下に本音が流れているか）
+□ 1つのセリフが3行以上なら分割・短縮を検討したか？
+□ 沈黙・間（括弧の使い方）は効果的か？
+
+─────────────────────────────
+ト書き全般
+─────────────────────────────
+□ 4行以上の長いト書きを分割したか？
+□ カメラに映らないもの（内面・匂い等）を書いていないか？
+□ 「〜と思う」「〜と感じる」など内面描写を避けているか？
+□ 主語（誰が？）が明確か？
+□ 演技指定（括弧書き）を最小限にしたか？
+□ 重複表現（セリフと同じ内容をト書きでも書いていないか）はないか？
+□ ト書きで「見せて（Show）」いるか（Tell していないか）？
+
+─────────────────────────────
+全体チェック
+─────────────────────────────
+□ 誤字・脱字・表記ゆれを確認したか？
+□ 人物名の統一（呼び名・表記がブレていないか）
+□ 冒頭3ページにフック（観客を引き込む要素）があるか？
+□ ラストシーンに余韻・余白があるか？
+□ ページ数・フォーマットの確認（柱書き・インデント等）`,
+
+    'feedback-form': `【フィードバック記録フォーム】
+作品タイトル：　　稿数：
+フィードバック日：
+フィードバック元（誰から・形式）：
+
+─────────────────────────────
+良い点（継続・強化すべき）
+─────────────────────────────
+1.
+2.
+3.
+
+─────────────────────────────
+問題点（修正が必要）
+─────────────────────────────
+優先度「高」（構造的問題）：
+1.　場所：　　内容：
+　　対応方針：
+2.　場所：　　内容：
+　　対応方針：
+
+優先度「中」（シーン・キャラクター）：
+1.　場所：　　内容：
+　　対応方針：
+2.　場所：　　内容：
+　　対応方針：
+
+優先度「低」（セリフ・ト書き・細部）：
+1.　場所：　　内容：
+　　対応方針：
+
+─────────────────────────────
+疑問・確認が必要な点
+─────────────────────────────
+1.
+2.
+
+─────────────────────────────
+次の改稿で行うこと（3件以内に絞る）
+─────────────────────────────
+1.（必須）
+2.（重要）
+3.（できれば）
+
+改稿完了予定：`,
+
+    'draft-log': `【改稿ログシート】
+作品タイトル：
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+稿履歴
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ 第1稿
+  完成日：
+  ページ数：
+  この稿の状態・感想：
+  主な問題点：
+
+■ 第2稿
+  完成日：
+  変更の目的：
+  主な変更内容：
+  　・
+  　・
+  この稿で改善されたこと：
+  まだ残っている問題：
+
+■ 第3稿
+  完成日：
+  変更の目的：
+  主な変更内容：
+  　・
+  　・
+  この稿で改善されたこと：
+  まだ残っている問題：
+
+■ 第4稿以降（繰り返し）
+  完成日：
+  変更の目的：
+  主な変更内容：
+  進捗メモ：
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+現在の課題メモ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+
+    'pitch-sheet': `【ピッチドックシート（企画書）】
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+基本情報
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+タイトル：
+ジャンル：
+フォーマット：　　想定尺：
+作者名：　　　　　日付：
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+一行ピッチ（フックライン・15字以内）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ログライン（60字以内）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+シノプシス（200〜300字）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+テーマ・モラル
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+テーマ（物語が言いたいこと）：
+モラル（主人公が学ぶ真実）：
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+登場人物
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+主人公：
+  欲求（Want）：
+  成長（Need）：
+  魅力・独自性：
+アンタゴニスト：
+  目標：　動機：
+主要サポートキャラ：
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+世界観・設定
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+時代・場所：
+世界のルール（特殊な設定があれば）：
+視覚的特徴・トーン：
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+マーケット分析
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+想定ターゲット：
+類似作品（参考作品）：
+この作品の独自性（なぜ今、これでなければならないか）：`,
+
+    'theme-sheet': `【テーマ設計シート】
+作品タイトル：
+
+─────────────────────────────
+テーマとモラルの整理
+─────────────────────────────
+■ テーマ（物語の「問い」）：
+  例：「信頼を失った人間は再び信頼できるか」
+
+■ モラル（物語の「答え」— 主人公が学ぶこと）：
+  例：「傷を認め謝罪したとき、信頼は取り戻せる」
+
+■ プレミス（ひとことで言うなら）：
+  例：「謝罪が信頼を取り戻す」
+
+─────────────────────────────
+テーマを「隠す」3つの方法
+─────────────────────────────
+方法1: シンボル（象徴）を使う
+  選んだシンボル：
+  象徴する意味：
+  登場するシーン：
+
+方法2: キャラクターの選択で体現する
+  どのキャラクターが：
+  どの選択で：
+  どのようにテーマを体現するか：
+
+方法3: Bストーリーでサブテキスト的に示す
+  Bストーリーのテーマとの接点：
+  メインとBがクロスする瞬間：
+
+─────────────────────────────
+テーマ伝達チェック
+─────────────────────────────
+□ テーマをセリフで直接言っていないか？
+□ クライマックスの「選択」にテーマが宿っているか？
+□ 物語全体を通じてテーマが一貫しているか？
+□ 対立するキャラクターがテーマの「対立軸」を持っているか？
+□ 結末でテーマへの「答え」が行動で示されているか？`,
+
+    'genre-check': `【ジャンル別・お約束チェックリスト】
+作品タイトル：
+ジャンル：
+
+─────────────────────────────
+共通チェック（全ジャンル必須）
+─────────────────────────────
+□ ジャンルの「お約束」（ジャンルの期待）を満たしているか？
+□ ジャンルの「お約束」を少なくとも1つ裏切っているか？（独自性）
+□ ジャンル固有の感情（ホラー=恐怖、コメディ=笑い等）を提供できているか？
+□ ジャンルのターゲット観客の期待に応えているか？
+
+─────────────────────────────
+ジャンル別チェック（該当するものを使う）
+─────────────────────────────
+
+【ドラマ（感情中心）】
+□ 主人公の感情的苦境が明確か？
+□ 人物の関係性が変化しているか？
+□ 観客が感情移入できる「普遍的テーマ」があるか？
+
+【スリラー・サスペンス】
+□ ステークス（失敗したら何が起きるか）が明確か？
+□ タイムプレッシャーがあるか？
+□ 最低3回以上、観客の予想を裏切るどんでん返しがあるか？
+
+【コメディ】
+□ コアのギャップ・矛盾（ルールの衝突）が明確か？
+□ キャラクターの「ルール」が一貫しているか？（ルール破りが笑いになる）
+□ ビルドアップ（フリ）と裏切り（ボケ）の構造があるか？
+
+【ホラー】
+□ 「守るべきもの」（愛着を持てる対象）が明確か？
+□ 脅威のルールが一貫しているか？
+□ 主人公の「恐怖の原因」が明確か？（外的/内的の両方）
+
+【ロマンス】
+□ 二人を引き合わせる「磁力」と引き離す「障害」が明確か？
+□ 関係の構築〜危機〜和解の3段階があるか？
+□ クライマックスで「愛の証明」があるか？
+
+─────────────────────────────
+独自チェック（このジャンルで一番大切なこと）
+─────────────────────────────`,
+
+    'world-building': `【世界観設計シート】
+作品タイトル：
+
+─────────────────────────────
+基本設定
+─────────────────────────────
+■ 時代・年代：
+■ 場所・地域：
+■ ジャンル（現代劇/時代劇/SF/ファンタジー等）：
+■ 世界の「特殊ルール」（あれば）：
+
+─────────────────────────────
+社会・文化
+─────────────────────────────
+■ 社会の仕組み・階層構造：
+■ 支配的な価値観・道徳観：
+■ 禁忌（やってはいけないこと）：
+■ 経済・権力の仕組み：
+■ 宗教・信仰・迷信（あれば）：
+
+─────────────────────────────
+日常生活
+─────────────────────────────
+■ 人々の日常（主人公の世界の「普通」）：
+■ テクノロジー水準・コミュニケーション方法：
+■ 食・服・移動手段：
+■ エンターテイメント・文化：
+
+─────────────────────────────
+視覚・感覚的特徴
+─────────────────────────────
+■ 映像的トーン・カラーパレット：
+■ 音・音楽のイメージ：
+■ 代表的なロケーション（3カ所）：
+  1.
+  2.
+  3.
+
+─────────────────────────────
+情報公開の管理
+─────────────────────────────
+□ 「ルール説明」をセリフで言いすぎていないか？
+□ 世界観は「見せる（Show）」で伝えているか？
+□ 知らせすぎ（情報過多）になっていないか？
+□ 観客が「なぜ？」と思い、次のシーンを見たくなるか？`,
   };
 
   const content = TEMPLATES[id] || 'テンプレートが見つかりません';
-  const name = id.replace(/-/g, ' ');
+  const name = TEMPLATE_NAMES[id] || id;
+  window._currentTemplate = content;
+  window._currentTemplateName = name;
 
   openModal(
-    `<i class="fas fa-copy" style="color:var(--kogane)"></i> テンプレート`,
-    `<div style="white-space:pre-wrap;font-family:'Noto Serif JP',serif;font-size:12.5px;color:var(--text-secondary);line-height:1.9;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;max-height:450px;overflow-y:auto" id="template-content">${esc(content)}</div>`,
+    `<i class="fas fa-layer-group" style="color:var(--kogane)"></i> ${esc(name)}`,
+    `<div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap">
+       <span style="font-size:11px;padding:2px 10px;background:var(--kogane-bg);color:var(--kogane);border:1px solid var(--kogane-border);border-radius:var(--radius-full)"><i class="fas fa-layer-group" style="font-size:9px;margin-right:3px"></i>テンプレート</span>
+     </div>
+     <div style="white-space:pre-wrap;font-family:'Noto Serif JP',serif;font-size:12.5px;color:var(--text-secondary);line-height:1.9;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;max-height:440px;overflow-y:auto" id="template-content">${esc(content)}</div>`,
     `<button class="btn btn-secondary" onclick="closeModal()">閉じる</button>
+     <button class="btn btn-ghost" onclick="saveTemplateToNote('${id}')"><i class="fas fa-note-sticky"></i> ノートに保存</button>
      <button class="btn btn-primary" onclick="copyTemplate()"><i class="fas fa-copy"></i> クリップボードにコピー</button>`,
     { size: 'modal-lg' }
   );
-  window._currentTemplate = content;
 }
 
 function copyTemplate() {
   const content = window._currentTemplate || '';
   navigator.clipboard?.writeText(content).then(() => toast('テンプレートをコピーしました！', 'success'));
+}
+
+function saveTemplateToNote(templateId) {
+  const content = window._currentTemplate || '';
+  const name = window._currentTemplateName || templateId;
+  if (!content) return;
+  const notes = DB.get('learn_notes', []);
+  const id = 'note-' + Date.now();
+  const newNote = {
+    id, title: name, content,
+    tags: ['テンプレート'], color: 'kogane',
+    pinned: false, createdAt: Date.now(), updatedAt: Date.now()
+  };
+  notes.unshift(newNote);
+  DB.set('learn_notes', notes);
+  closeModal();
+  toast(`「${name}」を学習ノートに保存しました`, 'success');
 }
 
 // ================================================================
@@ -17343,18 +18532,32 @@ function renderTasksCalendar(tasks) {
   for (let d=1; d<=daysInMonth; d++) {
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
     const dayTasks = tasks.filter(t=>t.dueDate===dateStr);
-    const dayEvents = events.filter(e=>e.date===dateStr);
+    const dayEvents = events.filter(e=>e.date===dateStr).sort((a,b)=>(a.time||'').localeCompare(b.time||''));
     const isToday = dateStr === todayStr;
     const isPast = dateStr < todayStr;
     const allDone = dayTasks.length > 0 && dayTasks.every(t=>t.done);
     const hasOverdue = dayTasks.some(t=>!t.done) && isPast;
+    const totalItems = dayTasks.length + dayEvents.length;
+
+    // イベントは最大2件、タスクは最大2件、合計3件まで表示
+    const visibleEvents = dayEvents.slice(0, 2);
+    const remainAfterEvents = Math.max(0, 3 - visibleEvents.length);
+    const visibleTasks = dayTasks.slice(0, remainAfterEvents);
+    const hiddenCount = totalItems - visibleEvents.length - visibleTasks.length;
+
     cells.push(`
     <div class="cal-cell ${isToday?'today':''} ${allDone?'all-done':''} ${hasOverdue?'has-overdue':''}" onclick="openNewTaskModalForDate('${dateStr}')">
       <div class="cal-day-num ${isToday?'today':''}">${d}</div>
       <div class="cal-cell-items">
-        ${dayEvents.slice(0,1).map(e=>`<div class="cal-event-chip" style="background:${e.color}22;color:${e.color}" title="${esc(e.title)}">${esc(e.title.slice(0,8))}</div>`).join('')}
-        ${dayTasks.slice(0,2).map(t=>`<div class="cal-task-item ${t.done?'done':''} ${!t.done&&isPast?'overdue':''}" title="${esc(t.title)}">${esc(t.title.slice(0,12))}</div>`).join('')}
-        ${(dayTasks.length+dayEvents.length) > 2 ? `<div class="cal-more-badge">+${dayTasks.length+dayEvents.length-2}</div>` : ''}
+        ${visibleEvents.map(e=>`<div class="cal-event-chip" style="background:${e.color}20;color:${e.color};border-left:2px solid ${e.color}" title="${esc(e.title)}${e.time?' '+e.time:''}" onclick="event.stopPropagation();editScheduleEvent('${e.id}')">
+          <i class="fas ${e.icon||'fa-calendar'}" style="font-size:8px;margin-right:2px"></i>${esc((e.time?e.time.slice(0,5)+' ':'')+e.title.slice(0,8))}
+        </div>`).join('')}
+        ${visibleTasks.map(t=>{
+          const TASK_PRIORITIES_LOCAL = {urgent:{color:'#d01050'},high:{color:'var(--momo)'},medium:{color:'var(--fuji)'},low:{color:'var(--matcha)'}};
+          const priColor = (TASK_PRIORITIES_LOCAL[t.priority]||TASK_PRIORITIES_LOCAL.medium).color;
+          return `<div class="cal-task-item ${t.done?'done':''} ${!t.done&&isPast?'overdue':''}" style="border-left:2px solid ${priColor}" title="${esc(t.title)}">${t.done?'<i class="fas fa-check" style="font-size:8px;margin-right:2px"></i>':''}${esc(t.title.slice(0,12))}</div>`;
+        }).join('')}
+        ${hiddenCount > 0 ? `<div class="cal-more-badge" title="他${hiddenCount}件">+${hiddenCount}</div>` : ''}
       </div>
     </div>`);
   }
@@ -18088,19 +19291,20 @@ function deleteScheduleEvent(evId) {
   render();
 }
 
-// ── Habit Modal (Enhanced) ────────────────────────────────────
+// ── Habit Modal (Enhanced with Custom Habits) ────────────────────────────────────
 function openHabitModal() {
-  const habits = DB.get('habits', [
+  const DEFAULT_HABITS = [
     { id:'h1', name:'毎日執筆', target:1, unit:'セッション', icon:'fa-pen-nib', color:'var(--accent)' },
     { id:'h2', name:'リサーチ', target:30, unit:'分', icon:'fa-search', color:'var(--fuji)' },
     { id:'h3', name:'読書',     target:20, unit:'分', icon:'fa-book', color:'var(--matcha)' },
     { id:'h4', name:'アウトライン確認', target:1, unit:'回', icon:'fa-list-check', color:'var(--momo)' },
-  ]);
+  ];
+  const habits = DB.get('habits', DEFAULT_HABITS);
   const today = new Date().toISOString().slice(0,10);
   const logs = DB.get('habit_logs', {});
   const todayLogs = logs[today] || {};
 
-  // 過去7日のストリーク計算
+  // 過去30日のストリーク計算
   const getHabitStreak = (hid) => {
     let s = 0;
     for (let i=1; i<=30; i++) {
@@ -18111,41 +19315,51 @@ function openHabitModal() {
     return s;
   };
 
-  // 週間達成グリッド
+  // 週間達成グリッド (過去7日)
   const weekDates = Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-6+i);return d.toISOString().slice(0,10);});
 
-  const habitsHtml = habits.map(h=>{
-    const isDone = !!todayLogs[h.id];
-    const streak = getHabitStreak(h.id);
-    const weekGrid = weekDates.map(d=>`<div style="width:14px;height:14px;border-radius:3px;background:${logs[d]?.[h.id]?h.color:'var(--bg-hover)'};border:1px solid var(--border)" title="${d}"></div>`).join('');
-    return `
-    <div class="habit-item ${isDone?'done':''}">
-      <div class="habit-check-btn" onclick="toggleHabit('${h.id}')" style="background:${isDone?h.color:'transparent'};border-color:${h.color}">
-        ${isDone?'<i class="fas fa-check" style="font-size:10px;color:white"></i>':''}
-      </div>
-      <i class="fas ${h.icon}" style="color:${h.color};font-size:14px;flex-shrink:0"></i>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${esc(h.name)}</div>
-        <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
-          <div style="display:flex;gap:2px">${weekGrid}</div>
-          ${streak>0?`<span style="font-size:11px;color:var(--kogane);font-weight:700">🔥 ${streak}日連続</span>`:''}
+  const habitsHtml = habits.length === 0
+    ? `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:13px"><i class="fas fa-fire" style="font-size:20px;opacity:.3;display:block;margin-bottom:8px"></i>習慣がありません。<br>「＋ 習慣を追加」から始めましょう。</div>`
+    : habits.map(h=>{
+      const isDone = !!todayLogs[h.id];
+      const streak = getHabitStreak(h.id);
+      const weekGrid = weekDates.map(d=>`<div style="width:14px;height:14px;border-radius:3px;background:${logs[d]?.[h.id]?h.color:'var(--bg-hover)'};border:1px solid var(--border);transition:all .2s" title="${d}"></div>`).join('');
+      return `
+      <div class="habit-item ${isDone?'done':''}" style="position:relative">
+        <div class="habit-check-btn" onclick="toggleHabit('${h.id}')" style="background:${isDone?h.color:'transparent'};border-color:${h.color}">
+          ${isDone?'<i class="fas fa-check" style="font-size:10px;color:white"></i>':''}
         </div>
-      </div>
-      <div style="text-align:right;flex-shrink:0">
-        ${isDone?`<span style="font-size:12px;color:var(--matcha);font-weight:700">✅ 達成</span>`:
-          `<span style="font-size:11px;color:var(--text-muted)">目標 ${h.target}${h.unit}</span>`}
-      </div>
-    </div>`;
+        <i class="fas ${h.icon}" style="color:${h.color};font-size:14px;flex-shrink:0"></i>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${esc(h.name)}</div>
+          <div style="display:flex;align-items:center;gap:10px;margin-top:4px">
+            <div style="display:flex;gap:2px">${weekGrid}</div>
+            ${streak>0?`<span style="font-size:11px;color:var(--kogane);font-weight:700">🔥 ${streak}日連続</span>`:''}
+          </div>
+        </div>
+        <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          ${isDone?`<span style="font-size:12px;color:var(--matcha);font-weight:700">✅ 達成</span>`:
+            `<span style="font-size:11px;color:var(--text-muted)">目標 ${h.target}${h.unit}</span>`}
+          <button onclick="openEditHabitModal('${h.id}')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:11px;padding:2px 4px" title="編集">
+            <i class="fas fa-pen"></i>
+          </button>
+        </div>
+      </div>`;
   }).join('');
 
   const doneCount = habits.filter(h=>!!todayLogs[h.id]).length;
 
   openModal(
     `<i class="fas fa-fire" style="color:var(--accent)"></i> 習慣トラッカー`,
-    `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
       <div style="font-size:12px;color:var(--text-muted)">${today} の達成状況</div>
-      <div style="font-size:13px;font-weight:700;color:${doneCount===habits.length?'var(--matcha)':'var(--text-primary)'}">
-        ${doneCount}/${habits.length} 達成 ${doneCount===habits.length?'🎉':''}
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:13px;font-weight:700;color:${doneCount===habits.length&&habits.length>0?'var(--matcha)':'var(--text-primary)'}">
+          ${doneCount}/${habits.length} 達成 ${doneCount===habits.length&&habits.length>0?'🎉':''}
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="openAddHabitModal()" style="font-size:11px">
+          <i class="fas fa-plus" style="color:var(--matcha)"></i> 追加
+        </button>
       </div>
     </div>
     <div style="height:6px;background:var(--bg-hover);border-radius:3px;overflow:hidden;margin-bottom:16px">
@@ -18157,6 +19371,153 @@ function openHabitModal() {
     </div>`,
     `<button class="btn btn-secondary" onclick="closeModal()">閉じる</button>`
   );
+}
+
+function openAddHabitModal() {
+  const ICONS = ['fa-pen-nib','fa-book','fa-search','fa-list-check','fa-dumbbell','fa-brain','fa-music','fa-running','fa-coffee','fa-star','fa-fire','fa-clock','fa-edit','fa-film','fa-comments'];
+  const COLORS = [
+    { label:'赤', val:'var(--accent)' },
+    { label:'紺', val:'var(--kon-lt)' },
+    { label:'緑', val:'var(--matcha)' },
+    { label:'金', val:'var(--kogane)' },
+    { label:'紫', val:'var(--fuji)' },
+    { label:'桃', val:'var(--momo)' },
+    { label:'水', val:'var(--asagi)' },
+  ];
+
+  openModal(
+    `<i class="fas fa-plus" style="color:var(--matcha)"></i> 習慣を追加`,
+    `<div style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px">習慣名 *</label>
+        <input id="new-habit-name" class="form-input" placeholder="例：毎日執筆、読書、ストレッチ…" style="font-size:13px">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px">目標値</label>
+          <input id="new-habit-target" class="form-input" type="number" min="1" value="1" style="font-size:13px">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px">単位</label>
+          <input id="new-habit-unit" class="form-input" value="回" placeholder="回・分・ページ…" style="font-size:13px">
+        </div>
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:6px">アイコン</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${ICONS.map((ic,i)=>`<div onclick="document.querySelectorAll('.habit-icon-sel').forEach(x=>x.style.background='');this.style.background='var(--matcha-bg)';this.style.borderColor='var(--matcha)';document.getElementById('new-habit-icon').value='${ic}'" class="habit-icon-sel" style="width:32px;height:32px;border-radius:var(--radius-sm);border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;color:var(--text-muted);transition:all .15s${i===0?';background:var(--matcha-bg);border-color:var(--matcha);color:var(--matcha)':''}"><i class="fas ${ic}"></i></div>`).join('')}
+        </div>
+        <input id="new-habit-icon" type="hidden" value="fa-pen-nib">
+      </div>
+      <div>
+        <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:6px">カラー</label>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          ${COLORS.map((cl,i)=>`<div onclick="document.querySelectorAll('.habit-color-sel').forEach(x=>x.style.transform='');this.style.transform='scale(1.2)';document.getElementById('new-habit-color').value='${cl.val}'" class="habit-color-sel" style="width:28px;height:28px;border-radius:50%;background:${cl.val};cursor:pointer;transition:all .15s${i===0?';transform:scale(1.2)':''}" title="${cl.label}"></div>`).join('')}
+        </div>
+        <input id="new-habit-color" type="hidden" value="var(--accent)">
+      </div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal();openHabitModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveNewHabit()"><i class="fas fa-plus"></i> 追加</button>`
+  );
+}
+
+function saveNewHabit() {
+  const name = document.getElementById('new-habit-name')?.value?.trim();
+  if (!name) { toast('習慣名を入力してください', 'error'); return; }
+  const target = parseInt(document.getElementById('new-habit-target')?.value) || 1;
+  const unit = document.getElementById('new-habit-unit')?.value?.trim() || '回';
+  const icon = document.getElementById('new-habit-icon')?.value || 'fa-pen-nib';
+  const color = document.getElementById('new-habit-color')?.value || 'var(--accent)';
+
+  const DEFAULT_HABITS = [
+    { id:'h1', name:'毎日執筆', target:1, unit:'セッション', icon:'fa-pen-nib', color:'var(--accent)' },
+    { id:'h2', name:'リサーチ', target:30, unit:'分', icon:'fa-search', color:'var(--fuji)' },
+    { id:'h3', name:'読書',     target:20, unit:'分', icon:'fa-book', color:'var(--matcha)' },
+    { id:'h4', name:'アウトライン確認', target:1, unit:'回', icon:'fa-list-check', color:'var(--momo)' },
+  ];
+  const habits = DB.get('habits', DEFAULT_HABITS);
+  const newHabit = { id: 'h-' + Date.now(), name, target, unit, icon, color };
+  habits.push(newHabit);
+  DB.set('habits', habits);
+  closeModal();
+  toast(`「${name}」を追加しました`, 'success');
+  openHabitModal();
+}
+
+function openEditHabitModal(habitId) {
+  const DEFAULT_HABITS = [
+    { id:'h1', name:'毎日執筆', target:1, unit:'セッション', icon:'fa-pen-nib', color:'var(--accent)' },
+    { id:'h2', name:'リサーチ', target:30, unit:'分', icon:'fa-search', color:'var(--fuji)' },
+    { id:'h3', name:'読書',     target:20, unit:'分', icon:'fa-book', color:'var(--matcha)' },
+    { id:'h4', name:'アウトライン確認', target:1, unit:'回', icon:'fa-list-check', color:'var(--momo)' },
+  ];
+  const habits = DB.get('habits', DEFAULT_HABITS);
+  const h = habits.find(x => x.id === habitId);
+  if (!h) return;
+
+  openModal(
+    `<i class="fas fa-pen" style="color:var(--fuji)"></i> 習慣を編集`,
+    `<div style="display:flex;flex-direction:column;gap:12px">
+      <div>
+        <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px">習慣名</label>
+        <input id="edit-habit-name" class="form-input" value="${esc(h.name)}" style="font-size:13px">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px">目標値</label>
+          <input id="edit-habit-target" class="form-input" type="number" min="1" value="${h.target}" style="font-size:13px">
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:5px">単位</label>
+          <input id="edit-habit-unit" class="form-input" value="${esc(h.unit)}" style="font-size:13px">
+        </div>
+      </div>
+      <div style="padding:10px;background:var(--momo-bg);border:1px solid var(--momo-border);border-radius:var(--radius-sm)">
+        <button class="btn btn-ghost btn-sm" style="color:var(--momo);font-size:12px" onclick="deleteHabit('${habitId}')">
+          <i class="fas fa-trash-can"></i> この習慣を削除する
+        </button>
+      </div>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal();openHabitModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveEditHabit('${habitId}')"><i class="fas fa-save"></i> 保存</button>`
+  );
+}
+
+function saveEditHabit(habitId) {
+  const DEFAULT_HABITS = [
+    { id:'h1', name:'毎日執筆', target:1, unit:'セッション', icon:'fa-pen-nib', color:'var(--accent)' },
+    { id:'h2', name:'リサーチ', target:30, unit:'分', icon:'fa-search', color:'var(--fuji)' },
+    { id:'h3', name:'読書',     target:20, unit:'分', icon:'fa-book', color:'var(--matcha)' },
+    { id:'h4', name:'アウトライン確認', target:1, unit:'回', icon:'fa-list-check', color:'var(--momo)' },
+  ];
+  const habits = DB.get('habits', DEFAULT_HABITS);
+  const idx = habits.findIndex(x => x.id === habitId);
+  if (idx === -1) return;
+  const name = document.getElementById('edit-habit-name')?.value?.trim();
+  if (!name) { toast('習慣名を入力してください', 'error'); return; }
+  const target = parseInt(document.getElementById('edit-habit-target')?.value) || 1;
+  const unit = document.getElementById('edit-habit-unit')?.value?.trim() || '回';
+  habits[idx] = { ...habits[idx], name, target, unit };
+  DB.set('habits', habits);
+  closeModal();
+  toast(`「${name}」を更新しました`, 'success');
+  openHabitModal();
+}
+
+function deleteHabit(habitId) {
+  if (!confirm('この習慣を削除しますか？\n（過去の記録は保持されます）')) return;
+  const DEFAULT_HABITS = [
+    { id:'h1', name:'毎日執筆', target:1, unit:'セッション', icon:'fa-pen-nib', color:'var(--accent)' },
+    { id:'h2', name:'リサーチ', target:30, unit:'分', icon:'fa-search', color:'var(--fuji)' },
+    { id:'h3', name:'読書',     target:20, unit:'分', icon:'fa-book', color:'var(--matcha)' },
+    { id:'h4', name:'アウトライン確認', target:1, unit:'回', icon:'fa-list-check', color:'var(--momo)' },
+  ];
+  const habits = DB.get('habits', DEFAULT_HABITS).filter(x => x.id !== habitId);
+  DB.set('habits', habits);
+  closeModal();
+  toast('習慣を削除しました', 'success');
+  openHabitModal();
 }
 
 function toggleHabit(habitId) {
