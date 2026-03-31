@@ -2765,16 +2765,17 @@ function saveConcept(projId) {
 // ================================================================
 function renderCharacters(proj) {
   const chars = proj.characters || [];
+  const charFilter = DB.get(`char_filter_${proj.id}`, { view: 'grouped', role: 'all', search: '' });
 
   // ロール別色設定
   const ROLE_COLORS = {
-    '主人公':            { color:'#d94f2a', bg:'#fef2ee', border:'#f5c4b4' },
-    'ヒロイン/ヒーロー': { color:'#d44d7a', bg:'#fdf0f5', border:'#f0b8ce' },
-    'antagonist（敵）':  { color:'#1d3d6b', bg:'#eef3fb', border:'#b8cee8' },
-    '相棒':              { color:'#4a7c3f', bg:'#eff6ed', border:'#b8d4b2' },
-    'メンター':          { color:'#c48a00', bg:'#fdf8e8', border:'#e8d088' },
-    'サブキャラ':        { color:'#6a5aaa', bg:'#f4f2fb', border:'#ccc4e8' },
-    'その他':            { color:'#7a6e5e', bg:'#f0ece4', border:'#e4ddd3' },
+    '主人公':            { color:'#d94f2a', bg:'#fef2ee', border:'#f5c4b4', icon:'fa-star',         rank:0 },
+    'ヒロイン/ヒーロー': { color:'#d44d7a', bg:'#fdf0f5', border:'#f0b8ce', icon:'fa-heart',        rank:1 },
+    'antagonist（敵）':  { color:'#1d3d6b', bg:'#eef3fb', border:'#b8cee8', icon:'fa-mask',         rank:2 },
+    '相棒':              { color:'#4a7c3f', bg:'#eff6ed', border:'#b8d4b2', icon:'fa-user-group',   rank:3 },
+    'メンター':          { color:'#c48a00', bg:'#fdf8e8', border:'#e8d088', icon:'fa-graduation-cap',rank:4 },
+    'サブキャラ':        { color:'#6a5aaa', bg:'#f4f2fb', border:'#ccc4e8', icon:'fa-users',        rank:5 },
+    'その他':            { color:'#7a6e5e', bg:'#f0ece4', border:'#e4ddd3', icon:'fa-user',         rank:6 },
   };
 
   // キャラクターのロール別分布
@@ -2784,53 +2785,100 @@ function renderCharacters(proj) {
     return acc;
   }, {});
 
-  const charCards = chars.length === 0
-    ? `<div style="grid-column:1/-1;text-align:center;padding:56px 20px;color:var(--text-muted)">
-        <div style="font-size:48px;margin-bottom:12px;opacity:0.3">👥</div>
-        <div style="font-size:14px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">キャラクターがいません</div>
-        <div style="font-size:12px;margin-bottom:20px">主人公・敵役など登場人物を追加しましょう</div>
-        <button class="btn btn-primary btn-sm" onclick="openAddCharModal('${proj.id}')"><i class="fas fa-user-plus"></i> 最初のキャラクターを追加</button>
-       </div>`
-    : chars.map(ch => {
-        const rc = ROLE_COLORS[ch.role] || ROLE_COLORS['その他'];
-        const wantFilled = (ch.want||'').trim().length > 0;
-        const needFilled = (ch.need||'').trim().length > 0;
-        const completeness = [ch.name, ch.role, ch.age, ch.want, ch.need, ch.backstory, ch.speech].filter(v => v && String(v).trim()).length;
-        return `
-      <div class="character-card" onclick="openEditCharModal('${proj.id}','${ch.id}')">
-        <div class="character-avatar" style="background:linear-gradient(135deg,${rc.bg} 0%,${rc.border}55 100%)">
-          <span style="font-size:42px">${ch.emoji||'👤'}</span>
-          <div style="position:absolute;top:8px;right:8px">
-            <span style="display:inline-flex;align-items:center;gap:3px;background:${rc.bg};color:${rc.color};border:1px solid ${rc.border};border-radius:10px;padding:2px 7px;font-size:9.5px;font-weight:700">${esc(ch.role||'？')}</span>
-          </div>
+  // フィルタリング
+  let filtered = chars.slice();
+  if (charFilter.role && charFilter.role !== 'all') {
+    filtered = filtered.filter(ch => (ch.role||'その他') === charFilter.role);
+  }
+  if (charFilter.search) {
+    const q = charFilter.search.toLowerCase();
+    filtered = filtered.filter(ch =>
+      (ch.name||'').toLowerCase().includes(q) ||
+      (ch.role||'').toLowerCase().includes(q) ||
+      (ch.tagline||'').toLowerCase().includes(q) ||
+      (ch.job||'').toLowerCase().includes(q)
+    );
+  }
+
+  const makeCharCard = (ch) => {
+    const rc = ROLE_COLORS[ch.role] || ROLE_COLORS['その他'];
+    const wantFilled = (ch.want||'').trim().length > 0;
+    const needFilled = (ch.need||'').trim().length > 0;
+    const completeness = [ch.name, ch.role, ch.age, ch.want, ch.need, ch.back, ch.speech].filter(v => v && String(v).trim()).length;
+    return `
+    <div class="character-card" onclick="openEditCharModal('${proj.id}','${ch.id}')">
+      <div class="character-avatar" style="background:linear-gradient(135deg,${rc.bg} 0%,${rc.border}55 100%)">
+        <span style="font-size:42px">${ch.emoji||'👤'}</span>
+        <div style="position:absolute;top:8px;right:8px">
+          <span style="display:inline-flex;align-items:center;gap:3px;background:${rc.bg};color:${rc.color};border:1px solid ${rc.border};border-radius:10px;padding:2px 7px;font-size:9.5px;font-weight:700">
+            <i class="fas ${rc.icon}" style="font-size:8px"></i> ${esc(ch.role||'？')}
+          </span>
         </div>
-        <div class="character-info">
-          <div class="character-name">${esc(ch.name||'名前未設定')}</div>
-          <div class="character-role" style="color:var(--text-muted)">
-            ${ch.age ? ch.age + '歳' : ''}
-            ${ch.age && ch.gender ? ' / ' : ''}
-            ${ch.gender ? esc(ch.gender) : ''}
-          </div>
-          ${ch.tagline ? `<div style="font-size:11px;color:var(--text-secondary);font-style:italic;margin-bottom:8px;line-height:1.5;border-left:2px solid ${rc.border};padding-left:6px">"${esc(ch.tagline)}"</div>` : ''}
-          <div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap">
-            ${wantFilled ? '<span class="tag tag-beni" style="font-size:10px"><i class="fas fa-arrow-up" style="font-size:8px"></i> Want</span>' : '<span class="tag tag-gray" style="font-size:10px;opacity:0.5">Want 未入力</span>'}
-            ${needFilled ? '<span class="tag tag-matcha" style="font-size:10px"><i class="fas fa-heart" style="font-size:8px"></i> Need</span>' : '<span class="tag tag-gray" style="font-size:10px;opacity:0.5">Need 未入力</span>'}
-          </div>
-          <div class="character-traits">
-            ${(ch.traits||[]).slice(0,3).map(t=>`<span class="tag tag-fuji" style="font-size:10px">${esc(t)}</span>`).join('')}
-          </div>
-          <div style="margin-top:8px">
-            <div class="progress-bar" style="height:3px"><div class="progress-fill" style="width:${Math.round(completeness/7*100)}%;background:linear-gradient(90deg,${rc.color},${rc.color}88)"></div></div>
-            <div style="font-size:9.5px;color:var(--text-muted);margin-top:2px">プロフィール完成度 ${Math.round(completeness/7*100)}%</div>
-          </div>
+      </div>
+      <div class="character-info">
+        <div class="character-name">${esc(ch.name||'名前未設定')}</div>
+        <div class="character-role" style="color:var(--text-muted)">
+          ${ch.age ? ch.age + '歳' : ''}
+          ${ch.age && ch.gender ? ' / ' : ''}
+          ${ch.gender ? esc(ch.gender) : ''}
+          ${ch.job ? ` · ${esc(ch.job.slice(0,10))}` : ''}
         </div>
-      </div>`;
-      }).join('');
+        ${ch.tagline ? `<div style="font-size:11px;color:var(--text-secondary);font-style:italic;margin-bottom:8px;line-height:1.5;border-left:2px solid ${rc.border};padding-left:6px">"${esc(ch.tagline)}"</div>` : ''}
+        <div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap">
+          ${wantFilled ? '<span class="tag tag-beni" style="font-size:10px"><i class="fas fa-arrow-up" style="font-size:8px"></i> Want</span>' : '<span class="tag tag-gray" style="font-size:10px;opacity:0.5">Want 未入力</span>'}
+          ${needFilled ? '<span class="tag tag-matcha" style="font-size:10px"><i class="fas fa-heart" style="font-size:8px"></i> Need</span>' : '<span class="tag tag-gray" style="font-size:10px;opacity:0.5">Need 未入力</span>'}
+        </div>
+        <div class="character-traits">
+          ${(ch.traits||[]).slice(0,3).map(t=>`<span class="tag tag-fuji" style="font-size:10px">${esc(t)}</span>`).join('')}
+        </div>
+        <div style="margin-top:8px">
+          <div class="progress-bar" style="height:3px"><div class="progress-fill" style="width:${Math.round(completeness/7*100)}%;background:linear-gradient(90deg,${rc.color},${rc.color}88)"></div></div>
+          <div style="font-size:9.5px;color:var(--text-muted);margin-top:2px">完成度 ${Math.round(completeness/7*100)}%</div>
+        </div>
+      </div>
+    </div>`;
+  };
+
+  // グループ表示またはフラット表示
+  let charContent = '';
+  if (chars.length === 0) {
+    charContent = `<div style="grid-column:1/-1;text-align:center;padding:56px 20px;color:var(--text-muted)">
+      <div style="font-size:48px;margin-bottom:12px;opacity:0.3">👥</div>
+      <div style="font-size:14px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">キャラクターがいません</div>
+      <div style="font-size:12px;margin-bottom:20px">主人公・敵役など登場人物を追加しましょう</div>
+      <button class="btn btn-primary btn-sm" onclick="openAddCharModal('${proj.id}')"><i class="fas fa-user-plus"></i> 最初のキャラクターを追加</button>
+    </div>`;
+  } else if (charFilter.view === 'grouped' && charFilter.role === 'all' && !charFilter.search) {
+    // カテゴリ別グループ表示
+    const roleOrder = ['主人公','ヒロイン/ヒーロー','antagonist（敵）','相棒','メンター','サブキャラ','その他'];
+    charContent = roleOrder.map(role => {
+      const roleChars = chars.filter(ch => (ch.role||'その他') === role);
+      if (roleChars.length === 0) return '';
+      const rc = ROLE_COLORS[role] || ROLE_COLORS['その他'];
+      const roleLabel = role === 'antagonist（敵）' ? '敵役・antagonist' : role;
+      return `
+      <div style="grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:10px 14px;background:${rc.bg};border:1px solid ${rc.border};border-radius:var(--radius-md);margin-top:10px">
+        <i class="fas ${rc.icon}" style="color:${rc.color};font-size:14px"></i>
+        <span style="font-size:13px;font-weight:700;color:${rc.color};font-family:'Noto Serif JP',serif">${roleLabel}</span>
+        <span style="font-size:11px;background:${rc.color};color:white;padding:1px 8px;border-radius:var(--radius-full)">${roleChars.length}人</span>
+        ${roleChars.some(ch => (ch.want||'').trim() && (ch.need||'').trim()) ? '<span style="font-size:10px;color:var(--matcha);margin-left:auto"><i class="fas fa-check-circle"></i> Want/Need設定済み</span>' : ''}
+      </div>
+      ${roleChars.map(ch => makeCharCard(ch)).join('')}`;
+    }).join('');
+  } else {
+    charContent = (filtered.length === 0
+      ? `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)">条件に一致するキャラクターが見つかりません</div>`
+      : filtered.map(ch => makeCharCard(ch)).join(''));
+  }
 
   // ロール分布サマリー
   const roleSummary = Object.entries(roleDistribution).map(([role, cnt]) => {
     const rc = ROLE_COLORS[role] || ROLE_COLORS['その他'];
-    return `<span style="display:inline-flex;align-items:center;gap:3px;background:${rc.bg};color:${rc.color};border:1px solid ${rc.border};border-radius:10px;padding:3px 9px;font-size:10.5px;font-weight:500">${role} ${cnt}人</span>`;
+    const active = charFilter.role === role;
+    return `<button class="btn btn-sm ${active?'btn-primary':'btn-ghost'}" style="${active?'':'background:'+rc.bg+';color:'+rc.color+';border-color:'+rc.border}"
+      onclick="const f=DB.get('char_filter_${proj.id}',{view:'grouped',role:'all',search:''});f.role=f.role==='${role}'?'all':'${role}';DB.set('char_filter_${proj.id}',f);render()">
+      <i class="fas ${rc.icon}" style="font-size:10px"></i> ${role === 'antagonist（敵）' ? '敵役' : role} ${cnt}
+    </button>`;
   }).join('');
 
   return `
@@ -2843,22 +2891,41 @@ function renderCharacters(proj) {
   </div>
 
   <!-- ロール分布 + アクション -->
-  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:20px;flex-wrap:wrap">
-    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-      <span style="font-size:12px;color:var(--text-muted);font-weight:500">登場人物：</span>
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+    <div style="display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+      <button class="btn btn-sm ${charFilter.role==='all'?'btn-primary':'btn-ghost'}" onclick="const f=DB.get('char_filter_${proj.id}',{view:'grouped',role:'all',search:''});f.role='all';DB.set('char_filter_${proj.id}',f);render()">
+        <i class="fas fa-users" style="font-size:10px"></i> 全員 ${chars.length}
+      </button>
       ${roleSummary || '<span style="font-size:12px;color:var(--text-muted);font-style:italic">まだキャラクターがいません</span>'}
     </div>
-    <button class="btn btn-primary" onclick="openAddCharModal('${proj.id}')">
-      <i class="fas fa-user-plus"></i> キャラクター追加
-    </button>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-sm ${charFilter.view==='grouped'?'btn-primary':'btn-ghost'}" onclick="const f=DB.get('char_filter_${proj.id}',{view:'grouped',role:'all',search:''});f.view='grouped';DB.set('char_filter_${proj.id}',f);render()" title="グループ表示">
+        <i class="fas fa-layer-group" style="font-size:11px"></i>
+      </button>
+      <button class="btn btn-sm ${charFilter.view==='grid'?'btn-primary':'btn-ghost'}" onclick="const f=DB.get('char_filter_${proj.id}',{view:'grouped',role:'all',search:''});f.view='grid';DB.set('char_filter_${proj.id}',f);render()" title="グリッド表示">
+        <i class="fas fa-grip" style="font-size:11px"></i>
+      </button>
+      <button class="btn btn-primary" onclick="openAddCharModal('${proj.id}')">
+        <i class="fas fa-user-plus"></i> キャラクター追加
+      </button>
+    </div>
   </div>
 
-  <div class="character-grid" style="margin-bottom:24px">${charCards}</div>
+  <!-- 検索 -->
+  ${chars.length > 3 ? `
+  <div style="position:relative;margin-bottom:14px;max-width:300px">
+    <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:11px"></i>
+    <input class="form-input" style="padding-left:30px;font-size:12.5px" placeholder="名前・役割・職業で検索..." value="${esc(charFilter.search||'')}"
+      oninput="const f=DB.get('char_filter_${proj.id}',{view:'grouped',role:'all',search:''});f.search=this.value;DB.set('char_filter_${proj.id}',f);render()">
+  </div>` : ''}
+
+  <div class="character-grid" style="margin-bottom:24px">${charContent}</div>
   ${chars.length > 1 ? renderRelationshipMap(proj) : ''}
   <div class="info-box" style="margin-top:16px">
     <i class="fas fa-users"></i>
     <div><strong>キャラクター設計のポイント：</strong>「Want（表の欲求）」と「Need（内なる必要）」の葛藤がドラマを生みます。
-    主人公はWantを追いながら、Needに気づいていく——この旅がキャラクターアークです。</div>
+    主人公はWantを追いながら、Needに気づいていく——この旅がキャラクターアークです。
+    15〜20人規模の場合は「メイン・サブ・端役」でカテゴリを整理しましょう。</div>
   </div>`;
 }
 
@@ -4050,7 +4117,14 @@ function renderPolish(proj) {
 
   const dialogueCount = (content.match(/「[^」]*」/g)||[]).length;
   const sceneCount    = (content.match(/【\d+】|（外）|（内）/g)||[]).length;
+  const charCount     = content.length;
+  const lineCount     = content.split('\n').filter(l => l.trim()).length;
   const actionPct     = content ? Math.round(content.split('\n').filter(l=>l.trim()&&!l.includes('「')&&!l.includes('【')&&!l.includes('（外）')&&!l.includes('（内）')).length / Math.max(content.split('\n').filter(l=>l.trim()).length,1)*100) : 0;
+
+  // 長いセリフ検出（20文字以上）
+  const longDialogues = (content.match(/「[^」]{20,}」/g)||[]).length;
+  // 説明的表現チェック（「〜と思う」「〜と感じる」など）
+  const explainPatterns = (content.match(/と思[うっ]|と感じ|だろうと|のだ[がけ]|そういう|というのは/g)||[]).length;
 
   return `
   <div class="section-header">
@@ -4060,18 +4134,22 @@ function renderPolish(proj) {
   <div class="grid-2" style="gap:20px">
     <div style="display:flex;flex-direction:column;gap:16px">
       <div class="card">
-        <div class="card-title" style="margin-bottom:14px"><i class="fas fa-chart-bar icon"></i> スクリプト分析</div>
-        <div class="grid-2">
-          <div style="text-align:center;padding:16px;background:var(--bg-primary);border-radius:8px">
-            <div style="font-size:28px;font-weight:700;color:var(--accent)">${dialogueCount}</div>
-            <div style="font-size:11px;color:var(--text-muted)">セリフ数</div>
+        <div class="card-title" style="margin-bottom:14px"><i class="fas fa-chart-bar icon"></i> スクリプト自動分析</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+          <div style="text-align:center;padding:12px;background:var(--accent-bg);border-radius:8px;border:1px solid var(--accent-border)">
+            <div style="font-size:24px;font-weight:700;color:var(--accent)">${dialogueCount}</div>
+            <div style="font-size:10px;color:var(--text-muted)">セリフ数</div>
           </div>
-          <div style="text-align:center;padding:16px;background:var(--bg-primary);border-radius:8px">
-            <div style="font-size:28px;font-weight:700;color:var(--accent2)">${sceneCount}</div>
-            <div style="font-size:11px;color:var(--text-muted)">シーン数</div>
+          <div style="text-align:center;padding:12px;background:var(--fuji-bg);border-radius:8px;border:1px solid var(--fuji-border)">
+            <div style="font-size:24px;font-weight:700;color:var(--fuji)">${sceneCount}</div>
+            <div style="font-size:10px;color:var(--text-muted)">シーン数</div>
+          </div>
+          <div style="text-align:center;padding:12px;background:var(--bg-primary);border-radius:8px">
+            <div style="font-size:24px;font-weight:700;color:var(--text-primary)">${charCount.toLocaleString()}</div>
+            <div style="font-size:10px;color:var(--text-muted)">総文字数</div>
           </div>
         </div>
-        <div style="margin-top:14px">
+        <div style="margin-bottom:10px">
           <div class="meter-row">
             <div class="meter-label">ト書き割合</div>
             <div class="meter-bar"><div class="meter-fill" style="width:${actionPct}%;background:var(--accent3)"></div></div>
@@ -4079,10 +4157,21 @@ function renderPolish(proj) {
           </div>
           <div class="meter-row">
             <div class="meter-label">セリフ割合</div>
-            <div class="meter-bar"><div class="meter-fill" style="width:${100-actionPct}%;background:var(--accent2)"></div></div>
+            <div class="meter-bar"><div class="meter-fill" style="width:${100-actionPct}%;background:var(--fuji)"></div></div>
             <div class="meter-value">${100-actionPct}%</div>
           </div>
         </div>
+        ${content.length > 0 ? `
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px">
+          ${longDialogues > 0 ? `<div style="padding:5px 10px;background:var(--kogane-bg);border:1px solid var(--kogane-border);border-radius:var(--radius-sm);font-size:11.5px;color:var(--kogane)">
+            <i class="fas fa-exclamation-triangle" style="font-size:9px"></i> 長いセリフ ${longDialogues}件（短縮検討）
+          </div>` : ''}
+          ${explainPatterns > 0 ? `<div style="padding:5px 10px;background:var(--momo-bg);border:1px solid var(--momo-border);border-radius:var(--radius-sm);font-size:11.5px;color:var(--momo)">
+            <i class="fas fa-exclamation-triangle" style="font-size:9px"></i> 説明的表現 ${explainPatterns}件（削減検討）
+          </div>` : `<div style="padding:5px 10px;background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-sm);font-size:11.5px;color:var(--matcha)">
+            <i class="fas fa-check-circle" style="font-size:9px"></i> 説明的表現なし
+          </div>`}
+        </div>` : `<div style="font-size:12px;color:var(--text-muted);padding:8px;background:var(--bg-hover);border-radius:6px">エディタで執筆すると自動分析が表示されます</div>`}
       </div>
       <div class="card">
         <div class="card-title" style="margin-bottom:14px"><i class="fas fa-search icon"></i> 推敲チェックリスト</div>
@@ -4113,10 +4202,21 @@ function renderPolish(proj) {
         </div>
       </div>
       <div class="card">
-        <div class="card-title" style="margin-bottom:12px"><i class="fas fa-sticky-note icon"></i> 推敲メモ</div>
-        <textarea class="form-textarea" id="polish-notes" rows="6"
-          placeholder="推敲中に気づいたことを書いてください…"
-          onblur="savePolishNotes('${proj.id}',this.value)">${esc(proj.polishNotes||'')}</textarea>
+        <div class="card-title" style="margin-bottom:8px"><i class="fas fa-tools icon" style="color:var(--fuji)"></i> 推敲ツールキット</div>
+        <div style="display:flex;flex-direction:column;gap:6px;font-size:12px">
+          <button class="btn btn-ghost btn-sm" style="justify-content:flex-start" onclick="navigate('tool-dialogue-check')">
+            <i class="fas fa-comment-lines" style="color:var(--fuji);width:16px"></i> セリフ診断ツールで検証
+          </button>
+          <button class="btn btn-ghost btn-sm" style="justify-content:flex-start" onclick="navigate('tool-scene')">
+            <i class="fas fa-film" style="color:var(--momo);width:16px"></i> シーン分析ツールで確認
+          </button>
+        </div>
+        <div style="margin-top:10px">
+          <div class="card-title" style="margin-bottom:8px;font-size:12px"><i class="fas fa-sticky-note icon"></i> 推敲メモ</div>
+          <textarea class="form-textarea" id="polish-notes" rows="5"
+            placeholder="推敲中に気づいたことを書いてください…"
+            onblur="savePolishNotes('${proj.id}',this.value)">${esc(proj.polishNotes||'')}</textarea>
+        </div>
       </div>
     </div>
   </div>`;
@@ -4152,34 +4252,59 @@ function savePolishNotes(projId, val) {
 // ================================================================
 function renderFeedback(proj) {
   const feedbacks = proj.feedbacks || [];
+  const fbFilter = DB.get(`fb_filter_${proj.id}`, { type: 'all', showResolved: true });
 
-  const fbCards = feedbacks.length === 0
+  // フィルタリング
+  let filtered = feedbacks.slice();
+  if (fbFilter.type && fbFilter.type !== 'all') {
+    filtered = filtered.filter(f => (f.type||'note') === fbFilter.type);
+  }
+  if (!fbFilter.showResolved) {
+    filtered = filtered.filter(f => !f.resolved);
+  }
+
+  const TYPE_INFO = {
+    positive: { label:'✅ 良い点', cls:'tag-green', color:'var(--green)' },
+    issue:    { label:'❌ 問題点', cls:'tag-red', color:'var(--red)' },
+    question: { label:'❓ 疑問',   cls:'tag-yellow', color:'var(--kogane)' },
+    note:     { label:'📝 メモ',   cls:'tag-blue', color:'var(--fuji)' },
+  };
+
+  const fbCards = filtered.length === 0
     ? `<div style="text-align:center;padding:40px;color:var(--text-muted);font-size:13px">
         <i class="fas fa-comments" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.3"></i>
-        フィードバックを追加しましょう
+        ${feedbacks.length === 0 ? 'フィードバックを追加しましょう' : 'フィルター条件に一致するフィードバックがありません'}
        </div>`
-    : feedbacks.map(f => `
-      <div class="feedback-card ${f.type||'note'}">
+    : filtered.map(f => {
+        const ti = TYPE_INFO[f.type||'note'] || TYPE_INFO.note;
+        return `
+      <div class="feedback-card ${f.type||'note'}" style="${f.resolved?'opacity:0.7':''}">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-          <div style="display:flex;align-items:center;gap:8px">
-            <span class="tag tag-${f.type==='positive'?'green':f.type==='issue'?'red':f.type==='question'?'yellow':'blue'}" style="font-size:10px">
-              ${f.type==='positive'?'✅ 良い点':f.type==='issue'?'❌ 問題点':f.type==='question'?'❓ 疑問':'📝 メモ'}
-            </span>
-            ${f.reviewer ? `<span style="font-size:11px;color:var(--text-muted)">${esc(f.reviewer)}</span>` : ''}
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span class="tag ${ti.cls}" style="font-size:10px">${ti.label}</span>
+            ${f.reviewer ? `<span style="font-size:11px;color:var(--text-muted)"><i class="fas fa-user" style="font-size:9px"></i> ${esc(f.reviewer)}</span>` : ''}
+            ${f.priority === 'high' ? `<span style="font-size:9px;padding:1px 7px;background:var(--momo-bg);color:var(--momo);border:1px solid var(--momo-border);border-radius:var(--radius-full);font-weight:700">🔴 優先度高</span>` : ''}
           </div>
-          <div style="display:flex;gap:4px">
+          <div style="display:flex;gap:4px;align-items:center">
             <span style="font-size:10px;color:var(--text-muted)">${fmtDate(f.createdAt)}</span>
+            ${f.resolved ? `<span style="font-size:10px;padding:1px 7px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border);border-radius:var(--radius-full)"><i class="fas fa-check-circle" style="font-size:9px"></i> 対応済み</span>` : ''}
             <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteFeedback('${proj.id}','${f.id}')"><i class="fas fa-xmark" style="font-size:9px;color:var(--red)"></i></button>
           </div>
         </div>
-        ${f.location ? `<div style="font-size:11px;color:var(--accent-light);margin-bottom:4px"><i class="fas fa-location-dot"></i> ${esc(f.location)}</div>` : ''}
+        ${f.location ? `<div style="font-size:11px;color:var(--accent-light);margin-bottom:4px"><i class="fas fa-location-dot" style="margin-right:3px"></i>${esc(f.location)}</div>` : ''}
         <div style="font-size:13px;color:var(--text-primary);line-height:1.7">${esc(f.content||'').replace(/\n/g,'<br>')}</div>
-        ${f.resolved ? `<div style="font-size:11px;color:var(--green);margin-top:6px"><i class="fas fa-check-circle"></i> 対応済み</div>` :
-          `<button class="btn btn-ghost btn-sm" style="margin-top:6px;font-size:11px" onclick="resolveFeedback('${proj.id}','${f.id}')"><i class="fas fa-check"></i> 対応済みにする</button>`}
-      </div>`).join('');
+        ${!f.resolved ? `
+        <div style="margin-top:8px;display:flex;gap:6px">
+          <button class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--matcha)" onclick="resolveFeedback('${proj.id}','${f.id}')"><i class="fas fa-check"></i> 対応済みにする</button>
+          ${f.type === 'issue' ? `<button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="addFeedbackToNote('${proj.id}','${f.id}')"><i class="fas fa-note-sticky"></i> ノートに記録</button>` : ''}
+        </div>` : ''}
+      </div>`;
+      }).join('');
 
   const resolvedCount = feedbacks.filter(f => f.resolved).length;
   const issueCount = feedbacks.filter(f => f.type === 'issue' && !f.resolved).length;
+  const positiveCount = feedbacks.filter(f => f.type === 'positive').length;
+  const byType = Object.fromEntries(['positive','issue','question','note'].map(t => [t, feedbacks.filter(f => (f.type||'note') === t).length]));
 
   return `
   <div class="section-header">
@@ -4188,37 +4313,67 @@ function renderFeedback(proj) {
   </div>
   <div class="grid-2" style="gap:20px">
     <div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-        <div style="font-size:14px;font-weight:600">フィードバック一覧（${feedbacks.length}件）</div>
-        <button class="btn btn-primary btn-sm" onclick="openAddFeedbackModal('${proj.id}')"><i class="fas fa-plus"></i> 追加</button>
+      <!-- フィルター -->
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div style="display:flex;gap:5px;flex-wrap:wrap">
+          <button class="btn btn-sm ${fbFilter.type==='all'?'btn-primary':'btn-ghost'}" onclick="const f=DB.get('fb_filter_${proj.id}',{type:'all',showResolved:true});f.type='all';DB.set('fb_filter_${proj.id}',f);render()">
+            すべて (${feedbacks.length})
+          </button>
+          ${Object.entries(TYPE_INFO).map(([key, ti]) => {
+            const cnt = byType[key] || 0;
+            if (cnt === 0) return '';
+            const active = fbFilter.type === key;
+            return `<button class="btn btn-sm ${active?'btn-primary':'btn-ghost'}" onclick="const f=DB.get('fb_filter_${proj.id}',{type:'all',showResolved:true});f.type=f.type==='${key}'?'all':'${key}';DB.set('fb_filter_${proj.id}',f);render()">
+              ${ti.label} (${cnt})
+            </button>`;
+          }).join('')}
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <label style="font-size:11.5px;color:var(--text-muted);display:flex;align-items:center;gap:4px;cursor:pointer">
+            <input type="checkbox" ${fbFilter.showResolved?'checked':''} onchange="const f=DB.get('fb_filter_${proj.id}',{type:'all',showResolved:true});f.showResolved=this.checked;DB.set('fb_filter_${proj.id}',f);render()">
+            対応済みを表示
+          </label>
+          <button class="btn btn-primary btn-sm" onclick="openAddFeedbackModal('${proj.id}')"><i class="fas fa-plus"></i> 追加</button>
+        </div>
       </div>
       ${fbCards}
     </div>
     <div style="display:flex;flex-direction:column;gap:16px">
       <div class="card">
         <div class="card-title" style="margin-bottom:12px"><i class="fas fa-chart-pie icon"></i> フィードバック状況</div>
-        <div class="grid-2">
-          <div style="text-align:center;padding:14px;background:var(--bg-primary);border-radius:8px">
-            <div style="font-size:24px;font-weight:700;color:var(--green)">${resolvedCount}</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+          <div style="text-align:center;padding:12px;background:var(--matcha-bg);border-radius:8px;border:1px solid var(--matcha-border)">
+            <div style="font-size:24px;font-weight:700;color:var(--matcha)">${resolvedCount}</div>
             <div style="font-size:11px;color:var(--text-muted)">対応済み</div>
           </div>
-          <div style="text-align:center;padding:14px;background:var(--bg-primary);border-radius:8px">
-            <div style="font-size:24px;font-weight:700;color:var(--red)">${issueCount}</div>
+          <div style="text-align:center;padding:12px;background:var(--momo-bg);border-radius:8px;border:1px solid var(--momo-border)">
+            <div style="font-size:24px;font-weight:700;color:var(--momo)">${issueCount}</div>
             <div style="font-size:11px;color:var(--text-muted)">未対応の問題</div>
           </div>
+          <div style="text-align:center;padding:12px;background:var(--matcha-bg);border-radius:8px;border:1px solid var(--matcha-border)">
+            <div style="font-size:24px;font-weight:700;color:var(--matcha)">${positiveCount}</div>
+            <div style="font-size:11px;color:var(--text-muted)">良い点</div>
+          </div>
+          <div style="text-align:center;padding:12px;background:var(--bg-primary);border-radius:8px">
+            <div style="font-size:24px;font-weight:700;color:var(--fuji)">${feedbacks.length}</div>
+            <div style="font-size:11px;color:var(--text-muted)">合計</div>
+          </div>
         </div>
-        ${feedbacks.length > 0 ? `<div style="margin-top:12px">
+        ${feedbacks.length > 0 ? `<div>
           <div class="meter-row"><div class="meter-label">解決率</div>
-            <div class="meter-bar"><div class="meter-fill" style="width:${Math.round(resolvedCount/feedbacks.length*100)}%;background:var(--green)"></div></div>
+            <div class="meter-bar"><div class="meter-fill" style="width:${Math.round(resolvedCount/feedbacks.length*100)}%;background:var(--matcha)"></div></div>
             <div class="meter-value">${Math.round(resolvedCount/feedbacks.length*100)}%</div>
           </div>
         </div>` : ''}
       </div>
       <div class="card">
         <div class="card-title" style="margin-bottom:12px"><i class="fas fa-microphone icon"></i> 読み合わせメモ</div>
-        <textarea class="form-textarea" id="readthrough-notes" rows="6"
+        <textarea class="form-textarea" id="readthrough-notes" rows="5"
           placeholder="読み合わせ・テストで気づいたこと、俳優の意見など…"
           onblur="saveReadthroughNotes('${proj.id}',this.value)">${esc(proj.readthroughNotes||'')}</textarea>
+        <button class="btn btn-secondary btn-sm" style="margin-top:6px;width:100%" onclick="exportFeedbackSummary('${proj.id}')">
+          <i class="fas fa-download"></i> フィードバックサマリーを出力
+        </button>
       </div>
       <div class="card">
         <div class="card-title" style="margin-bottom:12px"><i class="fas fa-clipboard-check icon"></i> 読み合わせチェック</div>
@@ -4245,11 +4400,19 @@ function renderFeedbackChecklist(proj) {
 function openAddFeedbackModal(projId) {
   openModal(
     `<i class="fas fa-comment-plus" style="color:#6ab8f7"></i> フィードバックを追加`,
-    `<div class="form-group"><label class="form-label">種類</label>
-      <select class="form-select" id="fb-type">
-        <option value="issue">問題点</option><option value="positive">良い点</option>
-        <option value="question">疑問・確認</option><option value="note">メモ</option>
-      </select></div>
+    `<div class="grid-2">
+      <div class="form-group"><label class="form-label">種類</label>
+        <select class="form-select" id="fb-type">
+          <option value="issue">❌ 問題点</option><option value="positive">✅ 良い点</option>
+          <option value="question">❓ 疑問・確認</option><option value="note">📝 メモ</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">優先度</label>
+        <select class="form-select" id="fb-priority">
+          <option value="">通常</option><option value="high">🔴 高</option>
+        </select>
+      </div>
+    </div>
     <div class="form-group"><label class="form-label">場所・ページ（任意）</label>
       <input class="form-input" id="fb-loc" placeholder="例：P.24 シーン8、第二幕冒頭など"></div>
     <div class="form-group"><label class="form-label">フィードバック内容 <span style="color:var(--red)">*</span></label>
@@ -4272,11 +4435,55 @@ function addFeedback(projId) {
     id: uid(), type: $('#fb-type')?.value||'note',
     location: $('#fb-loc')?.value?.trim()||'',
     content, reviewer: $('#fb-reviewer')?.value?.trim()||'',
+    priority: $('#fb-priority')?.value||'',
     resolved: false, createdAt: now()
   });
   proj.updatedAt = now();
   DB.saveProject(proj);
   closeModal(); toast('追加しました','success'); render();
+}
+
+function addFeedbackToNote(projId, fbId) {
+  const proj = DB.getProject(projId);
+  const fb = (proj?.feedbacks||[]).find(f => f.id === fbId);
+  if (!fb) return;
+  const notes = DB.get('learn_notes', []);
+  const note = {
+    id: uid(), title: `🔴 問題点メモ: ${fb.location||fb.content.slice(0,20)}`,
+    content: `【フィードバック】\n場所: ${fb.location||'-'}\n出所: ${fb.reviewer||'-'}\n\n${fb.content}\n\n【対応案】\n`,
+    tags: ['フィードバック', proj.title||'作品'],
+    color: 'var(--momo)', pinned: false,
+    createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
+  };
+  notes.unshift(note);
+  DB.set('learn_notes', notes);
+  toast('学習ノートに記録しました', 'success');
+}
+
+function exportFeedbackSummary(projId) {
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const feedbacks = proj.feedbacks || [];
+  const lines = [
+    `【フィードバックサマリー】 ${proj.title}`,
+    `出力日: ${new Date().toLocaleDateString('ja-JP')}`,
+    `合計: ${feedbacks.length}件 / 対応済: ${feedbacks.filter(f=>f.resolved).length}件`,
+    '',
+    '=== 問題点（未対応） ===',
+    ...feedbacks.filter(f => f.type==='issue' && !f.resolved).map(f => `• ${f.location?'['+f.location+'] ':''}${f.content}${f.reviewer?' ('+f.reviewer+')':''}`),
+    '',
+    '=== 良い点 ===',
+    ...feedbacks.filter(f => f.type==='positive').map(f => `• ${f.content}${f.reviewer?' ('+f.reviewer+')':''}`),
+    '',
+    '=== 疑問・確認事項 ===',
+    ...feedbacks.filter(f => f.type==='question').map(f => `• ${f.content}${f.reviewer?' ('+f.reviewer+')':''}`),
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `feedback_${proj.title}_${new Date().toLocaleDateString('ja-JP').replace(/\//g,'-')}.txt`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('フィードバックサマリーを出力しました', 'success');
 }
 
 function resolveFeedback(projId, fbId) {
@@ -4516,6 +4723,26 @@ function renderExport(proj) {
         </div>
       </div>
 
+      <!-- 共有・提出 -->
+      <div class="card" style="padding:0;overflow:hidden;border-top:3px solid var(--fuji)">
+        <div class="export-card-head" style="background:var(--fuji-bg)"><i class="fas fa-share-nodes" style="color:var(--fuji)"></i> 共有・提出オプション</div>
+        <div style="padding:14px;display:flex;flex-direction:column;gap:8px">
+          <button class="btn btn-ghost btn-sm" style="justify-content:flex-start" onclick="copyProjectSummary('${proj.id}')">
+            <i class="fas fa-clipboard" style="color:var(--fuji);width:16px"></i> 企画書サマリーをコピー
+          </button>
+          <button class="btn btn-ghost btn-sm" style="justify-content:flex-start" onclick="exportCharacterList('${proj.id}')">
+            <i class="fas fa-users" style="color:var(--matcha);width:16px"></i> 登場人物リストを出力
+          </button>
+          <button class="btn btn-ghost btn-sm" style="justify-content:flex-start" onclick="exportProjectReport('${proj.id}')">
+            <i class="fas fa-file-chart-column" style="color:var(--kogane);width:16px"></i> 制作進捗レポートを出力
+          </button>
+          <div style="margin-top:6px;padding:8px 10px;background:var(--bg-hover);border-radius:6px;font-size:11.5px;color:var(--text-muted);line-height:1.6">
+            <i class="fas fa-info-circle" style="color:var(--fuji);margin-right:4px"></i>
+            出力したファイルはメール添付・Dropbox・Google Drive等でプロデューサー・監督・制作スタッフに共有できます。
+          </div>
+        </div>
+      </div>
+
       <!-- 出力履歴 -->
       <div class="card" style="padding:0;overflow:hidden">
         <div class="export-card-head"><i class="fas fa-clock-rotate-left"></i> 出力履歴</div>
@@ -4543,6 +4770,93 @@ function renderExport(proj) {
       </div>
     </div>
   </div>`;
+}
+
+function copyProjectSummary(projId) {
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const chars = proj.characters || [];
+  const text = [
+    `【企画書サマリー】`,
+    `タイトル：${proj.title}`,
+    `ジャンル：${proj.genre||'—'}　フォーマット：${proj.format||'—'}`,
+    proj.logline ? `ログライン：${proj.logline}` : '',
+    `フェーズ：${proj.phase||'—'}`,
+    chars.length > 0 ? `\n登場人物（${chars.length}人）：` : '',
+    ...chars.slice(0,5).map(c => `  • ${c.name}（${c.role||'—'}）${c.tagline?'「'+c.tagline+'」':''}`),
+    chars.length > 5 ? `  他${chars.length-5}人...` : '',
+    `\n制作日時：${new Date().toLocaleDateString('ja-JP')}`,
+  ].filter(Boolean).join('\n');
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => toast('企画書サマリーをコピーしました', 'success'));
+  } else {
+    const el = document.createElement('textarea');
+    el.value = text; document.body.appendChild(el); el.select();
+    document.execCommand('copy'); document.body.removeChild(el);
+    toast('コピーしました', 'success');
+  }
+}
+
+function exportCharacterList(projId) {
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const chars = proj.characters || [];
+  if (chars.length === 0) { toast('キャラクターが登録されていません', 'error'); return; }
+  const lines = [
+    `【登場人物リスト】 ${proj.title}`,
+    `出力日: ${new Date().toLocaleDateString('ja-JP')}`,
+    `総人数: ${chars.length}人`,
+    '',
+    ...chars.map(c => [
+      `■ ${c.name}${c.kana?' ('+c.kana+')':''}`,
+      `  役割: ${c.role||'—'}　年齢: ${c.age||'—'}　性別: ${c.gender||'—'}`,
+      c.tagline ? `  キャラクター: 「${c.tagline}」` : '',
+      c.job ? `  職業: ${c.job}` : '',
+      c.want ? `  Want（目標）: ${c.want}` : '',
+      c.need ? `  Need（内面）: ${c.need}` : '',
+    ].filter(Boolean).join('\n'))
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `charlist_${proj.title}_${new Date().toLocaleDateString('ja-JP').replace(/\//g,'-')}.txt`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('登場人物リストを出力しました', 'success');
+}
+
+function exportProjectReport(projId) {
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const drafts = proj.drafts || [];
+  const feedbacks = proj.feedbacks || [];
+  const chars = proj.characters || [];
+  const draft = drafts[0];
+  const wc = draft ? countWords(draft.content||'') : 0;
+  const lines = [
+    `【制作進捗レポート】 ${proj.title}`,
+    `出力日: ${new Date().toLocaleDateString('ja-JP')}`,
+    `═══════════════════════════════`,
+    `現在フェーズ: ${proj.phase||'—'}`,
+    `文字数: ${wc.toLocaleString()}字`,
+    `稿数: ${drafts.length}稿`,
+    `登場人物: ${chars.length}人`,
+    '',
+    '── フィードバック ──',
+    `合計: ${feedbacks.length}件 / 対応済: ${feedbacks.filter(f=>f.resolved).length}件`,
+    `未対応の問題: ${feedbacks.filter(f=>f.type==='issue'&&!f.resolved).length}件`,
+    '',
+    '── メモ ──',
+    proj.polishNotes ? `推敲メモ:\n${proj.polishNotes}` : '推敲メモ: なし',
+    '',
+    `最終更新: ${proj.updatedAt ? new Date(proj.updatedAt).toLocaleDateString('ja-JP') : '—'}`,
+  ];
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `report_${proj.title}_${new Date().toLocaleDateString('ja-JP').replace(/\//g,'-')}.txt`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('制作進捗レポートを出力しました', 'success');
 }
 
 // buildExportOutput: フォーマットに応じた出力テキストを生成する中核関数
@@ -8699,12 +9013,21 @@ function renderArticlePage(articleId) {
   return `
   <div style="max-width:820px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-        <div class="article-back-btn" style="margin-bottom:0" onclick="${backNav}">
-          <i class="fas fa-arrow-left"></i> ${backLabel}
-        </div>
-        <span style="color:var(--text-muted);font-size:12px">›</span>
-        <span style="font-size:12px;color:var(--text-muted);cursor:pointer" onclick="navigate('learn-articles')">記事一覧</span>
+      <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--text-muted);cursor:pointer;padding:3px 6px;border-radius:4px;transition:background .15s" onclick="navigate('learn-articles')" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+          <i class="fas fa-newspaper" style="font-size:10px;margin-right:3px"></i>記事一覧
+        </span>
+        ${article.category ? `
+        <span style="color:var(--text-muted);font-size:11px">›</span>
+        <span style="font-size:12px;color:var(--text-muted);cursor:pointer;padding:3px 6px;border-radius:4px;transition:background .15s" onclick="${backNav}" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+          ${esc(article.category)}
+        </span>
+        <span style="color:var(--text-muted);font-size:11px">›</span>
+        <span style="font-size:12px;color:var(--text-primary);font-weight:600;padding:3px 6px">${esc(article.title.slice(0,20))}${article.title.length>20?'…':''}</span>
+        ` : (`
+        <span style="color:var(--text-muted);font-size:11px">›</span>
+        <span style="font-size:12px;color:var(--text-primary);font-weight:600;padding:3px 6px">${esc(article.title.slice(0,20))}${article.title.length>20?'…':''}</span>
+        `)}
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost btn-sm" onclick="toggleArticleBookmark('${articleId}')" style="color:${isBookmarked?'var(--kogane)':'var(--text-muted)'}">
@@ -8730,7 +9053,7 @@ function renderArticlePage(articleId) {
     <div class="article-body">${body}</div>
     <div style="margin-top:36px;padding-top:20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
       <button class="btn btn-secondary" onclick="${bottomBackNav}">
-        <i class="fas fa-arrow-left"></i> ${bottomBackLabel}
+        <i class="fas fa-arrow-left"></i> ${article.category ? esc(article.category) + 'に戻る' : '記事一覧に戻る'}
       </button>
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost btn-sm" onclick="toggleArticleBookmark('${articleId}')">
@@ -9158,12 +9481,12 @@ function renderArticleCategoryPage(catName) {
 
   return `
   <div style="max-width:820px">
-    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
-      <div class="article-back-btn" style="margin-bottom:0" onclick="navigate('learn-articles')">
-        <i class="fas fa-arrow-left"></i> 記事一覧
-      </div>
-      <span style="color:var(--text-muted);font-size:12px">›</span>
-      <span style="font-size:12px;color:var(--text-muted)">${catName}</span>
+    <div style="display:flex;align-items:center;gap:4px;margin-bottom:16px;flex-wrap:wrap">
+      <span style="font-size:12px;color:var(--text-muted);cursor:pointer;padding:3px 6px;border-radius:4px;transition:background .15s" onclick="navigate('learn-articles')" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+        <i class="fas fa-newspaper" style="font-size:10px;margin-right:3px"></i>記事一覧
+      </span>
+      <span style="color:var(--text-muted);font-size:11px">›</span>
+      <span style="font-size:13px;font-weight:600;color:var(--text-primary);padding:3px 6px">${catName}</span>
     </div>
     <div style="background:linear-gradient(135deg,${c.bg},var(--bg-subtle));border:1px solid ${c.border};border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:22px;position:relative;overflow:hidden">
       <div style="width:24px;height:2.5px;background:${c.color};border-radius:2px;margin-bottom:10px"></div>
@@ -14561,8 +14884,8 @@ function renderTemplatesPage() {
     const bg = bgMap[cat.color] || 'var(--bg-hover)';
     const bdr = borderMap[cat.color] || 'var(--border)';
     const cards = cat.items.map(item => `
-      <div class="card" style="cursor:pointer;padding:14px 16px;transition:all .18s;border-top:2px solid ${col};position:relative" onclick="showTemplate('${item.id}')" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(0,0,0,.09)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
-        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">
+      <div class="card" style="cursor:pointer;padding:14px 16px;transition:all .18s;border-top:2px solid ${col};position:relative" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(0,0,0,.09)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px" onclick="showTemplate('${item.id}')">
           <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:${bg};border:1px solid ${bdr};display:flex;align-items:center;justify-content:center;font-size:13px;color:${col};flex-shrink:0">
             <i class="fas ${cat.icon}"></i>
           </div>
@@ -14575,7 +14898,14 @@ function renderTemplatesPage() {
           <div style="display:flex;flex-wrap:wrap;gap:4px">
             ${(item.tags||[]).map(t=>`<span style="font-size:10px;padding:1px 7px;background:${bg};color:${col};border:1px solid ${bdr};border-radius:var(--radius-full)">${t}</span>`).join('')}
           </div>
-          <span style="font-size:11px;color:${col};font-weight:600;white-space:nowrap">コピー <i class="fas fa-copy" style="font-size:10px"></i></span>
+          <div style="display:flex;gap:5px">
+            <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:${col}" onclick="event.stopPropagation();saveTemplateToNoteFromCard('${item.id}','${esc(item.name).replace(/'/g,'&#39;')}')" title="学習ノートに保存">
+              <i class="fas fa-note-sticky" style="font-size:9px"></i> ノート
+            </button>
+            <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:${col}" onclick="event.stopPropagation();showTemplate('${item.id}')" title="コピー">
+              <i class="fas fa-copy" style="font-size:9px"></i> コピー
+            </button>
+          </div>
         </div>
       </div>`).join('');
 
@@ -14621,6 +14951,24 @@ function renderTemplatesPage() {
     <i class="fas fa-lightbulb" style="color:var(--asagi);margin-right:6px"></i>
     <strong>使い方のコツ：</strong>テンプレートはコピー後、お使いのエディタ（Word・Google Docs等）に貼り付けて使います。「ノートに保存」でアプリ内学習ノートにも記録できます。
   </div>`;
+}
+
+// テンプレートを学習ノートに保存 (Note: main saveTemplateToNote is at line ~16048)
+function saveTemplateToNoteFromCard(id, name) {
+  const notes = DB.get('learn_notes', []);
+  const newNote = {
+    id: uid(),
+    title: '📋 ' + name,
+    content: `テンプレート「${name}」のメモ\n\n→ テンプレートページでコピーして使いましょう。`,
+    tags: ['テンプレート'],
+    color: 'var(--kogane)',
+    pinned: false,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  notes.unshift(newNote);
+  DB.set('learn_notes', notes);
+  toast(`「${name}」を学習ノートに保存しました`, 'success');
 }
 
 function showTemplate(id) {
@@ -16284,65 +16632,144 @@ function bindJournalPage() {
 // ================================================================
 function renderNameDictPage() {
   const names = DB.get('namedict', []);
+  const ndFilter = DB.get('namedict_filter', { search: '', category: 'all', view: 'grouped' });
+  const viewMode = ndFilter.view || 'grouped';
   const categories = ['主人公','敵役','脇役','助演','その他'];
   const catCounts = {};
   categories.forEach(c => { catCounts[c] = names.filter(n => n.category === c).length; });
 
-  const nameCards = names.length === 0
-    ? `<div style="text-align:center;padding:48px;color:var(--text-muted);grid-column:1/-1;border:2px dashed var(--border);border-radius:var(--radius-md)">
-        <i class="fas fa-spell-check" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.3"></i>
-        名前辞典はまだ空です。キャラクターを追加しましょう。
-      </div>`
-    : names.map(n => {
-        const catColor = { '主人公':'var(--accent)', '敵役':'var(--momo)', '脇役':'var(--asagi)', '助演':'var(--kogane)', 'その他':'var(--text-muted)' };
-        return `
-        <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+  const CAT_STYLES = {
+    '主人公':  { color:'var(--accent)',  bg:'var(--accent-bg)',  border:'var(--accent-border)',  icon:'fa-star' },
+    '敵役':    { color:'var(--momo)',    bg:'var(--momo-bg)',    border:'var(--momo-border)',    icon:'fa-mask' },
+    '脇役':    { color:'var(--asagi)',   bg:'var(--asagi-bg)',   border:'var(--asagi-border)',   icon:'fa-user' },
+    '助演':    { color:'var(--kogane)',  bg:'var(--kogane-bg)', border:'var(--kogane-border)', icon:'fa-user-group' },
+    'その他':  { color:'var(--text-muted)', bg:'var(--bg-hover)', border:'var(--border)',  icon:'fa-ellipsis' },
+  };
+
+  // フィルタリング
+  let filtered = names.slice();
+  if (ndFilter.search) {
+    const q = ndFilter.search.toLowerCase();
+    filtered = filtered.filter(n =>
+      (n.name||'').toLowerCase().includes(q) ||
+      (n.kana||'').toLowerCase().includes(q) ||
+      (n.tags||'').toLowerCase().includes(q) ||
+      (n.note||'').toLowerCase().includes(q)
+    );
+  }
+  if (ndFilter.category && ndFilter.category !== 'all') {
+    filtered = filtered.filter(n => (n.category||'その他') === ndFilter.category);
+  }
+
+  const makeCard = (n) => {
+    const cs = CAT_STYLES[n.category||'その他'] || CAT_STYLES['その他'];
+    return `
+    <div class="card" style="position:relative;transition:all .15s" onmouseover="this.style.boxShadow='0 2px 12px rgba(0,0,0,.08)'" onmouseout="this.style.boxShadow=''">
+      <div style="position:absolute;left:0;top:0;bottom:0;width:3px;background:${cs.color};border-radius:var(--radius-md) 0 0 var(--radius-md)"></div>
+      <div style="padding-left:4px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="width:30px;height:30px;border-radius:50%;background:${cs.bg};border:1px solid ${cs.border};display:flex;align-items:center;justify-content:center;font-size:12px;color:${cs.color}">
+              <i class="fas ${cs.icon}"></i>
+            </div>
             <div>
-              <div style="font-size:16px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${esc(n.name)}</div>
+              <div style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${esc(n.name)}</div>
               ${n.kana ? `<div style="font-size:11px;color:var(--text-muted)">${esc(n.kana)}</div>` : ''}
             </div>
-            <div style="display:flex;gap:4px">
-              <span style="font-size:10px;padding:2px 8px;background:var(--bg-hover);border:1px solid var(--border);border-radius:var(--radius-full);color:${catColor[n.category]||'var(--text-muted)'};">${esc(n.category||'その他')}</span>
-              <button class="btn btn-ghost btn-icon btn-sm" onclick="openEditNameDict('${n.id}')"><i class="fas fa-pen" style="font-size:10px"></i></button>
-              <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteNameDict('${n.id}')"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
-            </div>
           </div>
-          ${n.reading ? `<div style="font-size:12px;color:var(--kon-lt);margin-bottom:4px"><i class="fas fa-volume-high" style="font-size:9px;margin-right:4px"></i>読み: ${esc(n.reading)}</div>` : ''}
-          ${n.tags ? `<div style="margin-bottom:6px;display:flex;flex-wrap:wrap;gap:4px">${n.tags.split(',').map(t => `<span class="tag tag-gray" style="font-size:10px">${esc(t.trim())}</span>`).join('')}</div>` : ''}
-          ${n.note ? `<div style="font-size:12px;color:var(--text-secondary);line-height:1.6">${esc(n.note)}</div>` : ''}
-          ${n.project ? `<div style="font-size:10.5px;color:var(--text-muted);margin-top:6px"><i class="fas fa-film" style="font-size:9px;margin-right:3px"></i>${esc(n.project)}</div>` : ''}
-        </div>`;
-      }).join('');
+          <div style="display:flex;gap:3px;align-items:center">
+            <span style="font-size:9.5px;padding:2px 8px;background:${cs.bg};border:1px solid ${cs.border};border-radius:var(--radius-full);color:${cs.color};font-weight:600">${esc(n.category||'その他')}</span>
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="openEditNameDict('${n.id}')"><i class="fas fa-pen" style="font-size:10px"></i></button>
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteNameDict('${n.id}')"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+          </div>
+        </div>
+        ${n.tags ? `<div style="margin-bottom:5px;display:flex;flex-wrap:wrap;gap:4px">${n.tags.split(',').map(t => t.trim() ? `<span class="tag tag-gray" style="font-size:10px">${esc(t.trim())}</span>` : '').join('')}</div>` : ''}
+        ${n.note ? `<div style="font-size:12px;color:var(--text-secondary);line-height:1.6;border-top:1px solid var(--border);padding-top:5px;margin-top:3px">${esc(n.note.slice(0,80))}${n.note.length>80?'…':''}</div>` : ''}
+        ${n.project ? `<div style="font-size:10px;color:var(--text-muted);margin-top:5px"><i class="fas fa-film" style="font-size:9px;margin-right:3px"></i>${esc(n.project)}</div>` : ''}
+      </div>
+    </div>`;
+  };
+
+  let gridContent = '';
+  if (filtered.length === 0) {
+    gridContent = `<div style="text-align:center;padding:48px;color:var(--text-muted);grid-column:1/-1;border:2px dashed var(--border);border-radius:var(--radius-md)">
+      <i class="fas fa-spell-check" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.3"></i>
+      ${ndFilter.search || ndFilter.category !== 'all' ? '条件に一致するキャラクターが見つかりません' : '名前辞典はまだ空です。キャラクターを追加しましょう。'}
+    </div>`;
+  } else if (viewMode === 'grouped' && (!ndFilter.search && ndFilter.category === 'all')) {
+    // グループ表示
+    gridContent = categories.map(cat => {
+      const catNames = filtered.filter(n => (n.category||'その他') === cat);
+      if (catNames.length === 0) return '';
+      const cs = CAT_STYLES[cat] || CAT_STYLES['その他'];
+      return `
+      <div style="grid-column:1/-1;margin-bottom:4px;padding:8px 12px;background:${cs.bg};border:1px solid ${cs.border};border-radius:var(--radius-md);display:flex;align-items:center;gap:8px;margin-top:8px">
+        <i class="fas ${cs.icon}" style="color:${cs.color};font-size:13px"></i>
+        <span style="font-size:13px;font-weight:700;color:${cs.color};font-family:'Noto Serif JP',serif">${cat}</span>
+        <span style="font-size:11px;background:${cs.color};color:white;padding:1px 8px;border-radius:var(--radius-full)">${catNames.length}人</span>
+      </div>
+      ${catNames.map(n => makeCard(n)).join('')}`;
+    }).join('');
+  } else {
+    gridContent = filtered.map(n => makeCard(n)).join('');
+  }
 
   return `
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-    <div>
-      <h2 style="font-size:22px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin:0"><i class="fas fa-spell-check" style="color:var(--kon-lt);margin-right:10px"></i>キャラクター名辞典</h2>
-      <div style="font-size:13px;color:var(--text-muted);margin-top:4px">登場人物の名前・読み・メモを一元管理</div>
+  <!-- ヘッダー -->
+  <div style="background:linear-gradient(135deg,var(--kon-bg,#eef3fb),var(--bg-subtle));border:1px solid var(--kon-border,#b8cee8);border-radius:var(--radius-lg);padding:18px 22px;margin-bottom:20px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:60px;font-weight:900;font-family:'Noto Serif JP',serif;color:var(--kon-lt,#1d3d6b);opacity:0.05">名</div>
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <h2 style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin:0"><i class="fas fa-spell-check" style="color:var(--kon-lt);margin-right:10px"></i>キャラクター名辞典</h2>
+        <div style="font-size:12.5px;color:var(--text-muted);margin-top:3px">登場人物の名前・読み・メモを一元管理（${names.length}件登録済み）</div>
+      </div>
+      <button class="btn btn-primary" onclick="openAddNameDict()"><i class="fas fa-plus"></i> 新規追加</button>
     </div>
-    <button class="btn btn-primary" onclick="openAddNameDict()"><i class="fas fa-plus"></i> 新規追加</button>
   </div>
 
-  <!-- カテゴリー統計 -->
-  <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
-    <div style="padding:8px 16px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-full);font-size:12.5px">
-      <i class="fas fa-users" style="color:var(--text-muted);margin-right:5px"></i>総登録数: <strong>${names.length}</strong>
-    </div>
-    ${categories.map(c => catCounts[c] > 0 ? `
-      <div style="padding:8px 14px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-full);font-size:12px">
-        ${c}: <strong>${catCounts[c]}</strong>
-      </div>` : '').join('')}
+  <!-- カテゴリ統計バー -->
+  <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">
+    <button class="btn btn-sm ${ndFilter.category==='all'?'btn-primary':'btn-ghost'}" onclick="DB.set('namedict_filter',{...DB.get('namedict_filter',{search:'',category:'all',view:'grouped'}),category:'all'});render()">
+      <i class="fas fa-users" style="font-size:10px"></i> すべて (${names.length})
+    </button>
+    ${categories.filter(c => catCounts[c] > 0).map(c => {
+      const cs = CAT_STYLES[c] || CAT_STYLES['その他'];
+      const active = ndFilter.category === c;
+      return `<button class="btn btn-sm ${active?'btn-primary':'btn-ghost'}" style="${active?'':'border-color:'+cs.border+';color:'+cs.color}" onclick="DB.set('namedict_filter',{...DB.get('namedict_filter',{search:'',category:'all',view:'grouped'}),category:'${c}'});render()">
+        <i class="fas ${cs.icon}" style="font-size:10px"></i> ${c} (${catCounts[c]})
+      </button>`;
+    }).join('')}
   </div>
 
-  <!-- 検索 -->
+  <!-- 検索・表示切替 -->
   ${names.length > 0 ? `
-  <div style="position:relative;margin-bottom:16px;max-width:400px">
-    <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:12px"></i>
-    <input class="form-input" id="namedict-search" style="padding-left:30px" placeholder="名前・読みで検索..." oninput="filterNameDict(this.value)">
+  <div style="display:flex;gap:8px;margin-bottom:16px;align-items:center;flex-wrap:wrap">
+    <div style="position:relative;flex:1;min-width:180px;max-width:360px">
+      <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:12px"></i>
+      <input class="form-input" id="namedict-search" style="padding-left:30px" placeholder="名前・タグ・メモで検索..." value="${esc(ndFilter.search||'')}"
+        oninput="const f=DB.get('namedict_filter',{search:'',category:'all',view:'grouped'});f.search=this.value;DB.set('namedict_filter',f);filterNameDictLive(this.value)">
+    </div>
+    <div style="display:flex;gap:4px">
+      <button class="btn btn-sm ${viewMode==='grouped'?'btn-primary':'btn-ghost'}" onclick="const f=DB.get('namedict_filter',{search:'',category:'all',view:'grouped'});f.view='grouped';DB.set('namedict_filter',f);render()" title="グループ表示">
+        <i class="fas fa-layer-group" style="font-size:11px"></i>
+      </button>
+      <button class="btn btn-sm ${viewMode==='grid'?'btn-primary':'btn-ghost'}" onclick="const f=DB.get('namedict_filter',{search:'',category:'all',view:'grouped'});f.view='grid';DB.set('namedict_filter',f);render()" title="グリッド表示">
+        <i class="fas fa-grip" style="font-size:11px"></i>
+      </button>
+      <button class="btn btn-sm ${viewMode==='list'?'btn-primary':'btn-ghost'}" onclick="const f=DB.get('namedict_filter',{search:'',category:'all',view:'grouped'});f.view='list';DB.set('namedict_filter',f);render()" title="リスト表示">
+        <i class="fas fa-list" style="font-size:11px"></i>
+      </button>
+    </div>
   </div>` : ''}
 
-  <div class="project-grid" id="namedict-grid">${nameCards}</div>`;
+  <div class="project-grid" id="namedict-grid">${gridContent}</div>`;
+}
+
+function filterNameDictLive(q) {
+  const f = DB.get('namedict_filter', { search: '', category: 'all', view: 'grouped' });
+  f.search = q;
+  DB.set('namedict_filter', f);
+  render();
 }
 
 function openAddNameDict() {
@@ -16459,6 +16886,7 @@ function bindNameDictPage() {}
 //  PAGE: 世界観設計
 // ================================================================
 function renderWorldBuildingPage() {
+  const wbTab = DB.get('wb_active_tab', 'main');
   const wb = DB.get('worldbuilding', {
     title: '',
     era: '',
@@ -16472,6 +16900,8 @@ function renderWorldBuildingPage() {
     history: '',
     conflicts: '',
     glossary: [],
+    factions: [],
+    timeline: [],
   });
 
   const glossaryHtml = (wb.glossary || []).map((g, i) => `
@@ -16495,14 +16925,32 @@ function renderWorldBuildingPage() {
   ];
 
   return `
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
-    <div>
-      <h2 style="font-size:22px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin:0"><i class="fas fa-globe" style="color:var(--asagi);margin-right:10px"></i>世界観設計ノート</h2>
-      <div style="font-size:13px;color:var(--text-muted);margin-top:4px">作品の舞台・世界観・設定を詳細に設計・記録します</div>
+  <!-- ヘッダー -->
+  <div style="background:linear-gradient(135deg,var(--asagi-bg),var(--bg-subtle));border:1px solid var(--asagi-border);border-radius:var(--radius-lg);padding:18px 22px;margin-bottom:18px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:60px;font-weight:900;font-family:'Noto Serif JP',serif;color:var(--asagi);opacity:0.05">世</div>
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <h2 style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin:0"><i class="fas fa-globe" style="color:var(--asagi);margin-right:10px"></i>世界観設計ノート</h2>
+        <div style="font-size:12.5px;color:var(--text-muted);margin-top:3px">作品の舞台・世界観・設定を詳細に設計・記録します</div>
+      </div>
+      <button class="btn btn-primary" onclick="saveWorldBuilding()"><i class="fas fa-floppy-disk"></i> 保存</button>
     </div>
-    <button class="btn btn-primary" onclick="saveWorldBuilding()"><i class="fas fa-floppy-disk"></i> 保存</button>
   </div>
 
+  <!-- タブナビ -->
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px">
+    ${[
+      { id:'main',     label:'基本設定',  icon:'fa-earth-asia' },
+      { id:'society',  label:'社会・政治', icon:'fa-landmark' },
+      { id:'factions', label:'勢力・組織', icon:'fa-shield-halved' },
+      { id:'timeline', label:'歴史・年表', icon:'fa-timeline' },
+      { id:'glossary', label:'用語集',     icon:'fa-book' },
+    ].map(t => `<button class="btn btn-sm ${wbTab===t.id?'btn-primary':'btn-ghost'}" onclick="DB.set('wb_active_tab','${t.id}');render()">
+      <i class="fas ${t.icon}" style="font-size:10px"></i> ${t.label}
+    </button>`).join('')}
+  </div>
+
+  ${wbTab === 'main' ? `
   <div style="display:grid;grid-template-columns:1fr 340px;gap:24px">
     <div>
       <div class="card" style="margin-bottom:16px">
@@ -16523,17 +16971,16 @@ function renderWorldBuildingPage() {
     </div>
 
     <div style="display:flex;flex-direction:column;gap:16px">
-      <!-- 用語集 -->
+      <!-- 用語集（サイドバー） -->
       <div class="card">
         <div class="card-header">
-          <div class="card-title"><i class="fas fa-book icon" style="color:var(--kon-lt)"></i> 用語集・固有名詞</div>
+          <div class="card-title"><i class="fas fa-book icon" style="color:var(--kon-lt)"></i> 用語集</div>
           <button class="btn btn-primary btn-sm" onclick="openAddWbGlossary()"><i class="fas fa-plus"></i></button>
         </div>
         ${(wb.glossary||[]).length === 0 ?
           `<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:12.5px">用語を追加しましょう</div>`
           : `<div style="max-height:300px;overflow-y:auto">${glossaryHtml}</div>`}
       </div>
-
       <!-- ヒント -->
       <div class="card">
         <div class="card-title" style="margin-bottom:10px"><i class="fas fa-lightbulb icon" style="color:var(--kogane)"></i> 世界観構築のコツ</div>
@@ -16546,7 +16993,209 @@ function renderWorldBuildingPage() {
         </div>
       </div>
     </div>
+  </div>` : ''}
+
+  ${wbTab === 'society' ? `
+  <div class="card">
+    <div class="card-title" style="margin-bottom:16px"><i class="fas fa-landmark icon" style="color:var(--asagi)"></i> 社会・政治・経済設定</div>
+    ${[
+      { id:'social_structure', label:'社会構造・階級', placeholder:'例：貴族・平民・奴隷の3層構造。貴族は全人口の3%だが国富の80%を支配', rows:2 },
+      { id:'economy', label:'経済・通貨・交易', placeholder:'例：魔石が通貨。北部は鉱業、南部は農業に依存。海上交易ルートが要塞化されている', rows:2 },
+      { id:'law', label:'法律・司法制度', placeholder:'例：魔法師は特別裁判所に従う。一般市民は12人制陪審員制度', rows:2 },
+      { id:'religion', label:'宗教・信仰体系', placeholder:'例：太陽神と月神の二神教。神殿が国政に強い影響力を持つ', rows:2 },
+      { id:'education', label:'教育・知識の伝達', placeholder:'例：文字は貴族のみ学べる。口伝の伝承が一般民衆の文化を支える', rows:2 },
+      { id:'military', label:'軍事・治安組織', placeholder:'例：王国軍5万人。国境守備隊は独自の自治権を持つ', rows:2 },
+    ].map(f => `
+    <div class="form-group">
+      <label class="form-label">${f.label}</label>
+      <textarea class="form-textarea" id="wbs-${f.id}" rows="${f.rows}" placeholder="${f.placeholder}" onblur="saveWbExtra('${f.id}',this.value)">${esc(wb[f.id]||'')}</textarea>
+    </div>`).join('')}
+    <button class="btn btn-primary" onclick="saveWbSociety()"><i class="fas fa-floppy-disk"></i> 保存</button>
+  </div>` : ''}
+
+  ${wbTab === 'factions' ? renderWbFactionsTab(wb) : ''}
+  ${wbTab === 'timeline' ? renderWbTimelineTab(wb) : ''}
+
+  ${wbTab === 'glossary' ? `
+  <div class="card">
+    <div class="card-header">
+      <div class="card-title"><i class="fas fa-book icon" style="color:var(--kon-lt)"></i> 世界観用語集・固有名詞</div>
+      <button class="btn btn-primary btn-sm" onclick="openAddWbGlossary()"><i class="fas fa-plus"></i> 追加</button>
+    </div>
+    ${(wb.glossary||[]).length === 0 ?
+      `<div style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-book" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.2"></i>まだ用語が登録されていません</div>` :
+      `<div>
+        ${(wb.glossary||[]).map((g, i) => `
+        <div style="display:flex;align-items:flex-start;gap:8px;padding:10px 0;border-bottom:1px solid var(--border)">
+          <div style="flex:0 0 120px;font-size:13px;font-weight:700;color:var(--kon-lt);font-family:'Noto Serif JP',serif">${esc(g.term)}</div>
+          <div style="flex:1;font-size:12.5px;color:var(--text-secondary);line-height:1.6">${esc(g.def)}</div>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteWbGlossary(${i})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+        </div>`).join('')}
+      </div>`}
+  </div>` : ''}`;
+}
+
+function renderWbFactionsTab(wb) {
+  const factions = wb.factions || [];
+  const FACTION_COLORS = ['var(--accent)','var(--fuji)','var(--momo)','var(--asagi)','var(--kogane)','var(--matcha)'];
+  return `
+  <div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:14px;font-weight:600;color:var(--text-primary)"><i class="fas fa-shield-halved" style="color:var(--asagi);margin-right:8px"></i>勢力・組織一覧 (${factions.length})</div>
+      <button class="btn btn-primary btn-sm" onclick="openAddWbFaction()"><i class="fas fa-plus"></i> 勢力を追加</button>
+    </div>
+    ${factions.length === 0 ?
+      `<div style="text-align:center;padding:60px;color:var(--text-muted);border:2px dashed var(--border);border-radius:var(--radius-md)">
+        <i class="fas fa-shield-halved" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.2"></i>
+        まだ勢力・組織が登録されていません
+      </div>` :
+      `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
+        ${factions.map((f, i) => {
+          const col = FACTION_COLORS[i % FACTION_COLORS.length];
+          return `
+          <div class="card" style="border-top:3px solid ${col}">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+              <div style="font-size:15px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary)">${esc(f.name)}</div>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteWbFaction(${i})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+            </div>
+            ${f.type ? `<div style="font-size:11px;padding:2px 8px;background:var(--bg-hover);border-radius:var(--radius-full);color:${col};border:1px solid ${col}33;display:inline-block;margin-bottom:6px">${esc(f.type)}</div>` : ''}
+            ${f.desc ? `<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;margin-bottom:6px">${esc(f.desc)}</div>` : ''}
+            ${f.goal ? `<div style="font-size:11.5px;color:var(--text-muted)"><strong>目的：</strong>${esc(f.goal)}</div>` : ''}
+            ${f.leader ? `<div style="font-size:11.5px;color:var(--text-muted)"><strong>リーダー：</strong>${esc(f.leader)}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>`}
   </div>`;
+}
+
+function renderWbTimelineTab(wb) {
+  const timeline = [...(wb.timeline || [])].sort((a,b) => (a.year||0) - (b.year||0));
+  return `
+  <div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:14px;font-weight:600;color:var(--text-primary)"><i class="fas fa-timeline" style="color:var(--asagi);margin-right:8px"></i>歴史・年表 (${timeline.length}件)</div>
+      <button class="btn btn-primary btn-sm" onclick="openAddWbTimeline()"><i class="fas fa-plus"></i> 出来事を追加</button>
+    </div>
+    ${timeline.length === 0 ?
+      `<div style="text-align:center;padding:60px;color:var(--text-muted);border:2px dashed var(--border);border-radius:var(--radius-md)">
+        <i class="fas fa-timeline" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.2"></i>
+        まだ歴史的出来事が登録されていません
+      </div>` :
+      `<div style="position:relative;padding-left:24px">
+        <div style="position:absolute;left:8px;top:0;bottom:0;width:2px;background:var(--asagi-border)"></div>
+        ${timeline.map((e, i) => `
+        <div style="position:relative;margin-bottom:16px">
+          <div style="position:absolute;left:-20px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--asagi);border:2px solid white;box-shadow:0 0 0 2px var(--asagi-border)"></div>
+          <div class="card" style="padding:12px 14px">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start">
+              <div>
+                <span style="font-size:11px;font-weight:700;color:var(--asagi)">${esc(String(e.year||'?'))}年</span>
+                <div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-top:2px">${esc(e.event)}</div>
+              </div>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteWbTimeline(${i})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+            </div>
+            ${e.desc ? `<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;margin-top:5px">${esc(e.desc)}</div>` : ''}
+            ${e.impact ? `<div style="font-size:11.5px;color:var(--text-muted);margin-top:4px"><i class="fas fa-bolt" style="font-size:9px;color:var(--kogane);margin-right:3px"></i>影響: ${esc(e.impact)}</div>` : ''}
+          </div>
+        </div>`).join('')}
+      </div>`}
+  </div>`;
+}
+
+function saveWbSociety() {
+  const ids = ['social_structure','economy','law','religion','education','military'];
+  const wb = DB.get('worldbuilding', { glossary: [] });
+  ids.forEach(id => {
+    const el = document.getElementById(`wbs-${id}`);
+    if (el) wb[id] = el.value.trim();
+  });
+  DB.set('worldbuilding', wb);
+  toast('社会・政治設定を保存しました', 'success');
+}
+
+function saveWbExtra(field, value) {
+  const wb = DB.get('worldbuilding', { glossary: [] });
+  wb[field] = value;
+  DB.set('worldbuilding', wb);
+}
+
+function openAddWbFaction() {
+  openModal(
+    `<i class="fas fa-shield-halved" style="color:var(--asagi)"></i> 勢力・組織を追加`,
+    `<div class="form-group"><label class="form-label">名称 <span style="color:var(--accent)">*</span></label><input class="form-input" id="wbf-name" placeholder="例：暁の騎士団"></div>
+     <div class="form-group"><label class="form-label">種類</label>
+       <select class="form-select" id="wbf-type">
+         <option>国家</option><option>組織</option><option>宗教団体</option><option>犯罪組織</option><option>反乱勢力</option><option>商会・ギルド</option><option>その他</option>
+       </select>
+     </div>
+     <div class="form-group"><label class="form-label">説明・特徴</label><textarea class="form-textarea" id="wbf-desc" rows="3" placeholder="この勢力の特徴・信条・歴史"></textarea></div>
+     <div class="grid-2">
+       <div class="form-group"><label class="form-label">目的・目標</label><input class="form-input" id="wbf-goal" placeholder="例：旧王朝の復活"></div>
+       <div class="form-group"><label class="form-label">リーダー</label><input class="form-input" id="wbf-leader" placeholder="例：影の皇帝ヴァロン"></div>
+     </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="addWbFaction()"><i class="fas fa-plus"></i> 追加</button>`
+  );
+}
+
+function addWbFaction() {
+  const name = $('#wbf-name')?.value?.trim();
+  if (!name) { toast('名称を入力してください', 'error'); return; }
+  const wb = DB.get('worldbuilding', { glossary: [], factions: [], timeline: [] });
+  if (!wb.factions) wb.factions = [];
+  wb.factions.push({
+    name, type: $('#wbf-type')?.value || 'その他',
+    desc: $('#wbf-desc')?.value?.trim() || '',
+    goal: $('#wbf-goal')?.value?.trim() || '',
+    leader: $('#wbf-leader')?.value?.trim() || '',
+  });
+  DB.set('worldbuilding', wb);
+  closeModal(); toast('勢力を追加しました', 'success'); render();
+}
+
+function deleteWbFaction(idx) {
+  const wb = DB.get('worldbuilding', { glossary: [], factions: [] });
+  if (!wb.factions) return;
+  wb.factions.splice(idx, 1);
+  DB.set('worldbuilding', wb);
+  toast('削除しました', 'success'); render();
+}
+
+function openAddWbTimeline() {
+  openModal(
+    `<i class="fas fa-timeline" style="color:var(--asagi)"></i> 歴史的出来事を追加`,
+    `<div class="grid-2">
+       <div class="form-group"><label class="form-label">年（数字）</label><input class="form-input" id="wbt-year" type="number" placeholder="例：-500（マイナスは過去）"></div>
+       <div class="form-group"><label class="form-label">出来事の名前 <span style="color:var(--accent)">*</span></label><input class="form-input" id="wbt-event" placeholder="例：大分断の日"></div>
+     </div>
+     <div class="form-group"><label class="form-label">詳細説明</label><textarea class="form-textarea" id="wbt-desc" rows="3" placeholder="この出来事の詳細・背景"></textarea></div>
+     <div class="form-group"><label class="form-label">現在への影響</label><input class="form-input" id="wbt-impact" placeholder="例：この事件が現在の南北対立の根本原因になっている"></div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="addWbTimeline()"><i class="fas fa-plus"></i> 追加</button>`
+  );
+}
+
+function addWbTimeline() {
+  const year = parseInt($('#wbt-year')?.value);
+  const event = $('#wbt-event')?.value?.trim();
+  if (!event) { toast('出来事の名前を入力してください', 'error'); return; }
+  const wb = DB.get('worldbuilding', { glossary: [], factions: [], timeline: [] });
+  if (!wb.timeline) wb.timeline = [];
+  wb.timeline.push({
+    year: isNaN(year) ? 0 : year, event,
+    desc: $('#wbt-desc')?.value?.trim() || '',
+    impact: $('#wbt-impact')?.value?.trim() || '',
+  });
+  DB.set('worldbuilding', wb);
+  closeModal(); toast('出来事を追加しました', 'success'); render();
+}
+
+function deleteWbTimeline(idx) {
+  const wb = DB.get('worldbuilding', { glossary: [], timeline: [] });
+  if (!wb.timeline) return;
+  wb.timeline.splice(idx, 1);
+  DB.set('worldbuilding', wb);
+  toast('削除しました', 'success'); render();
 }
 
 function saveWorldBuilding() {
@@ -16638,6 +17287,7 @@ function renderInspirationPage() {
     { id:'generate', label:'ランダム生成',       icon:'fa-dice' },
     { id:'library',  label:'ライブラリ',          icon:'fa-books' },
     { id:'builder',  label:'構造化ビルダー',       icon:'fa-drafting-compass' },
+    { id:'emotion',  label:'感情・対立ワード',     icon:'fa-heart-pulse' },
     { id:'notes',    label:'プロジェクトノート',   icon:'fa-notebook' },
     { id:'mindmap',  label:'マインドマップ',        icon:'fa-diagram-project' },
   ];
@@ -16653,6 +17303,7 @@ function renderInspirationPage() {
   else if (tab === 'library') tabContent = renderInspirationLibrary();
   else if (tab === 'builder') tabContent = renderInspirationBuilder();
   else if (tab === 'notes') tabContent = renderInspirationNotes();
+  else if (tab === 'emotion') tabContent = renderInspirationEmotion();
   else if (tab === 'mindmap') tabContent = renderInspirationMindmap();
 
   return `
@@ -17258,6 +17909,65 @@ function renderInspirationNotes() {
       </div>
     </div>
   </div>`;
+}
+
+// ── 感情・対立ワードタブ ──────────────────────────────────────
+const EMOTION_DATA_GLOBAL = {
+  positive: {
+    label: 'ポジティブ感情', color: 'var(--matcha)', bg: 'var(--matcha-bg)', border: 'var(--matcha-border)', icon: 'fa-face-smile',
+    words: ['喜び','安堵','希望','誇り','愛情','感謝','興奮','期待','好奇心','充実感','幸福感','信頼','感動','達成感','安心','熱意','憧れ','ときめき','解放感','温かさ']
+  },
+  negative: {
+    label: 'ネガティブ感情', color: 'var(--momo)', bg: 'var(--momo-bg)', border: 'var(--momo-border)', icon: 'fa-face-frown',
+    words: ['怒り','悲しみ','恐怖','絶望','後悔','嫉妬','孤独','憎悪','羞恥心','罪悪感','不安','焦り','虚しさ','失望','憎しみ','怯え','憤り','屈辱','苦痛','喪失感']
+  },
+  complex: {
+    label: '複雑・葛藤感情', color: 'var(--fuji)', bg: 'var(--fuji-bg)', border: 'var(--fuji-border)', icon: 'fa-face-confused',
+    words: ['葛藤','矛盾','迷い','未練','依存','執着','哀愁','ノスタルジア','畏怖','愛憎','自己嫌悪','怒りと涙','愛と憎しみ','希望と絶望','解放と喪失']
+  },
+  conflict: {
+    label: '対立構図', color: 'var(--accent)', bg: 'var(--accent-bg)', border: 'var(--accent-border)', icon: 'fa-sword',
+    pairs: [
+      ['自由','束縛'],['愛','義務'],['正義','慈悲'],['理想','現実'],
+      ['個人','社会'],['過去','未来'],['信頼','裏切り'],['生','死'],
+      ['力','弱さ'],['孤独','繋がり'],['真実','嘘'],['変化','安定'],
+      ['復讐','赦し'],['野心','良心'],['家族','自分自身'],['忠誠','信念']
+    ]
+  },
+  dramatic: {
+    label: 'ドラマティック状況', color: 'var(--kogane)', bg: 'var(--kogane-bg)', border: 'var(--kogane-border)', icon: 'fa-bolt',
+    words: ['裏切り','再会','別れ','告白','復讐','赦し','死','誕生','失踪','発覚','決断の瞬間','最後のチャンス','真実の開示','仮面が剥がれる','信念が崩れる','予期しない出会い','孤立無援','最後の会話','不可逆な選択','運命の分岐点']
+  },
+};
+
+function renderEmotionSection(key) {
+  const data = EMOTION_DATA_GLOBAL;
+  const d = data[key];
+  if (!d) return '';
+  if (key === 'conflict') {
+    const pairCards = d.pairs.map(function(pair) {
+      const a = pair[0], b = pair[1];
+      return '<div style="padding:12px 14px;background:' + d.bg + ';border:1px solid ' + d.border + ';border-radius:var(--radius-md);cursor:pointer;transition:all .15s" onclick="copyToClipboard(\'' + a + ' vs ' + b + '\');toast(\'コピーしました\',\'success\')" onmouseover="this.style.transform=\'translateY(-1px)\'" onmouseout="this.style.transform=\'\'"><div style="display:flex;align-items:center;gap:8px;justify-content:center"><span style="font-size:14px;font-weight:700;color:' + d.color + ';font-family:\'Noto Serif JP\',serif">' + a + '</span><span style="font-size:11px;color:var(--text-muted)">vs</span><span style="font-size:14px;font-weight:700;color:var(--accent2);font-family:\'Noto Serif JP\',serif">' + b + '</span></div><div style="font-size:9.5px;color:var(--text-muted);text-align:center;margin-top:4px">クリックでコピー</div></div>';
+    }).join('');
+    return '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">' + pairCards + '</div>';
+  }
+  const wordTags = d.words.map(function(w) {
+    return '<span style="padding:5px 13px;background:' + d.bg + ';color:' + d.color + ';border:1px solid ' + d.border + ';border-radius:var(--radius-full);font-size:12.5px;cursor:pointer;transition:all .15s;font-family:\'Noto Serif JP\',serif" onclick="copyToClipboard(\'' + w + '\');toast(\'コピーしました\',\'success\')" onmouseover="this.style.transform=\'translateY(-1px)\';this.style.boxShadow=\'0 2px 8px rgba(0,0,0,.1)\'" onmouseout="this.style.transform=\'\';this.style.boxShadow=\'\'">' + w + '</span>';
+  }).join('');
+  return '<div style="display:flex;flex-wrap:wrap;gap:7px">' + wordTags + '</div><div style="margin-top:14px;padding:10px 12px;background:var(--bg-subtle);border-radius:var(--radius-sm);border:1px solid var(--border)"><div style="font-size:11.5px;color:var(--text-muted)"><i class="fas fa-lightbulb" style="color:var(--kogane);margin-right:5px"></i>クリックするとクリップボードにコピーされます。スクラッチパッドに貼り付けてアイデアの種にしましょう。</div></div>';
+}
+
+function renderInspirationEmotion() {
+  const EMOTION_DATA = EMOTION_DATA_GLOBAL;
+  const activeSection = State.currentTab['insp-emotion-section'] || 'positive';
+
+  const navTabs = Object.entries(EMOTION_DATA).map(function(entry) {
+    const key = entry[0], d = entry[1];
+    const isActive = activeSection === key;
+    return '<button class="btn btn-sm ' + (isActive ? 'btn-primary' : 'btn-ghost') + '" onclick="State.currentTab[\'insp-emotion-section\']=\'' + key + '\';document.getElementById(\'emotion-content\').innerHTML=renderEmotionSection(\'' + key + '\')" style="' + (isActive ? '' : 'border-color:' + d.border + ';color:' + d.color) + '"><i class="fas ' + d.icon + '" style="font-size:10px"></i> ' + d.label + '</button>';
+  }).join('');
+
+  return '<div><div style="padding:14px 18px;background:linear-gradient(135deg,var(--fuji-bg),var(--momo-bg));border:1px solid var(--fuji-border);border-radius:var(--radius-md);margin-bottom:18px"><div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:4px"><i class="fas fa-heart-pulse" style="color:var(--momo);margin-right:7px"></i>感情・対立ワードバンク</div><div style="font-size:12px;color:var(--text-muted)">キャラクターの感情・物語の対立軸・ドラマの核となるワードを探せます。クリックでコピーして脚本に活かしましょう。</div></div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">' + navTabs + '</div><div id="emotion-content">' + renderEmotionSection(activeSection) + '</div></div>';
 }
 
 // ── マインドマップタブ ────────────────────────────────────────
