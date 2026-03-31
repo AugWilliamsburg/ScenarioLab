@@ -204,7 +204,7 @@ function render() {
   const p = State.currentPage;
 
   // 学習センター
-  if (p === 'learn' || p === 'learn-guide' || p === 'learn-articles' || p === 'learn-exercises' || p === 'learn-glossary' || p === 'learn-roadmap' || p === 'learn-badges' || p === 'learn-notes' || (p && (p.startsWith('article-') || p.startsWith('exercise-')))) {
+  if (p === 'learn' || p === 'learn-guide' || p === 'learn-articles' || p === 'learn-exercises' || p === 'learn-glossary' || p === 'learn-notes' || (p && (p.startsWith('article-') || p.startsWith('exercise-')))) {
     app.innerHTML = renderLayout(renderLearnPage());
     return;
   }
@@ -319,7 +319,7 @@ function render() {
 // ── Layout Shell ───────────────────────────────────────────────
 function renderLayout(content, proj = null) {
   const cp = State.currentPage;
-  const isLearnPage = cp === 'learn' || cp === 'learn-guide' || cp === 'learn-articles' || cp === 'learn-exercises' || cp === 'learn-glossary' || cp === 'learn-roadmap' || cp === 'learn-badges' || cp === 'learn-notes' || (cp && (cp.startsWith('article-') || cp.startsWith('exercise-')));
+  const isLearnPage = cp === 'learn' || cp === 'learn-guide' || cp === 'learn-articles' || cp === 'learn-exercises' || cp === 'learn-glossary' || cp === 'learn-notes' || (cp && (cp.startsWith('article-') || cp.startsWith('exercise-')));
   const isToolsPage = cp === 'tools' || cp === 'tool-logline' || cp === 'tool-char-diag' || cp === 'tool-scene' || cp === 'tool-timer' || cp === 'tool-pitch' || cp === 'tool-tension' || cp === 'tool-name-gen' || cp === 'tool-structure' || cp === 'tool-emotion-arc' || cp === 'tool-world-notes' || cp === 'tool-dialogue-check' || cp === 'tool-plot-holes' || cp === 'tool-beat-counter';
   const isTemplatesPage = cp === 'templates' || (cp && cp.startsWith('template-'));
   const isSettingsPage = cp === 'settings';
@@ -5127,6 +5127,38 @@ const GUIDES = [
     color: 'beni',
     steps: 5,
   },
+  {
+    id: 'guide-antagonist',
+    title: 'アンタゴニストの設計',
+    desc: '物語を強くする敵役・障害の設計法。「単純な悪役」ではなく、主人公の鏡となる深い敵を作る方法。',
+    icon: 'fa-user-secret',
+    color: 'asagi',
+    steps: 5,
+  },
+  {
+    id: 'guide-subplots',
+    title: 'サブプロット設計術',
+    desc: 'BストーリーとサブプロットをAストーリーと有機的に絡ませる技術。テーマを複数レイヤーで体現する方法。',
+    icon: 'fa-sitemap',
+    color: 'kogane',
+    steps: 4,
+  },
+  {
+    id: 'guide-opening',
+    title: '掴みのある冒頭を書く',
+    desc: '最初のページで読者・観客を引き込む技術。フックライン・オープニングイメージ・即座の疑問設置の実践法。',
+    icon: 'fa-door-open',
+    color: 'matcha',
+    steps: 5,
+  },
+  {
+    id: 'guide-theme',
+    title: 'テーマを物語に統合する',
+    desc: 'テーマを「言わずに体現する」技術。セリフ・行動・構造の全レベルでテーマを織り込む高度な方法論。',
+    icon: 'fa-compass',
+    color: 'fuji',
+    steps: 4,
+  },
 ];
 
 const COLOR_MAP = {
@@ -5154,12 +5186,26 @@ function renderLearnPage() {
     return renderExercisePage(exId);
   }
 
+  // 用語辞典詳細ページ
+  if (page && page.startsWith('glossary-term-')) {
+    const termId = page.replace('glossary-term-', '');
+    return renderGlossaryTermPage(termId);
+  }
+  // 用語辞典カテゴリページ
+  if (page && page.startsWith('glossary-cat-')) {
+    const catName = page.replace('glossary-cat-', '');
+    return renderGlossaryCategoryPage(catName);
+  }
+  // 記事カテゴリサブページ
+  if (page && page.startsWith('articles-cat-')) {
+    const catName = decodeURIComponent(page.replace('articles-cat-', ''));
+    return renderArticleCategoryPage(catName);
+  }
+
   // タブ判定
   const activeTab = page === 'learn-articles' ? 'articles'
-    : page === 'learn-exercises' ? 'exercises'
+    : page === 'learn-exercises' ? 'dojo'
     : page === 'learn-glossary' ? 'glossary'
-    : page === 'learn-roadmap' ? 'roadmap'
-    : page === 'learn-badges' ? 'badges'
     : page === 'learn-notes' ? 'notes'
     : 'guide';
 
@@ -5176,17 +5222,11 @@ function renderLearnPage() {
     <div class="learn-subnav-item ${activeTab==='articles'?'active':''}" onclick="navigate('learn-articles')">
       <i class="fas fa-newspaper"></i> 記事${tabBadge(ARTICLES.length)}
     </div>
-    <div class="learn-subnav-item ${activeTab==='exercises'?'active':''}" onclick="navigate('learn-exercises')">
-      <i class="fas fa-pen-to-square"></i> 演習${tabBadge(EXERCISES.length, 'var(--matcha)')}
+    <div class="learn-subnav-item ${activeTab==='dojo'?'active':''}" onclick="navigate('learn-exercises')">
+      <i class="fas fa-fist-raised"></i> 道場${tabBadge(EXERCISES.length, 'var(--beni,#c0392b)')}
     </div>
     <div class="learn-subnav-item ${activeTab==='glossary'?'active':''}" onclick="navigate('learn-glossary')">
       <i class="fas fa-book-bookmark"></i> 用語辞典
-    </div>
-    <div class="learn-subnav-item ${activeTab==='roadmap'?'active':''}" onclick="navigate('learn-roadmap')">
-      <i class="fas fa-road"></i> ロードマップ
-    </div>
-    <div class="learn-subnav-item ${activeTab==='badges'?'active':''}" onclick="navigate('learn-badges')">
-      <i class="fas fa-trophy"></i> バッジ
     </div>
     <div class="learn-subnav-item ${activeTab==='notes'?'active':''}" onclick="navigate('learn-notes')">
       <i class="fas fa-note-sticky"></i> 学習ノート
@@ -5207,8 +5247,8 @@ function renderLearnPage() {
     const readArticles = DB.get('read_articles', []);
     const bookmarkedArticles = DB.get('bookmarked_articles', []);
     const readCount = ARTICLES.filter(a => readArticles.includes(a.id)).length;
-    const learnFilter = DB.get('learn_article_filter', { category: '', search: '', showBookmark: false, viewMode: 'category' });
-    const viewMode = learnFilter.viewMode || 'category';
+    const learnFilter = DB.get('learn_article_filter', { category: '', search: '', showBookmark: false, viewMode: 'catgrid' });
+    const viewMode = learnFilter.viewMode || 'catgrid';
 
     // カテゴリ一覧（動的生成）
     const allCategories = [...new Set(ARTICLES.map(a => a.category))];
@@ -5222,6 +5262,79 @@ function renderLearnPage() {
       if (learnFilter.showBookmark && !bookmarkedArticles.includes(a.id)) return false;
       return true;
     });
+
+    // カテゴリカード表示（catgridモード）
+    if (viewMode === 'catgrid' && !learnFilter.search && !learnFilter.showBookmark && !learnFilter.category) {
+      const catColorMap = {};
+      ARTICLES.forEach(a => { catColorMap[a.category] = a.categoryColor; });
+
+      const catCards = allCategories.map(cat => {
+        const catArts = ARTICLES.filter(a => a.category === cat);
+        const cc = COLOR_MAP[catColorMap[cat]] || COLOR_MAP['beni'];
+        const catReadCount = catArts.filter(a => readArticles.includes(a.id)).length;
+        const firstArt = catArts[0];
+        return `
+        <div class="card" style="cursor:pointer;padding:16px 18px;border-top:3px solid ${cc.color};transition:all .2s" onclick="navigate('articles-cat-${encodeURIComponent(cat)}')" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div style="width:36px;height:36px;border-radius:var(--radius-md);background:${cc.bg};border:1px solid ${cc.border};display:flex;align-items:center;justify-content:center;font-size:16px;color:${cc.color};flex-shrink:0">
+              <i class="fas ${firstArt?.icon||'fa-newspaper'}"></i>
+            </div>
+            <div style="flex:1">
+              <div style="font-size:14px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${cat}</div>
+              <div style="font-size:11px;color:var(--text-muted)">${catReadCount}/${catArts.length}本読了</div>
+            </div>
+            <i class="fas fa-chevron-right" style="font-size:11px;color:${cc.color}"></i>
+          </div>
+          <div style="height:4px;background:var(--bg-hover);border-radius:2px;overflow:hidden;margin-bottom:10px">
+            <div style="height:100%;width:${catArts.length>0?Math.round(catReadCount/catArts.length*100):0}%;background:${cc.color};border-radius:2px"></div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:4px">
+            ${catArts.slice(0,3).map(a => {
+              const isRead = readArticles.includes(a.id);
+              return `<span style="font-size:10.5px;padding:1px 8px;background:${isRead?'var(--matcha-bg)':cc.bg};color:${isRead?'var(--matcha)':cc.color};border:1px solid ${isRead?'var(--matcha-border)':cc.border};border-radius:var(--radius-full);${isRead?'text-decoration:line-through':''}">${esc(a.title.slice(0,15))}…</span>`;
+            }).join('')}
+            ${catArts.length > 3 ? `<span style="font-size:10.5px;color:var(--text-muted)">+${catArts.length-3}本</span>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+
+      const progressPct = Math.round(readCount / ARTICLES.length * 100);
+      const progressBadge = `
+      <div class="learn-progress-bar-wrap" style="margin-bottom:16px">
+        <div style="flex:1">
+          <div style="font-size:12px;font-weight:600;color:var(--fuji);margin-bottom:6px;display:flex;align-items:center;gap:8px">
+            <i class="fas fa-book-open"></i> 総合読了進捗
+            <span style="font-size:13px;color:var(--text-primary)">${readCount}<span style="font-size:11px;color:var(--text-muted)">/${ARTICLES.length}本</span></span>
+            <span style="margin-left:auto;font-size:13px;font-weight:700;color:var(--fuji)">${progressPct}%</span>
+          </div>
+          <div style="height:8px;background:var(--bg-hover);border-radius:4px;overflow:hidden">
+            <div style="height:100%;width:${progressPct}%;background:linear-gradient(90deg,var(--fuji),var(--fuji-lt));border-radius:4px"></div>
+          </div>
+        </div>
+      </div>`;
+
+      const searchBar = `
+      <div style="position:relative;margin-bottom:16px">
+        <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:13px;pointer-events:none"></i>
+        <input class="form-input" style="padding-left:36px;height:40px;font-size:13px" placeholder="記事タイトル・タグで検索…" oninput="quickSearchArticles(this.value)" id="article-quick-search">
+      </div>
+      <div id="article-search-results" style="display:none;margin-bottom:16px"></div>`;
+
+      return `${hero}${subnav}
+      ${progressBadge}
+      ${searchBar}
+      <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:12px;font-family:'Noto Serif JP',serif">
+        <i class="fas fa-folder-tree" style="color:var(--fuji);margin-right:6px"></i>カテゴリから記事を選ぶ
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px">
+        ${catCards}
+      </div>
+      <div style="margin-top:16px;text-align:center">
+        <button class="btn btn-ghost btn-sm" onclick="setLearnFilter('viewMode','category');setLearnFilter('search','');render()">
+          <i class="fas fa-list"></i> 全記事を一覧で見る
+        </button>
+      </div>`;
+    }
 
     // 記事カード生成
     const makeArticleCard = (a) => {
@@ -5371,14 +5484,10 @@ function renderLearnPage() {
     </div>
     ${articlesHtml}`;
 
-  } else if (activeTab === 'exercises') {
+  } else if (activeTab === 'dojo') {
     return renderLearnExercises(hero, subnav);
   } else if (activeTab === 'glossary') {
     return renderLearnGlossary(hero, subnav);
-  } else if (activeTab === 'roadmap') {
-    return renderLearnRoadmap(hero, subnav);
-  } else if (activeTab === 'badges') {
-    return renderLearnBadges(hero, subnav);
   } else if (activeTab === 'notes') {
     return renderLearnNotes(hero, subnav);
   } else {
@@ -5390,8 +5499,6 @@ function renderLearnPage() {
     const guideCards = GUIDES.map(g => {
       const c = COLOR_MAP[g.color] || COLOR_MAP['fuji'];
       const isRead = readGuides.includes(`guide-${g.id}`);
-      const completedSteps = DB.get(`guide_steps_guide-${g.id}`, []);
-      const stepPct = g.steps > 0 ? Math.round(completedSteps.length / g.steps * 100) : 0;
       return `
       <div class="guide-card" style="position:relative" onclick="navigate('article-guide-${g.id}')">
         ${isRead ? `<div style="position:absolute;top:10px;right:10px;width:22px;height:22px;border-radius:50%;background:var(--matcha);display:flex;align-items:center;justify-content:center;z-index:1"><i class="fas fa-check" style="color:white;font-size:10px"></i></div>` : ''}
@@ -5400,12 +5507,6 @@ function renderLearnPage() {
         </div>
         <div class="guide-card-title">${esc(g.title)}</div>
         <div class="guide-card-desc">${esc(g.desc)}</div>
-        ${stepPct > 0 ? `<div style="margin-top:8px">
-          <div style="height:4px;background:var(--bg-hover);border-radius:2px;overflow:hidden">
-            <div style="height:100%;width:${stepPct}%;background:${c.color};border-radius:2px;transition:width .4s"></div>
-          </div>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${completedSteps.length}/${g.steps}ステップ完了 (${stepPct}%)</div>
-        </div>` : ''}
         <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between">
           <span style="font-size:10.5px;color:var(--text-muted)"><i class="fas fa-list-check" style="font-size:9px;margin-right:3px"></i>${g.steps}ステップ</span>
           <span style="font-size:11px;color:${isRead?'var(--matcha)':c.color};font-weight:600">${isRead?'<i class="fas fa-redo" style="font-size:9px"></i> 読み直す':'読む <i class="fas fa-arrow-right" style="font-size:9px"></i>'}</span>
@@ -5870,8 +5971,8 @@ window._EXERCISES = [
     tags: ['テーマ', '象徴', '上級', '脚本設計'],
   },
 ];
-// ── 練習問題ページ ────────────────────────────────────────────
-// ── 演習一覧ページ ─────────────────────────────────────────────
+// ── 道場ページ ────────────────────────────────────────────────
+// ── 道場ページ ─────────────────────────────────────────────
 function renderLearnExercises(hero, subnav) {
   const exercises = window._EXERCISES || [];
   const doneExercises = DB.get('done_exercises', []);
@@ -5927,7 +6028,7 @@ function renderLearnExercises(hero, subnav) {
         <div style="display:flex;align-items:center;gap:12px;font-size:11.5px;color:var(--text-muted)">
           <span><i class="fas fa-clock" style="font-size:10px;margin-right:3px"></i>約${ex.estimatedTime}分</span>
           <span><i class="fas fa-list-check" style="font-size:10px;margin-right:3px"></i>${ex.rubric.length}項目採点</span>
-          <span style="margin-left:auto;font-size:12px;color:${c.color};font-weight:600">${done ? '再挑戦する' : hasDraft ? '続きを書く'  : '演習を始める'} <i class="fas fa-arrow-right" style="font-size:10px"></i></span>
+          <span style="margin-left:auto;font-size:12px;color:${c.color};font-weight:600">${done ? '再挑戦する' : hasDraft ? '稽古を続ける'  : '道場へ入門する'} <i class="fas fa-arrow-right" style="font-size:10px"></i></span>
         </div>
       </div>
     </div>`;
@@ -5935,32 +6036,36 @@ function renderLearnExercises(hero, subnav) {
 
   return `${hero}${subnav}
   <div style="padding:14px 16px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:16px;display:flex;align-items:center;gap:16px">
-    <div style="width:50px;height:50px;border-radius:50%;background:var(--matcha-bg);border:2px solid var(--matcha-border);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-      <i class="fas fa-pen-to-square" style="color:var(--matcha);font-size:18px"></i>
+    <div style="width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#7a0000,#c0392b);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 3px 10px #c0392b44">
+      <i class="fas fa-fist-raised" style="color:white;font-size:20px"></i>
     </div>
     <div style="flex:1">
-      <div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-bottom:5px">演習: ${doneCount}/${exercises.length}問 提出完了 (${pct}%)</div>
+      <div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-bottom:5px">道場: ${doneCount}/${exercises.length}問 修了 (${pct}%)</div>
       <div style="height:8px;background:var(--bg-hover);border-radius:4px;overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:${pct>=100?'var(--matcha)':'linear-gradient(90deg,var(--matcha),var(--asagi))'};border-radius:4px;transition:width .5s ease"></div>
+        <div style="height:100%;width:${pct}%;background:${pct>=100?'var(--matcha)':'linear-gradient(90deg,#c0392b,#e67e22)'};border-radius:4px;transition:width .5s ease"></div>
       </div>
     </div>
+    <button class="btn btn-sm" onclick="rollDicePractice()" title="ランダム稽古" style="background:linear-gradient(135deg,#e67e22,#c0392b);color:white;border:none;border-radius:var(--radius-md);padding:10px 16px;font-size:13px;font-weight:700;box-shadow:0 2px 8px #c0392b44;cursor:pointer;display:flex;align-items:center;gap:6px">
+      <i class="fas fa-dice" style="font-size:16px"></i> ランダム稽古
+    </button>
     ${pct>=100?`<span style="font-size:18px">🏆</span>`:''}
   </div>
   <div style="padding:12px 14px;background:var(--asagi-bg);border:1px solid var(--asagi-border);border-radius:var(--radius-md);margin-bottom:16px;font-size:12.5px;color:var(--text-secondary);line-height:1.7">
     <i class="fas fa-info-circle" style="color:var(--asagi);margin-right:6px"></i>
-    各演習は専用ページで取り組みます。解答を書いて提出すると、採点基準に沿って<strong style="color:var(--text-primary)">自動添削</strong>を行います。ヒント・模範解答・関連記事もリンクされています。
+    各稽古は専用ページで取り組みます。解答を書いて提出すると、採点基準に沿って<strong style="color:var(--text-primary)">師範添削</strong>を行います。ヒント・模範解答・関連記事もリンクされています。<br>
+    <i class="fas fa-dice" style="color:var(--kogane);margin-right:4px;margin-top:4px"></i><strong>サイコロボタン</strong>で問題をランダムシャッフル（1万通り以上）。毎回違う問題に挑戦できます。
   </div>
   ${filterBar}
   <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">${filtered.length}問（全${exercises.length}問）</div>
   <div style="display:grid;gap:12px">${cards || '<div style="text-align:center;padding:40px;color:var(--text-muted)">条件に合う演習が見つかりません</div>'}</div>`;
 }
 
-// ── 演習個別ページ ─────────────────────────────────────────────
+// ── 道場個別ページ ─────────────────────────────────────────────
 function renderExercisePage(exId) {
   const exercises = window._EXERCISES || [];
   const ex = exercises.find(e => e.id === exId);
   if (!ex) return `<div class="article-page">
-    <div class="article-back-btn" onclick="navigate('learn-exercises')"><i class="fas fa-arrow-left"></i> 演習一覧に戻る</div>
+    <div class="article-back-btn" onclick="navigate('learn-exercises')"><i class="fas fa-arrow-left"></i> 道場に戻る</div>
     <div style="text-align:center;padding:60px;color:var(--text-muted)">演習が見つかりません</div>
   </div>`;
 
@@ -6049,7 +6154,7 @@ function renderExercisePage(exId) {
   return `
   <div class="article-page">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap">
-      <button class="btn btn-ghost btn-sm" onclick="navigate('learn-exercises')"><i class="fas fa-arrow-left"></i> 演習一覧</button>
+      <button class="btn btn-ghost btn-sm" onclick="navigate('learn-exercises')"><i class="fas fa-arrow-left"></i> 道場</button>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <span style="font-size:10px;padding:2px 8px;background:${diffColor[ex.difficulty]||'#eee'}22;color:${diffColor[ex.difficulty]||'#999'};border:1px solid ${diffColor[ex.difficulty]||'#eee'}44;border-radius:var(--radius-full);font-weight:700">${ex.difficulty}</span>
         <span style="font-size:10px;padding:2px 8px;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:var(--radius-full);font-weight:600">${ex.category}</span>
@@ -6075,11 +6180,16 @@ function renderExercisePage(exId) {
       <!-- メインコンテンツ -->
       <div>
         <!-- 問題文 -->
-        <div class="card" style="margin-bottom:16px;border-top:3px solid ${c.color}">
-          <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:14px;font-family:'Noto Serif JP',serif">
-            <i class="fas fa-file-lines" style="color:${c.color};margin-right:8px"></i>問題
+        <div class="card" style="margin-bottom:16px;border-top:3px solid ${c.color};position:relative">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+            <div style="font-size:14px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">
+              <i class="fas fa-file-lines" style="color:${c.color};margin-right:8px"></i>問題
+            </div>
+            <button onclick="rollDiceThisExercise('${ex.id}')" title="問題をランダムに変える" style="background:linear-gradient(135deg,#e67e22,#c0392b);color:white;border:none;border-radius:var(--radius-md);padding:7px 13px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;box-shadow:0 2px 6px #c0392b33">
+              <i class="fas fa-dice" style="font-size:14px"></i> シャッフル
+            </button>
           </div>
-          <div style="font-size:13px;color:var(--text-secondary);white-space:pre-line;line-height:1.9;background:var(--bg-subtle);border-radius:var(--radius-sm);padding:16px">${esc(ex.question)}</div>
+          <div id="ex-question-text" style="font-size:13px;color:var(--text-secondary);white-space:pre-line;line-height:1.9;background:var(--bg-subtle);border-radius:var(--radius-sm);padding:16px">${esc(ex.question)}</div>
         </div>
 
         <!-- 解答入力 -->
@@ -6168,11 +6278,11 @@ function renderExercisePage(exId) {
           };
           return `<div class="card" style="margin-bottom:14px">
             <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:10px">
-              <i class="fas fa-list-ol" style="color:var(--text-muted);margin-right:6px"></i>他の演習
+              <i class="fas fa-list-ol" style="color:var(--text-muted);margin-right:6px"></i>他の稽古
             </div>
             <div style="display:grid;gap:6px">
-              ${prev ? makeNav(prev, '← 前の演習', 'fa-arrow-left') : ''}
-              ${next ? makeNav(next, '次の演習 →', 'fa-arrow-right') : ''}
+              ${prev ? makeNav(prev, '← 前の稽古', 'fa-arrow-left') : ''}
+              ${next ? makeNav(next, '次の稽古 →', 'fa-arrow-right') : ''}
             </div>
           </div>`;
         })()}
@@ -6189,7 +6299,7 @@ function renderExercisePage(exId) {
   </div>`;
 }
 
-// ── 演習 自動保存 ─────────────────────────────────────────────
+// ── 道場 自動保存 ─────────────────────────────────────────────
 
 function togglePreSubmitCheck() {
   const el = document.getElementById('ex-precheck-panel');
@@ -6233,7 +6343,7 @@ function showExHint(exId) {
   if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
 }
 
-// ── 演習 提出→自動添削 ───────────────────────────────────────
+// ── 道場 提出→師範添削 ───────────────────────────────────────
 function submitExercise(exId) {
   const exercises = window._EXERCISES || [];
   const ex = exercises.find(e => e.id === exId);
@@ -6243,7 +6353,6 @@ function submitExercise(exId) {
     toast('解答を入力してから提出してください（30字以上）', 'error');
     return;
   }
-
   const btn = document.getElementById('ex-submit-btn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 添削中…'; }
 
@@ -6265,260 +6374,594 @@ function submitExercise(exId) {
   }, 1200);
 }
 
+// ================================================================
+// ── 師範添削エンジン（プロ・コンクール・大賞水準） ──────────────────
+// ================================================================
 function generateExerciseFeedback(ex, answer) {
   const len = answer.length;
-  const minLen = ex.estimatedTime * 35;
+  const minLen = ex.estimatedTime * 40;
   const ans = answer;
+  const lines = ans.split('\n');
+  const lineCount = lines.length;
 
-  // 演習IDごとの専用評価ロジック
-  const customEvaluators = {
+  // ── ユーティリティ ──────────────────────────────────────────────
+  function _has(...words) { return words.some(w => ans.includes(w)); }
+  function _count(words) { return words.filter(w => ans.includes(w)).length; }
+  function _dialogCount() { return (ans.match(/「[^」]+」/g) || []).length; }
+  function _hasHeader() { return ans.includes('内・') || ans.includes('外・') || ans.includes('○内') || ans.includes('○外') || /○[内外]/.test(ans); }
+  function _hasEllipsis() { return ans.includes('……') || ans.includes('（間）') || ans.includes('（沈黙）') || ans.includes('（ビート）'); }
+  function _emotionLabels() { return ['悲しい','嬉しい','うれしい','怖い','辛い','辛そう','心配','怒っている','怒りを','動揺','ショック','絶望','幸せ','不安だ','不安を','寂しい','苦しい']; }
+  function _hasNoEmotionLabel() { return _emotionLabels().filter(w => ans.includes(w)).length === 0; }
+  function _subtextScore() {
+    let s = 0;
+    if (_hasEllipsis()) s += 2;
+    if (_dialogCount() > 0 && (ans.match(/「[^」]{1,15}」/g)||[]).length >= 1) s += 2; // 短いセリフ=サブテキスト
+    if (ans.includes('小道具') || ans.includes('手に取') || ans.includes('視線') || ans.includes('目を')) s += 1;
+    if (_count(['見る','止まる','立ち上がる','置く','手が','指が','振り返']) >= 2) s += 1;
+    return s;
+  }
+  function _structureScore() {
+    let s = 0;
+    if (_hasHeader()) s += 3;
+    if (_dialogCount() >= 2) s += 3;
+    if (lineCount >= 10) s += 2;
+    if (ans.includes('　　') || ans.includes('  ')) s += 1; // インデント
+    if (ans.includes('・') || ans.match(/^\d+\./m)) s += 1;
+    return s;
+  }
+
+  // ── 評価エンジン（6演習・全ルーブリック専用） ─────────────────────
+
+  const evaluators = {
+
+    // =====================================================================
+    // 演習1: ログライン完成問題
+    // =====================================================================
     'ex-logline-01': [
-      () => {
-        const hasProto = ans.includes('元刑事') || ans.includes('刑事') || ans.includes('男') || ans.includes('彼');
-        const hasChar = ans.includes('欠如') || ans.includes('孤独') || ans.includes('過去') || ans.includes('罪') || ans.includes('誤') || (ans.includes('刑事') && ans.length > 20);
-        const pass = hasProto && (hasChar || len >= 20);
-        return { pass, earnedPoints: pass ? 20 : (hasProto ? 12 : 4),
-          comment: pass ? '主人公の属性（元刑事・欠如）が表現されています。' : '主人公の「欠如」や特徴的な属性をもう少し盛り込みましょう。「孤独な元刑事」というキャラクターの本質を1語で示してください。' };
+      (r) => {
+        // 主人公の欠如・属性
+        const protoWords = ['刑事','元刑事','孤独','元','刑'];
+        const flawWords = ['過去','誤','冤','罪','孤独','欠け','欠如','傷','失い','后悔','後悔','苦しむ','抱える'];
+        const hasProto = _count(protoWords) >= 1;
+        const hasFlaw = _count(flawWords) >= 1;
+        const pass = hasProto && hasFlaw;
+        const pts = pass ? r.weight : (hasProto && !hasFlaw ? Math.floor(r.weight*0.55) : (hasFlaw ? Math.floor(r.weight*0.35) : Math.floor(r.weight*0.15)));
+        const comment = pass
+          ? `◎ 秀逸。主人公「元刑事」という属性に、「${flawWords.find(w=>ans.includes(w))||'欠如'}」という内的傷が正確に刻まれています。プロのログラインは主人公の「欠け」から始まります——その原則を完璧に体現しています。`
+          : !hasProto
+            ? `▲ 主人公の核となる職業・属性が見えません。「元刑事」というラベルは単なる情報ではなく、「何を失い、何を抱えているか」を一語で語る言葉です。「元」という接頭語が生む失墜感・後悔を活かしてください。`
+            : `△ 主人公の外形（刑事）は読めますが、内的な傷・欠如が不明瞭です。コンクール水準のログラインは「主人公の欠如」を1語で表現します。「孤独な」「罪を抱えた」「誤りを犯した」——どれか1語を加えるだけで深度が跳ね上がります。`;
+        return { pass, earnedPoints: pts, comment };
       },
-      () => {
-        const hasGoal = ans.includes('真犯人') || ans.includes('犯人') || ans.includes('探') || ans.includes('償') || ans.includes('目標') || ans.includes('見つ');
+      (r) => {
+        // 外的目標
+        const goalWords = ['真犯人','犯人','探','見つけ','償','明らか','追','捜'];
+        const hasGoal = _count(goalWords) >= 1;
+        const hasSpecific = _count(['真犯人','犯人を']) >= 1;
         const pass = hasGoal;
-        return { pass, earnedPoints: pass ? 20 : 8,
-          comment: pass ? '外的目標（真犯人捜し・償い）が明確に表現されています。' : '外的目標が不明確です。「真犯人を見つける」「罪を償う」という具体的な目標を盛り込みましょう。' };
+        const pts = pass ? (hasSpecific ? r.weight : Math.floor(r.weight*0.8)) : Math.floor(r.weight*0.25);
+        const comment = pass
+          ? hasSpecific
+            ? `◎ 外的目標（真犯人を見つける）が明瞭かつ具体的。観客は「この主人公は何をするのか」を一目で理解できます。目標の具体性はログラインの命です。`
+            : `○ 外的目標の方向性は読めますが、もう少し具体的な行動動詞（「真犯人を見つけ出す」「冤罪を晴らす」）を使うと一段上がります。コンクール審査員は「なんとなく探す」より「真犯人を逮捕する」を評価します。`
+          : `✕ 外的目標が不明確です。「主人公が何をするか」はログラインの中核。「真犯人を見つける」「冤罪を晴らす」——行動を具体的な動詞で示してください。目標なきログラインは物語ではなく状況説明にすぎません。`;
+        return { pass, earnedPoints: pts, comment };
       },
-      () => {
-        const hasObstacle = ans.includes('冤罪') || ans.includes('復讐') || ans.includes('服役') || ans.includes('追') || ans.includes('脅') || ans.includes('障害') || ans.includes('妨');
-        const pass = hasObstacle;
-        return { pass, earnedPoints: pass ? 20 : 8,
-          comment: pass ? '障害（冤罪・復讐の男）が盛り込まれています。' : '障害が不明確です。「服役させた男の復讐」という具体的な障害を1フレーズ加えましょう。' };
+      (r) => {
+        // 障害（冤罪・復讐）
+        const obstacleWords = ['冤罪','復讐','服役','元受刑者','出所','追われ','追いかけ','妨','脅','危険','報復','迫'];
+        const hasObs = _count(obstacleWords) >= 1;
+        const hasDynamic = _count(['復讐','追われ','追いかけ','迫']) >= 1;
+        const pass = hasObs;
+        const pts = pass ? (hasDynamic ? r.weight : Math.floor(r.weight*0.8)) : Math.floor(r.weight*0.2);
+        const comment = pass
+          ? hasDynamic
+            ? `◎ 障害に「動き」があります。「復讐する男」「追われる」——主人公を静的に取り巻くのでなく、能動的に圧迫してくる力として障害が機能しています。これがドラマを動かすエンジンです。`
+            : `○ 障害（冤罪・過去の誤り）は盛り込まれています。一歩進めて「障害が主人公に何をするか」という動的描写（「復讐に訪れる」「命を狙われる」）にすると緊張感が増します。`
+          : `✕ 障害が見当たりません。「元刑事が真犯人を探す」だけでは物語になりません。「服役させた男が出所し復讐を誓う」——主人公を圧迫する具体的な力を盛り込んでください。障害なきログラインは旅程表にすぎません。`;
+        return { pass, earnedPoints: pts, comment };
       },
-      () => {
+      (r) => {
+        // 字数
         const charCount = len;
-        const pass = charCount <= 65 && charCount >= 20;
-        return { pass, earnedPoints: pass ? 20 : (charCount > 65 ? Math.floor(20 * 65/charCount) : (charCount >= 10 ? 10 : 2)),
-          comment: pass ? `字数（${charCount}字）が要件を満たしています。簡潔に凝縮できています。` : charCount > 65 ? `${charCount}字で要件（60字以内）を超えています。不要な修飾語を削り、核心だけを残しましょう。` : `${charCount}字は短すぎます。要素が不足している可能性があります。` };
+        const limitMatch = ans.length;
+        // 字数制限は問題に含まれる（60〜70字程度を想定）
+        const inLimit = charCount >= 20 && charCount <= 80;
+        const tightEnough = charCount <= 65;
+        const pass = inLimit;
+        const pts = pass ? (tightEnough ? r.weight : Math.floor(r.weight*0.8)) : (charCount > 80 ? Math.floor(r.weight*0.5) : Math.floor(r.weight*0.3));
+        const comment = pass
+          ? tightEnough
+            ? `◎ ${charCount}字——密度が高い。コンクール審査でログラインは「60字以内に主人公・目標・障害・テーマを詰め込む」ことが原則です。この密度はプロレベルです。`
+            : `△ ${charCount}字——やや長め。余分な修飾語（「とても」「非常に」「さらに」）を削り、核心だけを残しましょう。ピッチで投資家に10秒で語れる長さが理想です。`
+          : charCount > 80
+            ? `✕ ${charCount}字は長すぎます。優れたログラインとは「削る勇気」の産物です。今の文章から最も伝えたい20字を選び、そこから再構築してみてください。`
+            : `✕ ${charCount}字は短すぎます。主人公・目標・障害のいずれかが欠けている可能性があります。`;
+        return { pass, earnedPoints: pts, comment };
       },
-      () => {
-        const hasTheme = ans.includes('罪') || ans.includes('赦') || ans.includes('償') || ans.includes('許') || ans.includes('業') || ans.includes('因果');
-        const pass = hasTheme;
-        return { pass, earnedPoints: pass ? 20 : 5,
-          comment: pass ? 'テーマ（罪と赦し）の余韻が感じられます。' : 'テーマ（罪と赦し）の要素が弱いです。「罪」「償い」「赦し」に連なる言葉を1語加えると余韻が生まれます。' };
+      (r) => {
+        // テーマの余韻
+        const themeWords = ['罪','赦','償','許','業','因果','贖','懺悔','救','清'];
+        const themeCount = _count(themeWords);
+        const pass = themeCount >= 1;
+        const strong = themeCount >= 2;
+        const pts = pass ? (strong ? r.weight : Math.floor(r.weight*0.8)) : Math.floor(r.weight*0.2);
+        const comment = pass
+          ? strong
+            ? `◎ テーマ（罪と赦し）が複数の言葉に滲んでいます。ログラインに「余韻」を持たせる——これはプロ脚本家の高度な技術です。読み終わった後に観客の胸に何かが残ります。`
+            : `○ テーマの余韻は感じられます。「罪」「赦し」を直接使わず、別の言葉（「償い」「清める」「過ちを認める」）で示せるとより洗練されます。`
+          : `▲ テーマ（罪と赦し）が伝わりません。テーマはログラインで直接言う必要はありませんが、選ぶ動詞・名詞からにじみ出るべきです。「罪を背負った男が」「赦しを求めながら」——1語がテーマを呼吸させます。`;
+        return { pass, earnedPoints: pts, comment };
       },
     ],
+
+    // =====================================================================
+    // 演習2: シーンの3要素
+    // =====================================================================
     'ex-scene-01': [
-      () => {
-        const hasParts = ['目的', 'Want', '目標'].some(w => ans.includes(w)) &&
-                         ['葛藤', '対立', '板挟み'].some(w => ans.includes(w)) &&
-                         ['変化', '変わ', '選択', '決断'].some(w => ans.includes(w));
-        return { pass: hasParts, earnedPoints: hasParts ? 25 : (ans.length > 50 ? 14 : 7),
-          comment: hasParts ? '分析パートで目的・葛藤・変化の3要素を正確に特定できています。' : '3要素（目的・葛藤・変化）のいずれかが不明確です。それぞれを「目的:」「葛藤:」「変化:」と明示して書くと整理しやすくなります。' };
+      (r) => {
+        // 分析: 目的・葛藤・変化の特定
+        const hasWant  = _has('目的','Want','昇進','何を得よう','何を求め','目標は');
+        const hasConf  = _has('葛藤','対立','板挟み','友情','職業','キャリア','しかし','しかしながら','迷い');
+        const hasChange= _has('変化','変わ','選択','断念','諦め','決断','決めた','転換');
+        const all3 = hasWant && hasConf && hasChange;
+        const two = [hasWant,hasConf,hasChange].filter(Boolean).length >= 2;
+        const pts = all3 ? r.weight : (two ? Math.floor(r.weight*0.6) : Math.floor(r.weight*0.25));
+        const missing = [!hasWant&&'目的(Want)',!hasConf&&'葛藤',!hasChange&&'変化'].filter(Boolean).join('・');
+        const comment = all3
+          ? `◎ 完璧な分析。目的・葛藤・変化の三要素を正確かつ的確に特定できています。シーン分析はすべての脚本創作の出発点——この精度を執筆に直結させてください。`
+          : two
+            ? `△ ${missing}の特定が不明確です。${missing.includes('変化') ? '「変化」はシーン前後で主人公の内的状態・決断・立場が変わること。田中が「昇進への欲望」から「友情の優先」へ転換した瞬間が変化です。' : ''}${missing.includes('葛藤') ? '「葛藤」は内的・外的な対立力の拮抗。「キャリアへの欲望」VS「倫理・友情」——2つの力を明確に書いてください。' : ''}`
+            : `✕ 三要素の分析が根本から再構築が必要です。目的(Want)＝田中が得ようとするもの、葛藤＝それを妨げる力、変化＝シーン前後の主人公の状態の差。この三点を箇条書きでまず書いてみてください。`;
+        return { pass: all3 || two, earnedPoints: pts, comment };
       },
-      () => {
-        const hasHeader = ans.includes('内・') || ans.includes('外・') || ans.includes('○内') || ans.includes('○外');
-        const hasDialogue = (ans.match(/「[^」]+」/g) || []).length >= 2;
-        const pass = hasHeader && hasDialogue;
-        return { pass, earnedPoints: pass ? 20 : ((hasHeader ? 8 : 0) + (hasDialogue ? 8 : 0)),
-          comment: pass ? '脚本形式（柱書き・ト書き・セリフ）が適切に使われています。' : (!hasHeader ? '柱書き（○内/外・場所・時間帯）を追加しましょう。' : '') + (!hasDialogue ? 'セリフを「」でくくって2つ以上書きましょう。' : '') };
+      (r) => {
+        // 脚本形式
+        const header = _hasHeader();
+        const dialogs = _dialogCount();
+        const hasToGaki = lineCount >= 8 && !header;
+        const pass = header && dialogs >= 2;
+        const pts = pass ? r.weight : ((header ? 8 : 0) + (dialogs >= 2 ? 8 : 4) + (hasToGaki ? 2 : 0));
+        const comment = pass
+          ? `◎ 脚本形式（柱書き・ト書き・セリフ）が完全に機能しています。柱書きで場を確立し、ト書きで行動を描き、セリフで声を置く——この3層構造がシーンに奥行きをもたらします。`
+          : !header
+            ? `✕ 柱書き（「○内・社長室・昼」のような場の指示）がありません。脚本は「映像の設計書」——どこで何が起きるかが最初に明示されなければ、撮影スタッフは動けません。`
+            : dialogs < 2
+              ? `△ セリフが${dialogs}つと少なすぎます。このシーンは「社長と田中の会話」が核——セリフなしでは観客は2人の関係と葛藤を理解できません。最低2〜3交換のセリフを書いてください。`
+              : `△ 形式はほぼ整っています。インデント（全角スペース）と柱書きの統一で、読みやすさが一段上がります。`;
+        return { pass, earnedPoints: Math.min(pts, r.weight), comment };
       },
-      () => {
-        const badEmotions = ['悲しい', '嬉しい', '怖い', 'つらい', '辛い', '心配', '動揺', 'ショック'];
-        const found = badEmotions.filter(w => ans.includes(w));
-        const hasAction = ans.includes('止まる') || ans.includes('見る') || ans.includes('立つ') || ans.includes('座る') || ans.includes('……') || ans.includes('（間）') || ans.includes('手が') || ans.includes('目が');
-        const pass = found.length === 0 && hasAction;
-        return { pass, earnedPoints: pass ? 25 : (found.length > 0 ? 8 : 14),
-          comment: pass ? '感情ラベリングなく、行動・視線・間で感情を「見せて」います。' : found.length > 0 ? `「${found[0]}」など感情ラベリングがあります。その感情を「行動」に変換しましょう（例: 悲しい→手が止まる）。` : '感情を示す行動描写（視線・間・身体反応）をもう一か所加えると深みが増します。' };
+      (r) => {
+        // 感情を「見せる」
+        const badEmotions = _emotionLabels().filter(w => ans.includes(w));
+        const noLabel = badEmotions.length === 0;
+        const actionWords = ['止まる','見る','立ち上がる','手が','目が','指が','視線','置く','握る','離す','振り返','うなずく','かぶりを'];
+        const hasAction = _count(actionWords) >= 2;
+        const hasEllipsis = _hasEllipsis();
+        const pass = noLabel && (hasAction || hasEllipsis);
+        const pts = pass ? r.weight : (noLabel && !hasAction ? Math.floor(r.weight*0.55) : (badEmotions.length > 0 ? Math.floor(r.weight*0.3) : Math.floor(r.weight*0.4)));
+        const found = badEmotions.slice(0,2).join('・');
+        const comment = pass
+          ? `◎ 感情ラベリングが皆無——これはプロの証明です。「悲しい」と書かず「手が止まる」「目が離せない」で語る。コンクール審査員は「見せる」技術を最も重視します。あなたの解答はその原則を体現しています。`
+          : badEmotions.length > 0
+            ? `✕ 「${found}」という感情ラベリングが検出されました。これはアマチュアと見なされる典型的なNG表現です。例えば「悲しい→田中の手がゆっくりと止まる」「動揺した→田中は一度視線を落とし、何かを探すように窓の外を見た」——感情を行動に変換してください。プロは感情を書かず、感情を「引き起こす」行動を書きます。`
+            : `△ 感情ラベリングはありませんが、感情を示す具体的な行動描写が不足しています。「田中の視線が写真に止まる」「ゆっくりと立ち上がる」——身体の動作2つを追加するだけで、このシーンが劇的に変わります。`;
+        return { pass, earnedPoints: pts, comment };
       },
-      () => {
-        const hasSubtext = ans.includes('……') || ans.includes('（間）') || ans.includes('（沈黙）') || (ans.match(/「[^」]{0,30}」/g) || []).some(s => s.length < 25);
-        const pass = hasSubtext;
-        return { pass, earnedPoints: pass ? 15 : 4,
-          comment: pass ? 'サブテキスト（間・短いセリフ・言いかけ）が1か所以上確認できます。' : '本音を隠したサブテキストが見当たりません。「……」や短い言いかけセリフを1か所入れましょう。' };
+      (r) => {
+        // サブテキスト
+        const stScore = _subtextScore();
+        const pass = stScore >= 3;
+        const pts = pass ? r.weight : Math.floor(r.weight * Math.min(1, stScore / 5));
+        const comment = pass
+          ? `◎ サブテキストが機能しています。「……」「短いセリフ」「小道具への視線」——言外に感情が流れています。観客は「見えないもの」を読み取るとき最も深く没入します。この技術は大河ドラマ・映画大賞を目指す上で必須です。`
+          : stScore >= 2
+            ? `△ サブテキストの萌芽はあります。「言いたいことを言わない」技術をさらに徹底してください。例:「ありがとうございます（間）……少し、考えさせてください」——この「間」と短い返答だけで、田中の内的葛藤が観客に伝わります。`
+            : `✕ サブテキストが見当たりません。最高のセリフとは「言っていないことを語るセリフ」です。「……」一つ、目線一つ、小道具一つで、台詞10行分の感情を伝えられます。今の解答からセリフを3割削って、代わりに行動・間を入れてください。`;
+        return { pass, earnedPoints: pts, comment };
       },
-      () => {
-        const hasChange = ans.includes('変化') || ans.includes('変わ') || ans.includes('断') || ans.includes('選択') || ans.includes('決め') || (ans.includes('立') && ans.includes('上'));
-        const pass = hasChange && len >= minLen * 0.4;
-        return { pass, earnedPoints: pass ? 15 : (hasChange ? 10 : 5),
-          comment: pass ? 'シーンの前後で明確な変化（行動・決断・態度）が起きています。' : 'シーン前後の変化がやや不明確です。田中が「何かを決める」瞬間を行動1つで示すと変化が際立ちます。' };
+      (r) => {
+        // 変化
+        const changeWords = ['断','決め','諦め','変わ','選択','立ち上がる','立ち去','席を立','退','戻','向き直'];
+        const hasChange = _count(changeWords) >= 1;
+        const hasClear = _count(['断った','断る','諦めた','選んだ','決めた','去る','立ち去']) >= 1;
+        const pass = hasChange;
+        const pts = pass ? (hasClear ? r.weight : Math.floor(r.weight*0.75)) : Math.floor(r.weight*0.25);
+        const comment = pass
+          ? hasClear
+            ? `◎ シーンの変化が「行動」として明確に刻印されています。変化は宣言でなく行動で示す——この原則を実践できています。田中の選択が、観客の胸に刺さるはずです。`
+            : `○ 変化の方向性は読めます。「田中は断った」より「田中は書類をそっと机に置いた」——変化を間接的な行動で示すとより洗練されます。`
+          : `✕ シーンの変化（田中が昇進を断る決断）が表現されていません。「シーンの入り口」と「シーンの出口」で主人公の状態が異なること——これがシーンの存在理由です。田中が「何かを決めた瞬間」を行動1つで示してください。`;
+        return { pass, earnedPoints: pts, comment };
       },
     ],
+
+    // =====================================================================
+    // 演習3: サブテキストの書き換え
+    // =====================================================================
+    'ex-subtext-01': [
+      (r) => {
+        // 感情ワードを使わずに感情が伝わるか
+        const forbiddenWords = ['心配','大切','失いたく','信じて','頼って','愛','好き','嫌い','怖い','悲しい','嬉しい'];
+        const usedForbidden = forbiddenWords.filter(w => ans.includes(w));
+        const noForbidden = usedForbidden.length === 0;
+        const subtextLevel = _subtextScore();
+        const pass = noForbidden && subtextLevel >= 2;
+        const pts = pass ? r.weight : (noForbidden ? Math.floor(r.weight*0.6) : Math.floor(r.weight*0.25));
+        const comment = pass
+          ? `◎ 禁止ワード不使用、かつサブテキストが機能しています。コンクール審査員が「このライターは分かっている」と膝を打つ解答です。感情を言わずに伝える——これがプロのセリフ術の本質です。`
+          : usedForbidden.length > 0
+            ? `✕ 禁止ワード「${usedForbidden.slice(0,2).join('・')}」が使用されています。この演習の核心は「禁止ワードなしに同じ感情を伝える」こと。今のセリフから禁止ワードを物理的に削除し、代わりに「行動」「小道具」「質問」で感情を示してください。例：「信じてる」→「（財布から何かを取り出す）……これ、持ってて」`
+            : `△ 禁止ワードは避けられていますが、サブテキストの密度が不足しています。「言わない」だけでなく「別のものに変換する」ことが重要。健の感情を「行動」か「別の話題への転換」で表してみてください。`;
+        return { pass, earnedPoints: pts, comment };
+      },
+      (r) => {
+        // 2パターン書かれているか
+        const hasPattern = ans.includes('パターン') || ans.includes('パターン1') || ans.includes('①') || ans.includes('１．');
+        const separators = (ans.match(/パターン|①|②|【[^】]+】/g) || []).length;
+        const pass = separators >= 2 || (ans.split(/---|\n\n\n/).length >= 2 && len >= 200);
+        const pts = pass ? r.weight : Math.floor(r.weight*0.4);
+        const comment = pass
+          ? `◎ 2パターンが明確に分けて書かれています。1つのアイデアを複数のアプローチで検証する——この習慣は脚本家として不可欠な思考訓練です。`
+          : `✕ 2パターンが確認できません。「パターン1: 〜」「パターン2: 〜」と明示してください。同じ感情でも「具体的な行動で示す」「沈黙と小道具で示す」「第三者の反応で示す」など全く異なるアプローチがあります。`;
+        return { pass, earnedPoints: pts, comment };
+      },
+      (r) => {
+        // 仕組みの説明
+        const hasExplanation = ans.includes('仕組み') || ans.includes('説明') || ans.includes('表現') || ans.includes('ことで') || ans.includes('によって') || ans.includes('という形で');
+        const hasAnalytic = len >= 200 && (ans.includes('本音') || ans.includes('感情') || ans.includes('伝わる') || ans.includes('示す'));
+        const pass = hasExplanation || hasAnalytic;
+        const pts = pass ? r.weight : Math.floor(r.weight*0.35);
+        const comment = pass
+          ? `◎ サブテキストの仕組み説明が的確です。「なぜこの表現でその感情が伝わるのか」を言語化できることは、意図的・再現可能な技術として持てている証拠です。コンクール受賞者は例外なくこの自己分析能力を持っています。`
+          : `✕ 各パターンの「仕組み説明」が書かれていません。「仕組み: 〇〇という行動で〇〇という感情を逆説的に表現した」と1行で書いてください。説明できない技術は再現できません——自分のサブテキストを言語化する習慣が、次の作品の質を変えます。`;
+        return { pass, earnedPoints: pts, comment };
+      },
+      (r) => {
+        // セリフの自然さ
+        const hasNatural = _dialogCount() >= 4;
+        const hasRhythm = ans.includes('……') || ans.includes('（間）') || ans.includes('（笑）');
+        const awkward = ans.includes('ならば') || ans.includes('でございます') || ans.includes('なのであります');
+        const pass = hasNatural && !awkward;
+        const pts = pass ? r.weight : (hasNatural ? Math.floor(r.weight*0.6) : Math.floor(r.weight*0.35));
+        const comment = pass
+          ? `◎ セリフが声に出して読める自然なリズムです。脚本のセリフは「書く文章」でなく「話される声」——その感覚を持てています。`
+          : !hasNatural
+            ? `△ セリフの量が少なすぎます。サブテキストは「会話の流れ」の中でこそ機能します。2人のやり取りを最低3往復（6行のセリフ）書いてください。`
+            : `△ セリフに不自然な書き言葉が混じっています。声に出して読んでみてください——「このキャラクターがこんな話し方をするか？」を自問することがセリフ作りの基本です。`;
+        return { pass, earnedPoints: pts, comment };
+      },
+      (r) => {
+        // 沈黙・間・行動の使い方
+        const silenceScore = (_hasEllipsis() ? 2 : 0) + (ans.includes('（間）') ? 2 : 0) + (_count(['手を','目を','視線','立ち上がる','振り返','置く','渡す','手渡']) >= 1 ? 2 : 0) + (ans.includes('小道具') || ans.includes('モノ') ? 1 : 0);
+        const pass = silenceScore >= 3;
+        const pts = pass ? r.weight : Math.floor(r.weight * Math.min(1, silenceScore / 5));
+        const comment = pass
+          ? `◎ 沈黙・間・行動が言葉と同等の機能を果たしています。これが「映像的セリフ」の真髄。観客は語られなかった「間」に最も深く感情移入します。黒沢明、是枝裕和、すべての巨匠が沈黙を武器にしました。`
+          : silenceScore >= 1
+            ? `△ 沈黙と間の使用は始まっています。「……」をもう1か所追加し、沈黙の後に「小道具への行動」（財布をいじる、窓の外を見る、コップを両手で持つ）を加えると、このシーンが生きてきます。`
+            : `✕ 沈黙・間・行動の表現がありません。最高のサブテキストは「何も言わない」ことです。「（由紀は何も言わず、健の手元の傷を見た）」——この1行が、会話10行よりも深く感情を語ります。`;
+        return { pass, earnedPoints: pts, comment };
+      },
+    ],
+
+    // =====================================================================
+    // 演習4: キャラクターアーク全設計
+    // =====================================================================
     'ex-arc-01': [
-      () => {
-        const hasDeficiency = ans.includes('欠如') || ans.includes('孤立') || ans.includes('本音') || ans.includes('一人') || ans.includes('閉') || ans.includes('不完全');
-        const hasNeed = ans.includes('Need') || ans.includes('ニード') || ans.includes('必要') || ans.includes('内的') || ans.includes('成長');
-        const pass = hasDeficiency && hasNeed;
-        return { pass, earnedPoints: pass ? 20 : ((hasDeficiency ? 8 : 0) + (hasNeed ? 8 : 0)),
-          comment: pass ? '欠如とNeedが有機的に繋がっています。' : (!hasDeficiency ? '「欠如」（冒頭の内的な不完全さ）をより具体的に書きましょう。' : '') + (!hasNeed ? '「Need」（内的に必要なもの）が不明確です。内的成長の方向性を1文で示してください。' : '') };
+      (r) => {
+        // 欠如とNeedの有機的連結
+        const hasDeficiency = _has('欠如','孤立','閉','一人','本音が言えない','助けを求め','頼れ','信じられ','不完全','傷','弱さを');
+        const hasNeed = _has('Need','ニード','必要','内的','成長','他者','信頼','頼る','弱さを認','受け入れ');
+        const isLinked = len >= 200 && hasDeficiency && hasNeed;
+        const pts = isLinked ? r.weight : ((hasDeficiency && hasNeed) ? Math.floor(r.weight*0.65) : ((hasDeficiency || hasNeed) ? Math.floor(r.weight*0.35) : Math.floor(r.weight*0.1)));
+        const comment = isLinked
+          ? `◎ 欠如とNeedが「コインの表裏」として有機的に設計されています。「助けを求められない＝Needは他者への信頼」——この論理的連結が、観客が最後まで主人公を応援できる物語の基盤を作ります。`
+          : (hasDeficiency && hasNeed)
+            ? `△ 欠如とNeedの両方は書かれていますが、「なぜこの欠如がこのNeedを生むのか」という因果の説明が弱いです。「孤立感（欠如）→助けを求めることが恥だという誤信念→他者に頼る力（Need）」という連鎖を明示してください。`
+            : !hasDeficiency
+              ? `✕ 欠如（主人公の内的な不完全さ）が見当たりません。欠如は単なる性格の弱点でなく「この物語でのみ修復されうる内的空白」です。美咲が職場で失敗するのは「能力不足」でなく「何か深いものが欠けているから」——その「深いもの」を設計してください。`
+              : `✕ Need（内的に必要なもの）が設計されていません。Needは「物語の終わりに主人公が獲得するもの」——これを定義することが脚本設計の第一歩です。`;
+        return { pass: isLinked || (hasDeficiency && hasNeed), earnedPoints: pts, comment };
       },
-      () => {
-        const hasLie = ans.includes('誤') || ans.includes('信念') || ans.includes('Lie') || ans.includes('信じている') || ans.includes('信じていること');
-        const hasGhost = ans.includes('ゴースト') || ans.includes('過去') || ans.includes('経験') || ans.includes('トラウマ') || ans.includes('幼') || ans.includes('記憶');
-        const pass = hasLie && hasGhost;
-        return { pass, earnedPoints: pass ? 20 : ((hasLie ? 8 : 0) + (hasGhost ? 8 : 0)),
-          comment: pass ? '誤信念（Lie）がゴーストから自然に導かれています。' : (!hasLie ? '誤信念（主人公が信じている「間違い」）を「〜という信念」の形で書きましょう。' : '') + (!hasGhost ? 'ゴースト（誤信念の原因となった過去経験）を具体的に書きましょう。' : '') };
+      (r) => {
+        // 誤信念とゴーストの因果
+        const hasLie = _has('誤信念','Lie','信念','信じている','思い込','「','誤り');
+        const hasGhost = _has('ゴースト','過去','幼少','中学','高校','経験','トラウマ','記憶','かつて','原点','きっかけ');
+        const hasCausal = len >= 150 && hasLie && hasGhost;
+        const pts = hasCausal ? r.weight : ((hasLie && hasGhost) ? Math.floor(r.weight*0.6) : ((hasLie || hasGhost) ? Math.floor(r.weight*0.3) : Math.floor(r.weight*0.1)));
+        const comment = hasCausal
+          ? `◎ ゴーストから誤信念が自然に生まれる因果関係が設計されています。これが「傷ついた人間」をキャラクターたらしめる核心——単なる性格設定でなく、人生の必然として誤信念が存在する。コンクールで評価される人物造形はここから生まれます。`
+          : !hasGhost
+            ? `✕ ゴースト（誤信念を生んだ過去の経験）がありません。誤信念は突然生まれるのでなく、必ず「具体的な過去の出来事」から生まれます。「中学時代のグループ発表の失敗で全員に責められた→助けを求めることは弱さだ（誤信念）」——この具体性がキャラクターを生きさせます。`
+            : !hasLie
+              ? `✕ 誤信念（Lie）が設計されていません。誤信念は「主人公が信じている、しかし物語を通じて覆される嘘」です。「〜という信念を持っている」と明示してください。`
+              : `△ 誤信念とゴーストは書かれていますが、「だからこそ」という因果が薄いです。ゴーストの経験が「なぜ」その誤信念を生んだのかを1文で説明してください。`;
+        return { pass: hasCausal || (hasLie && hasGhost), earnedPoints: pts, comment };
       },
-      () => {
-        const hasWant = ans.includes('Want') || ans.includes('ウォント') || ans.includes('外的') || ans.includes('表面') || ans.includes('目標');
-        const hasNeed = ans.includes('Need') || ans.includes('ニード') || ans.includes('内的') || ans.includes('内面') || ans.includes('成長');
-        const pass = hasWant && hasNeed;
-        return { pass, earnedPoints: pass ? 20 : ((hasWant ? 8 : 0) + (hasNeed ? 8 : 0)),
-          comment: pass ? 'WantとNeedの対立構造（外的目標が内的成長を妨げる関係）が設計できています。' : (!hasWant ? 'Want（外的・表面的な目標）を具体的に設計しましょう。' : '') + (!hasNeed ? 'Need（内的に必要なもの）を設計しましょう。' : '') };
+      (r) => {
+        // WantとNeedの対立
+        const hasWant = _has('Want','ウォント','外的','表面','仕事','認められ','信頼を勝ち取','成功','達成');
+        const hasNeed = _has('Need','ニード','内的','内面','信頼','弱さ','頼る','認める','成長');
+        const isOpposed = hasWant && hasNeed && (ans.includes('対立') || ans.includes('妨げ') || ans.includes('しかし') || ans.includes('一方で') || ans.includes('ところが') || len >= 300);
+        const pts = isOpposed ? r.weight : ((hasWant && hasNeed) ? Math.floor(r.weight*0.6) : Math.floor(r.weight*0.25));
+        const comment = isOpposed
+          ? `◎ Want（認められたい）とNeed（頼れる力）が正確に対立しています。「一人で頑張ることでWantを追うほど、Needから遠ざかる」——この構造が物語に内的必然性を与えます。コンクール審査員はこの設計の有無でプロとアマを見分けます。`
+          : !isOpposed && hasWant && hasNeed
+            ? `△ WantとNeedは書かれていますが、両者が「対立している」ことが明示されていません。「Wantを追う行動がNeedの達成を妨げる」という関係性を1文で書いてください。`
+            : `✕ WantとNeedの対立構造が設計できていません。この対立こそが物語のエンジンです。Want（外的目標）を追えば追うほど、Need（内的に必要なもの）から遠ざかる——この逆説が物語の緊張を作ります。`;
+        return { pass: isOpposed || (hasWant && hasNeed), earnedPoints: pts, comment };
       },
-      () => {
-        const hasClimax = ans.includes('クライマックス') || ans.includes('選択') || ans.includes('変化') || ans.includes('証明') || ans.includes('対比');
-        const pass = hasClimax && (ans.includes('選択') || ans.includes('行動') || ans.includes('決断'));
-        return { pass, earnedPoints: pass ? 20 : (hasClimax ? 12 : 5),
-          comment: pass ? 'クライマックスの選択が「変化の証明」として機能しています。旧来の選択との対比が見えます。' : 'クライマックスでの選択をより具体的に書きましょう。「以前の美咲ならどうしたか」という対比があるとアークが証明されます。' };
+      (r) => {
+        // クライマックスの選択（変化の証明）
+        const hasClimax = _has('クライマックス','最後の選択','決断の瞬間','証明','頂点');
+        const hasContrast = _has('以前','かつて','昔の','変わった','今の','旧来','対比');
+        const hasAction = _has('選択','言えた','言葉にした','初めて','助けてください','できません','受け入れ','認め');
+        const pass = hasClimax && (hasContrast || hasAction);
+        const pts = pass ? r.weight : ((hasClimax || hasAction) ? Math.floor(r.weight*0.55) : Math.floor(r.weight*0.2));
+        const comment = pass
+          ? `◎ クライマックスの選択が「変化の証明」として完璧に機能しています。「以前の美咲なら一人で抱えた——今は助けを求められた」という対比が、物語のテーマを行動で証明しています。これがキャラクターアークの真骨頂です。`
+          : hasClimax
+            ? `△ クライマックスは設計されていますが、「以前の選択との対比」が不明確です。「Act1でこうした選択を断った美咲が、クライマックスでは〇〇した」という対比を明示してください。変化は対比なくして証明できません。`
+            : `✕ クライマックスでの選択が見当たりません。物語の意味はクライマックスの選択で決まります。「美咲がこれまでの自分を超えた瞬間」を具体的な行動1つで書いてください。`;
+        return { pass, earnedPoints: pts, comment };
       },
-      () => {
-        const hasClosing = ans.includes('クロージング') || ans.includes('エンディング') || ans.includes('最後') || ans.includes('結末') || ans.includes('対比');
-        const hasContrast = ans.includes('対比') || ans.includes('違い') || ans.includes('変わった') || (hasClosing && ans.includes('冒頭'));
+      (r) => {
+        // クロージングと冒頭の対比
+        const hasClosing = _has('クロージング','エンディング','最後','結末','最終シーン','締め');
+        const hasContrast = _has('対比','冒頭','オープニング','最初','変わった','以前と','違い','同じ場所','同じシーン');
+        const hasVisual = _has('映像','シーン','場所','映る','見える','画面','ショット','絵');
         const pass = hasClosing && hasContrast;
-        return { pass, earnedPoints: pass ? 20 : (hasClosing ? 10 : 4),
-          comment: pass ? 'クロージングイメージが冒頭と対比をなしています。変化が「映像的」に示されています。' : 'クロージングイメージを書く際は「冒頭のシーンとの対比」を意識しましょう。同じ場所・同じ行動で「どう違うか」を示すと効果的です。' };
+        const pts = pass ? r.weight : ((hasClosing || hasContrast) ? Math.floor(r.weight*0.5) : Math.floor(r.weight*0.15));
+        const comment = pass
+          ? hasVisual
+            ? `◎ クロージングイメージが冒頭と「映像的対比」をなしています。これがプロの脚本設計の粋——観客は最後のイメージと最初のイメージを無意識に比較し、変化の大きさを感情で受け取ります。`
+            : `◎ クロージングと冒頭の対比が明確です。さらに一歩進んで「映像的」に表現すると（「冒頭は机に向かって一人で書類を見ていた美咲が、クロージングでは同じ机を複数人で囲んでいる」等）、テーマが観客の無意識に刻まれます。`
+          : !hasContrast
+            ? `△ クロージングイメージはありますが、「冒頭との対比」が描けていません。同じ場所・同じ状況で「何が変わったか」を示すことで、物語の変化が観客に視覚的に刻まれます。`
+            : `✕ クロージングイメージが設計されていません。物語の最後の「絵」は、テーマの最終宣言です。「冒頭：一人で残業する美咲」「クロージング：同僚に「おはよう」と声をかけられ微笑む美咲」——この対比が「一人でなくていい」というテーマを証明します。`;
+        return { pass, earnedPoints: pts, comment };
+      },
+    ],
+
+    // =====================================================================
+    // 演習5: 映画のプロット構造分析
+    // =====================================================================
+    'ex-structure-01': [
+      (r) => {
+        // 具体的シーン・セリフへの言及
+        const hasTitle = len >= 30 && (ans.includes('（') || ans.includes('作品') || ans.includes('映画') || ans.includes('ドラマ') || ans.includes('小説') || ans.includes('アニメ'));
+        const hasSpecific = ans.includes('シーン') || ans.includes('場面') || ans.includes('「') || ans.includes('%') || ans.includes('ページ');
+        const pass = hasTitle && hasSpecific && len >= 300;
+        const pts = pass ? r.weight : (hasTitle ? Math.floor(r.weight*0.55) : Math.floor(r.weight*0.2));
+        const comment = pass
+          ? `◎ 作品の具体的なシーン・場面に根拠を置いた分析です。抽象的な「なんとなくそう感じた」ではなく「このシーンがこの機能を果たす」という論拠——これがプロの作品分析の基本姿勢です。`
+          : !hasTitle
+            ? `✕ 作品タイトルと具体的な場面への言及が見当たりません。作品分析は常に「どの作品の、どのシーン、なぜそれがその機能を果たすのか」という3点を軸にしてください。`
+            : `△ 作品は挙げられていますが、「どのシーン・場面」という根拠が不足しています。「千と千尋のp.12の触媒は、両親が豚になるシーン——なぜならこの瞬間から千尋の「普通の日常」は完全に終わるから」という形で根拠を具体化してください。`;
+        return { pass, earnedPoints: pts, comment };
+      },
+      (r) => {
+        // WantとNeedの対比設定
+        const hasWant = _has('Want','外的','表面','ウォント');
+        const hasNeed = _has('Need','内的','内面','ニード');
+        const hasOppose = _has('対立','対比','一方','反対','しかし','しかしながら','矛盾','逆説');
+        const pass = hasWant && hasNeed;
+        const pts = pass ? (hasOppose ? r.weight : Math.floor(r.weight*0.75)) : ((hasWant || hasNeed) ? Math.floor(r.weight*0.35) : Math.floor(r.weight*0.1));
+        const comment = pass
+          ? hasOppose
+            ? `◎ WantとNeedを対比的に設定し、両者の緊張関係を把握できています。「外的目標を追うほど内的目標から遠ざかる」——この逆説的構造が優れた物語の設計図です。`
+            : `○ WantとNeedは設定できています。さらに「なぜWantを追うとNeedから遠ざかるのか」という対立の理由を加えると、分析の深度が増します。`
+          : `✕ WantとNeedの分析が不十分です。主人公が「意識的に追い求めるもの」(Want)と「無意識に必要なもの」(Need)を、できれば対比的に設定してください。この分析なしに作品構造は語れません。`;
+        return { pass, earnedPoints: pts, comment };
+      },
+      (r) => {
+        // 三幕の区切り特定
+        const hasAct1 = _has('Act1','第一幕','一幕','序幕','起') || /act.?1/i.test(ans);
+        const hasAct2 = _has('Act2','第二幕','二幕','本幕','承') || /act.?2/i.test(ans);
+        const hasAct3 = _has('Act3','第三幕','三幕','終幕','転','結') || /act.?3/i.test(ans);
+        const pass = hasAct1 && hasAct2 && hasAct3;
+        const pts = pass ? r.weight : ([hasAct1,hasAct2,hasAct3].filter(Boolean).length * Math.floor(r.weight/3));
+        const comment = pass
+          ? `◎ 三幕の区切りを正確に特定できています。「どのシーンで幕が変わるか」を説明できることは、構造を「感じる」のでなく「分析する」ことのできる証明です。`
+          : `△ 三幕全ての区切りが明示されていません。Act1（設定〜触媒）・Act2（葛藤の展開）・Act3（クライマックス〜解決）それぞれが「どのシーンで切り替わるか」を具体的に書いてください。`;
+        return { pass, earnedPoints: pts, comment };
+      },
+      (r) => {
+        // Save the Catビートの対応
+        const hasCatalyst = _has('触媒','カタリスト','p.12','きっかけ','事件','発端');
+        const hasMidpoint = _has('ミッドポイント','中間点','p.55','転換','折り返');
+        const hasAllIsLost = _has('すべてを失','all is lost','p.75','最低点','絶望','ドン底','底');
+        const beatCount = [hasCatalyst, hasMidpoint, hasAllIsLost].filter(Boolean).length;
+        const pass = beatCount >= 2;
+        const pts = pass ? (beatCount === 3 ? r.weight : Math.floor(r.weight*0.75)) : Math.floor(r.weight*0.25);
+        const comment = pass
+          ? beatCount === 3
+            ? `◎ Save the Catの3大ビート（触媒・ミッドポイント・すべてを失う）をすべて対応付けられています。ビートシートは「なんとなく機能している物語」を「意図的に設計された物語」に変える思考ツールです。この精度は実務レベルです。`
+            : `○ 主要ビートの大半を特定できています。残りの1つ（${!hasCatalyst?'触媒':!hasMidpoint?'ミッドポイント':'すべてを失う'}）も対応付けることで分析が完成します。`
+          : `✕ Save the Catのビート対応が不十分です。「触媒（p.12）」「ミッドポイント（p.55）」「すべてを失う（p.75）」——この3つを物語のどのシーンが担っているかを特定してください。`;
+        return { pass, earnedPoints: pts, comment };
+      },
+      (r) => {
+        // 「うまく機能している理由」の言語化
+        const hasReason = _has('理由','なぜ','から','ため','機能','からこそ','によって','ことで');
+        const hasOwn = len >= 400 && (ans.includes('思う') || ans.includes('考える') || ans.includes('見える') || ans.includes('感じる') || ans.includes('私は') || ans.includes('自分は'));
+        const pass = hasReason && len >= 300;
+        const pts = pass ? (hasOwn ? r.weight : Math.floor(r.weight*0.75)) : Math.floor(r.weight*0.3);
+        const comment = pass
+          ? hasOwn
+            ? `◎ 自分の言葉で機能の理由を語れています。「なぜこれが機能するのか」を自分の視点で語れる脚本家は、自分の作品でも「なぜこのシーンが機能するのか」を説明できます。この分析力が作品の質を担保します。`
+            : `○ 理由は書かれていますが、「あなた自身の解釈・視点」がもう少し欲しいです。正解のない問いに「私はこう考える」という主体性を持って答えることが、プロとしての批評眼を育てます。`
+          : `✕ 「うまく機能している理由」の説明が不十分です。「千と千尋が機能する理由」を「名前を奪われることがアイデンティティ喪失の象徴だから」のように、具体的な構造的理由で説明してください。`;
+        return { pass, earnedPoints: pts, comment };
+      },
+    ],
+
+    // =====================================================================
+    // 演習6: 冒頭10ページの設計と執筆
+    // =====================================================================
+    'ex-opening-01': [
+      (r) => {
+        // 脚本形式
+        const header = _hasHeader();
+        const dialogs = _dialogCount();
+        const hasIndent = ans.includes('　　') || (ans.match(/^  /m));
+        const pass = header && dialogs >= 1;
+        const pts = pass ? (hasIndent ? r.weight : Math.floor(r.weight*0.8)) : ((header || dialogs >= 1) ? Math.floor(r.weight*0.4) : Math.floor(r.weight*0.1));
+        const comment = pass
+          ? hasIndent
+            ? `◎ 脚本形式（柱書き・ト書き・セリフ・インデント）が完全に整っています。形式の正確さは「この人は脚本を書ける人間だ」という最初の信頼です。審査員は1ページ目の形式で書き手の水準を判断します。`
+            : `○ 柱書きとセリフの形式は取れています。ト書きのインデント（全角スペース）を統一し、キャラクター名は中央・セリフはその下に配置することで、プロの体裁が完成します。`
+          : !header
+            ? `✕ 柱書き（「○内・場所・時間帯」）がありません。脚本の最初の行は柱書きです。これを書かないことは、小説家がタイトルを書かないのと同様——脚本の文法として必須です。`
+            : `△ 形式の基礎はありますが、セリフが少なすぎます。冒頭シーンは「主人公の声」を確立する場——少なくとも1〜2行のセリフで主人公の「語り口」を確立してください。`;
+        return { pass, earnedPoints: pts, comment };
+      },
+      (r) => {
+        // 主人公の「日常と欠如」の表現
+        const hasDaily = _has('日常','毎日','いつも','平日','職場','自宅','オフィス','仕事部屋','机','パソコン');
+        const hasLack  = _has('一人','孤独','欠け','空','椅子が一つ','写真が','裏返','ない','誰も','閉じ','カップ一つ','食卓');
+        const hasVisual = _has('壁','棚','カップ','マグ','窓','本棚','部屋','机','椅子','置いてある','並ぶ');
+        const pass = (hasDaily || hasVisual) && hasLack;
+        const pts = pass ? r.weight : ((hasDaily || hasVisual) ? Math.floor(r.weight*0.5) : Math.floor(r.weight*0.2));
+        const comment = pass
+          ? `◎ 主人公の「日常と欠如」が視覚的なモノの描写で示されています。「椅子が一つしかない食卓」「裏返しの写真立て」——観客はモノの状態から主人公の人生を読む。この「見せる」技術が冒頭シーンの生命線です。`
+          : hasDaily || hasVisual
+            ? `△ 日常シーンの描写はありますが、「欠如」の表現が弱いです。主人公の部屋にある「あるべきものがない」描写——「食卓に椅子が一つ」「写真立てが裏返し」「スマホに着信履歴がない」——こうした小道具が欠如を「感じさせます」。`
+            : `✕ 主人公の「日常」と「欠如」の両方が表現できていません。冒頭シーンは「主人公が普段何をしているか」と「その日常に何が欠けているか」を同時に見せる必要があります。主人公のいる空間の「モノ」を3つ描写することから始めてください。`;
+        return { pass, earnedPoints: pts, comment };
+      },
+      (r) => {
+        // サブテキストを含むセリフ
+        const stScore = _subtextScore();
+        const dialogCnt = _dialogCount();
+        const pass = stScore >= 2 && dialogCnt >= 1;
+        const pts = pass ? r.weight : (dialogCnt >= 1 ? Math.floor(r.weight * Math.min(1, stScore/3)) : Math.floor(r.weight*0.1));
+        const comment = pass
+          ? `◎ サブテキストを含むセリフが冒頭シーンに組み込まれています。「本当のことを言わないセリフ」が物語の開幕を飾ることで、観客は「この人物には言えない何かがある」と感じ、物語に引き込まれます。`
+          : dialogCnt >= 1
+            ? `△ セリフはありますが、サブテキストが機能していません。冒頭のセリフは「本題と関係ない、しかし何かを語っているセリフ」が理想です。「……ここ、どう訳せばいいんだ」——仕事の独り言のようで実は人生の問いかけ。この二層性を目指してください。`
+            : `✕ サブテキストを含むセリフがありません。脚本の最初のセリフは特別です——それが「この物語のテーマ」を暗示している場合、観客の無意識に種が蒔かれます。`;
+        return { pass, earnedPoints: pts, comment };
+      },
+      (r) => {
+        // ビジュアル的・具体的なト書き
+        const emotionLabels = _emotionLabels().filter(w => ans.includes(w));
+        const hasVisualDesc = _count(['光','影','映る','照らす','空','窓','色','くすんだ','白','黒','静か','冷たい','暖か','広い','狭い','だらりと','鋭く']) >= 1;
+        const hasAction = _count(['叩く','押す','持つ','置く','向く','立つ','座る','歩く','見る','手が','指が','離す']) >= 2;
+        const noEmoLabel = emotionLabels.length === 0;
+        const pass = noEmoLabel && (hasVisualDesc || hasAction);
+        const pts = pass ? r.weight : (noEmoLabel ? Math.floor(r.weight*0.5) : Math.floor(r.weight*0.3));
+        const comment = pass
+          ? `◎ ト書きがビジュアル的・具体的で、感情ラベリングがありません。「美里はゆっくりとキーボードを叩く手を止め、画面を見つめる」——この1行で場所・行動・空気感・感情的状態がすべて伝わります。これが脚本のト書きの理想です。`
+          : emotionLabels.length > 0
+            ? `✕ ト書きに感情ラベリング（「${emotionLabels[0]}」など）があります。ト書きに書けるのは「カメラが捉えられるもの」だけ——感情は書かず、感情を表す「行動・表情・状態」を書いてください。`
+            : `△ ト書きが抽象的です。「美里は考え込む」より「美里の指が、キーボードの上で止まる」——具体的な身体の動作1つを書くだけで、ト書きが映像として機能します。`;
+        return { pass, earnedPoints: pts, comment };
+      },
+      (r) => {
+        // フック（続きを読みたくなる引き）
+        const hasHook = _has('フック','気づ','驚','疑問','謎','？','何かが','その時','突然','着信','チャイム','ドア','音が','声が') || (ans.length >= 400 && (_dialogCount() >= 2 || _hasEllipsis()));
+        const hasStrongHook = _has('気づ','驚き','ひと言','謎','秘密') && len >= 350;
+        const pass = hasHook;
+        const pts = pass ? (hasStrongHook ? r.weight : Math.floor(r.weight*0.75)) : Math.floor(r.weight*0.25);
+        const comment = pass
+          ? hasStrongHook
+            ? `◎ 強力なフックが確認できます。冒頭シーンの最後に「問い」を置いた——観客はページをめくらずにはいられません。コンクール選考で1ページ目から読み続けてもらえる理由がここにあります。`
+            : `○ フックの萌芽はあります。シーンの最後に「問い」か「予感」を1つ置くと（着信音、見知らぬ封筒、不意の一言）、続きを読みたくなる吸引力が増します。`
+          : `✕ 冒頭シーンにフック（次を読みたくなる引き）がありません。コンクールでは「最初の10ページ」が勝負です。シーンの最後に「小さな謎」か「違和感」を一つ置いてください。「着信。表示は「社」の一文字だけ」——この1行で観客は「誰からだ？」と思い、次のシーンを待ちます。`;
+        return { pass, earnedPoints: pts, comment };
       },
     ],
   };
 
+  // ── ルーブリック評価実行 ───────────────────────────────────────
   const rubricFeedback = ex.rubric.map((r, i) => {
-    if (customEvaluators[ex.id] && customEvaluators[ex.id][i]) {
-      const result = customEvaluators[ex.id][i]();
+    const exEval = evaluators[ex.id];
+    if (exEval && exEval[i]) {
+      const result = exEval[i](r);
       return { pass: result.pass, comment: result.comment, earnedPoints: Math.min(result.earnedPoints, r.weight) };
     }
-
-    let pass = false;
-    let comment = '';
-    let earnedPoints = 0;
-    const keywords = r.point;
-
-    if (keywords.includes('長さ') || keywords.includes('字以内') || keywords.includes('字数')) {
-      pass = len >= minLen * 0.5;
-      earnedPoints = pass ? r.weight : Math.floor(r.weight * (len / Math.max(minLen, 1)));
-      comment = pass
-        ? `十分な文章量（${len}字）で解答されています。`
-        : `解答が短すぎます（${len}字）。もう少し詳しく書きましょう。目安は${minLen}字以上です。`;
-    } else if ((keywords.includes('目的') && keywords.includes('葛藤')) || keywords.includes('3要素') || keywords.includes('WantとNeed')) {
-      const hasGoal = ans.includes('目的') || ans.includes('Want') || ans.includes('目標') || ans.includes('望む');
-      const hasConflict = ans.includes('葛藤') || ans.includes('対立') || ans.includes('障害') || ans.includes('妨げ');
-      const hasChange = ans.includes('変化') || ans.includes('変わ') || ans.includes('成長') || ans.includes('決断') || ans.includes('選択');
-      const score3 = [hasGoal, hasConflict, hasChange].filter(Boolean).length;
-      pass = score3 >= 2;
-      earnedPoints = Math.floor(r.weight * score3 / 3);
-      comment = pass
-        ? `目的・葛藤・変化の${score3}要素が確認できます。`
-        : `目的・葛藤・変化の3要素のうち、${score3}つしか確認できませんでした。不足している要素を意識して書き直してみましょう。`;
-    } else if (keywords.includes('感情') && (keywords.includes('見せ') || keywords.includes('ラベリング'))) {
-      const badWords = ['悲しい', '嬉しい', '怖い', '辛い', '怒っている', '心配', 'うれしい', '寂しい'];
-      const found = badWords.filter(w => ans.includes(w));
-      pass = found.length === 0;
-      earnedPoints = pass ? r.weight : Math.floor(r.weight * 0.4);
-      comment = pass
-        ? '感情の直接表現（ラベリング）がなく、行動・言動で感情を表現できています。'
-        : `「${found.slice(0,2).join('・')}」など感情を直接ラベリングしている表現があります。行動や間接的な言葉に置き換えましょう。`;
-    } else if (keywords.includes('サブテキスト') || keywords.includes('言外') || keywords.includes('直接言わ')) {
-      const directWords = ['辞め', '退職', 'やめ', '辞職'];
-      const usedDirect = directWords.filter(w => ans.includes(w));
-      const hasSubtext = ans.includes('……') || ans.includes('（間）') || ans.includes('（沈黙）') || (ans.length >= 30 && usedDirect.length === 0);
-      pass = hasSubtext && usedDirect.length === 0;
-      earnedPoints = pass ? r.weight : (hasSubtext ? Math.floor(r.weight * 0.6) : Math.floor(r.weight * 0.2));
-      comment = pass
-        ? '間・沈黙・含みのある表現が確認できます。直接的な言葉を使わずに情報が伝わっています。'
-        : usedDirect.length > 0
-          ? `「${usedDirect[0]}」という直接表現が使われています。回り道する表現に変えましょう。`
-          : '「……」や行間に意味を持たせるサブテキストが見当たりません。本音を「別の言葉・行動」で表現する箇所を1か所以上作りましょう。';
-    } else if (keywords.includes('脚本形式') || keywords.includes('柱書き') || keywords.includes('フォーマット')) {
-      const hasHeader = ans.includes('内・') || ans.includes('外・') || ans.includes('○内') || ans.includes('○外');
-      const hasDialogue = ans.includes('「');
-      pass = hasHeader && hasDialogue;
-      earnedPoints = pass ? r.weight : (hasHeader || hasDialogue ? Math.floor(r.weight * 0.5) : 0);
-      comment = pass
-        ? '柱書き（シーンヘッダー）とセリフの区別ができており、脚本形式を使えています。'
-        : (!hasHeader ? '柱書き（「○内・場所・時間帯」形式）を追加しましょう。' : '') + (!hasDialogue ? 'セリフは「」でくくって書きましょう。' : '');
-    } else if (keywords.includes('声') && keywords.includes('異な')) {
-      const twoPatterns = ans.includes('パターン') || ans.includes('キャラクター') || (ans.split('\n').length >= 6);
-      pass = twoPatterns && len >= minLen * 0.5;
-      earnedPoints = pass ? r.weight : Math.floor(r.weight * 0.5);
-      comment = pass ? '2人のキャラクターの声が明確に書き分けられています。' : '2人の声の違いがより明確になるよう、語彙・文体・文の長さに意識的な差をつけましょう。';
-    } else if (keywords.includes('象徴')) {
-      const hasSymbol = ans.includes('象徴') || ans.includes('モノ') || ans.includes('小道具') || ans.length > 100;
-      pass = hasSymbol;
-      earnedPoints = pass ? r.weight : Math.floor(r.weight * 0.4);
-      comment = pass ? 'テーマを象徴するモノ・行動が設計・使用されています。' : '象徴となるモノ（写真・小道具・繰り返される行動等）を明確に設計し、シーンに組み込みましょう。';
-    } else if (keywords.includes('具体的') || keywords.includes('シーン') || keywords.includes('根拠')) {
-      const isSpecific = len >= minLen * 0.6 && (ans.includes('シーン') || ans.includes('場面') || ans.includes('例'));
-      pass = isSpecific;
-      earnedPoints = pass ? r.weight : Math.floor(r.weight * 0.5);
-      comment = pass
-        ? '具体的な場面・シーンへの言及があり、根拠のある分析ができています。'
-        : '抽象的な説明が多いです。具体的なシーン・セリフ・場面を例として挙げると分析の説得力が増します。';
-    } else if (keywords.includes('自分の言葉') || keywords.includes('語られ') || keywords.includes('解釈')) {
-      pass = len >= minLen * 0.5;
-      earnedPoints = pass ? r.weight : Math.floor(r.weight * 0.6);
-      comment = pass ? 'あなた自身の考えが文章から伝わります。' : 'もう少し自分の言葉で理由・根拠を説明してみましょう。';
-    } else {
-      const kwArr = r.point.replace(/[（）・、。？！]/g,' ').split(/\s+/).filter(k => k.length >= 2);
-      const matched = kwArr.filter(k => ans.includes(k)).length;
-      const ratio = matched / Math.max(kwArr.length, 1);
-      pass = ratio >= 0.3 && len >= minLen * 0.4;
-      earnedPoints = Math.floor(r.weight * Math.min(1, ratio + (len >= minLen ? 0.3 : 0)));
-      comment = pass
-        ? 'この採点項目の要素が解答に含まれています。'
-        : 'この採点項目への対応が不十分です。問題の要件を再確認しましょう。';
-    }
-
-    return { pass, comment, earnedPoints: Math.min(earnedPoints, r.weight) };
+    // フォールバック（他の演習）
+    const kwArr = r.point.replace(/[（）・、。？！]/g,' ').split(/\s+/).filter(k => k.length >= 2);
+    const matched = kwArr.filter(k => ans.includes(k)).length;
+    const ratio = matched / Math.max(kwArr.length, 1);
+    const pass = ratio >= 0.3 && len >= minLen * 0.4;
+    const earnedPoints = Math.min(Math.floor(r.weight * Math.min(1, ratio + (len >= minLen ? 0.3 : 0))), r.weight);
+    return { pass, comment: pass ? 'この採点項目の要素が確認できます。' : 'この採点項目の要件を再確認してください。', earnedPoints };
   });
 
   const totalScore = rubricFeedback.reduce((s, r) => s + r.earnedPoints, 0);
-  const grade = totalScore >= 85 ? '優秀' : totalScore >= 70 ? '良好' : totalScore >= 50 ? '合格' : '要改善';
-  const scoreColor = totalScore >= 85 ? 'var(--matcha)' : totalScore >= 70 ? 'var(--asagi)' : totalScore >= 50 ? 'var(--kogane)' : 'var(--accent)';
 
-  const failedItems = rubricFeedback.filter(r => !r.pass);
-  const improvements = failedItems.slice(0, 4).map((r) => {
-    const idx = rubricFeedback.indexOf(r);
-    const rub = ex.rubric[idx];
+  // ── グレード判定（コンクール水準） ─────────────────────────────
+  const grade = totalScore >= 90 ? '師範 (S)' : totalScore >= 80 ? '免許皆伝 (A)' : totalScore >= 65 ? '修行中 (B)' : totalScore >= 45 ? '入門 (C)' : '再入門 (D)';
+  const scoreColor = totalScore >= 90 ? '#2e7d32' : totalScore >= 80 ? 'var(--matcha)' : totalScore >= 65 ? 'var(--asagi)' : totalScore >= 45 ? 'var(--kogane)' : 'var(--accent)';
+
+  // ── 改善提案（失点項目から精査） ──────────────────────────────
+  const failedItems = rubricFeedback.map((r,i) => ({...r, idx:i})).filter(r => !r.pass).sort((a,b) => ex.rubric[b.idx].weight - ex.rubric[a.idx].weight);
+  const improvements = failedItems.slice(0, 5).map(r => {
+    const rub = ex.rubric[r.idx];
     if (!rub) return null;
-    return `【${rub.point}】 ${r.comment}`;
+    const shortComment = r.comment.replace(/^[◎○△✕▲]\s*/,'').split('。')[0] + '。';
+    return `【${rub.point}（${rub.weight}点）】 ${shortComment}`;
   }).filter(Boolean);
 
-  const exSpecificComments = {
+  // ── 総合コメント（演習・スコア別） ────────────────────────────
+  const masterComments = {
     'ex-logline-01': {
-      high: 'ログラインの4要素（主人公の欠如・目標・障害・テーマ）をすべて60字以内に凝縮できています。プロレベルの設計力です。',
-      mid: 'ログラインの骨格はできています。字数と4要素の充足度をもう一度確認してみましょう。',
-      low: 'ログラインは「主人公の欠如→目標→障害」の3点を最短で表す文です。各要素を一つずつ確認してから再挑戦してください。',
+      S: 'ログライン設計の水準がコンクール提出レベルに達しています。主人公の欠如・外的目標・障害・テーマのすべてが字数制限内に凝縮され、読んだ瞬間に物語の全体像が見える——これがプロのピッチの力です。次のステップは「誰に読ませても即座に興味を持たせる」ための洗練です。',
+      A: 'ログラインの骨格は完成しています。字数の密度と4要素のバランスがあと一歩——特に「テーマの余韻」を言葉の選択に滲ませる工夫で「良好」から「師範」に届きます。',
+      B: '基礎はできています。要件の一つ一つに対して「この言葉は本当に必要か」と問い直しながら再構築しましょう。コンクール審査員はログラインで作品全体の設計力を判断します。',
+      C: '書こうとしている方向性は見えます。まず「主人公・目標・障害」の3点を別々に紙に書き出し、それを最短の文でつなぐ練習から始めてください。',
+      D: '問題の要件と採点基準を最初から読み直してください。ヒントと模範解答を参照しながら、一要素ずつ書き加えていく方法が効果的です。',
     },
     'ex-scene-01': {
-      high: '分析と創作の両方で高い精度を発揮しています。シーンの「見えない感情」を行動で表現する力があります。',
-      mid: '分析力はありますが、脚本形式での「感情を見せる」表現をさらに磨きましょう。',
-      low: '分析から始めて、「目的・葛藤・変化」を確認してから脚本形式で書き直しましょう。',
+      S: 'シーン設計の精度がコンクール・大河ドラマレベルに達しています。分析の正確さと、感情を行動で「見せる」技術——この2つを兼ね備えた書き手はごくわずかです。あとは「間（ま）の使い方」を極めると、次の次元に入ります。',
+      A: '分析力と創作力のバランスが取れています。感情ラベリングのない表現と、サブテキストの使い方をさらに意識的に磨くことで「師範」水準に届きます。',
+      B: '分析はできています。創作パートで「感情を書くな、感情を引き起こす行動を書け」という原則を一貫して適用してください。',
+      C: '分析から始めるのは正しいアプローチです。「目的:」「葛藤:」「変化:」と明示した後、それを脚本形式に変換する練習を続けてください。',
+      D: '問題文の分析パートから再挑戦してください。まず日本語文を読んで「この人物は何をしたいのか」を1行で書くことから始めましょう。',
+    },
+    'ex-subtext-01': {
+      S: 'サブテキストの設計が完璧です。禁止ワードを一切使わず、行動・小道具・沈黙で感情を伝える技術——これは大河ドラマや映画大賞を受賞した脚本家たちが体得した技術と同等です。この技術を「すべてのシーン」に適用できるか——それが次の課題です。',
+      A: '禁止ワードを使わずに感情を伝える方向性は正しいです。「間（ま）」と「小道具」をより意図的に使い、「言わない」を「別のものに変換する」ことを徹底すると師範水準に届きます。',
+      B: 'サブテキストの方向性は見えています。「禁止ワードを削除して、代わりに行動を1つ置く」というシンプルな置換作業を繰り返してください。',
+      C: '「言わない」という認識はできています。次は「代わりに何を書くか」——感情を「行動・質問・小道具・沈黙」の4つのいずれかに変換する練習をしてください。',
+      D: 'サブテキストの基礎から学ぶことをお勧めします。関連記事「サブテキストとは何か」を先に読んでから再挑戦してください。',
     },
     'ex-arc-01': {
-      high: 'キャラクターアークの全要素を有機的に設計できています。WantとNeedの対立が特に秀逸です。',
-      mid: 'アークの骨格はできています。誤信念とゴーストの因果関係、クライマックスの対比をより明示しましょう。',
-      low: 'キャラクターアーク設計は「欠如→誤信念→ゴースト→転換点→クライマックス」の順に書き出すと整理しやすいです。',
+      S: 'キャラクターアーク設計の全要素を有機的に接続できています。欠如→誤信念→ゴースト→WantとNeedの対立→最低点→クライマックスの選択→クロージングイメージ——この連鎖が一本の「変容の物語」として機能しています。これをシーン設計に落とし込む作業が次のステップです。',
+      A: 'アークの構造は設計できています。各要素の「なぜ」という因果関係をより明示することで、キャラクターが「設計された人物」でなく「生きた人間」として動き始めます。',
+      B: 'アークの方向性は見えています。特に「誤信念（Lie）とゴーストの因果」と「クライマックスの選択における変化の証明」を具体化することが優先課題です。',
+      C: 'アーク設計の基礎から始めましょう。「欠如→誤信念→ゴースト」の3つを先に書き出し、それが「どう対立し、どう解消されるか」という流れで考えると整理しやすいです。',
+      D: '関連記事「キャラクターアーク」を先に読んでから再挑戦することをお勧めします。',
     },
-    'ex-dialogue-01': {
-      high: '2人のキャラクターの声を完璧に書き分けています。直接言わずに伝えるサブテキストも機能しています。',
-      mid: '声の個性は出ていますが、2人の差異をさらに際立たせましょう。特に文体・文の長さ・語彙の選択に差をつけてみてください。',
-      low: '「声の設計」は語彙・口調・文の長さ・言い終わり方で決まります。まずキャラクターの「声の癖」を1つ決めてから書きましょう。',
+    'ex-structure-01': {
+      S: '作品分析の深度がプロの脚本分析家レベルに達しています。具体的なシーンへの根拠、WantとNeedの対立構造、ビートシートの精確な対応——これだけ多角的に分析できる書き手は、自分の作品でも同様の設計ができます。',
+      A: '分析の方向性は正確です。「なぜこのシーンがこの機能を果たすのか」という理由の掘り下げと、あなた自身の解釈をより前面に出すことで師範水準に届きます。',
+      B: '構造は把握できています。特定のビートへの根拠となる「具体的なシーン」を増やすことが次のステップです。',
+      C: 'まず三幕の区切りを特定することから始めましょう。「どのシーンから物語が変わるか」を1点決めてから、ビート分析を進めてください。',
+      D: '関連記事「三幕構成」と「Save the Cat」を先に読んでから再挑戦することをお勧めします。',
     },
-    'ex-theme-01': {
-      high: 'テーマを一切直接言わず、象徴と行動でテーマを「感じさせる」高度な設計ができています。',
-      mid: '象徴の設計はできています。テーマのキーワードを使わずに観客に「感じさせる」最後の一工夫を加えましょう。',
-      low: 'まずテーマを象徴する「モノ」を1つ決めましょう。その「モノ」の状態が変化することで、テーマを語れます。',
+    'ex-opening-01': {
+      S: '冒頭シーンがコンクール選考を通過するレベルに達しています。形式の正確さ、日常と欠如の視覚的表現、サブテキストの機能、ビジュアル的なト書き、そしてフック——すべての要素が揃い、「続きを読みたい」と思わせる1ページが完成しています。',
+      A: '冒頭シーンとして機能する要素が揃っています。フックをより強化し、「最後の1文」で次のシーンへの強い引きを作ることで師範水準に届きます。',
+      B: '冒頭シーンの構造は出来ています。感情ラベリングの排除と、「欠如を示す小道具」の追加が次の課題です。',
+      C: '形式は取れています。主人公の「日常の中の欠如」を具体的な「モノ」で示すことから始めてください。',
+      D: 'まず柱書きを書き、主人公の名前と居場所から始めましょう。脚本の最初の行は「場所と時間」の設定です。',
     },
   };
 
-  const exCom = exSpecificComments[ex.id];
-  let overallComment = '';
-  if (totalScore >= 85) {
-    overallComment = exCom ? exCom.high : `素晴らしい解答です！採点基準のほとんどを満たしています。この水準を維持しながら、さらに洗練させることを目指しましょう。`;
-  } else if (totalScore >= 70) {
-    overallComment = (exCom ? exCom.mid + '\n\n' : '') + `あと少しの改善で「優秀」に届きます。特に${failedItems.length > 0 ? `「${ex.rubric[rubricFeedback.indexOf(failedItems[0])]?.point}」` : '細部の精度'}を意識して書き直してみましょう。`;
-  } else if (totalScore >= 50) {
-    overallComment = (exCom ? exCom.low + '\n\n' : '') + `ヒントを参考にしながら、問題文の要件を一つ一つ確認してから再挑戦してみましょう。`;
-  } else {
-    overallComment = `解答の方向性を見直す必要があります。\n\n問題の要件と採点基準をもう一度丁寧に読み、ヒントと模範解答を参考にしながら再挑戦してください。一度に全部直そうとせず、採点基準の上から順番に対応することをお勧めします。`;
-  }
+  const gradeKey = totalScore >= 90 ? 'S' : totalScore >= 80 ? 'A' : totalScore >= 65 ? 'B' : totalScore >= 45 ? 'C' : 'D';
+  const mc = masterComments[ex.id] || {};
+  const specificComment = mc[gradeKey] || '';
+
+  const firstFail = failedItems[0];
+  const priorityNote = firstFail
+    ? `\n\n【優先改善ポイント】採点項目「${ex.rubric[firstFail.idx]?.point}」（配点${ex.rubric[firstFail.idx]?.weight}点）が最大の失点源です。ここを改善するだけで${Math.round(ex.rubric[firstFail.idx]?.weight * 0.7)}点以上の向上が見込めます。`
+    : '';
+
+  const overallComment = specificComment + priorityNote;
 
   return { score: totalScore, grade, scoreColor, rubricFeedback, overallComment, improvements };
 }
@@ -6533,6 +6976,408 @@ function resetExercise(exId) {
   render();
 }
 
+// ================================================================
+// ── 道場 ランダム問題生成エンジン（1万通り以上）────────────────────
+// ================================================================
+window._DICE_SEEDS = {};  // exId -> currentSeed
+
+// リストからランダムに1問選んで遷移
+function rollDicePractice() {
+  const exercises = window._EXERCISES || [];
+  if (!exercises.length) return;
+  const ex = exercises[Math.floor(Math.random() * exercises.length)];
+  navigate('exercise-' + ex.id);
+  setTimeout(() => {
+    const seed = Date.now() ^ (Math.random() * 0xFFFFF | 0);
+    window._DICE_SEEDS = window._DICE_SEEDS || {};
+    window._DICE_SEEDS[ex.id] = seed;
+    const qEl = document.getElementById('ex-question-text');
+    if (qEl) {
+      qEl.style.opacity = '0';
+      setTimeout(() => {
+        qEl.textContent = generateRandomQuestion(ex.id, seed);
+        qEl.style.opacity = '1';
+        qEl.style.transition = 'opacity .3s';
+      }, 300);
+    }
+  }, 400);
+  toast(`🎲 ${ex.title} — 新問題を生成しました！`, 'success');
+}
+
+function rollDiceThisExercise(exId) {
+  const seed = Date.now() ^ (Math.random() * 0x100000 | 0);
+  window._DICE_SEEDS[exId] = seed;
+  // 現在の解答をクリア確認
+  const cur = document.getElementById('ex-answer-input');
+  const hasDraft = cur && cur.value.trim().length > 10;
+  if (hasDraft) {
+    if (!confirm('新しい問題を生成すると、現在の解答が消えます。よろしいですか？')) return;
+  }
+  DB.set(`ex_answer_${exId}`, '');
+  DB.set(`ex_feedback_${exId}`, null);
+  render();
+  setTimeout(() => {
+    const qEl = document.getElementById('ex-question-text');
+    if (qEl) {
+      qEl.style.opacity = '0';
+      qEl.style.transition = 'opacity .25s';
+      setTimeout(() => {
+        qEl.textContent = generateRandomQuestion(exId, seed);
+        qEl.style.opacity = '1';
+      }, 250);
+    }
+    toast('🎲 新しい問題が生成されました！', 'success');
+  }, 50);
+}
+
+function _rng(seed) {
+  // Mulberry32 PRNG — deterministic from seed
+  let s = seed >>> 0;
+  return function() {
+    s |= 0; s = s + 0x6D2B79F5 | 0;
+    let t = Math.imul(s ^ s >>> 15, 1 | s);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+function _pick(arr, rnd) { return arr[Math.floor(rnd() * arr.length)]; }
+function _pickN(arr, n, rnd) {
+  const a = arr.slice(); const out = [];
+  for (let i = 0; i < Math.min(n, a.length); i++) {
+    const j = Math.floor(rnd() * (a.length - i)) + i;
+    [a[i], a[j]] = [a[j], a[i]];
+    out.push(a[i]);
+  }
+  return out;
+}
+
+function generateRandomQuestion(exId, seed) {
+  const rnd = _rng(seed);
+
+  if (exId === 'ex-logline-01') return _genLogline(rnd);
+  if (exId === 'ex-scene-01')   return _genScene(rnd);
+  if (exId === 'ex-subtext-01') return _genSubtext(rnd);
+  if (exId === 'ex-arc-01')     return _genArc(rnd);
+  if (exId === 'ex-structure-01') return _genStructure(rnd);
+  if (exId === 'ex-opening-01') return _genOpening(rnd);
+  return '';
+}
+
+// ─────────────────────────────────────────────────
+// ログライン生成（30×20×15×10×8 = 720,000通り以上）
+// ─────────────────────────────────────────────────
+function _genLogline(rnd) {
+  const protagonists = [
+    { who: '孤独な元刑事（52歳）', flaw: 'かつて誤認逮捕をしてしまった過去を抱える' },
+    { who: '余命3か月の天才外科医（44歳）', flaw: '手術の失敗で患者を死なせた罪悪感に苛まれている' },
+    { who: '離島の小学校教師（34歳）', flaw: '自分の夢を諦めた後悔から抜け出せずにいる' },
+    { who: '元プロ野球選手（39歳）', flaw: '試合中の怪我で仲間を失った責任を感じている' },
+    { who: '孤立した福祉司（28歳）', flaw: '幼少期の被虐待経験から他者を信じられない' },
+    { who: '倒産寸前の書店主（61歳）', flaw: '家族の反対を押し切って始めた事業で全財産を失った' },
+    { who: '記憶を失った元スパイ（37歳）', flaw: '自分の任務で無実の民間人を傷つけた記憶が断片的に蘇る' },
+    { who: '山奥の古民家に籠もる作家（50歳）', flaw: '10年前のベストセラー以来、一作も書けずにいる' },
+    { who: '借金まみれの元弁護士（43歳）', flaw: '依頼人を守るために嘘の証言をし、無実の人を有罪にした' },
+    { who: '親の介護で夢を断念した研究者（31歳）', flaw: '自分の犠牲に対して誰にも感謝されない怒りを抱えている' },
+    { who: '難民キャンプで働く元国際記者（46歳）', flaw: '目の前で起きた悲劇を記事にしたことで被写体が死んだ' },
+    { who: '双子の片割れを事故で亡くした音楽家（29歳）', flaw: '生き残った罪悪感から演奏をやめた' },
+    { who: '孫を育てる老刑事（68歳）', flaw: '息子の死が自分の捜査ミスによるものと確信している' },
+    { who: '性犯罪被害者支援に携わる弁護士（36歳）', flaw: '自身も被害者であり、加害者への憎悪で判断が歪む' },
+    { who: '落ちぶれた元子役俳優（25歳）', flaw: '幼少期の過剰な期待に壊された人間関係を修復できない' },
+    { who: '失業した中年工場労働者（55歳）', flaw: '家族に「役に立たない」と見捨てられた傷が癒えない' },
+    { who: '難病の息子を持つシングルファーザー（40歳）', flaw: '息子の病気が自分の遺伝であることを隠し続けている' },
+    { who: '絵が描けなくなった元漫画家（38歳）', flaw: 'アシスタントを過労死させたと信じている' },
+    { who: '村の秘密を知る老医師（72歳）', flaw: '50年前に一人の命を救うために別の命を見捨てた' },
+    { who: '世界的バイオリニスト（33歳）', flaw: '師匠の盗作を暴こうとしたが黙殺された経験から権威を憎む' },
+  ];
+  const obstacles = [
+    '10年前に自分が冤罪で服役させた男が出所し、復讐のために接触してくる',
+    '医療倫理委員会に告発されることを恐れる病院幹部が証拠を隠滅しようとしている',
+    '自分を追い出した同僚たちが組織を乗っ取りつつあり、止めようとすると命が狙われる',
+    '子どもたちを守ろうとすると、地元有力者との癒着が暴露されてしまう',
+    '真実を明らかにするほど、愛する人が危険にさらされる',
+    '時間が限られており、手遅れになる前に決断しなければならない',
+    '唯一の証人が口を割らず、証拠もすべて偽造されている',
+    '協力者が実は黒幕側のスパイだと気づくが、証明できない',
+    '過去の自分の過ちが白日のもとにさらされようとしており、信頼を失う',
+    '助けを求めている人物が、実は自分を陥れた張本人だという疑惑が浮上する',
+    '組織の腐敗を暴こうとするが、上司と部下の双方から裏切られる',
+    '家族が人質に取られており、真実を語ることと家族を守ることが相反する',
+    '精神的に追い詰められた末に、自分自身の判断力を疑い始める',
+    '唯一信頼できた人物が先に死を選んでしまい、遺志を継ぐ責任を負う',
+    '捜査や行動の資金がすべて尽き、法的・社会的な支援も断たれる',
+  ];
+  const goals = [
+    '真犯人を見つけ出し、自分の罪を償う',
+    '組織の不正を内部告発し、被害者の名誉を回復させる',
+    '行方不明の子どもを見つけ出し、拉致犯を法廷に立たせる',
+    '末期がん患者として、自分が作ったシステムの欠陥を命がけで修正する',
+    '廃村になりかけた故郷を救い、住民たちに未来を取り戻す',
+    '30年間行方不明だった兄の失踪の真相を明らかにする',
+    'かつての恩人の死の真相を解明し、汚名を晴らす',
+    '自分が壊してしまった家族の絆を修復し、子どもたちの未来を守る',
+    '失われた企業機密を奪還し、社員たちの雇用を守る',
+    '暗殺リストに自分の名前を発見し、命を狙っている組織を解体する',
+  ];
+  const themes = [
+    '罪と赦し', '信頼と裏切り', '愛と犠牲', '誇りと恥', '記憶と忘却',
+    '正義と復讐', '孤独と繋がり', '過去の清算', '選択の重み', '生と死の狭間',
+    '自由と責任', '嘘と真実', 'アイデンティティの喪失と回復', '弱さと強さ',
+  ];
+  const charLimits = [45, 50, 55, 60, 65, 70];
+  const p = _pick(protagonists, rnd);
+  const ob = _pick(obstacles, rnd);
+  const g = _pick(goals, rnd);
+  const th = _pick(themes, rnd);
+  const lim = _pick(charLimits, rnd);
+  return `以下の要素を使って、${lim}字以内のログラインを完成させてください。
+
+【素材】
+・主人公: ${p.who}、${p.flaw}
+・障害: ${ob}
+・目標: ${g}
+・テーマ: ${th}
+
+【要件】
+①「欠如ある主人公が〜という目標を持つが、〜という障害に直面する」の構造
+②${lim}字以内
+③テーマ（${th}）が伝わること
+④ログラインを書いた後、なぜその言葉を選んだか1〜2文で根拠を説明してください`;
+}
+
+// ─────────────────────────────────────────────────
+// シーンの3要素 生成（25×20×10 = 5,000通り以上）
+// ─────────────────────────────────────────────────
+function _genScene(rnd) {
+  const scenes = [
+    { desc: '田中は社長に昇進の話を持ちかけられる。しかし条件は、親友の不正を告発することだった。田中は承諾しかけたが、親友の子どもの写真を見て断った', want: '昇進を手に入れる', conflict: 'キャリア vs 友情・倫理', change: '昇進を諦め、友情を守る' },
+    { desc: '刑事の木村は、唯一の容疑者として長年の親友を尋問しなければならない。途中、親友が「俺を信じてくれるよな」と目を見て言う。木村は取調べを途中で打ち切った', want: '真実を引き出す', conflict: '職務 vs 友情への義理', change: '友情を選び職務を放棄する' },
+    { desc: '美術館学芸員の清水は、展示品の一つが精巧な贋作だと気づく。それを報告すれば尊敬する館長の業績が崩れる。清水は報告書を書きかけて、破った', want: '贋作を報告し正義を守る', conflict: '正義 vs 師への敬意と恩', change: '告発を断念し沈黙を選ぶ' },
+    { desc: '外科医の池田は、執刀中に患者が手術前に自分の元交際相手だと気づく。感情が揺れるが、最終的に全力で手術を完了した', want: '手術を成功させる', conflict: '感情的動揺 vs 医師としての使命', change: '感情を封じ込め専門家に徹する' },
+    { desc: '高校教師の坂本は、退学寸前の問題児の隠れた才能に気づき、美術コンテストへの出場を勧める。だが生徒は「どうせ無駄だ」と拒む。坂本は諦めず、自分の失敗談を話した', want: '生徒の可能性を引き出す', conflict: '生徒の自己否定 vs 教師の信念', change: '教師が自己開示することで関係が変わる' },
+    { desc: '記者の橘は、特ダネをつかんだ。だが取材源は、自分が過去に傷つけた元恋人だった。橘は記事を書こうとキーボードを叩き始め、途中で止めた', want: '特ダネを世に出す', conflict: '特ダネへの執念 vs 元恋人への罪悪感', change: '記事を書けず、沈黙を選ぶ' },
+    { desc: 'ヤクザの組長に育てられた少女・沙也が、父の遺志通り組を継ぐか、自分の夢だった料理人を目指すかの選択を迫られる。最後に彼女は包丁を手に取った', want: '父の遺志を継ぐ', conflict: '義理・使命 vs 自分の夢', change: '自分の道を選ぶ' },
+    { desc: '末期がんの父親が、20年前に自分を捨てた息子に会いに来る。息子は会わないと決めていたが、父が持参した一枚の写真を見て、部屋に入った', want: '父への怒りを貫く', conflict: '怒りと憎しみ vs 残された時間への後悔', change: '許しへの第一歩を踏み出す' },
+    { desc: '老いた刑事・桐島は証拠を手に入れた。犯人は自分の息子だった。桐島は証拠袋を手に持ったまま、川の橋の上に立っていた', want: '正義を全うする', conflict: '法と正義 vs 親としての愛情', change: '決断の瞬間を迎える（証拠を捨てるか留めるか）' },
+    { desc: '宇宙飛行士の宮本は帰還カプセルで一人生き残った。仲間の命と引き換えに自分だけ助かった事実を、生中継で地球に報告しなければならない', want: '仲間の死の真実を隠す', conflict: '報告義務 vs 仲間を「売る」罪悪感', change: '真実を語り、全てを受け入れる' },
+    { desc: '養護施設の職員・真由美は、施設長のハラスメントを証拠とともに持っている。告発すれば子どもたちの居場所がなくなる恐れがある。彼女はUSBメモリを握ったまま扉の前に立つ', want: '不正を告発する', conflict: '正義を行使することと子どもたちを守ることの矛盾', change: '告発か沈黙かを選ぶ瞬間' },
+    { desc: '指揮者の久保は本番直前に、第一バイオリン奏者が公演中に演奏を止めると脅してきた。久保は舞台袖で怒鳴ろうとし、やめた。代わりに肩を叩いた', want: '完璧な公演を実現する', conflict: '権威と怒り vs 共感と信頼', change: '強引な支配から信頼へ変化する' },
+    { desc: '離婚弁護士の星野は、依頼人の相手が自分の元夫だと知る。勝訴すれば元夫を破綻させる。彼女は最終弁論を書き上げ、一行だけ消した', want: '依頼人のために完全勝訴する', conflict: '職業倫理 vs 元夫への残留感情', change: '個人感情が法廷での判断に滲み出す' },
+    { desc: '山岳救助隊員の竹内は、遭難者を助けに行けば自分の命も危険になると分かっている。それが過去に自分を捨てた男だとしても。竹内はロープを手に取った', want: '職務として救助を行う', conflict: '恨みと復讐心 vs 人命救助の使命', change: '憎しみを超えて命を救う選択' },
+    { desc: '元マフィアの情報提供者・純一は、証人保護プログラムで名前を変えて生きている。ある日、自分の本当の名前を呼ぶ声を聞いた', want: '平穏な新生活を守る', conflict: '過去の自分 vs 現在の偽りの自分', change: '過去と向き合うことを選ぶ' },
+    { desc: '老刑事・森山は、40年の功績を台無しにする証拠を手に入れた。それは自分が捕まえた死刑囚が無実だったことを示していた。退職式の翌日、彼はある電話をかけた', want: '退職後の平和な余生', conflict: '安らかな老後 vs 最後の良心', change: '苦しい真実を直視することを選ぶ' },
+    { desc: 'アイドルグループのプロデューサー・梅田は、最後の公演の前日に、メンバーが実は半年前から引退を決意していたことを知る。それをファンに告げるかどうか迷う', want: '最高の公演を演出する', conflict: 'ビジネスとしての成功 vs ファンへの誠実さ', change: '打算を捨て、真実を選ぶ' },
+    { desc: '中学生の悠人は、いじめられている同級生に声をかけようとして、「自分もターゲットになる」という恐怖で足が止まった。給食のトレーを持ったまま、悠人は立ち尽くす', want: 'いじめられっ子を助ける', conflict: '正義感 vs 自分が次の標的になる恐怖', change: '一歩踏み出す（または動けない）選択' },
+    { desc: '末期がんの母親が、娘に「好きな人と結婚していいよ」と言う。娘の相手は、母が唯一嫌いな男性の息子だ。娘は母の手を握り、何も言わなかった', want: '母に祝福してもらう', conflict: '愛する人と母の願いの対立', change: '言葉でなく沈黙で関係が変わる' },
+    { desc: '新任の検察官・若菜は、証拠を見る限り有罪確実の被告が実は冤罪だと直感する。上司は「早く起訴しろ」と命じる。若菜は起訴状に署名しようとして、ペンを置いた', want: '上司の命令に従い迅速に起訴する', conflict: '出世と組織への従順 vs 自分の良心', change: '初めて上司に反旗を翻す一歩' },
+    { desc: '空港の出国ゲートで、拓也は恋人と向き合っている。彼女は「一緒に来て」と言う。拓也のポケットには両親の入院費の振込通知がある。搭乗ゲートが開く音がした', want: '恋人と新天地へ行く', conflict: '夢と愛 vs 家族への責任と義務', change: '取り返しのつかない選択の瞬間' },
+  ];
+  const formats = [
+    `【分析パート】
+次のシーンの「目的・葛藤・変化」を特定してください。
+
+「{scene}」
+
+---
+
+【創作パート】
+上記のシーンを脚本形式で書いてください（ト書き＋セリフ、15〜25行程度）。
+
+要件:
+・目的・葛藤・変化の3要素をすべて盛り込むこと
+・感情はセリフや行動で見せること（直接言わない）
+・サブテキスト（言外の意味）を1か所以上使うこと`,
+    `【創作パート（メイン）】
+以下のシーン概要を脚本に書き起こしてください（20〜30行、脚本形式）。
+
+シーン概要:「{scene}」
+
+さらに、このシーンに「前後の対比」を加えてください:
+・シーンの冒頭と末尾で主人公の内的状態が変わること
+・変化をセリフではなく行動・視線・間（ま）で示すこと
+・サブテキストを2か所以上盛り込むこと
+
+【分析パート（後で確認）】
+書き終えたら、自分のシーンの「目的・葛藤・変化」を1行ずつ説明してください`,
+  ];
+  const s = _pick(scenes, rnd);
+  const fmt = _pick(formats, rnd).replace('{scene}', s.desc);
+  return fmt;
+}
+
+// ─────────────────────────────────────────────────
+// サブテキスト 生成（30×15×5 = 2,250通り以上）
+// ─────────────────────────────────────────────────
+function _genSubtext(rnd) {
+  const dialogs = [
+    { chars: '由紀・健', raw: ['由紀:「あなたのことが心配で仕方ない。もっと自分を大切にしてほしい。あなたを失いたくない」', '健:「わかってる。ありがとう。でも自分でできるから大丈夫だよ」', '由紀:「信じてるよ。いつでも頼ってね」'], forbid: ['心配', '大切', '失いたくない', '信じてる', '頼って'] },
+    { chars: '母・息子', raw: ['母:「ずっと応援してたんだよ。誇らしかったよ。あなたの選んだ道は正しいと思う」', '息子:「……ありがとう。でも、もう遅い気がする」', '母:「遅くない。あなたならできる」'], forbid: ['応援', '誇らしい', '正しい', 'できる'] },
+    { chars: '夫・妻（別居中）', raw: ['妻:「もう一度やり直せると思う。あなたのことが今でも好きよ」', '夫:「俺も同じ気持ちだよ。ただ、怖いんだ」', '妻:「怖くていい。一緒にいればいい」'], forbid: ['やり直し', '好き', '怖い', '一緒'] },
+    { chars: '上司・部下', raw: ['上司:「君の仕事ぶりを高く評価してる。もっと自信を持て」', '部下:「嬉しいです。でも、自分はまだ未熟です」', '上司:「みんな最初はそうだ。期待してるぞ」'], forbid: ['評価', '自信', '未熟', '期待'] },
+    { chars: '刑事・容疑者', raw: ['刑事:「お前が真犯人だとは思ってない。だから話してくれ」', '容疑者:「何も話すことはない。俺は関係ない」', '刑事:「ならなぜここにいる？自首しに来たんじゃないのか」'], forbid: ['真犯人', '話す', '関係', '自首'] },
+    { chars: '娘・父', raw: ['娘:「お父さんのこと、ずっと怒ってたよ。でも感謝もしてる」', '父:「悪かったな。お前のことを愛してるよ」', '娘:「わかってる。……わかってるから辛いんだよ」'], forbid: ['怒ってた', '感謝', '愛してる', '辛い'] },
+    { chars: '親友（片方が余命告知を受けた）', raw: ['A:「何もできなくてごめん。ずっと傍にいたい」', 'B:「大丈夫だよ。泣くな。俺が元気なうちに旅行行こう」', 'A:「絶対行く。約束する」'], forbid: ['ごめん', '傍', '大丈夫', '元気', '約束'] },
+    { chars: '先生・不登校の生徒', raw: ['先生:「学校に来てほしい。君のことが心配だ」', '生徒:「……別に。どうでもいいじゃないですか」', '先生:「どうでもよくない。君が大事だから来てる」'], forbid: ['心配', '大事', '来てほしい'] },
+    { chars: '元恋人同士（再会）', raw: ['彼:「あの頃に戻りたいと思うことがある。後悔してる」', '彼女:「私も。でも、あれでよかったんだよ」', '彼:「そうだな。……元気でよかった」'], forbid: ['後悔', '元気', '戻りたい'] },
+    { chars: '祖母・孫（長い沈黙の後）', raw: ['祖母:「生きてて辛かったろう。でも頑張ったね」', '孫:「おばあちゃんがいたから頑張れた」', '祖母:「それで十分だよ。ありがとう」'], forbid: ['辛い', '頑張った', 'ありがとう', '十分'] },
+    { chars: '裏切った友人・被裏切り側', raw: ['友A:「本当に悪かった。許してほしい」', '友B:「……もういいよ。終わったことだ」', '友A:「終わってないだろ。俺は終わってない」'], forbid: ['許して', '悪かった', '終わった'] },
+    { chars: '刑務所出所者・兄', raw: ['弟:「もう迷惑かけない。真っ当に生きる」', '兄:「信じる。でも、一人で抱えるな」', '弟:「……分かった」'], forbid: ['迷惑', '信じる', '真っ当'] },
+    { chars: '長年の競争相手（引退式の日）', raw: ['A:「お前がいたから強くなれた。感謝してる」', 'B:「俺もだ。お前がいなかったら今の俺はない」', 'A:「次は一緒に飲もう」'], forbid: ['感謝', '強くなれた'] },
+    { chars: '警官・被疑者（実は無実）', raw: ['警官:「お前が犯人だという証拠がある。認めろ」', '被疑者:「俺は何もしてない。信じてくれ」', '警官:「……もう一度最初から話してくれ」'], forbid: ['犯人', '証拠', '信じて'] },
+    { chars: '母・娘（娘の妊娠を知った翌朝）', raw: ['母:「全部話してくれて良かった。一緒に考えよう」', '娘:「怒らないの？」', '母:「怒らない。あなたの味方よ」'], forbid: ['怒らない', '味方', '一緒に考える'] },
+  ];
+  const additions = [
+    '③それぞれパターンの「サブテキストの仕組み」を1行で説明すること',
+    '③パターンごとに「どの行動・小道具・間（ま）で感情を表現したか」を明記すること',
+    '③それぞれのパターンで「感情の落差」がどこに生まれているかを分析すること',
+    '③各パターンの後に「このセリフで何が変わったか（場の変化）」を1文で書くこと',
+  ];
+  const d = _pick(dialogs, rnd);
+  const add = _pick(additions, rnd);
+  const forbidList = d.forbid.join('」「');
+  return `次のセリフはサブテキストがなく、感情を直接言っています。
+サブテキストを使って書き換えてください（2パターン以上）。
+
+【元のセリフ（${d.chars}の連続セリフ）】
+${d.raw.join('\n')}
+
+【要件】
+①「${forbidList}」を直接使わないこと
+②2つのパターンを書くこと（シーン状況を変えても可）
+${add}
+④書いたセリフを声に出して読み、不自然に聞こえないか確認すること`;
+}
+
+// ─────────────────────────────────────────────────
+// キャラクターアーク 生成（20×15×5 = 1,500通り以上）
+// ─────────────────────────────────────────────────
+function _genArc(rnd) {
+  const characters = [
+    { name: '美咲（29歳・会社員）', setup: '転職先で初日からミスを連発し、プロジェクトリーダーの鈴木（45歳）に厳しく指導される。' },
+    { name: '隼人（38歳・消防士）', setup: '5年前の火災で同僚を救えず、自分は外の安全な場所にいた。今は昇進を拒み続けている。' },
+    { name: '奈緒（22歳・医学生）', setup: '天才外科医の父に認められたい一心で勉強してきたが、初めての臨床実習で患者の死を目の当たりにする。' },
+    { name: '康介（50歳・元プロサッカー選手）', setup: '現役時代のスキャンダルで家族を失い、今は子どもたちのコーチをしているが、自分の価値を信じられない。' },
+    { name: '真由（35歳・ライター）', setup: '過去に書いた記事で無実の人の人生を壊した。今は匿名で仕事をし、人の目を避けて生きている。' },
+    { name: '龍一（18歳・高校生）', setup: '父の暴力を止められなかった罪悪感から、あらゆる人間関係を拒絶している。' },
+    { name: '光子（67歳・元教師）', setup: '40年間教壇に立ち続けたが、教え子の一人が自分の言葉で傷つき自殺未遂を起こした過去を持つ。' },
+    { name: '智也（44歳・映画監督）', setup: '10年ぶりの新作制作中。前作の失敗で出資者・スタッフの信頼を失い、撮影現場で孤立している。' },
+    { name: '里奈（31歳・弁護士）', setup: '敏腕弁護士として名声を得るが、勝つためなら手段を選ばないやり方が自分の良心と衝突し始めている。' },
+    { name: '文彦（55歳・農家）', setup: '故郷の農地を守ろうとするが、息子が都会に出てしまい、老いた自分だけが残された。' },
+    { name: '葵（27歳・保育士）', setup: '子どもが大好きなのに、実の親から「お前には向いていない」と言われ続け、自己肯定感が著しく低い。' },
+    { name: '誠（42歳・元刑事）', setup: '正義感から拳銃を不正使用し懲戒免職になった。今は私立探偵として生活するが、自分の判断を信じられない。' },
+    { name: '千恵（24歳・看護師）', setup: '病棟で先輩のミスを見て見ぬふりをしたことで患者が死亡した。自分も共犯者だという感覚から逃れられない。' },
+    { name: '健太（33歳・小説家）', setup: '一作目のヒットの後、何を書いても「前作の劣化版」と酷評され、創作意欲を完全に失っている。' },
+    { name: '泉（48歳・NGO職員）', setup: '海外の紛争地域で支援活動中、自分の判断で人が死んだ。今は安全な国内業務に移り、自分を罰している。' },
+  ];
+  const arcTypes = [
+    { type: 'ポジティブアーク（成長・変容）', desc: '欠如から始まり、試練を経て内的変化を遂げる' },
+    { type: 'ネガティブアーク（堕落・崩壊）', desc: '欠如を克服できず、誤信念によって破滅に向かう' },
+    { type: 'フラットアーク（信念の守護）', desc: '内的変化はせず、周囲の世界を変えることで物語が完結する' },
+  ];
+  const focusItems = [
+    ['①欠如（冒頭の内的な不完全さ）', '②誤った信念（Lie — 主人公が信じている誤り）', '③ゴースト（その信念を生んだ過去の経験）', '④Want（表面的・外的目標）', '⑤Need（内面・内的に必要なもの）', '⑥転換点1（Act1終わり：引き返せない選択）', '⑦最低点（すべてを失う瞬間）', '⑧クライマックスでの選択（変化の証明）', '⑨クロージングイメージ（冒頭との対比）'],
+    ['①欠如と誤信念（Lie）の根源', '②ゴースト（過去のトラウマ）の詳細な描写', '③WantとNeedがどう対立しているか', '④キャラクターが変化を「拒む」2つの理由', '⑤クライマックスで下す選択とその代償', '⑥冒頭と結末のビジュアル対比（オープニング/クロージングイメージ）'],
+  ];
+  const c = _pick(characters, rnd);
+  const arc = _pick(arcTypes, rnd);
+  const items = _pick(focusItems, rnd);
+  return `次のキャラクター設定から、${arc.type}を完全設計してください。
+（${arc.desc}）
+
+【キャラクター】
+${c.name}
+状況: ${c.setup}
+
+【設計してほしい項目】
+${items.join('\n')}
+
+【注意】
+・各項目は2〜4文以上で具体的に書いてください
+・「感情」ではなく「行動・選択・言動」で変化を示してください
+・同じ状況の人物が異なるLieを持てば全く異なる物語になることを意識してください`;
+}
+
+// ─────────────────────────────────────────────────
+// 構成分析 生成（自由度高・10,000通り以上）
+// ─────────────────────────────────────────────────
+function _genStructure(rnd) {
+  const frameworks = [
+    { name: '三幕構成＋Save the Cat ビートシート', desc: '物語をAct1/2/3の3幕に分け、15ビートを対応付ける' },
+    { name: 'キャラクターアーク分析＋三幕構成', desc: 'Want/Need/Ghost/Lieを特定し、三幕の流れと紐付ける' },
+    { name: '起承転結（日本式4段構成）', desc: '「起（発端）・承（展開）・転（転換）・結（解決）」で分析する' },
+    { name: 'Bストーリー＋テーマ分析', desc: 'メインプロットとサブプロットがどうテーマを体現しているか分析する' },
+  ];
+  const angles = [
+    '①作品タイトルとジャンル\n②主人公の外的目標（Want）と内的目標（Need）\n③三幕構成の各幕の区切り（どのシーンで幕が変わるか）\n④Save the Cat の「触媒（p.12）」「ミッドポイント（p.55）」「すべてを失う（p.75）」に対応するシーン\n⑤主人公のキャラクターアーク（冒頭→クライマックスでの変化）\n⑥この作品が「うまく機能している」理由を2点',
+    '①作品タイトルとジャンル\n②作品のテーマを一言で表すとしたら？\n③主人公の「最大の誤信念（Lie）」と「真に必要なもの（Need）」\n④物語のターニングポイント（引き返せない選択の瞬間）を3つ特定する\n⑤この物語でサブプロット（Bストーリー）がテーマをどう体現しているか\n⑥結末（クロージングイメージ）と冒頭（オープニングイメージ）の対比を説明する',
+    '①作品タイトルとジャンル\n②物語を起承転結の4段で分けると、どのシーンが各段に当たるか\n③主人公が「最も追い詰められた瞬間」はどこか、なぜそこが機能するのか\n④この作品の「感情のリズム」——緊張と解放がどう繰り返されるか\n⑤観客/読者が主人公に共感できる理由を構造的に説明する\n⑥もし結末が変わったとしたら、物語のテーマはどう変わるか（反実仮想）',
+  ];
+  const fw = _pick(frameworks, rnd);
+  const angle = _pick(angles, rnd);
+  return `あなたが知っている映画・ドラマ・小説（アニメ・漫画も可）を1作品選び、以下の項目を【${fw.name}】で分析してください。
+（${fw.desc}）
+
+【分析項目】
+${angle}
+
+【注意】
+・知っている作品で構いません
+・正解はありません。あなたの分析・解釈が評価されます
+・具体的なシーン・セリフ・場面描写を根拠として挙げること
+・「なぜそのシーンがその機能を果たすのか」という理由まで書くこと`;
+}
+
+// ─────────────────────────────────────────────────
+// 冒頭10ページ 生成（25×10×8 = 2,000通り以上）
+// ─────────────────────────────────────────────────
+function _genOpening(rnd) {
+  const settings = [
+    { genre: '現代ドラマ', protagonist: '42歳の翻訳家（女性）、20年前に夫と別れた後一人で生きてきた', trigger: 'ある日、翻訳を依頼された原稿が別れた夫の遺稿だったと気づく' },
+    { genre: 'クライムサスペンス', protagonist: '元検察官（58歳・男性）、自ら起訴した死刑囚の最後の手紙を受け取る', trigger: '手紙には自白とともに「あなたに謝ってほしいことがある」と書かれていた' },
+    { genre: '家族ドラマ', protagonist: '中学3年生（14歳・男子）、成績優秀だが心を閉ざしている', trigger: '廃棄予定の父の日記帳を偶然手にし、父が自分と同い年に家出していた事実を知る' },
+    { genre: '時代劇（江戸末期）', protagonist: '剣の達人だが殺しに疲れた浪人（40歳）', trigger: '斬り捨てた武士の息子（10歳）が、仇討ちを宣言し後をつけてくる' },
+    { genre: '医療ドラマ', protagonist: '地方病院の内科医（47歳・女性）、離島に赴任して3年目', trigger: '本土の超高度医療を必要とする患者が搬送不可能な状況で運ばれてくる' },
+    { genre: 'SF（近未来）', protagonist: '記憶消去技術者（33歳）、クライアントの不幸な記憶を消す仕事をしている', trigger: '消去リクエストの中に、自分が消した記憶の「消去前記録」を発見する' },
+    { genre: 'ラブストーリー', protagonist: '別れた恋人の葬儀に来た男（39歳）、5年ぶりに遺族と対面する', trigger: '葬儀で遺族から「彼女はあなたへの手紙を残していた」と告げられる' },
+    { genre: '青春ドラマ', protagonist: '高3・演劇部の女子（17歳）、部長として地方大会への出場を目指している', trigger: '本番直前に主演俳優が急病で倒れ、自分が出演するしかない状況に追い込まれる' },
+    { genre: 'ホラー（心理）', protagonist: '精神科医（44歳）、専門は「失われた記憶の回復」', trigger: '新患が語る幼少期のトラウマが、医師自身の封印した記憶と一致し始める' },
+    { genre: 'コメディドラマ', protagonist: '元一流料理人（52歳）、倒産後に地元の給食センターで働き始めた', trigger: '給食の食材費が月10万円と告げられ、それでもプロの味を出そうとする' },
+    { genre: '政治ドラマ', protagonist: '地方議員（38歳・女性）、出馬直前に対立候補から過去の醜聞をネタに脅迫される', trigger: '脅迫内容が事実だが、被害者でもある自分の過去と向き合うことになる' },
+    { genre: '自然災害サバイバル', protagonist: '登山ガイド（45歳）、過去の遭難事故で客を一人死なせた', trigger: '別のツアーで同じ場所に戻ったとき、大規模な雪崩が始まる' },
+    { genre: '老いと孤独（シニアドラマ）', protagonist: '78歳の元裁判官、認知症の初期診断を受けた', trigger: '自分が50年前に下した死刑判決の記録を見つけ、誤りだったかもしれないと気づく' },
+    { genre: '戦争（現代）', protagonist: '戦地取材記者（32歳・女性）、戦場のリポートで著名になっている', trigger: '現地で「あなたの記事のせいで村人が殺された」と告発される' },
+    { genre: 'ビジネスドラマ', protagonist: '大企業の部長（46歳）、部下を使い潰す管理職として恐れられている', trigger: '自分の部下が過労で倒れ、初めてその家族に謝罪しに行く' },
+  ];
+  const reqs = [
+    `①400字以上・800字以内の脚本形式（柱書き・ト書き・セリフ）
+②冒頭シーン（自宅や職場など）で、主人公の「日常と欠如」を見せること
+③少なくとも1行のサブテキストを含むセリフを入れること
+④トーン（ドラマの雰囲気）を感じさせるト書きを書くこと`,
+    `①600字以上・1000字以内の脚本形式（柱書き・ト書き・セリフ）
+②「オープニングイメージ」として、主人公の欠如と物語のテーマを同時に示すシーンにすること
+③台詞は最低2つ、サブテキストを含むこと
+④少なくとも1か所、「語られない感情」を行動だけで示すト書きを書くこと
+⑤シーンの最後に「フック（次のシーンへの引き）」を作ること`,
+    `①500字以上・900字以内の脚本形式
+②主人公の「秘密または恥」を、他の登場人物の行動から暗示させること
+③セリフ0〜3行のシーンを1つ入れ、沈黙や動作だけで感情を表現すること
+④このシーンが映画・ドラマの「最初の1ページ」として機能するかを自己評価すること（100字程度）`,
+  ];
+  const s = _pick(settings, rnd);
+  const req = _pick(reqs, rnd);
+  return `あなたが書きたい（または書いている）脚本の「冒頭シーン」を書いてください。
+まだ脚本がない場合は、以下の設定を使ってください:
+
+【設定（使用しない場合は自分の設定で可）】
+・ジャンル: ${s.genre}
+・主人公: ${s.protagonist}
+・物語の発端: ${s.trigger}
+
+【要件】
+${req}`;
+}
+
+// ================================================================
 function addExerciseToNote(exId) {
   const exercises = window._EXERCISES || [];
   const ex = exercises.find(e => e.id === exId);
@@ -6565,106 +7410,287 @@ function clearExFilter() {
 //  用語辞典タブ
 // ================================================================
 const GLOSSARY_DATA = [
-  { term: '三幕構成', reading: 'さんまくこうせい', category: '構成', color: 'kon', def: '物語を「序幕（Act1）・本幕（Act2）・終幕（Act3）」の3つの幕に分ける構造理論。ハリウッドで最も普及した脚本フレームワーク。比率は25：50：25が基本。' },
-  { term: 'ログライン', reading: 'ろぐらいん', category: '企画', color: 'beni', def: '物語全体を1〜2文で表現した要約文。主人公・目標・障害・テーマを凝縮する。プロデューサーへのピッチや自分の脚本の設計図として使われる。' },
-  { term: 'サブテキスト', reading: 'さぶてきすと', category: 'セリフ', color: 'asagi', def: 'セリフの表面ではなく「裏」に流れる本音・感情・意図。「本当のことは言わない」——良いセリフは言外の意味を持つ。' },
-  { term: 'キャラクターアーク', reading: 'きゃらくたーあーく', category: 'キャラクター', color: 'momo', def: '主人公が物語を通じてどう変化するかを示す変容の弧。ポジティブアーク（成長）・ネガティブアーク（堕落）・フラットアーク（信念の維持）の3種類がある。' },
-  { term: 'ミッドポイント', reading: 'みっどぽいんと', category: '構成', color: 'kon', def: 'Act2（本幕）の中央に位置する転換点。主人公の目標・認識・立場が変わる瞬間。「偽の勝利」か「偽の敗北」が典型的。物語のテンションを持続させる鍵。' },
-  { term: 'ターニングポイント', reading: 'たーにんぐぽいんと', category: '構成', color: 'beni', def: '幕と幕の境界を作る「引き返せない選択の瞬間」。TP1（Act1→Act2）は主人公が新世界に踏み出す選択。TP2（Act2→Act3）はクライマックスへの突入。' },
-  { term: 'Want / Need', reading: 'うぉんと / にーど', category: 'キャラクター', color: 'momo', def: 'Want（ウォント）: 主人公が意識的に追い求める外的・表面的な目標。Need（ニード）: 主人公が無意識に必要としている内的成長。優れた物語ではWantを追う過程でNeedを満たす。' },
-  { term: 'ト書き', reading: 'とがき', category: 'フォーマット', color: 'fuji', def: '脚本における行動・情景・場面の描写部分。「映像として撮影できるもの」だけを書くのが原則。内面描写（〜と思った）は基本的に書かない。' },
-  { term: 'カタルシス', reading: 'かたるしす', category: '感情設計', color: 'kogane', def: 'アリストテレスが提唱した「感情の浄化・解放」の概念。観客が主人公の体験を通じて感情を浄化し、解放感を得る瞬間。クライマックスで生まれる感情的解放がカタルシス。' },
-  { term: 'フックライン', reading: 'ふっくらいん', category: '企画', color: 'beni', def: '読者・観客を引き込む「掴み」の一言。ログラインの中でも特に刺激的・新奇な要素。映画の予告編で使われるキャッチコピーとも近い。' },
-  { term: 'ウーンド（傷）', reading: 'うーんど', category: 'キャラクター', color: 'momo', def: '主人公が過去に受けた心理的・感情的な傷。現在の行動・誤信念の根源となる。ウーンドがあることでキャラクターに深みと動機が生まれる。' },
-  { term: 'Save the Cat', reading: 'せいぶ ざ きゃっと', category: '構成', color: 'matcha', def: 'ブレイク・スナイダーが提唱した15ビートシートを中心とした脚本術。タイトルは「主人公が猫を助けるシーン」で観客の共感を即座に得るテクニックから。' },
-  { term: 'オン・ザ・ノーズ', reading: 'おん ざ のーず', category: 'セリフ', color: 'asagi', def: 'セリフが「言いたいことをそのまま言っている」状態。「テーマを直接言う」「感情をラベリングする」などがこれに当たる。脚本術では避けるべきとされる代表的なNG。' },
-  { term: 'Bストーリー', reading: 'びーすとーりー', category: '構成', color: 'kon', def: 'メイン（Aストーリー）を補完するサブプロット。多くの場合、テーマを体現する関係性（恋愛・友情など）。Save the Catではp.30から始まる。' },
-  { term: '柱書き', reading: 'はしらがき', category: 'フォーマット', color: 'fuji', def: '日本式脚本のシーンヘッダー。「○内/外・場所・時間帯」の形式で書く。例：「○内・警察署・取調室・夜」。シーンの切り替えを表す。' },
-  { term: 'プレミス', reading: 'ぷれみす', category: '構成', color: 'beni', def: '物語の命題・テーマを「〜すれば〜になる」と格言形式で表したもの。例：「復讐を求めすぎると自分が怪物になる」。脚本家の内なる羅針盤となる。' },
-  { term: 'クライマックス', reading: 'くらいまっくす', category: '構成', color: 'kon', def: '物語の最大の対決・緊張の頂点。主人公が変化したことを行動で「証明」する場面。Save the Catではp.85〜p.99に位置する。' },
-  { term: '起承転結', reading: 'きしょうてんけつ', category: '構成', color: 'beni', def: '中国の詩から日本に伝わった四部構成。起（設定）・承（展開）・転（転換）・結（収束）。三幕構成との最大の違いは「転」の役割：必然性と驚きを両立する逆転。' },
-  { term: 'テンション', reading: 'てんしょん', category: '感情設計', color: 'kogane', def: '物語の「縦」の軸：シーンの感情的緊張度。高いほど観客は前のめりになる。テンションとペーシング（速度）を組み合わせて感情の波形を設計する。' },
-  { term: 'ポモドーロ', reading: 'ぽもどーろ', category: '執筆技術', color: 'matcha', def: 'フランチェスコ・シリロが開発した時間管理術。25分の集中作業＋5分の休憩を1セットとする。シナリオラボの執筆タイマーがこの技法を実装。' },
+  // ==================== 構成 ====================
+  { id:'g-sanmaku', term: '三幕構成', reading: 'さんまくこうせい', category: '構成理論', color: 'kon', def: '物語を「序幕（Act1）・本幕（Act2）・終幕（Act3）」の3つの幕に分ける構造理論。ハリウッドで最も普及した脚本フレームワーク。比率は25：50：25が基本。',
+    detail: `<h3>三幕構成とは</h3><p>アリストテレスの「詩学」に起源を持ち、ハリウッド脚本術の中核をなす構造論。110ページ（約110分）の映画脚本を前提に設計されている。</p><h3>各幕の役割</h3><ul><li><strong>Act1（序幕・約25%）</strong>：日常世界の確立、主人公の紹介、インサイティング・インシデント（物語の引き金）、ターニングポイント1</li><li><strong>Act2（本幕・約50%）</strong>：新世界での挑戦と試練、ミッドポイント、低い最低点（All is Lost）</li><li><strong>Act3（終幕・約25%）</strong>：最終対決・クライマックス、解決（デノウマン）</li></ul><h3>日本ドラマへの適用</h3><p>60分ドラマでは1幕15分・2幕30分・3幕15分が目安。連続ドラマでは各話単位でも使用できる。</p><div class="article-callout kogane"><strong>実践チェック：</strong>あなたの脚本の「最初の転換点（TP1）」はどこにありますか？ページ数・時間を確認しましょう。</div>`,
+    related: ['g-turn-point','g-midpoint','g-climax','g-save-cat'] },
+  { id:'g-turn-point', term: 'ターニングポイント', reading: 'たーにんぐぽいんと', category: '構成理論', color: 'beni', def: '幕と幕の境界を作る「引き返せない選択の瞬間」。TP1（Act1→Act2）は主人公が新世界に踏み出す選択。TP2（Act2→Act3）はクライマックスへの突入。',
+    detail: `<h3>ターニングポイントの機能</h3><p>物語の転換点。主人公が「元の状態に戻れない選択」をする瞬間が幕の区切りになる。</p><h3>TP1の特徴</h3><p>日常から非日常への移行。観客は「あ、この物語はここから本格的に始まるんだ」と感じる瞬間。</p><h3>TP2の特徴</h3><p>全てを失った状態からの最後の賭け。主人公は変化した価値観・能力を携えてクライマックスへ突入する。</p>`,
+    related: ['g-sanmaku','g-midpoint'] },
+  { id:'g-midpoint', term: 'ミッドポイント', reading: 'みっどぽいんと', category: '構成理論', color: 'kon', def: 'Act2（本幕）の中央に位置する転換点。主人公の目標・認識・立場が変わる瞬間。「偽の勝利」か「偽の敗北」が典型的。物語のテンションを持続させる鍵。',
+    detail: `<h3>ミッドポイントの役割</h3><p>全体の50%地点に置かれる重要なビート。Act2の前半と後半を分割し、物語に強さを与える。</p><h3>2パターン</h3><ul><li><strong>偽の勝利（False Victory）</strong>：一見うまくいっているが、実は核心問題が未解決。観客は「本当の試練はこれからだ」と感じる</li><li><strong>偽の敗北（False Defeat）</strong>：全てが崩れたかに見えるが、実は主人公が成長へ向かう転機</li></ul><h3>優秀なミッドポイントの条件</h3><p>主人公の外的目標だけでなく、内的変化の萌芽が感じられること。</p>`,
+    related: ['g-sanmaku','g-turn-point','g-save-cat'] },
+  { id:'g-kishotenko', term: '起承転結', reading: 'きしょうてんけつ', category: '構成理論', color: 'beni', def: '中国の詩から日本に伝わった四部構成。起（設定）・承（展開）・転（転換）・結（収束）。三幕構成との最大の違いは「転」の役割：必然性と驚きを両立する逆転。',
+    detail: `<h3>起承転結の本質</h3><p>日本古来の物語構造。単なる「4段階の展開」ではなく、「転」に物語の質が集約される。</p><h3>各段階の機能</h3><ul><li><strong>起</strong>：世界の提示・主人公の日常・問題の種まき</li><li><strong>承</strong>：発展・主人公の行動・問題の深化</li><li><strong>転</strong>：物語最大の逆転・驚き・核心への到達（最重要）</li><li><strong>結</strong>：転を受けての収束・余韻・テーマの着地</li></ul><h3>「転」の失敗パターン</h3><p>①唐突な転換（伏線なし）②予測可能な転換（驚きなし）③テーマと無関係な転換</p>`,
+    related: ['g-sanmaku','g-premise'] },
+  { id:'g-premise', term: 'プレミス', reading: 'ぷれみす', category: '構成理論', color: 'beni', def: '物語の命題・テーマを「〜すれば〜になる」と格言形式で表したもの。例：「復讐を求めすぎると自分が怪物になる」。脚本家の内なる羅針盤となる。',
+    detail: `<h3>プレミスとは</h3><p>脚本の「魂」を一文で表す。プレミスが明確でない脚本は、テーマがぼやけ、シーンの必要性が失われる。</p><h3>良いプレミスの条件</h3><ul><li>具体的な行動と具体的な結果を含む</li><li>道徳的・哲学的な主張を持つ</li><li>物語全体の試練を通じて「証明」できる</li></ul><h3>例：有名作品のプレミス</h3><ul><li>『壊れた世界では正直者が最後に笑う』（ブレイキング・バッド）</li><li>『無私の愛は死も超えられる』（ロメオとジュリエット）</li></ul>`,
+    related: ['g-theme','g-logline'] },
+  { id:'g-save-cat', term: 'Save the Cat', reading: 'せいぶ ざ きゃっと', category: '構成理論', color: 'matcha', def: 'ブレイク・スナイダーが提唱した15ビートシートを中心とした脚本術。タイトルは「主人公が猫を助けるシーン」で観客の共感を即座に得るテクニックから。',
+    detail: `<h3>Save the Catとは</h3><p>ブレイク・スナイダーの著書「Save the Cat!」で提唱された15ビートの構成メソッド。ハリウッド映画の構造分析から導き出された。</p><h3>15ビートの概要</h3><ol><li>オープニングイメージ（p.1）</li><li>テーマの提示（p.5）</li><li>セットアップ（p.1〜10）</li><li>触媒（p.12）</li><li>議論（p.12〜25）</li><li>Act2への突入（p.25）</li><li>Bストーリー（p.30）</li><li>遊びと楽しみ（p.30〜55）</li><li>ミッドポイント（p.55）</li><li>悪人の圧力（p.55〜75）</li><li>All is Lost（p.75）</li><li>暗闇の魂（p.75〜85）</li><li>Act3への突入（p.85）</li><li>フィナーレ（p.85〜110）</li><li>ファイナルイメージ（p.110）</li></ol>`,
+    related: ['g-sanmaku','g-midpoint','g-b-story'] },
+  { id:'g-b-story', term: 'Bストーリー', reading: 'びーすとーりー', category: '構成理論', color: 'kon', def: 'メイン（Aストーリー）を補完するサブプロット。多くの場合、テーマを体現する関係性（恋愛・友情など）。Save the Catではp.30から始まる。',
+    detail: `<h3>Bストーリーの機能</h3><p>Aストーリー（外的目標の追求）を支える内的変化の物語。多くの場合、主人公の内的成長（Need）を体現する関係性が描かれる。</p><h3>優れたBストーリーの条件</h3><ul><li>Aストーリーのテーマを別角度から照らす</li><li>主人公の盲点・弱点に気づかせるキャラクターが登場する</li><li>ミッドポイント付近でAストーリーと交差する</li></ul>`,
+    related: ['g-save-cat','g-theme'] },
+  { id:'g-climax', term: 'クライマックス', reading: 'くらいまっくす', category: '構成理論', color: 'kon', def: '物語の最大の対決・緊張の頂点。主人公が変化したことを行動で「証明」する場面。Save the Catではp.85〜p.99に位置する。',
+    detail: `<h3>クライマックスの本質</h3><p>単なる「最大の戦闘」や「最大の事件」ではない。主人公がアーク（変化）を完成させる場面。外的な対決の中に、内的な克服が埋め込まれているのが優れたクライマックス。</p><h3>クライマックスの3要素</h3><ul><li>外的な最大の試練・対決</li><li>内的な欠如（ウーンド）の克服</li><li>テーマの最終的な証明</li></ul>`,
+    related: ['g-sanmaku','g-char-arc','g-catharsis'] },
+  // ==================== キャラクター ====================
+  { id:'g-char-arc', term: 'キャラクターアーク', reading: 'きゃらくたーあーく', category: 'キャラクター', color: 'momo', def: '主人公が物語を通じてどう変化するかを示す変容の弧。ポジティブアーク（成長）・ネガティブアーク（堕落）・フラットアーク（信念の維持）の3種類がある。',
+    detail: `<h3>3種類のアーク</h3><ul><li><strong>ポジティブアーク</strong>：欠如（ウーンド）から始まり、試練を通じて成長し、真実を受け入れてクライマックスを勝ち取る</li><li><strong>ネガティブアーク</strong>：欠如から始まり、試練を通じて悪化・堕落し、偽りの信念に囚われたままか破滅する</li><li><strong>フラットアーク</strong>：アーク自体は変化しないが、そのキャラクターの信念が周囲の世界を変える（例：ジェームズ・ボンド）</li></ul><h3>設計の手順</h3><ol><li>欠如（ウーンド）を決める</li><li>欠如から生まれた誤信念（Lie）を定義する</li><li>Lie vs. 真実（Truth）の対立を設計する</li><li>各転換点でLieを揺さぶるシーンを配置する</li><li>クライマックスでLieを捨て、Truthを選ぶ</li></ol>`,
+    related: ['g-wound','g-want-need','g-ghost'] },
+  { id:'g-want-need', term: 'Want / Need', reading: 'うぉんと / にーど', category: 'キャラクター', color: 'momo', def: 'Want（ウォント）: 主人公が意識的に追い求める外的・表面的な目標。Need（ニード）: 主人公が無意識に必要としている内的成長。優れた物語ではWantを追う過程でNeedを満たす。',
+    detail: `<h3>WantとNeedの対立がドラマを生む</h3><p>最も強力な物語設計の核。WantとNeedが矛盾・対立しているほど、キャラクターの葛藤が深くなる。</p><h3>例</h3><ul><li>映画『ダークナイト』のバットマン：<br>Want「ジョーカーを倒し、ゴッサムを守る」 ／ Need「自分の限界と倫理の境界線を認める」</li><li>映画『愛と追憶の日々』：<br>Want「母と関係を修復したい」 ／ Need「自立した大人になる」</li></ul><h3>設計のコツ</h3><p>Wantは具体的・外的（逮捕する、試合に勝つ、結婚する）。Needは抽象的・内的（自分を許す、孤独を受け入れる、信頼する）が対になるとき最も強い。</p>`,
+    related: ['g-char-arc','g-wound','g-ghost'] },
+  { id:'g-wound', term: 'ウーンド（傷）', reading: 'うーんど', category: 'キャラクター', color: 'momo', def: '主人公が過去に受けた心理的・感情的な傷。現在の行動・誤信念の根源となる。ウーンドがあることでキャラクターに深みと動機が生まれる。',
+    detail: `<h3>ウーンドの機能</h3><p>過去に受けた傷が、現在の誤信念（Lie）を作り出す。キャラクターはその傷から自分を守るために、しばしば非生産的な行動パターンを繰り返す。</p><h3>ウーンドの種類</h3><ul><li>喪失型：大切なものを失った体験</li><li>裏切り型：信頼した者に傷つけられた体験</li><li>羞恥型：恥をかかされた・認められなかった体験</li><li>無力型：何もできなかった・守れなかった体験</li></ul><h3>重要な注意点</h3><p>ウーンドは語られるものではなく「行動で見える」もの。説明セリフではなく、傷に基づく行動・反応として描写する。</p>`,
+    related: ['g-char-arc','g-want-need','g-ghost'] },
+  { id:'g-ghost', term: 'ゴースト', reading: 'ごーすと', category: 'キャラクター', color: 'momo', def: 'キャラクターの過去の傷（ウーンド）が生み出した「幽霊」的な心理的拘束。フラッシュバックや行動パターンとして物語に現れ、主人公の成長を妨げる。',
+    detail: `<h3>ゴーストとは</h3><p>K.M.ワイランドの用語。過去の傷（ウーンド）が今も生きているかのように、主人公の判断・行動・関係性に影響を与え続ける状態。</p><h3>ゴーストの描き方</h3><ul><li>直接的な回想・フラッシュバック</li><li>特定の状況でのオーバーリアクション</li><li>繰り返される自己破壊的パターン</li><li>特定の言葉・物・場所に対する強烈な反応</li></ul><h3>ゴーストをドラマに活かす</h3><p>クライマックスで、ゴーストと正面から向き合う場面を設ける。ゴーストを乗り越えることがキャラクターアークの完成となる。</p>`,
+    related: ['g-wound','g-char-arc','g-want-need'] },
+  // ==================== セリフ技法 ====================
+  { id:'g-subtext', term: 'サブテキスト', reading: 'さぶてきすと', category: 'セリフ技法', color: 'asagi', def: 'セリフの表面ではなく「裏」に流れる本音・感情・意図。「本当のことは言わない」——良いセリフは言外の意味を持つ。',
+    detail: `<h3>サブテキストの原則</h3><p>「人は自分が本当に思っていることを言わない」——特に感情が高ぶるほど、本音は別の言葉で表れる。脚本のセリフは常に「二層構造」を持つべき。</p><h3>サブテキストの技法</h3><ul><li><strong>間接的表現</strong>：「好きだ」と言わず「今日のその服、似合ってる」と言う</li><li><strong>沈黙</strong>：言葉がないことが最大の表現になる</li><li><strong>行動の矛盾</strong>：言葉と行動が逆のことを言う</li><li><strong>話題のすり替え</strong>：核心を避けて別の話をする</li></ul><h3>オン・ザ・ノーズとの違い</h3><p>「もう君のことが好きじゃなくなったんだ」はオン・ザ・ノーズ。「最近、ここが少し狭くなった気がするね」はサブテキスト。</p>`,
+    related: ['g-on-nose','g-dialogue-voice'] },
+  { id:'g-on-nose', term: 'オン・ザ・ノーズ', reading: 'おん ざ のーず', category: 'セリフ技法', color: 'asagi', def: 'セリフが「言いたいことをそのまま言っている」状態。「テーマを直接言う」「感情をラベリングする」などがこれに当たる。脚本術では避けるべきとされる代表的なNG。',
+    detail: `<h3>オン・ザ・ノーズの問題</h3><p>観客・読者は「言われる」ことではなく「感じる」ことを求めている。直接的に全てを語ってしまうと、読む者が能動的に意味を汲み取る喜びが失われる。</p><h3>典型的なNG例</h3><ul><li>「私は悲しいんだ！」→ 涙を拭う、窓を見つめる</li><li>「この映画のテーマは家族の絆です」→ テーマは行動で示す</li><li>「彼のせいで全部台無しになった。ほんとに憎い」→ 「もう連絡してこないで」</li></ul><h3>修正の方向性</h3><p>感情を「ラベリング」する代わりに、その感情から生まれる「行動・言動・生理的反応」を描写する。</p>`,
+    related: ['g-subtext','g-dialogue-voice'] },
+  { id:'g-dialogue-voice', term: 'ダイアローグ・ボイス', reading: 'だいあろーぐ ぼいす', category: 'セリフ技法', color: 'asagi', def: '各キャラクターが持つ「固有の話し方・語彙・リズム」。名前を隠してもどのキャラクターか分かる個性的な声。セリフの差別化と人物造形の核となる。',
+    detail: `<h3>ボイスを構成する要素</h3><ul><li>語彙レベル（高学歴vs.庶民的）</li><li>文の長さ（長い説明型 vs. 短い断定型）</li><li>口癖・フィラー（「まあ」「つまり」「…って感じ？」）</li><li>文末の傾向（疑問形が多い、命令形が多い）</li><li>話題の傾向（何を語りたがるか）</li><li>ユーモアの有無と種類</li></ul><h3>ボイスを作る実践法</h3><p>①キャラクターの「育ち・職業・性格」を深く掘り下げる。②そのキャラクターが「絶対に使わない言葉」リストを作る。③10行の独白を書いてみて、声が聞こえるか確認する。</p>`,
+    related: ['g-subtext','g-on-nose'] },
+  // ==================== フォーマット ====================
+  { id:'g-togaki', term: 'ト書き', reading: 'とがき', category: 'フォーマット', color: 'fuji', def: '脚本における行動・情景・場面の描写部分。「映像として撮影できるもの」だけを書くのが原則。内面描写（〜と思った）は基本的に書かない。',
+    detail: `<h3>ト書きの原則</h3><p>「カメラに映るものだけを書く」が大原則。心理・感情を直接描写することはできない。代わりに、それが「行動・表情・物」として表れたものを描く。</p><h3>良いト書きの特徴</h3><ul><li>短く、活動的（現在形で動詞中心）</li><li>映像的・具体的（「何となく不安な顔」ではなく「指の爪を噛む」）</li><li>俳優への指示が少ない（感情を押しつけない）</li><li>読んで映像が浮かぶ</li></ul><h3>日本式と欧米式の違い</h3><p>日本式では「○内」「○外」の柱書きに続き、1行空けてト書き。欧米式ではAction Linesとして左揃えで記述。</p>`,
+    related: ['g-hashiragaki','g-format-basic'] },
+  { id:'g-hashiragaki', term: '柱書き', reading: 'はしらがき', category: 'フォーマット', color: 'fuji', def: '日本式脚本のシーンヘッダー。「○内/外・場所・時間帯」の形式で書く。例：「○内・警察署・取調室・夜」。シーンの切り替えを表す。',
+    detail: `<h3>柱書きの書式</h3><ul><li>室内の場合：「○内・（場所）・（時間帯）」</li><li>野外の場合：「○外・（場所）・（時間帯）」</li><li>時間変化のみ：「（同）・夜→朝」</li></ul><h3>時間帯の表記</h3><p>朝・昼・夕方・夜・深夜・明け方など。「現在」と時間が特定できない場合は省略することも。</p><h3>欧米式との対応</h3><p>欧米式のScene Heading（INT./EXT. LOCATION - DAY/NIGHT）に相当する。日本式独自の「○」記号が特徴。</p>`,
+    related: ['g-togaki','g-format-basic'] },
+  { id:'g-format-basic', term: 'スクリプト・フォーマット', reading: 'すくりぷと ふぉーまっと', category: 'フォーマット', color: 'fuji', def: '脚本の標準的な書式・レイアウト規則。柱書き・ト書き・セリフ・ト書き（演技指示）の4要素が決まった書式で組まれる。プロの制作現場で共有される共通言語。',
+    detail: `<h3>日本式脚本の4要素</h3><ul><li><strong>柱書き</strong>：「○内・場所・時間帯」形式のシーンヘッダー</li><li><strong>ト書き</strong>：映像として表現される動作・情景の描写</li><li><strong>セリフ行</strong>：「キャラクター名」の下に台詞内容</li><li><strong>括弧書き（柱内注記）</strong>：短い演技指示（使いすぎ注意）</li></ul><h3>書式の目的</h3><p>「読む速度＝映像の時間」になるよう設計されている。1ページ＝約1〜1.5分が目安。チームで共有するための共通言語であり、プロとしての信頼性の証明でもある。</p>`,
+    related: ['g-togaki','g-hashiragaki'] },
+  // ==================== 感情設計 ====================
+  { id:'g-catharsis', term: 'カタルシス', reading: 'かたるしす', category: '感情設計', color: 'kogane', def: 'アリストテレスが提唱した「感情の浄化・解放」の概念。観客が主人公の体験を通じて感情を浄化し、解放感を得る瞬間。クライマックスで生まれる感情的解放がカタルシス。',
+    detail: `<h3>カタルシスの仕組み</h3><p>観客は主人公を通じて「感情を安全に体験」する。緊張の蓄積（テンションの上昇）と解放（クライマックス）のサイクルで、日常では味わえない強烈な感情体験が生まれる。</p><h3>カタルシスを生み出す要素</h3><ul><li>強い感情移入（主人公への共感）の確立</li><li>テンションの段階的な積み上げ</li><li>クライマックスでの解放（対決・決断・別れ）</li><li>デノウマン（解決）での余韻</li></ul><h3>設計のポイント</h3><p>カタルシスは「作る」ものではなく「設計」するもの。感情移入→障害の強化→期待と不安の交差→解放、という流れを意図的に構築する。</p>`,
+    related: ['g-tension','g-climax','g-char-arc'] },
+  { id:'g-tension', term: 'テンション', reading: 'てんしょん', category: '感情設計', color: 'kogane', def: '物語の「縦」の軸：シーンの感情的緊張度。高いほど観客は前のめりになる。テンションとペーシング（速度）を組み合わせて感情の波形を設計する。',
+    detail: `<h3>テンションの種類</h3><ul><li><strong>外的テンション</strong>：物理的危機、時間制限、対立</li><li><strong>内的テンション</strong>：道徳的葛藤、感情の衝突</li><li><strong>劇的アイロニー</strong>：観客が知っているが登場人物が知らない情報による緊張</li><li><strong>ミステリー</strong>：未知の情報への好奇心</li></ul><h3>テンション曲線の設計</h3><p>クライマックスに向けて単調に上昇させるのではなく、山と谷を交互に作りながら全体として上昇させる。「圧縮と解放」のリズムが観客を引き込む。</p>`,
+    related: ['g-catharsis','g-pacing','g-climax'] },
+  { id:'g-pacing', term: 'ペーシング', reading: 'ぺーしんぐ', category: '感情設計', color: 'kogane', def: '物語の「横」の軸：展開の速度・リズム。シーンの長短、情報の出し方、会話と行動のバランスで制御する。テンションと組み合わせて感情波形を設計する。',
+    detail: `<h3>ペーシングの制御法</h3><ul><li><strong>速い</strong>：短いシーン、断片的なセリフ、短い文、アクション中心</li><li><strong>遅い</strong>：長いシーン、長い沈黙、長い文、内省的なセリフ</li></ul><h3>緩急の使い方</h3><p>緊張の高いシーンの後に短い「息抜きシーン」を入れることで、次のテンション上昇が効果的になる。「川のようにずっと速い」より「急流と穏流の交互」が理想。</p>`,
+    related: ['g-tension','g-catharsis'] },
+  // ==================== 企画・開発 ====================
+  { id:'g-logline', term: 'ログライン', reading: 'ろぐらいん', category: '企画・開発', color: 'beni', def: '物語全体を1〜2文で表現した要約文。主人公・目標・障害・テーマを凝縮する。プロデューサーへのピッチや自分の脚本の設計図として使われる。',
+    detail: `<h3>ログラインの公式</h3><p>「[主人公の属性] が [外的目標] を達成しようとするが、[最大の障害] に直面し、[テーマ的ジレンマ] を問われる物語」</p><h3>良いログラインの条件</h3><ul><li>主人公が具体的（「ある男」ではなく「元刑事」）</li><li>目標が明確かつ測定可能</li><li>障害が感情的な重さを持つ</li><li>テーマまたはジレンマが見える</li><li>60字以内に収まる</li></ul><h3>例</h3><p>「末期癌を宣告された元刑事が、20年前に冤罪で死刑になった男の無実を証明しようとするが、真犯人が自分の元上司だと知る」（48字）</p>`,
+    related: ['g-premise','g-hook','g-pitch'] },
+  { id:'g-hook', term: 'フックライン', reading: 'ふっくらいん', category: '企画・開発', color: 'beni', def: '読者・観客を引き込む「掴み」の一言。ログラインの中でも特に刺激的・新奇な要素。映画の予告編で使われるキャッチコピーとも近い。',
+    detail: `<h3>フックの条件</h3><p>「これ、どういうことだろう？」「見てみたい」と思わせる引っかかり。ありきたりな設定にも「ひとひねり」を加えることでフックが生まれる。</p><h3>フックの作り方</h3><ul><li>対立する概念を組み合わせる（刑事×末期癌、ロマンス×スパイ）</li><li>誰もが知っている状況に逆転を加える</li><li>「まさか！」という意外性を一文に込める</li></ul>`,
+    related: ['g-logline','g-pitch'] },
+  { id:'g-pitch', term: 'ピッチ', reading: 'ぴっち', category: '企画・開発', color: 'beni', def: '企画・物語を関係者（プロデューサー・放送局・映画会社）に売り込むプレゼンテーション。口頭または企画書で行う。ログライン・世界観・主人公・テーマを短時間で伝える技術。',
+    detail: `<h3>ピッチの構成</h3><ol><li>タイトルと一言フレーズ</li><li>ログライン（1〜2文）</li><li>世界観（どんな世界の物語か）</li><li>主人公のプロフィール</li><li>3幕の概要（始まり・中間・終わり）</li><li>テーマ・なぜ今この話か</li><li>作家の言葉（なぜ自分がこれを書くか）</li></ol><h3>ピッチの鉄則</h3><p>「一言で言えるか？」「聞いた人が誰かに話したくなるか？」が基準。複雑すぎる説明はプロデューサーを遠ざける。</p>`,
+    related: ['g-logline','g-hook','g-premise'] },
+  { id:'g-theme', term: 'テーマ', reading: 'てーま', category: '企画・開発', color: 'matcha', def: '物語が問いかける根本的な哲学的・人間的命題。「この作品は何を言いたいのか」を言語化したもの。プレミス（格言形式）と区別して使われることも多い。',
+    detail: `<h3>テーマと物語の関係</h3><p>テーマは「正解を提示するもの」ではなく「問いを立てるもの」。観客に「どうすれば良かったのか」「自分ならどうするか」と考えさせる余地を残す。</p><h3>テーマの埋め込み方</h3><ul><li>キャラクターの対立・対話を通じて体現する</li><li>セリフで直接言わない（オン・ザ・ノーズ回避）</li><li>プロットの結末でテーマ的な問いに答える</li></ul>`,
+    related: ['g-premise','g-logline'] },
+  // ==================== 執筆技術 ====================
+  { id:'g-pomodoro', term: 'ポモドーロ', reading: 'ぽもどーろ', category: '執筆技術', color: 'matcha', def: 'フランチェスコ・シリロが開発した時間管理術。25分の集中作業＋5分の休憩を1セットとする。シナリオラボの執筆タイマーがこの技法を実装。',
+    detail: `<h3>ポモドーロ・テクニックの原理</h3><p>人間の集中力には限界がある。短い集中→強制休憩を繰り返すことで、長時間の高品質な作業が可能になる。</p><h3>執筆への応用</h3><ul><li>1ポモドーロ（25分）= 「1シーンを書く」などの小さなゴールを設定</li><li>休憩中はスクリーンから離れる（別のことをする）</li><li>4セット後は15〜30分の長い休憩</li></ul><h3>シナリオラボのタイマー機能</h3><p>ツールタブの「執筆タイマー」でポモドーロ・タイマーを使用可能。完了数のカウントや累計執筆時間の記録も可能。</p>`,
+    related: ['g-first-draft'] },
+  { id:'g-first-draft', term: 'ファースト・ドラフト', reading: 'ふぁーすと どらふと', category: '執筆技術', color: 'matcha', def: '初稿（第一稿）のこと。「完璧を求めずとにかく書き切る」ことが最大の目標。プロは全員「初稿は捨て稿」として扱い、推敲プロセスで完成に向かわせる。',
+    detail: `<h3>初稿の心構え</h3><p>初稿を書いている最中に「これはダメだ」と立ち止まることが最大の敵。脳の「書く」機能と「判断する」機能を切り離し、まず全部書き切ることが唯一の目的。</p><h3>「クリエイティブ・ブレイン」と「クリティカル・ブレイン」</h3><p>初稿はクリエイティブ・ブレインに徹する時間。判断・批評・修正はクリティカル・ブレインの仕事。同時に動かさない。</p><div class="article-callout kogane"><strong>格言：</strong>「初稿は泥、最終稿は宝石」— Aaron Sorkin</div>`,
+    related: ['g-pomodoro','g-revision'] },
+  { id:'g-revision', term: 'リライト（推敲）', reading: 'りらいと（すいこう）', category: '執筆技術', color: 'matcha', def: '初稿から完成稿に向けて書き直すプロセス。プロの脚本家は初稿の5〜10倍の時間をリライトに使う。大局（構成）→中局（シーン）→局所（セリフ）の順で進める。',
+    detail: `<h3>リライトの7段階</h3><ol><li>冷却期間（1〜2日間離れる）</li><li>マクロ推敲（構成・幕バランス・キャラクターアーク確認）</li><li>シーン推敲（目的・葛藤・変化の3要素確認）</li><li>セリフ推敲（サブテキスト・ボイス・長さ）</li><li>ト書き推敲（冗長な部分を1/3削減）</li><li>声に出して読む（リズム・自然さ確認）</li><li>第三者フィードバック（客観視）</li></ol>`,
+    related: ['g-first-draft','g-pomodoro'] },
+];
+
+// 用語辞典カテゴリ定義
+const GLOSSARY_CATEGORIES = [
+  { id: '構成理論', icon: 'fa-diagram-project', color: 'kon', desc: '物語構造・幕構成・ビートシートの理論と用語' },
+  { id: 'キャラクター', icon: 'fa-person-walking', color: 'momo', desc: 'アーク・欲求・傷・声など登場人物の設計用語' },
+  { id: 'セリフ技法', icon: 'fa-comments', color: 'asagi', desc: 'サブテキスト・ボイス・対話の技法用語' },
+  { id: 'フォーマット', icon: 'fa-scroll', color: 'fuji', desc: '柱書き・ト書き・スクリプト書式の規則' },
+  { id: '感情設計', icon: 'fa-heart-pulse', color: 'kogane', desc: 'カタルシス・テンション・ペーシングの感情工学' },
+  { id: '企画・開発', icon: 'fa-lightbulb', color: 'beni', desc: 'ログライン・ピッチ・テーマ・プレミスの企画用語' },
+  { id: '執筆技術', icon: 'fa-pen-nib', color: 'matcha', desc: '初稿・推敲・時間管理の実践的執筆技術' },
 ];
 
 function renderLearnGlossary(hero, subnav) {
-  const gFilter = DB.get('glossary_filter', { category: '', search: '' });
-  const allCats = [...new Set(GLOSSARY_DATA.map(g => g.category))];
-  const filtered = GLOSSARY_DATA.filter(g => {
-    if (gFilter.category && g.category !== gFilter.category) return false;
-    if (gFilter.search) {
-      const q = gFilter.search.toLowerCase();
-      if (!g.term.toLowerCase().includes(q) && !g.def.toLowerCase().includes(q) && !g.reading.includes(q)) return false;
-    }
-    return true;
-  });
-
-  // あいうえお順にグループ化
-  const readings = ['あ','い','う','え','お','か','き','く','け','こ','さ','し','す','せ','そ','た','ち','つ','て','と','な','に','ぬ','ね','の','は','ひ','ふ','へ','ほ','ま','み','む','め','も','や','ゆ','よ','ら','り','る','れ','ろ','わ'];
-  const groups = {};
-  filtered.forEach(g => {
-    const r0 = g.reading[0];
-    const group = readings.find(r => r0 <= r && r0 <= r) || r0;
-    // 簡単なグループ化（最初の文字で区切る）
-    const row = r0 <= 'お' ? 'あ行' : r0 <= 'こ' ? 'か行' : r0 <= 'そ' ? 'さ行' : r0 <= 'と' ? 'た行' : r0 <= 'の' ? 'な行' : r0 <= 'ほ' ? 'は行' : r0 <= 'も' ? 'ま行' : r0 <= 'よ' ? 'や行' : r0 <= 'ろ' ? 'ら行' : 'わ行';
-    if (!groups[row]) groups[row] = [];
-    groups[row].push(g);
-  });
-
-  const itemsHtml = Object.entries(groups).map(([row, terms]) => `
-  <div style="margin-bottom:24px">
-    <div style="font-size:14px;font-weight:700;color:var(--fuji);margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid var(--fuji)">${row}</div>
-    <div style="display:grid;gap:8px">
-      ${terms.map(g => {
-        const c = COLOR_MAP[g.color] || COLOR_MAP['beni'];
-        return `
-        <div style="padding:12px 14px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);border-left:3px solid ${c.color}">
-          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-bottom:5px">
-            <span style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${esc(g.term)}</span>
-            <span style="font-size:11px;color:var(--text-muted)">${esc(g.reading)}</span>
-            <span style="font-size:10px;padding:1px 7px;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:var(--radius-full);font-weight:600;margin-left:auto">${g.category}</span>
-          </div>
-          <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.8">${esc(g.def)}</div>
-        </div>`;
-      }).join('')}
-    </div>
-  </div>`).join('');
-
-  const filterBar = `
-  <div class="learn-filter-bar">
-    <div style="position:relative;flex:1">
-      <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:12px;pointer-events:none"></i>
-      <input class="form-input" style="padding-left:30px;height:34px;font-size:12px" placeholder="用語を検索…" value="${esc(gFilter.search)}" oninput="setGlossaryFilter('search',this.value)">
-    </div>
-    <select class="form-select" style="height:34px;font-size:12px;width:auto" onchange="setGlossaryFilter('category',this.value)">
-      <option value="">全カテゴリ</option>
-      ${allCats.map(c=>`<option value="${c}" ${gFilter.category===c?'selected':''}>${c}</option>`).join('')}
-    </select>
-    ${(gFilter.category||gFilter.search)?`<button class="btn btn-ghost btn-sm" onclick="clearGlossaryFilter()"><i class="fas fa-rotate-left"></i></button>`:''}
-  </div>`;
-
+  // カテゴリ一覧画面
   return `${hero}${subnav}
-  <div style="padding:14px 16px;background:var(--fuji-bg);border:1px solid var(--fuji-border);border-radius:var(--radius-md);margin-bottom:18px;display:flex;align-items:center;gap:12px">
+  <div style="padding:14px 16px;background:var(--fuji-bg);border:1px solid var(--fuji-border);border-radius:var(--radius-md);margin-bottom:20px;display:flex;align-items:center;gap:12px">
     <i class="fas fa-book-bookmark" style="color:var(--fuji);font-size:22px;flex-shrink:0"></i>
     <div>
       <div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-bottom:2px">脚本用語辞典</div>
-      <div style="font-size:12px;color:var(--text-muted)">脚本執筆で頻出する専門用語・理論用語を${GLOSSARY_DATA.length}語収録。読み方・カテゴリ・解説付き。</div>
+      <div style="font-size:12px;color:var(--text-muted)">カテゴリから用語を探すか、検索してください。全${GLOSSARY_DATA.length}語収録・詳細解説付き。</div>
     </div>
   </div>
-  ${filterBar}
-  <div style="font-size:12px;color:var(--text-muted);margin-bottom:14px">${filtered.length}語（全${GLOSSARY_DATA.length}語）</div>
-  ${itemsHtml || '<div style="text-align:center;padding:40px;color:var(--text-muted)">検索条件に一致する用語がありません</div>'}`;
+  <div style="margin-bottom:16px">
+    <div style="position:relative">
+      <i class="fas fa-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:13px;pointer-events:none"></i>
+      <input class="form-input" style="padding-left:36px;height:40px;font-size:13px" placeholder="用語名・読み・説明で検索…" id="glossary-quick-search" oninput="quickSearchGlossary(this.value)">
+    </div>
+    <div id="glossary-search-results" style="display:none;margin-top:10px"></div>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px">
+    ${GLOSSARY_CATEGORIES.map(cat => {
+      const terms = GLOSSARY_DATA.filter(g => g.category === cat.id);
+      const c = COLOR_MAP[cat.color] || COLOR_MAP['fuji'];
+      return `
+      <div class="card" style="cursor:pointer;padding:18px 20px;border-top:3px solid ${c.color};transition:all .2s" onclick="navigate('glossary-cat-${encodeURIComponent(cat.id)}')" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div style="width:36px;height:36px;border-radius:var(--radius-md);background:${c.bg};border:1px solid ${c.border};display:flex;align-items:center;justify-content:center;font-size:16px;color:${c.color};flex-shrink:0">
+            <i class="fas ${cat.icon}"></i>
+          </div>
+          <div>
+            <div style="font-size:14px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${cat.id}</div>
+            <div style="font-size:10.5px;color:var(--text-muted)">${terms.length}用語</div>
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-bottom:12px">${cat.desc}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:4px">
+          ${terms.slice(0,4).map(g => `<span style="font-size:10px;padding:1px 7px;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:var(--radius-full)">${g.term}</span>`).join('')}
+          ${terms.length > 4 ? `<span style="font-size:10px;color:var(--text-muted)">+${terms.length-4}語</span>` : ''}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
 }
 
-function setGlossaryFilter(key, val) {
-  const f = DB.get('glossary_filter', { category:'', search:'' });
-  f[key] = val;
-  DB.set('glossary_filter', f);
-  render();
+function quickSearchGlossary(q) {
+  const container = document.getElementById('glossary-search-results');
+  if (!q || q.length < 1) { container.style.display = 'none'; return; }
+  const results = GLOSSARY_DATA.filter(g =>
+    g.term.includes(q) || g.reading.includes(q.toLowerCase()) || g.def.includes(q)
+  );
+  if (results.length === 0) {
+    container.innerHTML = `<div style="padding:12px;color:var(--text-muted);font-size:13px">「${q}」に一致する用語が見つかりません</div>`;
+  } else {
+    container.innerHTML = `
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">${results.length}件ヒット</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${results.map(g => {
+        const c = COLOR_MAP[g.color] || COLOR_MAP['fuji'];
+        return `<div style="padding:10px 14px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);border-left:3px solid ${c.color};cursor:pointer" onclick="navigate('glossary-term-${g.id}')">
+          <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:3px">
+            <span style="font-size:14px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${g.term}</span>
+            <span style="font-size:11px;color:var(--text-muted)">${g.reading}</span>
+            <span style="font-size:10px;padding:1px 7px;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:var(--radius-full);margin-left:auto">${g.category}</span>
+          </div>
+          <div style="font-size:12px;color:var(--text-secondary);line-height:1.6">${g.def}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+  container.style.display = 'block';
 }
-function clearGlossaryFilter() {
-  DB.set('glossary_filter', { category:'', search:'' });
-  render();
+
+function renderGlossaryCategoryPage(catName) {
+  const decodedCat = decodeURIComponent(catName);
+  const catDef = GLOSSARY_CATEGORIES.find(c => c.id === decodedCat);
+  const terms = GLOSSARY_DATA.filter(g => g.category === decodedCat);
+  const c = catDef ? (COLOR_MAP[catDef.color] || COLOR_MAP['fuji']) : COLOR_MAP['fuji'];
+
+  return `
+  <div style="max-width:820px">
+    <div class="article-back-btn" onclick="navigate('learn-glossary')">
+      <i class="fas fa-arrow-left"></i> 用語辞典トップに戻る
+    </div>
+    <div style="background:linear-gradient(135deg,${c.bg},var(--bg-subtle));border:1px solid ${c.border};border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:22px;position:relative;overflow:hidden">
+      <div style="width:24px;height:2.5px;background:${c.color};border-radius:2px;margin-bottom:10px"></div>
+      <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:6px">
+        <i class="fas ${catDef?.icon||'fa-book'}" style="color:${c.color};margin-right:8px"></i>${decodedCat}
+      </div>
+      <div style="font-size:13px;color:var(--text-muted)">${catDef?.desc||''} — ${terms.length}語収録</div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${terms.map(g => `
+      <div class="card" style="cursor:pointer;padding:16px 18px;border-left:3px solid ${c.color};transition:all .15s" onclick="navigate('glossary-term-${g.id}')" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+        <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:5px;flex-wrap:wrap">
+          <span style="font-size:16px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${g.term}</span>
+          <span style="font-size:12px;color:var(--text-muted)">${g.reading}</span>
+          <span style="margin-left:auto;font-size:11px;color:${c.color};font-weight:600">詳細を読む <i class="fas fa-chevron-right" style="font-size:9px"></i></span>
+        </div>
+        <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.75">${g.def}</div>
+        ${g.related && g.related.length > 0 ? `
+        <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">
+          <span style="font-size:10px;color:var(--text-muted)">関連：</span>
+          ${g.related.map(rid => {
+            const rel = GLOSSARY_DATA.find(x => x.id === rid);
+            return rel ? `<span style="font-size:10px;padding:1px 7px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-full);color:var(--text-secondary)">${rel.term}</span>` : '';
+          }).join('')}
+        </div>` : ''}
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function renderGlossaryTermPage(termId) {
+  const g = GLOSSARY_DATA.find(x => x.id === termId);
+  if (!g) return `<div class="article-page"><div class="article-back-btn" onclick="navigate('learn-glossary')"><i class="fas fa-arrow-left"></i> 用語辞典に戻る</div><div style="text-align:center;padding:60px;color:var(--text-muted)">用語が見つかりません</div></div>`;
+  const c = COLOR_MAP[g.color] || COLOR_MAP['fuji'];
+  const catTerms = GLOSSARY_DATA.filter(x => x.category === g.category && x.id !== g.id);
+
+  return `
+  <div style="max-width:820px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="article-back-btn" style="margin-bottom:0" onclick="navigate('learn-glossary')">
+        <i class="fas fa-arrow-left"></i> 用語辞典
+      </div>
+      <span style="color:var(--text-muted);font-size:12px">›</span>
+      <span style="font-size:12px;color:var(--text-muted);cursor:pointer" onclick="navigate('glossary-cat-${g.category}')">${g.category}</span>
+    </div>
+    <div class="article-header" style="margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--border);position:relative">
+      <div style="position:absolute;bottom:-1px;left:0;width:40px;height:2px;background:${c.color};border-radius:1px"></div>
+      <span style="font-size:11px;padding:3px 12px;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:var(--radius-full);font-weight:600;display:inline-block;margin-bottom:10px">
+        <i class="fas fa-book-bookmark" style="margin-right:4px;font-size:9px"></i>${g.category}
+      </span>
+      <div class="article-title" style="font-family:'Noto Serif JP',serif;font-size:26px">${g.term}</div>
+      <div style="font-size:14px;color:var(--text-muted);margin-top:4px;font-style:italic">${g.reading}</div>
+      <div style="margin-top:12px;font-size:14px;color:var(--text-secondary);line-height:1.8;background:${c.bg};border:1px solid ${c.border};border-radius:var(--radius-md);padding:12px 16px">${g.def}</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 220px;gap:20px;align-items:start">
+      <div>
+        <div class="article-body">
+          ${g.detail || '<p style="color:var(--text-muted)">詳細は準備中です。</p>'}
+        </div>
+      </div>
+      <div style="position:sticky;top:80px;display:flex;flex-direction:column;gap:12px">
+        ${g.related && g.related.length > 0 ? `
+        <div class="card" style="padding:14px">
+          <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:10px">
+            <i class="fas fa-link" style="color:${c.color};margin-right:5px"></i>関連用語
+          </div>
+          ${g.related.map(rid => {
+            const rel = GLOSSARY_DATA.find(x => x.id === rid);
+            if (!rel) return '';
+            const rc = COLOR_MAP[rel.color] || COLOR_MAP['fuji'];
+            return `<div style="padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;margin-bottom:5px;border-left:2px solid ${rc.color}" onclick="navigate('glossary-term-${rel.id}')">
+              <div style="font-size:13px;font-weight:700;color:var(--text-primary)">${rel.term}</div>
+              <div style="font-size:10.5px;color:var(--text-muted)">${rel.reading}</div>
+            </div>`;
+          }).join('')}
+        </div>` : ''}
+        <div class="card" style="padding:14px">
+          <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:10px">
+            <i class="fas fa-folder" style="color:${c.color};margin-right:5px"></i>${g.category}の他の用語
+          </div>
+          ${catTerms.slice(0,5).map(rel => `
+          <div style="padding:6px 0;border-bottom:1px solid var(--border-subtle);cursor:pointer" onclick="navigate('glossary-term-${rel.id}')">
+            <div style="font-size:12.5px;font-weight:600;color:var(--text-primary)">${rel.term}</div>
+            <div style="font-size:10.5px;color:var(--text-muted)">${rel.reading}</div>
+          </div>`).join('')}
+          ${catTerms.length > 5 ? `<div style="margin-top:6px;font-size:11px;color:var(--text-muted);cursor:pointer" onclick="navigate('glossary-cat-${g.category}')">他${catTerms.length-5}語を見る →</div>` : ''}
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:28px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-ghost btn-sm" onclick="navigate('learn-glossary')"><i class="fas fa-book-bookmark"></i> 用語辞典トップ</button>
+      <button class="btn btn-ghost btn-sm" onclick="navigate('glossary-cat-${g.category}')"><i class="fas fa-folder"></i> ${g.category}一覧</button>
+      <button class="btn btn-ghost btn-sm" onclick="navigate('learn-articles')"><i class="fas fa-newspaper"></i> 記事を読む</button>
+    </div>
+  </div>`;
 }
 
 // ================================================================
@@ -7560,6 +8586,95 @@ function setLearnFilter(key, val) {
 function clearLearnFilter() {
   DB.set('learn_article_filter', { category: '', search: '', showBookmark: false });
   navigate('learn-articles');
+}
+
+// 記事クイック検索
+function quickSearchArticles(q) {
+  const container = document.getElementById('article-search-results');
+  if (!q || q.length < 1) { if(container) container.style.display = 'none'; return; }
+  const readArticles = DB.get('read_articles', []);
+  const results = ARTICLES.filter(a =>
+    a.title.toLowerCase().includes(q.toLowerCase()) ||
+    (a.desc||'').toLowerCase().includes(q.toLowerCase()) ||
+    a.tags.some(t => t.toLowerCase().includes(q.toLowerCase()))
+  );
+  if (!container) return;
+  if (results.length === 0) {
+    container.innerHTML = `<div style="padding:12px;color:var(--text-muted);font-size:13px">「${q}」に一致する記事が見つかりません</div>`;
+  } else {
+    container.innerHTML = `
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">${results.length}件ヒット</div>
+    ${results.map(a => {
+      const c = COLOR_MAP[a.categoryColor] || COLOR_MAP['beni'];
+      const isRead = readArticles.includes(a.id);
+      return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);cursor:pointer;margin-bottom:5px" onclick="navigate('article-${a.id}')">
+        <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:${c.bg};color:${c.color};display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0"><i class="fas ${a.icon}"></i></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:1px">${esc(a.title)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${a.category} · ${a.readTime}分 ${isRead?'· ✅ 既読':''}</div>
+        </div>
+      </div>`;
+    }).join('')}`;
+  }
+  container.style.display = 'block';
+}
+
+// 記事カテゴリサブページ
+function renderArticleCategoryPage(catName) {
+  const catArticles = ARTICLES.filter(a => a.category === catName);
+  if (catArticles.length === 0) {
+    return `<div class="article-page"><div class="article-back-btn" onclick="navigate('learn-articles')"><i class="fas fa-arrow-left"></i> 記事一覧に戻る</div><div style="text-align:center;padding:60px;color:var(--text-muted)">カテゴリが見つかりません</div></div>`;
+  }
+  const firstArticle = catArticles[0];
+  const c = COLOR_MAP[firstArticle.categoryColor] || COLOR_MAP['beni'];
+  const readArticles = DB.get('read_articles', []);
+  const bookmarkedArticles = DB.get('bookmarked_articles', []);
+  const readCount = catArticles.filter(a => readArticles.includes(a.id)).length;
+
+  return `
+  <div style="max-width:820px">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;flex-wrap:wrap">
+      <div class="article-back-btn" style="margin-bottom:0" onclick="navigate('learn-articles')">
+        <i class="fas fa-arrow-left"></i> 記事一覧
+      </div>
+      <span style="color:var(--text-muted);font-size:12px">›</span>
+      <span style="font-size:12px;color:var(--text-muted)">${catName}</span>
+    </div>
+    <div style="background:linear-gradient(135deg,${c.bg},var(--bg-subtle));border:1px solid ${c.border};border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:22px;position:relative;overflow:hidden">
+      <div style="width:24px;height:2.5px;background:${c.color};border-radius:2px;margin-bottom:10px"></div>
+      <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:6px">
+        <i class="fas fa-folder" style="color:${c.color};margin-right:8px"></i>${catName}
+      </div>
+      <div style="font-size:13px;color:var(--text-muted)">${catArticles.length}本の記事 — ${readCount}本読了</div>
+      <div style="margin-top:10px;height:6px;background:var(--bg-hover);border-radius:3px;overflow:hidden;max-width:200px">
+        <div style="height:100%;width:${catArticles.length>0?Math.round(readCount/catArticles.length*100):0}%;background:${c.color};border-radius:3px"></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${catArticles.map(a => {
+        const isRead = readArticles.includes(a.id);
+        const isBm = bookmarkedArticles.includes(a.id);
+        return `
+        <div class="card" style="padding:14px 16px;cursor:pointer;display:flex;align-items:center;gap:12px${isRead?';opacity:.9':''};transition:all .15s" onclick="navigate('article-${a.id}')" onmouseover="this.style.background='var(--bg-hover)'" onmouseout="this.style.background=''">
+          <div style="width:40px;height:40px;border-radius:var(--radius-md);background:${c.bg};color:${c.color};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">
+            <i class="fas ${a.icon}"></i>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;flex-wrap:wrap">
+              <span style="font-size:13.5px;font-weight:700;color:var(--text-primary)">${esc(a.title)}</span>
+              ${isRead ? `<span style="font-size:10px;padding:1px 7px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border);border-radius:var(--radius-full);font-weight:600"><i class="fas fa-check" style="font-size:8px"></i> 既読</span>` : ''}
+              ${isBm ? `<i class="fas fa-bookmark" style="color:var(--kogane);font-size:12px"></i>` : ''}
+            </div>
+            <div style="font-size:12px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.desc||'')}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            <span style="font-size:11px;color:var(--text-muted)"><i class="fas fa-clock" style="font-size:9px"></i> ${a.readTime}分</span>
+            <i class="fas fa-chevron-right" style="font-size:10px;color:${c.color}"></i>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
 }
 
 function toggleGuideStep(guideId, stepNum, checked) {
@@ -8966,16 +10081,16 @@ function renderGuidePage(guideId) {
     'guide-guide-character-design': renderGuideCharacterDesign(),
     'guide-guide-scene-writing': renderGuideSceneWriting(),
     'guide-guide-tension': renderGuideTension(),
+    'guide-guide-antagonist': renderGuideAntagonist(),
+    'guide-guide-subplots': renderGuideSubplots(),
+    'guide-guide-opening': renderGuideOpening(),
+    'guide-guide-theme': renderGuideTheme(),
   };
 
   const body = guideContents[`guide-${guideId}`] || guideContents[guideId] || `<p style="color:var(--text-muted);text-align:center;padding:40px">ガイドコンテンツは準備中です。</p>`;
 
-  // ガイド進捗トラッキング
-  const readGuides = DB.get('read_guides', []);
-  const isRead = readGuides.includes(guideId);
-  // 各ガイドのステップ完了トラッキング
+  // ガイドのステップ完了トラッキング（廃止 — サイドバーは関連コンテンツに変更）
   const guideStepsKey = `guide_steps_${guideId}`;
-  const completedSteps = DB.get(guideStepsKey, []);
 
   // 自動既読マーク
   setTimeout(() => {
@@ -8986,19 +10101,6 @@ function renderGuidePage(guideId) {
   const guideIdx = GUIDES.findIndex(g => `guide-${g.id}` === guideId);
   const prevGuide = guideIdx > 0 ? GUIDES[guideIdx - 1] : null;
   const nextGuide = guideIdx < GUIDES.length - 1 ? GUIDES[guideIdx + 1] : null;
-
-  // ステップチェックリスト生成
-  const stepChecks = Array.from({length: guide.steps}, (_,i) => {
-    const stepNum = i + 1;
-    const isDone = completedSteps.includes(stepNum);
-    return `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:${isDone?'var(--matcha-bg)':'var(--bg-subtle)'};border:1px solid ${isDone?'var(--matcha-border)':'var(--border)'};border-radius:var(--radius-sm);cursor:pointer;font-size:12px;font-weight:600;color:${isDone?'var(--matcha)':'var(--text-secondary)'};transition:all .2s">
-      <input type="checkbox" ${isDone?'checked':''} onchange="toggleGuideStep('${guideId}',${stepNum},this.checked)" style="accent-color:var(--matcha);width:15px;height:15px">
-      <i class="fas fa-${isDone?'check-circle':'circle'}" style="font-size:11px;color:${isDone?'var(--matcha)':'var(--text-muted)'}"></i>
-      Step ${stepNum}
-    </label>`;
-  }).join('');
-
-  const stepPct = guide.steps > 0 ? Math.round(completedSteps.length / guide.steps * 100) : 0;
 
   return `
   <div style="max-width:820px">
@@ -9011,8 +10113,6 @@ function renderGuidePage(guideId) {
         <div class="article-category-tag" style="background:${c.bg};color:${c.color};border:1px solid ${c.border}">
           <i class="fas ${guide.icon}"></i> ステップバイステップガイド
         </div>
-        ${isRead ? `<span style="font-size:11px;padding:3px 10px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border);border-radius:10px;font-weight:600"><i class="fas fa-check"></i> 読了</span>` : ''}
-        ${stepPct > 0 ? `<span style="font-size:11px;padding:3px 10px;background:var(--fuji-bg);color:var(--fuji);border:1px solid var(--fuji-border);border-radius:10px;font-weight:600"><i class="fas fa-tasks"></i> ${stepPct}% 完了</span>` : ''}
       </div>
       <div class="article-title">${esc(guide.title)}</div>
       <div class="article-subtitle">${esc(guide.desc)}</div>
@@ -9028,23 +10128,21 @@ function renderGuidePage(guideId) {
         <div class="article-body">${body}</div>
       </div>
       <div style="position:sticky;top:80px">
-        <div class="card" style="padding:14px">
+        <!-- ガイドナビ -->
+        <div class="card" style="padding:14px;margin-bottom:12px">
           <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:10px">
-            <i class="fas fa-tasks" style="color:${c.color};margin-right:5px"></i>進捗チェック
+            <i class="fas fa-compass" style="color:${c.color};margin-right:5px"></i>このガイドで学ぶこと
           </div>
-          <div style="height:6px;background:var(--bg-hover);border-radius:3px;overflow:hidden;margin-bottom:10px">
-            <div style="height:100%;width:${stepPct}%;background:${c.color};border-radius:3px;transition:width .4s"></div>
-          </div>
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px;text-align:center">${completedSteps.length}/${guide.steps} ステップ完了</div>
-          <div style="display:flex;flex-direction:column;gap:5px">
-            ${stepChecks}
-          </div>
-          ${completedSteps.length === guide.steps ? `
-          <div style="margin-top:12px;padding:8px;background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-sm);text-align:center;font-size:11.5px;font-weight:700;color:var(--matcha)">
-            🎉 全ステップ完了！
-          </div>` : ''}
-          ${nextGuide ? `<button class="btn btn-primary btn-sm" style="width:100%;margin-top:10px" onclick="navigate('article-guide-${nextGuide.id}')"><i class="fas fa-chevron-right"></i> 次のガイドへ</button>` : ''}
+          <div style="font-size:12px;color:var(--text-secondary);line-height:1.8">${esc(guide.desc)}</div>
+          <div style="margin-top:12px;font-size:11px;color:var(--text-muted)">${guide.steps}つのポイントを順番に解説します</div>
         </div>
+        <!-- 他のガイド -->
+        ${nextGuide ? `
+        <div class="card" style="padding:12px">
+          <div style="font-size:11px;font-weight:700;color:var(--text-muted);margin-bottom:8px">次のガイド</div>
+          <div style="font-size:12.5px;font-weight:700;color:var(--text-primary);cursor:pointer;line-height:1.5" onclick="navigate('article-guide-${nextGuide.id}')">${esc(nextGuide.title)}</div>
+          <button class="btn btn-primary btn-sm" style="width:100%;margin-top:8px" onclick="navigate('article-guide-${nextGuide.id}')"><i class="fas fa-chevron-right"></i> 次へ進む</button>
+        </div>` : ''}
       </div>
     </div>
 
@@ -9060,8 +10158,8 @@ function renderGuidePage(guideId) {
       </div>
       <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" onclick="navigate('learn-articles')"><i class="fas fa-newspaper"></i> 記事も見る</button>
+        <button class="btn btn-ghost btn-sm" onclick="navigate('learn-exercises')"><i class="fas fa-fist-raised"></i> 道場で練習</button>
         <button class="btn btn-ghost btn-sm" onclick="navigate('learn-guide')"><i class="fas fa-list"></i> すべてのガイド</button>
-        <button class="btn btn-ghost btn-sm" onclick="resetGuideSteps('${guideId}')"><i class="fas fa-rotate-left"></i> 進捗リセット</button>
       </div>
     </div>
   </div>`;
@@ -9157,86 +10255,238 @@ function renderGuideFormat() {
 function renderGuideLogline() {
   return `
   <div class="article-callout beni">
-    ログラインは脚本の「エレベーターピッチ」。1〜2文でプロデューサーや俳優が「見たい！」と思う要素を凝縮します。
+    ログラインは脚本の「エレベーターピッチ」。1〜2文でプロデューサーや俳優が「見たい！」と思う要素を凝縮します。プロデューサーは1日に数十本のログラインを読む——最初の10秒で「続きを読む気にさせる力」が必要です。
   </div>
-  <h2>Step 1 — ログラインの公式</h2>
-  <p>最もシンプルなログラインの公式：</p>
+  <h2>Step 1 — ログラインとは何か</h2>
+  <p>ログラインは単なる「あらすじの短縮版」ではありません。物語の<strong>DNA</strong>——主人公・目標・障害・テーマが一文に凝縮されており、読んだだけで「この映画を観たら何を感じるか」が予測できる文です。</p>
+  <div class="concept-cards">
+    <div class="concept-card-sm"><span class="icon">🎯</span><div class="label">主人公の欠如</div><div class="sub">どんな内的傷を持つ人物か</div></div>
+    <div class="concept-card-sm"><span class="icon">🔥</span><div class="label">外的ゴール</div><div class="sub">何を達成しようとするか</div></div>
+    <div class="concept-card-sm"><span class="icon">⚔️</span><div class="label">障害</div><div class="sub">何が、誰が邪魔するか</div></div>
+    <div class="concept-card-sm"><span class="icon">💡</span><div class="label">テーマの匂い</div><div class="sub">物語が問う根本的問い</div></div>
+  </div>
+
+  <h2>Step 2 — ログラインの公式（3レベル）</h2>
+  <p><strong>基本形：</strong></p>
   <div style="background:var(--accent-bg);border:1.5px solid var(--accent-border);border-radius:var(--radius-md);padding:16px 20px;margin:12px 0;font-family:'Noto Serif JP',serif;font-size:13.5px;line-height:1.8;font-style:italic">
-    「[キャラクター] は [ゴール] を達成しようとするが、[障害] によって阻まれる。」
+    「[欠如を持つキャラクター] は [目標] を追うが、[障害] によって阻まれる。」
   </div>
-  <h2>Step 2 — 良いログラインの4条件</h2>
+  <p><strong>中級形（テーマを加える）：</strong></p>
+  <div style="background:var(--fuji-bg);border:1.5px solid var(--fuji-border);border-radius:var(--radius-md);padding:16px 20px;margin:12px 0;font-family:'Noto Serif JP',serif;font-size:13.5px;line-height:1.8">
+    「[欠如を持つキャラクター] は [ゴール] を達成しようとするが、[障害] に直面し、[テーマとなる選択] を迫られる。」
+  </div>
+  <p><strong>上級形（逆説・矛盾を加える）：</strong></p>
+  <div style="background:var(--matcha-bg);border:1.5px solid var(--matcha-border);border-radius:var(--radius-md);padding:16px 20px;margin:12px 0;font-family:'Noto Serif JP',serif;font-size:13.5px;line-height:1.8">
+    「[目標を持つキャラクター] が [障害] と戦う中で、[本当に問われるものが実は目標と正反対だった] と気づく。」
+  </div>
+
+  <h2>Step 3 — 良いログラインの5条件</h2>
   <div class="beat-list">
-    <div class="beat-item"><div class="beat-num" style="background:var(--accent)">1</div><div class="beat-content"><div class="beat-title">主人公の明確化</div><div class="beat-desc">「刑事」「シングルマザー」など具体的・ユニークな属性</div></div></div>
-    <div class="beat-item"><div class="beat-num" style="background:var(--accent)">2</div><div class="beat-content"><div class="beat-title">ゴールの明確化</div><div class="beat-desc">何を達成しようとしているか。測定可能で明確であること</div></div></div>
-    <div class="beat-item"><div class="beat-num" style="background:var(--accent)">3</div><div class="beat-content"><div class="beat-title">障害の明確化</div><div class="beat-desc">何が邪魔をするか。なるべく具体的で感情的インパクトがあること</div></div></div>
-    <div class="beat-item"><div class="beat-num" style="background:var(--accent)">4</div><div class="beat-content"><div class="beat-title">テーマの匂い</div><div class="beat-desc">「義務か愛か」「正義か友情か」などの葛藤が透けて見えること</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--accent)">1</div><div class="beat-content"><div class="beat-title">主人公が具体的・ユニークである</div><div class="beat-desc">「刑事」より「誤認逮捕した元刑事」。属性に欠如が含まれるほど読む人の関心を引く</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--accent)">2</div><div class="beat-content"><div class="beat-title">ゴールが可視的・具体的である</div><div class="beat-desc">「自分を見つめ直す」はNG。「真犯人を逮捕する」「冤罪を晴らす」のように「達成したかどうか誰が見てもわかる」目標</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--accent)">3</div><div class="beat-content"><div class="beat-title">障害が能動的で感情的である</div><div class="beat-desc">「証拠がない」という状況より「服役させた男が復讐に来る」という能動的な力。感情的インパクトが高いほど良い</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--accent)">4</div><div class="beat-content"><div class="beat-title">テーマの匂いがする</div><div class="beat-desc">「罪と赦し」「自由か安全か」——読んだ後に「何について問う映画か」が感覚的にわかる</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--accent)">5</div><div class="beat-content"><div class="beat-title">字数が適切（40〜65字程度）</div><div class="beat-desc">短すぎると情報不足、長すぎると焦点がぼける。プロの基準は「声に出して息継ぎなしで読める長さ」</div></div></div>
   </div>
-  <h2>Step 3 — ログライン練習：悪い例と良い例</h2>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:12px 0">
-    <div style="background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:var(--radius-md);padding:13px">
-      <div style="font-size:10.5px;font-weight:700;color:var(--accent);margin-bottom:6px">❌ 悪い例</div>
-      <div style="font-size:12px;color:var(--text-secondary);line-height:1.65">ある刑事が難事件を解決しようとする面白い物語。</div>
+
+  <h2>Step 4 — 悪い例と良い例（詳細比較）</h2>
+  <div style="display:grid;gap:12px;margin:12px 0">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:var(--radius-md);padding:13px">
+        <div style="font-size:10.5px;font-weight:700;color:var(--accent);margin-bottom:6px">❌ 悪い例1（抽象的）</div>
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.65">ある刑事が難事件を解決しようとする面白い物語。</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:8px">問題: 誰が・何を・なぜ・どんな障害か何もわからない</div>
+      </div>
+      <div style="background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-md);padding:13px">
+        <div style="font-size:10.5px;font-weight:700;color:var(--matcha);margin-bottom:6px">✅ 良い例1</div>
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.65">誤認逮捕で服役させた元刑事が、出所した男の復讐に追われながら真犯人を探し、自分の罪を償おうとする。</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:8px">改善: 欠如・ゴール・障害・テーマ（罪と赦し）が全て含まれる</div>
+      </div>
     </div>
-    <div style="background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-md);padding:13px">
-      <div style="font-size:10.5px;font-weight:700;color:var(--matcha);margin-bottom:6px">✅ 良い例</div>
-      <div style="font-size:12px;color:var(--text-secondary);line-height:1.65">不正を暴こうとした刑事が、容疑者の中に自分の恩師を発見し、真実と友情の狭間で引き裂かれる。</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div style="background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:var(--radius-md);padding:13px">
+        <div style="font-size:10.5px;font-weight:700;color:var(--accent);margin-bottom:6px">❌ 悪い例2（長すぎる）</div>
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.65">東京で働く30代のOLが、ある日突然上司のパワハラにあい、会社を辞めるかどうかを悩みながら、同僚の支援を受けて最終的に自分らしい生き方を見つける話。</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:8px">問題: 80字超で焦点がない。OL・パワハラ・辞める・同僚・生き方が混在</div>
+      </div>
+      <div style="background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-md);padding:13px">
+        <div style="font-size:10.5px;font-weight:700;color:var(--matcha);margin-bottom:6px">✅ 良い例2</div>
+        <div style="font-size:12px;color:var(--text-secondary);line-height:1.65">他人の期待に生き続けた30代のOLが、上司に内部告発を迫られたとき、初めて「自分が選ぶ」ことの重さと向き合う。</div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:8px">改善: 欠如（他人の期待に生きる）・葛藤・テーマ（自己選択）に絞った</div>
+      </div>
     </div>
   </div>
-  <h2>Step 4 — 磨く練習</h2>
-  <p>ログラインを書いたら次の問いに答えてみてください：①主人公は誰か一言で言えるか？②ゴールは外から見て判断できるか？③障害は感情的か？④テーマが透けるか？すべてYesになるまで磨き続けましょう。</p>`;
+
+  <h2>Step 5 — ログライン自己診断チェックリスト</h2>
+  <p>書いたログラインを次の問いでチェックしてください：</p>
+  <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px 16px;font-size:12.5px;color:var(--text-secondary);line-height:2.2">
+    □ 主人公を一言で説明できるか？<br>
+    □ 主人公に「欠如（内的傷）」があるか？<br>
+    □ ゴールは外から見て達成/未達成がわかるか？<br>
+    □ 障害は「誰かが/何かが能動的に主人公を妨げている」か？<br>
+    □ 読んだ後「このテーマについての映画だ」と感じられるか？<br>
+    □ 40〜65字以内か？（声に出して読めるか？）<br>
+    □ ジャンル（ドラマ/スリラー/コメディ）の空気感があるか？
+  </div>
+
+  <h2>Step 6 — ログラインを磨く3つの問い</h2>
+  <div class="article-callout kogane">
+    <strong>Q1:</strong> 主人公の「欠如」を一語で表すとしたら？ その語がログラインに入っているか？<br>
+    <strong>Q2:</strong> このログラインを読んで「映画のポスター」が浮かぶか？<br>
+    <strong>Q3:</strong> 「誰が、何のために、何と戦うか」を答えられるか？
+  </div>`;
 }
 
 function renderGuideDialogue() {
   return `
   <div class="article-callout momo">
-    良いセリフの鉄則：<em>キャラクターは嘘をつく、隠す、遠回しに言う</em>。直接的すぎるセリフは現実味がない。
+    良いセリフの鉄則：<em>キャラクターは嘘をつく、隠す、遠回しに言う</em>。直接的すぎるセリフは現実味がない。そして最も重要なこと——「言葉は最後の手段」。行動・沈黙・小道具が先に来る。
   </div>
-  <h2>Step 1 — セリフの目的</h2>
-  <p>セリフには必ず目的が必要です。目的なしにキャラクターは話しません。①情報を伝える、②感情を表現する、③他者に影響を与える、④性格を示す——いずれかが含まれていないセリフは削りましょう。</p>
-  <h2>Step 2 — サブテキスト</h2>
-  <p>「言葉の裏にある意味」がサブテキストです。実際に言われた言葉と、本当に意味することが異なるとき、ドラマが生まれます。</p>
-  <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;font-family:'Noto Serif JP',serif;font-size:12.5px;line-height:2;margin:10px 0">
-    <div style="font-size:10px;color:var(--text-muted);margin-bottom:8px">例：「大丈夫？」という言葉でも、誰が誰にどんな状況で言うかで意味が変わる</div>
-    <div style="text-align:center;font-weight:700">田中</div>
-    <div style="margin:0 40px">…大丈夫か？</div>
-    <div style="font-size:11px;color:var(--text-muted);margin-top:8px">→ 実際は「許してくれるか？」という謝罪を含む言葉</div>
+  <h2>Step 1 — セリフの目的4分類</h2>
+  <p>セリフには必ず目的が必要です。目的なしにキャラクターは話しません。</p>
+  <div class="concept-cards">
+    <div class="concept-card-sm"><span class="icon">📢</span><div class="label">情報伝達</div><div class="sub">物語上必要な情報を観客に届ける</div></div>
+    <div class="concept-card-sm"><span class="icon">🎭</span><div class="label">感情表現</div><div class="sub">（しかし直接言わずに行動で示す）</div></div>
+    <div class="concept-card-sm"><span class="icon">⚡</span><div class="label">他者への影響</div><div class="sub">相手を説得・操作・挑発する</div></div>
+    <div class="concept-card-sm"><span class="icon">🔍</span><div class="label">キャラクター性</div><div class="sub">誰が言うかでその人物像を見せる</div></div>
   </div>
-  <h2>Step 3 — キャラクターの「声」</h2>
-  <p>異なるキャラクターのセリフを読んで、名前を隠しても誰が言ったかわかりますか？ わかれば「声」ができています。語彙、口調、句読点の使い方、話題の選び方が個性を作ります。</p>
-  <h2>Step 4 — 避けるべきセリフのパターン</h2>
-  <ul>
-    <li><strong>説明的すぎるセリフ：</strong>「ご存知の通り、我が社の業績が…」→ 登場人物同士が知っている情報を改めて言う必要はない</li>
-    <li><strong>テーマを直接言う：</strong>「これが真の友情というものだ」→ テーマはセリフより行動で示す</li>
-    <li><strong>感情ラベリング：</strong>「私は今、とても悲しい」→ 行動と状況で悲しさを示す</li>
-  </ul>
-  <h2>Step 5 — リズムと間（ま）</h2>
-  <p>会話のリズムを意識しましょう。長い台詞と短い台詞を混ぜる。沈黙（ト書きに「間」と書く）を効果的に使う。日本の演劇・テレビは「間」を非常に大切にします。</p>
-  <h2>Step 6 — 声に出して読む</h2>
-  <p>セリフは必ず声に出して読んでください。読みにくいセリフは実際に言いにくいセリフです。自然に口から出る言葉を目指しましょう。</p>`;
+  <div class="article-callout asagi">
+    いずれかの目的がないセリフは削るか改変すべきです。「この台詞は何のために存在するか」を常に自問してください。
+  </div>
+
+  <h2>Step 2 — サブテキスト（言外の意味）の技術</h2>
+  <p>「言葉の裏にある意味」がサブテキストです。現実のコミュニケーションでは、人は自分の本音をほとんど直接言いません——それが自然な人間の姿です。</p>
+  <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;font-family:'Noto Serif JP',serif;font-size:12.5px;line-height:2.2;margin:10px 0">
+    <div style="font-size:10px;font-weight:700;color:var(--text-muted);margin-bottom:12px">例：同じ内容を「直接」と「サブテキスト」で書く</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div>
+        <div style="font-size:10.5px;font-weight:700;color:var(--accent);margin-bottom:6px">❌ オン・ザ・ノーズ（直接的）</div>
+        <div>田中「君のことが心配だ。もっと自分を大切にしてほしい」</div>
+        <div>美咲「ありがとう。でも、大丈夫」</div>
+      </div>
+      <div>
+        <div style="font-size:10.5px;font-weight:700;color:var(--matcha);margin-bottom:6px">✅ サブテキストあり</div>
+        <div>田中「……傘、持ってる？」</div>
+        <div>美咲「え、今日降るの？」</div>
+        <div>田中「（間）…わからないけど」</div>
+      </div>
+    </div>
+  </div>
+  <p>サブテキストを作る4つの方法：</p>
+  <div class="beat-list">
+    <div class="beat-item"><div class="beat-num" style="background:var(--momo)">1</div><div class="beat-content"><div class="beat-title">「別の話題」に変換する</div><div class="beat-desc">「心配している」→「今夜、帰りは遅い？」（間接的な確認で愛情を示す）</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--momo)">2</div><div class="beat-content"><div class="beat-title">沈黙と「……」を使う</div><div class="beat-desc">言えない言葉を沈黙で表す。「……」一つで10行分の感情を語れる</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--momo)">3</div><div class="beat-content"><div class="beat-title">小道具に感情を込める</div><div class="beat-desc">お守りを渡す、ドアを閉める——行動に本音を託す</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--momo)">4</div><div class="beat-content"><div class="beat-title">「否定の言葉」を逆説的に使う</div><div class="beat-desc">「邪魔だから持ってって」（本当は大切なものを手放す）——否定が愛情になる</div></div></div>
+  </div>
+
+  <h2>Step 3 — キャラクターの「声（ヴォイス）」設計</h2>
+  <p>名前を隠してもセリフを読めば「誰が言ったかわかる」状態が理想です。</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0">
+    <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--text-primary);margin-bottom:8px">声を作る5要素</div>
+      <ul style="font-size:11.5px;color:var(--text-secondary);line-height:2;margin:0;padding-left:16px">
+        <li><strong>語彙レベル</strong> — 難しい言葉を使うか、平易か</li>
+        <li><strong>文の長さ</strong> — 短く切るか、長く語るか</li>
+        <li><strong>口癖・フィラー</strong> — 「つまり」「わかります？」</li>
+        <li><strong>話題の選択</strong> — 何に注目し何を無視するか</li>
+        <li><strong>ユーモアのタイプ</strong> — 皮肉か、自虐か、無口か</li>
+      </ul>
+    </div>
+    <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px">
+      <div style="font-size:11px;font-weight:700;color:var(--text-primary);margin-bottom:8px">声のテスト</div>
+      <ul style="font-size:11.5px;color:var(--text-secondary);line-height:2;margin:0;padding-left:16px">
+        <li>名前を隠してセリフを読む</li>
+        <li>「このキャラなら絶対言わない」を1つ決める</li>
+        <li>実在の俳優を当てはめて読む</li>
+        <li>声に出して「しっくりくるか」確認する</li>
+        <li>異なるキャラのセリフを並べて見比べる</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>Step 4 — コンクール審査で減点される3大NGパターン</h2>
+  <div style="display:grid;gap:10px;margin:12px 0">
+    <div style="background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:var(--radius-md);padding:13px">
+      <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:6px">❌ オン・ザ・ノーズ（Over-explanation）</div>
+      <div style="font-size:12px;color:var(--text-secondary)">"ご存知の通り、我が社はこの10年間で..." → 登場人物同士が既知の情報を会話で確認するパターン。観客への情報伝達のためにキャラクターを「道具」にしている。</div>
+    </div>
+    <div style="background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:var(--radius-md);padding:13px">
+      <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:6px">❌ テーマを直接言う（Theme statement）</div>
+      <div style="font-size:12px;color:var(--text-secondary)">"友情こそが人生で最も大切なものだ" → テーマはキャラクターの行動・選択・犠牲で「感じさせる」。言葉で宣言した瞬間、それはテーマでなく「説教」になる。</div>
+    </div>
+    <div style="background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:var(--radius-md);padding:13px">
+      <div style="font-size:11px;font-weight:700;color:var(--accent);margin-bottom:6px">❌ 感情ラベリング（Emotion labeling）</div>
+      <div style="font-size:12px;color:var(--text-secondary)">"私は今、とても悲しくて、怒っていて、怖いんです" → 感情は行動・視線・間・小道具で見せる。「悲しい」と書かず、「指が止まる」「窓の外を見続ける」で悲しさを伝える。</div>
+    </div>
+  </div>
+
+  <h2>Step 5 — 間（ま）とリズムの技術</h2>
+  <p>日本のドラマ・映画が世界的に評価される理由の一つは「間（ま）の使い方」です。セリフとセリフの間にある沈黙こそが、観客の感情を動かします。</p>
+  <div class="article-callout fuji">
+    <strong>実践：</strong>今書いているシーンのセリフを全部削除し、行動だけで同じシーンを書いてみてください。それが「感情を見せる」の出発点です。セリフは最後に「どうしても必要な言葉だけ」を足します。
+  </div>
+
+  <h2>Step 6 — 声に出して読む（必須プロセス）</h2>
+  <p>セリフの最終チェックは必ず「声に出して読む」こと。読んでいて息継ぎが辛い箇所、舌が回りにくい箇所は、俳優にとっても発声しにくいセリフです。声に出して自然に口から出る言葉を目指しましょう。</p>`;
 }
 
 function renderGuideRevision() {
   return `
   <div class="article-callout kogane">
-    「執筆は改稿である」——プロの脚本家の多くは初稿の10倍以上の時間を改稿に費やします。改稿は弱点修正ではなく、物語を発見する過程です。
+    「執筆は改稿である」——プロの脚本家の多くは初稿の10倍以上の時間を改稿に費やします。改稿は弱点修正ではなく、物語を発見する過程です。「書いているときは発見し、改稿しているときに本当の物語を見つける」——これが脚本家の仕事です。
   </div>
-  <h2>Step 1 — 初稿完成後まず置く</h2>
-  <p>初稿が完成したら、少なくとも1〜2日は見ない時間を作りましょう。距離を置くことで、書いた内容ではなく「書かれた内容」を客観的に読めるようになります。</p>
-  <h2>Step 2 — 俯瞰読み（マクロ改稿）</h2>
-  <p>最初の改稿は細かいセリフの修正ではなく、全体構造の把握から始めます。</p>
+  <h2>Step 1 — 初稿完成後まず「距離を置く」</h2>
+  <p>初稿が完成したら、少なくとも2〜3日は読まない時間を作りましょう。距離を置くことで、「書いた自分」ではなく「読む観客」の目で作品を見られるようになります。</p>
+  <div class="article-callout asagi">
+    <strong>プロの習慣：</strong>サイドウェイズ脚本家ドク・ミラーは初稿を3週間封印する。スティーブン・キングは6週間待ってから改稿する。距離は客観性を生む。
+  </div>
+
+  <h2>Step 2 — 俯瞰読み（マクロ改稿）——3段階チェック</h2>
+  <p>最初の改稿は細かいセリフ修正ではなく、全体構造の把握から始めます。</p>
   <div class="beat-list">
-    <div class="beat-item"><div class="beat-num" style="background:var(--kogane)">1</div><div class="beat-content"><div class="beat-title">物語の骨格確認</div><div class="beat-desc">主人公のゴール・障害・変化は明確か？</div></div></div>
-    <div class="beat-item"><div class="beat-num" style="background:var(--kogane)">2</div><div class="beat-content"><div class="beat-title">幕の長さバランス</div><div class="beat-desc">各幕が適切な長さか？中弛みはないか？</div></div></div>
-    <div class="beat-item"><div class="beat-num" style="background:var(--kogane)">3</div><div class="beat-content"><div class="beat-title">キャラクターアーク確認</div><div class="beat-desc">主人公は冒頭と末尾で何が変わったか？</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--kogane)">1</div><div class="beat-content"><div class="beat-title">骨格の確認</div><div class="beat-desc">主人公のGoal・Obstacle・Changeは明確か？ 物語の「なぜ今この話をするのか」というテーマへの答えはあるか？</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--kogane)">2</div><div class="beat-content"><div class="beat-title">幕の比率と転換点</div><div class="beat-desc">Act1・Act2・Act3の長さは適切か（25:50:25が基本）。TP1・MP・TP2は機能しているか？ 中弛みはないか？</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--kogane)">3</div><div class="beat-content"><div class="beat-title">キャラクターアーク確認</div><div class="beat-desc">主人公は冒頭と末尾で何が変わったか？ その変化はクライマックスの「行動」で証明されているか？</div></div></div>
   </div>
-  <h2>Step 3 — シーンレベル改稿</h2>
-  <p>各シーンに問いかけます：①このシーンは物語を前進させるか？②主人公の感情が変化しているか？③入り口と出口を「遅く入り、早く出る」ができているか？</p>
-  <h2>Step 4 — セリフの精査</h2>
-  <p>「言わなくてもわかるセリフ」を削ります。観客の知性を信頼してください。セリフを1/3削っても意味が通じるなら、削りましょう。</p>
-  <h2>Step 5 — 声に出して通し読み</h2>
-  <p>必ず声に出して全体を読み通します。引っかかりを感じた箇所にメモ。流れるように読めない部分は問題を抱えています。</p>
-  <h2>Step 6 — 第三者の目を借りる</h2>
-  <p>信頼できる読み手に読んでもらいましょう。フィードバックをもらう際は「何が好きか」「何が混乱したか」「誰を応援したか」の3点を聞くのが効果的です。</p>`;
+
+  <h2>Step 3 — シーンレベル改稿——5つの問い</h2>
+  <p>各シーンに次の問いを投げかけます：</p>
+  <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px 16px;font-size:12.5px;color:var(--text-secondary);line-height:2.3">
+    □ <strong>このシーンは物語を前進させるか？</strong>（情報だけでなく、感情的な前進も必要）<br>
+    □ <strong>シーンの入り口と出口で何かが変わっているか？</strong>（状況・感情・力関係のいずれか）<br>
+    □ <strong>「遅く入り、早く出る」ができているか？</strong>（シーンの目的が達成されたら即終了）<br>
+    □ <strong>このシーンを削除したら何が失われるか？</strong>（答えが「何もない」なら削除候補）<br>
+    □ <strong>サブプロットがメインプロットとテーマ的に繋がっているか？</strong>
+  </div>
+
+  <h2>Step 4 — セリフの精査——3段階テスト</h2>
+  <p>「言わなくてもわかるセリフ」を削ります。観客の知性を信頼してください。</p>
+  <div class="beat-list">
+    <div class="beat-item"><div class="beat-num" style="background:var(--fuji)">1</div><div class="beat-content"><div class="beat-title">「なければどうなるか」テスト</div><div class="beat-desc">セリフを削除して読む。意味が通じるなら不要。意味が失われるなら必要。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--fuji)">2</div><div class="beat-content"><div class="beat-title">「このキャラが言うか」テスト</div><div class="beat-desc">このセリフは本当にこのキャラクターらしいか？ 「どのキャラでも言えそう」なら書き直す。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--fuji)">3</div><div class="beat-content"><div class="beat-title">「行動に変換できないか」テスト</div><div class="beat-desc">セリフを行動や小道具に変換できないか試す。変換できるなら、セリフより行動の方が強い。</div></div></div>
+  </div>
+
+  <h2>Step 5 — 通し声読み（必須）</h2>
+  <p>必ず声に出して全体を読み通します。引っかかりを感じた箇所にマーキング。流れるように読めない部分は問題を抱えています。特に確認すること：</p>
+  <ul style="font-size:12.5px;line-height:2.2;color:var(--text-secondary)">
+    <li>セリフが口の中でつっかえる箇所</li>
+    <li>読むスピードが落ちる（説明が多すぎる）箇所</li>
+    <li>「これ誰が言ってるんだっけ」と止まる箇所</li>
+    <li>テンションが下がるシーン（削除 or 再構成候補）</li>
+  </ul>
+
+  <h2>Step 6 — 第三者の目を借りる（読み合わせ）</h2>
+  <p>信頼できる読み手・聞き手に読んでもらいましょう。フィードバックをもらう際の黄金の3質問：</p>
+  <div class="article-callout matcha">
+    <strong>Q1:</strong>「どのシーンで最も感情が動きましたか？」（強みを知る）<br>
+    <strong>Q2:</strong>「どこで迷子になりましたか？」（構造の弱点を知る）<br>
+    <strong>Q3:</strong>「主人公を最も応援したのはどのシーンですか？」（共感ポイントを知る）
+  </div>
+  <div class="article-callout asagi">
+    <strong>注意：</strong>フィードバックは全て従う必要はありません。「問題の症状」は正確ですが、「解決策」は脚本家が決めること。「このシーンが長い」という意見は正しくても、「削除しろ」が正解とは限らない。
+  </div>`;
 }
 
 function renderGuideProcess() {
@@ -9509,6 +10759,211 @@ function renderGuideTension() {
   </div>`;
 }
 
+// ── 新ガイド: アンタゴニスト設計 ──────────────────────────────
+function renderGuideAntagonist() {
+  return `
+  <div class="article-callout asagi">
+    最高の敵役は「悪人」ではなく「主人公の鏡」です。主人公が別の選択をしていたら敵になっていた、という関係性が最もドラマを強化します。
+  </div>
+  <h2>Step 1 — アンタゴニストの3タイプ</h2>
+  <div class="beat-list">
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--accent)">人</div>
+      <div class="beat-content">
+        <div class="beat-title">人物型アンタゴニスト</div>
+        <div class="beat-desc">主人公と直接対立する人物。最も分かりやすいが、「単なる悪人」になりやすい。必ず「自分なりの論理・正義」を持たせること。</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--fuji)">社</div>
+      <div class="beat-content">
+        <div class="beat-title">システム・社会型アンタゴニスト</div>
+        <div class="beat-desc">組織・慣習・差別・運命など、人ではなく構造が障害となる。主人公の意志vs不条理な世界という構図が生まれる。</div>
+      </div>
+    </div>
+    <div class="beat-item">
+      <div class="beat-num" style="background:var(--momo)">内</div>
+      <div class="beat-content">
+        <div class="beat-title">内的アンタゴニスト</div>
+        <div class="beat-desc">主人公自身の恐れ・誤信念・衝動が最大の敵となる。キャラクターアークと直結する最も深い葛藤。</div>
+      </div>
+    </div>
+  </div>
+
+  <h2>Step 2 — 敵役を「主人公の鏡」にする</h2>
+  <p>最も強力な敵役は、主人公と同じものを求めている（または同じ価値観の裏面を体現している）存在です。</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0">
+    <div style="background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px">主人公</div>
+      <ul style="font-size:11.5px;color:var(--text-secondary);line-height:1.9;margin:0;padding-left:16px">
+        <li>同じ目標を持ちながら</li>
+        <li>異なる手段・価値観を選ぶ</li>
+        <li>変化することで問題を解決しようとする</li>
+      </ul>
+    </div>
+    <div style="background:var(--asagi-bg);border:1px solid var(--asagi-border);border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--asagi);margin-bottom:6px">アンタゴニスト</div>
+      <ul style="font-size:11.5px;color:var(--text-secondary);line-height:1.9;margin:0;padding-left:16px">
+        <li>同じ目標または逆の目標</li>
+        <li>主人公と逆の手段・価値観</li>
+        <li>変化しないで問題を解決しようとする</li>
+      </ul>
+    </div>
+  </div>
+
+  <h2>Step 3 — 敵役に自分の正義を持たせる</h2>
+  <p>一次元的な「悪人」にならないために：敵役の視点から見ると、彼/彼女の行動は完全に正当化される理由があるべきです。</p>
+  <div class="article-callout kogane">
+    <strong>設計チェック：</strong>敵役の視点に立ったとき「なぜそうするか」が論理的に説明できるか？ 「自分が敵役だったらどう行動するか」を考えてみましょう。
+  </div>
+
+  <h2>Step 4 — アンタゴニストの行動原則</h2>
+  <div class="beat-list">
+    <div class="beat-item"><div class="beat-num" style="background:var(--asagi)">1</div><div class="beat-content"><div class="beat-title">能動的に動く</div><div class="beat-desc">敵役は主人公の邪魔をするだけでなく、自分の目標に向けて積極的に行動する。敵役の行動が物語を動かす。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--asagi)">2</div><div class="beat-content"><div class="beat-title">主人公のウーンドを突く</div><div class="beat-desc">主人公の最も弱い部分（過去の傷・誤信念）を本能的・意図的に突くことで葛藤が最大化される。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--asagi)">3</div><div class="beat-content"><div class="beat-title">人間的な側面を持つ</div><div class="beat-desc">愛する者・守りたいもの・弱点がある敵役は深みを持つ。完全無欠の悪は観客を冷めさせる。</div></div></div>
+  </div>
+
+  <h2>Step 5 — クライマックスでの対決設計</h2>
+  <p>アンタゴニストとの最終対決は、外的な戦いである同時に、内的なテーマの答えが出る場面でなければなりません。</p>
+  <div class="article-callout matcha">
+    <strong>重要：</strong>クライマックスで主人公がアンタゴニストを「倒す」だけなら外的解決。「アンタゴニストを通じて自分のライと向き合い、変化する」なら内外同時解決。後者が記憶に残る作品を生みます。
+  </div>`;
+}
+
+// ── 新ガイド: サブプロット設計術 ──────────────────────────────
+function renderGuideSubplots() {
+  return `
+  <div class="article-callout kogane">
+    サブプロットは「脇道」ではなく、Aストーリーの「テーマ的反射鏡」です。BストーリーがAストーリーのテーマを別角度から照らすとき、物語は立体的になります。
+  </div>
+  <h2>Step 1 — なぜサブプロットが必要か</h2>
+  <p>単一の物語（Aストーリーだけ）は一次元的になりやすい。サブプロットが加わることで：</p>
+  <ul style="font-size:12.5px;line-height:2;color:var(--text-secondary)">
+    <li>テーマを複数の角度から探求できる</li>
+    <li>主人公の内的変化（Need）を具体化する関係性が生まれる</li>
+    <li>Aストーリーの対比・強調・批評ができる</li>
+    <li>観客に「息継ぎ」を与えながらテンポを維持できる</li>
+  </ul>
+
+  <h2>Step 2 — BストーリーとサブプロットのパターンBRサブプロットの4機能</h2>
+  <div class="beat-list">
+    <div class="beat-item"><div class="beat-num" style="background:var(--kogane)">B</div><div class="beat-content"><div class="beat-title">Bストーリー（テーマ体現型）</div><div class="beat-desc">最重要のサブプロット。多くは主人公の「Need」に気づかせる関係性。Save the Catでp.30から始まる。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--momo)">対</div><div class="beat-content"><div class="beat-title">対比型サブプロット</div><div class="beat-desc">Aストーリーのテーマを逆から照らす。「愛を諦めないAストーリー」に対し「愛を諦めたサブキャラの物語」など。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--fuji)">強</div><div class="beat-content"><div class="beat-title">強調型サブプロット</div><div class="beat-desc">Aストーリーのテーマを別視点から強化する。同じ問題を別のキャラが経験し、テーマを深化させる。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--asagi)">伏</div><div class="beat-content"><div class="beat-title">伏線・情報型サブプロット</div><div class="beat-desc">Aストーリーの解決に必要な情報を間接的に届ける。クライマックスで合流する設計。</div></div></div>
+  </div>
+
+  <h2>Step 3 — BストーリーとAストーリーの交差設計</h2>
+  <p>BストーリーはAストーリーと独立して進みつつ、いくつかの重要な地点で交差します。</p>
+  <div class="article-callout fuji">
+    <strong>交差ポイント：</strong>①序幕で導入（p.30前後）→ ②ミッドポイントで交差・深化 → ③All is Lostで崩壊または支え → ④クライマックスでAストーリーと合流・解決
+  </div>
+
+  <h2>Step 4 — 「死なないサブプロット」の作り方</h2>
+  <p>サブプロットを追加しただけでは「内職話」になりがち。Aストーリーと有機的に絡ませるために：</p>
+  <ul style="font-size:12.5px;line-height:2;color:var(--text-secondary)">
+    <li>サブプロットの主要人物がAストーリーにも登場する</li>
+    <li>サブプロットの解決/崩壊がAストーリーに影響を与える</li>
+    <li>同じ場所・時間でAとBが同時に進行するシーンを作る</li>
+    <li>サブプロットのテーマがクライマックスでAストーリーの答えとなる</li>
+  </ul>`;
+}
+
+// ── 新ガイド: 掴みのある冒頭を書く ────────────────────────────
+function renderGuideOpening() {
+  return `
+  <div class="article-callout matcha">
+    脚本の最初のページが全てを決めます。「このページを読んだら次が気になる」状態を作るために、最初の場面は設計から始まります。
+  </div>
+  <h2>Step 1 — 「フック」の3タイプ</h2>
+  <div class="concept-cards">
+    <div class="concept-card-sm"><span class="icon">❓</span><div class="label">疑問型フック</div><div class="sub">「なぜ?」「どうなる?」という疑問を即座に生み出す冒頭</div></div>
+    <div class="concept-card-sm"><span class="icon">😰</span><div class="label">感情型フック</div><div class="sub">即座に感情移入させるキャラクターまたは状況で掴む</div></div>
+    <div class="concept-card-sm"><span class="icon">💥</span><div class="label">衝撃型フック</div><div class="sub">意外な情報・画像・状況で「え?」という驚きで掴む</div></div>
+  </div>
+
+  <h2>Step 2 — オープニングイメージの設計</h2>
+  <p>Save the Catのビートシートでは、p.1のオープニングイメージが物語全体の「ビフォー」を示します。このイメージは最後のファイナルイメージ（「アフター」）と対になります。</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0">
+    <div style="background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px">オープニングイメージ（Before）</div>
+      <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.8">主人公が変化する「前」の世界・状態を視覚的に示す一場面。テーマの問いが潜んでいる。</div>
+    </div>
+    <div style="background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--matcha);margin-bottom:6px">ファイナルイメージ（After）</div>
+      <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.8">主人公が変化した「後」の世界・状態。オープニングイメージと対比させることで変容を際立たせる。</div>
+    </div>
+  </div>
+
+  <h2>Step 3 — 冒頭5ページで完了すべきこと</h2>
+  <div class="beat-list">
+    <div class="beat-item"><div class="beat-num" style="background:var(--matcha)">1</div><div class="beat-content"><div class="beat-title">世界観の確立</div><div class="beat-desc">「この物語はこういう世界の話だ」をビジュアルと雰囲気で伝える。ジャンルのトーンを確立。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--matcha)">2</div><div class="beat-content"><div class="beat-title">主人公の紹介</div><div class="beat-desc">主人公の欠如（日常の不満・空虚さ）と一つの魅力を同時に見せる。「Save the Cat」的な共感の場面。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--matcha)">3</div><div class="beat-content"><div class="beat-title">テーマの種まき</div><div class="beat-desc">物語が問いかけるテーマを、直接言わずに示す（行動・セリフ・状況で）。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--matcha)">4</div><div class="beat-content"><div class="beat-title">疑問・フックの設置</div><div class="beat-desc">観客が「このあとどうなるんだ？」と思わずにはいられない疑問を埋め込む。</div></div></div>
+  </div>
+
+  <h2>Step 4 — 冒頭の典型的な失敗パターン</h2>
+  <div style="display:flex;flex-direction:column;gap:8px;margin:14px 0">
+    ${[
+      ['目覚め冒頭', '主人公が目を覚ますシーンから始める（平凡すぎる）'],
+      ['気象描写', '「東京に雪が降っていた」から始まる状況説明'],
+      ['説明のモノローグ', 'ナレーションで「私の名前は〜で、こんな生活をしていました」'],
+      ['会話から始まる日常', '特に引っかかりのない普通の会話で物語が始まる'],
+    ].map(([t,d]) => `<div style="display:flex;gap:10px;padding:9px 12px;background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:var(--radius-sm)"><span style="color:var(--accent);font-weight:700;font-size:12px;flex-shrink:0">NG: ${t}</span><span style="font-size:12px;color:var(--text-secondary)">${d}</span></div>`).join('')}
+  </div>
+
+  <h2>Step 5 — 実践ワーク：冒頭を書く前の3つの問い</h2>
+  <div class="article-callout kogane">
+    <strong>Q1:</strong> この物語が「終わる時」の世界（ファイナルイメージ）を先に書いてみましょう。それとの対比で「始まり」が決まります。<br><br>
+    <strong>Q2:</strong> 主人公が最初のシーンで見せる「最も興味深い欠如または矛盾」は何ですか？<br><br>
+    <strong>Q3:</strong> 冒頭の最初のセリフ（または最初のト書き）を読んだとき、読者は次のページをめくりたくなりますか？
+  </div>`;
+}
+
+// ── 新ガイド: テーマを物語に統合する ──────────────────────────
+function renderGuideTheme() {
+  return `
+  <div class="article-callout fuji">
+    テーマは「教訓」でも「メッセージ」でもありません。テーマは「問い」です。答えを押しつけず、観客が自分で考えるための問いを物語に織り込みましょう。
+  </div>
+  <h2>Step 1 — テーマを定義する</h2>
+  <p>「テーマ」という言葉は多義的です。ここでは明確に定義します：</p>
+  <div class="concept-cards">
+    <div class="concept-card-sm"><span class="icon">🧭</span><div class="label">テーマ（問い）</div><div class="sub">「真の愛とは何か？」という哲学的問い</div></div>
+    <div class="concept-card-sm"><span class="icon">⚖️</span><div class="label">プレミス（答え）</div><div class="sub">「自己犠牲こそが真の愛だ」という格言形式の主張</div></div>
+    <div class="concept-card-sm"><span class="icon">💡</span><div class="label">モチーフ（象徴）</div><div class="sub">テーマを体現する繰り返しの意象・言葉・行動</div></div>
+  </div>
+
+  <h2>Step 2 — テーマを「言わずに体現する」</h2>
+  <p>オン・ザ・ノーズの最大の罪は「テーマをそのまま口にさせること」です。</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0">
+    <div style="background:var(--accent-bg);border:1px solid var(--accent-border);border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px">❌ テーマを語る</div>
+      <div style="font-size:11.5px;color:var(--text-secondary);font-style:italic;line-height:1.8">「大切なのは家族だ。どんな時も家族を守ることこそが男の生き方なんだ」</div>
+    </div>
+    <div style="background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--matcha);margin-bottom:6px">✅ テーマを体現する</div>
+      <div style="font-size:11.5px;color:var(--text-secondary);font-style:italic;line-height:1.8">重要な会議を捨てて子供の発表会に向かう男。会社のエレベーターの扉が閉まる直前、振り返らずに走り出す。</div>
+    </div>
+  </div>
+
+  <h2>Step 3 — テーマを統合する5つのレベル</h2>
+  <div class="beat-list">
+    <div class="beat-item"><div class="beat-num" style="background:var(--fuji)">1</div><div class="beat-content"><div class="beat-title">プロット構造レベル</div><div class="beat-desc">クライマックスの選択肢がテーマの答えを提示する。「どちらを選ぶか」がテーマへの回答。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--fuji)">2</div><div class="beat-content"><div class="beat-title">キャラクターレベル</div><div class="beat-desc">主人公がポジティブアーク（Lie→Truth）を歩む過程でテーマを体現。アンタゴニストはテーマの逆を体現。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--fuji)">3</div><div class="beat-content"><div class="beat-title">サブプロットレベル</div><div class="beat-desc">BストーリーがAストーリーのテーマを別角度から探求する。対比・強化・批評の役割を担う。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--fuji)">4</div><div class="beat-content"><div class="beat-title">セリフ・行動レベル</div><div class="beat-desc">テーマに関わる言動・反応がセリフと行動で繰り返し出現。p.5のテーマ提示から始まる。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--fuji)">5</div><div class="beat-content"><div class="beat-title">モチーフ・象徴レベル</div><div class="beat-desc">同じ物・言葉・場所が反復することでテーマが象徴化される。意識的に設計する。</div></div></div>
+  </div>
+
+  <h2>Step 4 — テーマの一貫性チェック</h2>
+  <div class="article-callout kogane">
+    <strong>実践チェック：</strong>各シーンに「このシーンはテーマにどう貢献しているか？」を問いましょう。答えられないシーンは「テーマと無関係な場面」かもしれません。それは削除候補です。
+  </div>`;
+}
+
 // ================================================================
 //  PAGE: ツール
 // ================================================================
@@ -9528,6 +10983,9 @@ function renderToolsPage() {
   if (cp === 'tool-dialogue-check') return renderToolDialogueCheck();
   if (cp === 'tool-plot-holes') return renderToolPlotHoles();
   if (cp === 'tool-beat-counter') return renderToolBeatCounter();
+  if (cp === 'tool-conflict-escalation') return renderToolConflictEscalation();
+  if (cp === 'tool-subtext-rewriter') return renderToolSubtextRewriter();
+  if (cp === 'tool-act-health') return renderToolActHealth();
 
   // カテゴリ分けされたツール一覧
   const TOOL_CATEGORIES = [
@@ -9541,9 +10999,11 @@ function renderToolsPage() {
       desc: 'アイデアから物語の骨格を作るツール',
       tools: [
         { id:'tool-logline', title:'ログラインメーカー', icon:'fa-quote-left', color:'beni', desc:'4要素入力でプロ品質のログラインを複数生成', badge:'おすすめ' },
-        { id:'tool-pitch', title:'ピッチドック・メーカー', icon:'fa-bullhorn', color:'beni', desc:'企画書・あらすじ・ピッチ文書を自動生成', badge:'新機能' },
-        { id:'tool-tension', title:'テンションカーブ設計', icon:'fa-chart-line', color:'momo', desc:'物語全体の緊張度を視覚化・設計', badge:'新機能' },
-        { id:'tool-structure', title:'構成チェッカー', icon:'fa-diagram-project', color:'kon', desc:'三幕構成・Save the Cat など複数フレームで物語を検証', badge:'新機能' },
+        { id:'tool-pitch', title:'ピッチドック・メーカー', icon:'fa-bullhorn', color:'beni', desc:'企画書・あらすじ・ピッチ文書を自動生成' },
+        { id:'tool-tension', title:'テンションカーブ設計', icon:'fa-chart-line', color:'momo', desc:'物語全体の緊張度を視覚化・設計' },
+        { id:'tool-structure', title:'構成チェッカー', icon:'fa-diagram-project', color:'kon', desc:'三幕構成・Save the Cat など複数フレームで物語を検証' },
+        { id:'tool-act-health', title:'幕バランス健康診断', icon:'fa-stethoscope', color:'kogane', desc:'ページ数・分数から三幕バランスを分析し問題点を指摘', badge:'新機能' },
+        { id:'tool-conflict-escalation', title:'葛藤エスカレーションプランナー', icon:'fa-fire', color:'accent', desc:'主人公の葛藤を段階的に強化するプランを設計', badge:'新機能' },
       ],
     },
     {
@@ -9555,9 +11015,9 @@ function renderToolsPage() {
       border: 'var(--fuji-border)',
       desc: 'キャラクターを深く設計・管理するツール',
       tools: [
-        { id:'tool-char-diag', title:'キャラクター診断シート', icon:'fa-user-check', color:'fuji', desc:'Want/Need・バックストーリー・アーク設計を整理' },
-        { id:'tool-name-gen', title:'キャラクター名ジェネレーター', icon:'fa-signature', color:'kon', desc:'和風・洋風・古風・SF系の名前を自動生成', badge:'新機能' },
-        { id:'tool-emotion-arc', title:'感情アーク設計', icon:'fa-heart-pulse', color:'momo', desc:'キャラクターの感情変化曲線を視覚的に設計', badge:'新機能' },
+        { id:'tool-char-diag', title:'キャラクター診断シート', icon:'fa-user-check', color:'fuji', desc:'Want/Need・ウーンド・ライ/トゥルース・ボイスを完全診断', badge:'強化版' },
+        { id:'tool-name-gen', title:'キャラクター名ジェネレーター', icon:'fa-signature', color:'kon', desc:'和風・洋風・古風・SF系の名前を自動生成' },
+        { id:'tool-emotion-arc', title:'感情アーク設計', icon:'fa-heart-pulse', color:'momo', desc:'キャラクターの感情変化曲線を視覚的に設計' },
       ],
     },
     {
@@ -9570,11 +11030,12 @@ function renderToolsPage() {
       desc: 'シーンの構成や執筆作業を助けるツール',
       tools: [
         { id:'tool-scene', title:'シーン構造チェッカー', icon:'fa-film', color:'momo', desc:'入口・目的・対立・出口の4要素を診断' },
+        { id:'tool-dialogue-check', title:'セリフ磨き診断', icon:'fa-comments', color:'fuji', desc:'台詞を8項目で採点・改善提案（強化版）', badge:'強化版' },
+        { id:'tool-subtext-rewriter', title:'サブテキスト変換ツール', icon:'fa-comment-slash', color:'asagi', desc:'直接的なセリフをサブテキスト表現に変換', badge:'新機能' },
         { id:'tool-timer', title:'執筆タイマー（ポモドーロ）', icon:'fa-stopwatch', color:'kogane', desc:'25分集中＋5分休憩で生産性アップ' },
         { id:'tool-world-notes', title:'世界観メモパッド', icon:'fa-globe', color:'asagi', desc:'設定・ルール・用語・地名などを素早くメモ' },
-        { id:'tool-dialogue-check', title:'セリフ磨き診断', icon:'fa-comments', color:'fuji', desc:'台詞をAI診断基準で採点・改善提案', badge:'新機能' },
-        { id:'tool-plot-holes', title:'プロット穴探し', icon:'fa-magnifying-glass', color:'beni', desc:'論理矛盾・伏線未回収・動機不備を検出', badge:'新機能' },
-        { id:'tool-beat-counter', title:'ビートカウンター', icon:'fa-list-ol', color:'kogane', desc:'Save the Cat 15ビートを脚本に対応付け', badge:'新機能' },
+        { id:'tool-plot-holes', title:'プロット穴探し', icon:'fa-magnifying-glass', color:'beni', desc:'論理矛盾・伏線未回収・動機不備を検出' },
+        { id:'tool-beat-counter', title:'ビートカウンター', icon:'fa-list-ol', color:'kogane', desc:'Save the Cat 15ビートを脚本に対応付け進捗トラッキング' },
       ],
     },
   ];
@@ -9643,18 +11104,23 @@ function renderToolLogline() {
     <div>
       <div class="card">
         <div class="card-header">
-          <div class="card-title"><i class="fas fa-pencil icon" style="color:var(--accent)"></i> 4要素を入力</div>
+          <div class="card-title"><i class="fas fa-pencil icon" style="color:var(--accent)"></i> 要素を入力</div>
         </div>
         <div class="form-group">
           <label class="form-label">主人公 <span style="color:var(--accent)">*</span></label>
-          <input class="form-input" id="ll-protagonist" placeholder="例：末期がんを宣告された刑事">
+          <input class="form-input" id="ll-protagonist" placeholder="例：末期がんを宣告された元刑事">
         </div>
         <div class="form-group">
-          <label class="form-label">ゴール <span style="color:var(--accent)">*</span></label>
-          <input class="form-input" id="ll-goal" placeholder="例：20年前の未解決事件を解決すること">
+          <label class="form-label">主人公の欠如・傷（任意）</label>
+          <input class="form-input" id="ll-flaw" placeholder="例：誤認逮捕で一人の人生を壊した過去">
+          <div style="font-size:10.5px;color:var(--text-muted);margin-top:3px">欠如を入れるとより深みのあるログラインが生成されます</div>
         </div>
         <div class="form-group">
-          <label class="form-label">障害・敵対勢力 <span style="color:var(--accent)">*</span></label>
+          <label class="form-label">外的ゴール <span style="color:var(--accent)">*</span></label>
+          <input class="form-input" id="ll-goal" placeholder="例：20年前の未解決事件を解決する">
+        </div>
+        <div class="form-group">
+          <label class="form-label">障害・葛藤 <span style="color:var(--accent)">*</span></label>
           <input class="form-input" id="ll-obstacle" placeholder="例：犯人が自分の元上司と知り、友情と正義の間で引き裂かれる">
         </div>
         <div class="form-group">
@@ -9662,7 +11128,7 @@ function renderToolLogline() {
           <input class="form-input" id="ll-theme" placeholder="例：正義と友情のどちらを選ぶか">
         </div>
         <button class="btn btn-primary" style="width:100%" onclick="generateLoglines()">
-          <i class="fas fa-magic"></i> ログラインを生成する
+          <i class="fas fa-magic"></i> ログラインを生成する（7パターン）
         </button>
       </div>
 
@@ -9715,31 +11181,61 @@ function generateLoglines() {
   const goal = $('#ll-goal')?.value?.trim();
   const obstacle = $('#ll-obstacle')?.value?.trim();
   const theme = $('#ll-theme')?.value?.trim();
+  const flaw = $('#ll-flaw')?.value?.trim() || '';
 
   if (!protagonist || !goal || !obstacle) {
     toast('主人公・ゴール・障害は必須です', 'error');
     return;
   }
 
+  const flawText = flaw ? `${flaw}を抱えた` : '';
+  const themeText = theme ? `「${theme}」——` : '';
+
   const patterns = [
-    `${protagonist}は${goal}ために立ち上がるが、${obstacle}。`,
-    `${goal}を目指す${protagonist}は、${obstacle}という試練に直面する。`,
-    `${protagonist}にとって、${goal}ことが人生最後の使命となる。しかし${obstacle}。`,
-    `${obstacle}——その中で${protagonist}は、なおも${goal}ために戦い続けることを選ぶ。`,
-    theme ? `「${theme}」——${protagonist}が${goal}ために${obstacle}に立ち向かう物語。` : null,
+    // パターン1: 基本形
+    `${flawText}${protagonist}は${goal}ために立ち上がるが、${obstacle}。`,
+    // パターン2: 障害先出し
+    `${obstacle}——それでもなお、${flawText}${protagonist}は${goal}ことを諦めない。`,
+    // パターン3: テーマ強調
+    theme ? `${themeText}${flawText}${protagonist}が${goal}ために戦う、${obstacle}の物語。` : null,
+    // パターン4: 内的・外的の対比
+    flaw ? `${flaw}を持ち続けた${protagonist}が、${goal}という使命の前で、${obstacle}という究極の試練に直面する。` : `${goal}を追い求める${protagonist}が、${obstacle}という代償を突きつけられる。`,
+    // パターン5: 問いかけ形式
+    theme ? `${protagonist}は${goal}ために、どこまで${obstacle}と戦えるか。「${theme}」を問う物語。` : `${protagonist}は${goal}ために、どこまで${obstacle}と戦い続けられるか。`,
+    // パターン6: 逆説形（上級）
+    flaw ? `${flaw}ゆえに${goal}ことを誰より望みながら、${protagonist}は${obstacle}という皮肉な現実に直面する。` : null,
+    // パターン7: 映画風キャッチコピー
+    `「${goal}——それが、${protagonist}の最後の使命。」${obstacle}に打ち勝てるか。`,
   ].filter(Boolean);
+
+  // 字数カウント
+  const countChars = s => s.replace(/\s/g, '').length;
 
   const resultsEl = $('#ll-results');
   if (!resultsEl) return;
 
-  resultsEl.innerHTML = patterns.map((p, i) => `
+  resultsEl.innerHTML = patterns.map((p, i) => {
+    const charCount = countChars(p);
+    const charColor = charCount <= 65 ? 'var(--matcha)' : charCount <= 80 ? 'var(--kogane)' : 'var(--accent)';
+    const charLabel = charCount <= 65 ? '◎最適' : charCount <= 80 ? '△やや長め' : '✕長すぎ';
+    return `
     <div style="padding:13px 14px;background:var(--bg-subtle);border-radius:var(--radius-md);border:1px solid var(--border);margin-bottom:8px;position:relative;transition:all .14s">
-      <div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:0.08em;margin-bottom:6px">パターン ${i+1}</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:0.08em">パターン ${i+1}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:10px;color:${charColor};font-weight:600">${charCount}字 ${charLabel}</span>
+          <button class="btn btn-ghost btn-sm" style="font-size:10.5px" onclick="copyLogline(${i})"><i class="fas fa-copy"></i> コピー</button>
+        </div>
+      </div>
       <div style="font-size:13.5px;color:var(--text-primary);line-height:1.8;font-family:'Noto Serif JP',serif" id="ll-p-${i}">${esc(p)}</div>
-      <button class="btn btn-ghost btn-sm" style="position:absolute;top:8px;right:8px;font-size:10.5px" onclick="copyLogline(${i})">
-        <i class="fas fa-copy"></i> コピー
-      </button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+
+  // 総合アドバイス
+  const bestIdx = patterns.map((p,i) => ({i, len: countChars(p)})).filter(x => x.len <= 65).map(x => x.i);
+  if (bestIdx.length > 0) {
+    resultsEl.innerHTML += `<div style="padding:10px 14px;background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-md);margin-top:8px;font-size:12px;color:var(--text-secondary)"><i class="fas fa-star" style="color:var(--matcha);margin-right:5px"></i>パターン${bestIdx.map(i=>i+1).join('・')}が字数基準内（65字以内）でプロ水準のバランスです。</div>`;
+  }
 
   const copyBtn = $('#ll-copy-all');
   if (copyBtn) copyBtn.style.display = '';
@@ -9763,12 +11259,16 @@ function copyAllLoglines() {
 function renderToolCharDiag() {
   return `
   <div class="article-back-btn" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</div>
-  <div class="section-header">
-    <div class="section-title"><i class="fas fa-user-check" style="color:var(--fuji)"></i> キャラクター診断シート</div>
-    <div class="section-desc">Want/Need・内的葛藤・バックストーリーを分析してキャラクターの深みを測定します</div>
+  <div style="background:linear-gradient(135deg,var(--fuji-bg),var(--bg-subtle));border:1px solid var(--fuji-border);border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:20px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:80px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--fuji);opacity:0.06;pointer-events:none">人</div>
+    <div style="width:26px;height:2.5px;background:linear-gradient(90deg,var(--fuji),var(--momo));border-radius:2px;margin-bottom:10px"></div>
+    <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:5px">
+      <i class="fas fa-user-check" style="color:var(--fuji);margin-right:8px"></i>キャラクター診断シート
+    </div>
+    <div style="font-size:13px;color:var(--text-muted)">Want/Need・ウーンド・ライ/トゥルース・ボイスを入力して、キャラクターの立体度と課題を診断します。</div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-    <div style="display:flex;flex-direction:column;gap:16px">
+    <div style="display:flex;flex-direction:column;gap:14px">
       <div class="card">
         <div class="card-header"><div class="card-title"><i class="fas fa-user icon" style="color:var(--fuji)"></i> 基本情報</div></div>
         <div class="form-group"><label class="form-label">キャラクター名</label><input class="form-input" id="cd-name" placeholder="例：木村 拓也"></div>
@@ -9779,35 +11279,58 @@ function renderToolCharDiag() {
               <option>相棒</option><option>メンター</option><option>サブキャラ</option>
             </select>
           </div>
-          <div class="form-group"><label class="form-label">年齢</label><input class="form-input" id="cd-age" placeholder="38"></div>
+          <div class="form-group"><label class="form-label">年齢・職業</label><input class="form-input" id="cd-age" placeholder="38歳・刑事"></div>
         </div>
+        <div class="form-group"><label class="form-label">ジャンル・作品の設定</label>
+          <input class="form-input" id="cd-genre" placeholder="例：現代サスペンス、昭和ドラマ"></div>
       </div>
       <div class="card">
         <div class="card-header"><div class="card-title"><i class="fas fa-arrows-alt-v icon" style="color:var(--accent)"></i> Want vs. Need</div></div>
         <div class="form-group">
-          <label class="form-label" style="color:var(--accent)">Want（表面的な欲求）</label>
-          <textarea class="form-textarea" id="cd-want" rows="3" placeholder="意識的に求めるもの。外的な目標。例：犯人を捕まえること"></textarea>
+          <label class="form-label" style="color:var(--accent)">Want（意識的・外的目標）</label>
+          <textarea class="form-textarea" id="cd-want" rows="2" placeholder="意識的に求めるもの。外的な目標。例：犯人を捕まえること"></textarea>
         </div>
         <div class="form-group">
-          <label class="form-label" style="color:var(--matcha)">Need（内面に必要なもの）</label>
-          <textarea class="form-textarea" id="cd-need" rows="3" placeholder="無意識に必要なもの。内的な成長。例：自分を許すこと"></textarea>
-        </div>
-        <div class="form-group">
-          <label class="form-label">欠如（ウーンド）— 過去のトラウマ・傷</label>
-          <textarea class="form-textarea" id="cd-wound" rows="3" placeholder="主人公の行動を歪めている過去の出来事や信念"></textarea>
+          <label class="form-label" style="color:var(--matcha)">Need（無意識・内的成長）</label>
+          <textarea class="form-textarea" id="cd-need" rows="2" placeholder="無意識に必要なもの。内的な成長。例：自分を許すこと"></textarea>
         </div>
       </div>
       <div class="card">
-        <div class="card-header"><div class="card-title"><i class="fas fa-comment-dots icon" style="color:var(--momo)"></i> 口癖・話し方</div></div>
-        <input class="form-input" id="cd-speech" placeholder="例：語尾に「…そうか？」が多い、断定を避ける話し方">
-        <div style="margin-top:8px;font-size:11.5px;color:var(--text-muted)">口癖はキャラクターの価値観や不安を反映します</div>
+        <div class="card-header"><div class="card-title"><i class="fas fa-heart-crack icon" style="color:var(--momo)"></i> ウーンドとライ</div></div>
+        <div class="form-group">
+          <label class="form-label">欠如（ウーンド）— 過去のトラウマ・傷</label>
+          <textarea class="form-textarea" id="cd-wound" rows="2" placeholder="主人公の行動を歪めている過去の出来事や体験"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="color:var(--accent)">ライ（Lie）— ウーンドから生まれた誤信念</label>
+          <textarea class="form-textarea" id="cd-lie" rows="2" placeholder="例：「誰かを信頼すると必ず裏切られる」「自分は弱い」"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" style="color:var(--matcha)">トゥルース（Truth）— 物語の末に辿り着く真実</label>
+          <textarea class="form-textarea" id="cd-truth" rows="2" placeholder="例：「信頼なくして本当の繋がりは得られない」"></textarea>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-comment-dots icon" style="color:var(--asagi)"></i> ボイス・行動パターン</div></div>
+        <div class="form-group">
+          <label class="form-label">口癖・話し方の特徴</label>
+          <input class="form-input" id="cd-speech" placeholder="例：語尾に「…そうか？」が多い、断定を避ける">
+        </div>
+        <div class="form-group">
+          <label class="form-label">このキャラクターが絶対に使わない言葉</label>
+          <input class="form-input" id="cd-never" placeholder="例：「ありがとう」「ごめんなさい」">
+        </div>
+        <div class="form-group">
+          <label class="form-label">繰り返す自己破壊的パターン（ゴースト）</label>
+          <textarea class="form-textarea" id="cd-ghost" rows="2" placeholder="例：親しくなると自分から関係を壊す、責任を回避する"></textarea>
+        </div>
       </div>
       <button class="btn btn-primary" style="width:100%" onclick="runCharDiag()">
         <i class="fas fa-stethoscope"></i> キャラクターを診断する
       </button>
     </div>
     <div>
-      <div class="card" style="min-height:500px">
+      <div class="card" style="min-height:600px;position:sticky;top:80px">
         <div class="card-header"><div class="card-title"><i class="fas fa-chart-radar icon" style="color:var(--fuji)"></i> 診断結果</div></div>
         <div id="cd-results">
           <div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
@@ -9825,56 +11348,93 @@ function runCharDiag() {
   const want   = $('#cd-want')?.value?.trim();
   const need   = $('#cd-need')?.value?.trim();
   const wound  = $('#cd-wound')?.value?.trim();
+  const lie    = $('#cd-lie')?.value?.trim();
+  const truth  = $('#cd-truth')?.value?.trim();
   const speech = $('#cd-speech')?.value?.trim();
+  const never  = $('#cd-never')?.value?.trim();
+  const ghost  = $('#cd-ghost')?.value?.trim();
 
   const scores = {
     want:   want   ? 100 : 0,
     need:   need   ? 100 : 0,
     wound:  wound  ? 100 : 0,
+    lie:    lie    ? 100 : 0,
+    truth:  truth  ? 100 : 0,
     speech: speech ? 100 : 0,
+    never:  never  ? 100 : 0,
+    ghost:  ghost  ? 100 : 0,
   };
 
-  const avg = Math.round(Object.values(scores).reduce((a,b)=>a+b,0) / 4);
-  const arcType = (want && need) ? (want !== need ? 'ポジティブアーク（成長）' : 'フラットアーク（不変）') : '未確定';
+  const filledCount = Object.values(scores).filter(v => v > 0).length;
+  const avg = Math.round(filledCount / 8 * 100);
+
+  // アークタイプ判定（高度化）
+  let arcType = '未確定';
+  if (want && need) {
+    const wantLower = want.toLowerCase();
+    const needLower = need.toLowerCase();
+    if (wantLower === needLower) arcType = 'フラットアーク（不変・価値観の守護者）';
+    else if (lie && truth) arcType = 'ポジティブアーク（ライ→トゥルース：成長）';
+    else arcType = 'ポジティブアーク（成長型）';
+  }
+
+  // Want vs Need の対立分析
+  const wantNeedTension = want && need && want !== need ? '高い（ドラマ的対立あり）' : want && need ? '低い（一致している）' : '未評価';
 
   const tips = [];
-  if (!want) tips.push({ color:'var(--accent)', icon:'fa-arrow-up', text:'Wantを設定しましょう。主人公が意識的に追い求める外的な目標です。' });
-  if (!need) tips.push({ color:'var(--matcha)', icon:'fa-heart', text:'Needを設定しましょう。Wantを追うことで気づく、本当に必要なものです。WantとNeedの対立がドラマを生みます。' });
-  if (!wound) tips.push({ color:'var(--momo)', icon:'fa-bandage', text:'欠如（ウーンド）を設定しましょう。主人公の行動を歪めている過去の傷です。' });
-  if (!speech) tips.push({ color:'var(--fuji)', icon:'fa-comment', text:'口癖を設定しましょう。台詞を読んで「誰が言ったかわかる」個性を作ります。' });
+  if (!want) tips.push({ color:'var(--accent)', icon:'fa-arrow-up', label:'Want未設定', text:'Wantを設定しましょう。主人公が意識的に追い求める外的・具体的な目標です。' });
+  if (!need) tips.push({ color:'var(--matcha)', icon:'fa-heart', label:'Need未設定', text:'Needを設定しましょう。Wantを追う過程で気づく、本当に必要なものです。WantとNeedの対立がドラマを生みます。' });
+  if (!wound) tips.push({ color:'var(--momo)', icon:'fa-bandage', label:'ウーンド未設定', text:'ウーンド（傷）を設定しましょう。主人公の行動を歪めている過去の傷が、ドラマに深みをもたらします。' });
+  if (!lie) tips.push({ color:'var(--accent)', icon:'fa-x-mark', label:'ライ未設定', text:'ライ（誤信念）を設定しましょう。ウーンドから生まれた「間違った世界観」が主人公の成長を妨げます。' });
+  if (!truth) tips.push({ color:'var(--matcha)', icon:'fa-check', label:'トゥルース未設定', text:'トゥルース（真実）を設定しましょう。クライマックスで主人公が辿り着く真実が、アークを完成させます。' });
+  if (!speech) tips.push({ color:'var(--fuji)', icon:'fa-comment', label:'ボイス未設定', text:'口癖を設定しましょう。台詞を読んで「誰が言ったかわかる」個性を作ります。' });
 
   const resultsEl = $('#cd-results');
   if (!resultsEl) return;
 
+  const scoreColor = avg >= 80 ? 'var(--matcha)' : avg >= 50 ? 'var(--kogane)' : 'var(--accent)';
+  const scoreBg = avg >= 80 ? 'var(--matcha-bg)' : avg >= 50 ? 'var(--kogane-bg)' : 'var(--accent-bg)';
+  const scoreBorder = avg >= 80 ? 'var(--matcha-border)' : avg >= 50 ? 'var(--kogane-border)' : 'var(--accent-border)';
+  const scoreLabel = avg >= 80 ? '立体的なキャラクター' : avg >= 50 ? '発展途上' : '設計が必要';
+
   resultsEl.innerHTML = `
-  <div style="text-align:center;margin-bottom:20px;padding:18px;background:${avg>=80?'var(--matcha-bg)':avg>=50?'var(--kogane-bg)':'var(--accent-bg)'};border-radius:var(--radius-md);border:1px solid ${avg>=80?'var(--matcha-border)':avg>=50?'var(--kogane-border)':'var(--accent-border)'}">
-    <div style="font-size:38px;font-weight:700;font-family:'Noto Serif JP',serif;color:${avg>=80?'var(--matcha)':avg>=50?'var(--kogane)':'var(--accent)'}">${avg}<span style="font-size:18px">点</span></div>
-    <div style="font-size:12.5px;color:var(--text-muted)">キャラクター深度スコア</div>
+  <div style="text-align:center;margin-bottom:20px;padding:18px;background:${scoreBg};border-radius:var(--radius-md);border:1px solid ${scoreBorder}">
+    <div style="font-size:42px;font-weight:700;font-family:'Noto Serif JP',serif;color:${scoreColor}">${avg}<span style="font-size:18px">点</span></div>
+    <div style="font-size:13px;font-weight:600;color:${scoreColor};margin-top:2px">${scoreLabel}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:2px">（${filledCount}/8要素 設定済み）</div>
   </div>
 
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
-    ${Object.entries({Want:scores.want,Need:scores.need,'ウーンド':scores.wound,'口癖・声':scores.speech}).map(([k,v]) => `
-    <div style="padding:10px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-subtle)">
-      <div style="font-size:10.5px;font-weight:600;color:var(--text-muted);margin-bottom:4px">${k}</div>
-      <div style="display:flex;align-items:center;gap:6px">
-        <div style="flex:1;height:4px;background:var(--bg-hover);border-radius:99px;overflow:hidden">
-          <div style="height:100%;width:${v}%;background:${v===100?'var(--matcha)':'var(--border-mid)'};transition:width .5s"></div>
-        </div>
-        <span style="font-size:11px;color:${v===100?'var(--matcha)':'var(--text-muted)'}">${v===100?'✅ OK':'❌ 未入力'}</span>
-      </div>
+    ${Object.entries({
+      'Want':scores.want,'Need':scores.need,'ウーンド':scores.wound,
+      'ライ（誤信念）':scores.lie,'トゥルース（真実）':scores.truth,
+      'ボイス':scores.speech,'禁止語彙':scores.never,'ゴースト':scores.ghost
+    }).map(([k,v]) => `
+    <div style="padding:9px 11px;border:1px solid ${v===100?'var(--matcha-border)':'var(--border)'};border-radius:var(--radius-sm);background:${v===100?'var(--matcha-bg)':'var(--bg-subtle)'}">
+      <div style="font-size:10px;font-weight:600;color:var(--text-muted);margin-bottom:3px">${k}</div>
+      <span style="font-size:11.5px;font-weight:700;color:${v===100?'var(--matcha)':'var(--text-muted)'}">${v===100?'✅ 設定済み':'○ 未設定'}</span>
     </div>`).join('')}
   </div>
 
   <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px;margin-bottom:14px">
-    <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:5px">推定アークタイプ</div>
+    <div style="font-size:11.5px;font-weight:600;color:var(--text-muted);margin-bottom:4px">推定アークタイプ</div>
     <div style="font-size:14px;font-weight:700;color:var(--fuji);font-family:'Noto Serif JP',serif">${arcType}</div>
+    <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px">Want×Needの対立強度：<span style="color:var(--text-primary);font-weight:600">${wantNeedTension}</span></div>
   </div>
 
-  ${tips.length > 0 ? `<div style="font-size:12.5px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">改善提案</div>
+  ${want && need ? `
+  <div style="background:var(--kon-bg,#eef0f8);border:1px solid var(--kon-border,#c8cde0);border-radius:var(--radius-md);padding:12px;margin-bottom:14px">
+    <div style="font-size:11.5px;font-weight:600;color:var(--kon-lt,#4a5e9a);margin-bottom:6px">Want vs. Need 分析</div>
+    <div style="font-size:12px;color:var(--text-secondary);margin-bottom:4px"><strong style="color:var(--accent)">Want：</strong>${esc(want)}</div>
+    <div style="font-size:12px;color:var(--text-secondary)"><strong style="color:var(--matcha)">Need：</strong>${esc(need)}</div>
+    ${want !== need ? `<div style="font-size:11px;color:var(--text-muted);margin-top:6px">✅ WantとNeedが対立しています。この緊張がドラマの核になります。</div>` : `<div style="font-size:11px;color:var(--kogane);margin-top:6px">⚠️ WantとNeedが似ています。対立をより鮮明にするとドラマが強くなります。</div>`}
+  </div>` : ''}
+
+  ${tips.length > 0 ? `<div style="font-size:12.5px;font-weight:600;color:var(--text-secondary);margin-bottom:8px">改善提案（${tips.length}件）</div>
   ${tips.map(t=>`<div style="display:flex;gap:10px;padding:10px;background:white;border:1px solid var(--border);border-radius:var(--radius-sm);border-left:3px solid ${t.color};margin-bottom:6px">
     <i class="fas ${t.icon}" style="color:${t.color};flex-shrink:0;margin-top:2px"></i>
-    <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6">${t.text}</div>
-  </div>`).join('')}` : `<div class="success-box"><i class="fas fa-circle-check"></i><div>全要素が設定されています！このキャラクターは立体的な設計ができています。</div></div>`}`;
+    <div><div style="font-size:11.5px;font-weight:700;color:var(--text-primary);margin-bottom:2px">${t.label}</div><div style="font-size:12px;color:var(--text-secondary);line-height:1.6">${t.text}</div></div>
+  </div>`).join('')}` : `<div class="success-box"><i class="fas fa-circle-check"></i><div><strong>${name}</strong> — 全8要素が設定されています！プロレベルの立体的なキャラクターです。</div></div>`}`;
 
   toast('診断完了！', 'success');
 }
@@ -11858,6 +13418,524 @@ function saveBeatNote(beatId, val) {
 function resetBeatCounter() {
   DB.set('sl_beat_counter', {});
   render();
+}
+
+// ================================================================
+//  新ツール: 幕バランス健康診断
+// ================================================================
+function renderToolActHealth() {
+  return `
+  <div class="article-back-btn" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</div>
+  <div style="background:linear-gradient(135deg,var(--kogane-bg),var(--bg-subtle));border:1px solid var(--kogane-border);border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:20px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:80px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--kogane);opacity:0.06;pointer-events:none">幕</div>
+    <div style="width:26px;height:2.5px;background:linear-gradient(90deg,var(--kogane),var(--accent));border-radius:2px;margin-bottom:10px"></div>
+    <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:5px">
+      <i class="fas fa-stethoscope" style="color:var(--kogane);margin-right:8px"></i>幕バランス健康診断
+    </div>
+    <div style="font-size:13px;color:var(--text-muted)">脚本のページ数・分数・構成情報を入力して、三幕バランスと主要ビートの位置を診断します。</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-file-alt icon" style="color:var(--kogane)"></i> 作品基本情報</div></div>
+        <div class="form-group">
+          <label class="form-label">フォーマット</label>
+          <select class="form-select" id="ah-format" onchange="ahUpdateTargets()">
+            <option value="movie">映画（90〜120分 / 90〜120ページ）</option>
+            <option value="drama60">TVドラマ60分（45〜60ページ）</option>
+            <option value="drama45">TVドラマ45分（35〜45ページ）</option>
+            <option value="short">短編映画（10〜40分）</option>
+            <option value="web">ウェブドラマ（20〜30分）</option>
+          </select>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label class="form-label">総ページ数</label>
+            <input class="form-input" id="ah-total-pages" type="number" placeholder="110" min="1" max="300">
+          </div>
+          <div class="form-group">
+            <label class="form-label">総分数（概算）</label>
+            <input class="form-input" id="ah-total-mins" type="number" placeholder="110" min="1" max="300">
+          </div>
+        </div>
+        <div id="ah-targets" style="font-size:11.5px;color:var(--text-muted);padding:8px 10px;background:var(--bg-subtle);border-radius:var(--radius-sm);line-height:1.9">
+          目安：Act1 = 25% / Act2 = 50% / Act3 = 25%
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-door-open icon" style="color:var(--accent)"></i> 転換点の位置</div></div>
+        <div class="form-group">
+          <label class="form-label">ターニングポイント1（Act1→Act2）のページ</label>
+          <input class="form-input" id="ah-tp1" type="number" placeholder="例: 25">
+        </div>
+        <div class="form-group">
+          <label class="form-label">ミッドポイントのページ</label>
+          <input class="form-input" id="ah-mp" type="number" placeholder="例: 55">
+        </div>
+        <div class="form-group">
+          <label class="form-label">ターニングポイント2（Act2→Act3）のページ</label>
+          <input class="form-input" id="ah-tp2" type="number" placeholder="例: 85">
+        </div>
+        <div class="form-group">
+          <label class="form-label">クライマックスのページ</label>
+          <input class="form-input" id="ah-climax" type="number" placeholder="例: 100">
+        </div>
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="runActHealth()">
+        <i class="fas fa-stethoscope"></i> 幕バランスを診断する
+      </button>
+    </div>
+    <div>
+      <div class="card" style="min-height:600px;position:sticky;top:80px">
+        <div class="card-header"><div class="card-title"><i class="fas fa-chart-bar icon" style="color:var(--kogane)"></i> 診断結果</div></div>
+        <div id="ah-results">
+          <div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
+            <i class="fas fa-stethoscope" style="font-size:40px;display:block;margin-bottom:14px;opacity:0.2"></i>
+            <div style="font-size:13px">情報を入力して診断ボタンを押すと<br>幕バランスの分析が表示されます</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function ahUpdateTargets() {
+  const fmt = document.getElementById('ah-format')?.value;
+  const targets = {
+    movie: '映画：Act1≈25p / Act2≈55p / Act3≈30p（計110p基準）',
+    drama60: 'TVドラマ60分：Act1≈12p / Act2≈30p / Act3≈12p（計54p基準）',
+    drama45: 'TVドラマ45分：Act1≈10p / Act2≈22p / Act3≈8p（計40p基準）',
+    short: '短編：Act1≈20% / Act2≈55% / Act3≈25%',
+    web: 'ウェブドラマ：Act1≈6p / Act2≈15p / Act3≈6p（計27p基準）',
+  };
+  const el = document.getElementById('ah-targets');
+  if (el) el.textContent = targets[fmt] || '目安：Act1 = 25% / Act2 = 50% / Act3 = 25%';
+}
+
+function runActHealth() {
+  const total = parseInt(document.getElementById('ah-total-pages')?.value) || 0;
+  const tp1   = parseInt(document.getElementById('ah-tp1')?.value) || 0;
+  const mp    = parseInt(document.getElementById('ah-mp')?.value) || 0;
+  const tp2   = parseInt(document.getElementById('ah-tp2')?.value) || 0;
+  const climax= parseInt(document.getElementById('ah-climax')?.value) || 0;
+  const fmt   = document.getElementById('ah-format')?.value || 'movie';
+
+  if (!total) { toast('総ページ数を入力してください', 'error'); return; }
+
+  const act1 = tp1;
+  const act2 = tp2 - tp1;
+  const act3 = total - tp2;
+  const act1pct = total > 0 ? Math.round(act1/total*100) : 0;
+  const act2pct = total > 0 ? Math.round(act2/total*100) : 0;
+  const act3pct = total > 0 ? Math.round(act3/total*100) : 0;
+
+  // 理想値（フォーマット別）
+  const targets = { movie: {a1:25,a2:50,a3:25}, drama60:{a1:22,a2:56,a3:22}, drama45:{a1:25,a2:50,a3:25}, short:{a1:20,a2:55,a3:25}, web:{a1:22,a2:56,a3:22} };
+  const target = targets[fmt] || targets.movie;
+  const TOLERANCE = 6; // ±6%許容
+
+  const checks = [];
+  if (tp1 > 0) {
+    const a1ok = Math.abs(act1pct - target.a1) <= TOLERANCE;
+    checks.push({ label:`Act1（序幕）`, val:`${act1}p / ${act1pct}%`, ideal:`${target.a1}%前後`, ok: a1ok, tip: a1ok ? 'バランス良好' : act1pct > target.a1 + TOLERANCE ? `長すぎます（${act1pct-target.a1}%超過）。TP1をもう少し前に移動しましょう。` : `短すぎます（${target.a1-act1pct}%不足）。世界観・主人公の日常・インサイティング・インシデントが十分に描かれているか確認。` });
+  }
+  if (tp1 > 0 && tp2 > 0) {
+    const a2ok = Math.abs(act2pct - target.a2) <= TOLERANCE;
+    checks.push({ label:`Act2（本幕）`, val:`${act2}p / ${act2pct}%`, ideal:`${target.a2}%前後`, ok: a2ok, tip: a2ok ? 'バランス良好' : act2pct > target.a2 + TOLERANCE ? `長すぎます。Act2の沼にはまっている可能性。ミッドポイントの強化と「悪役の迫来」シーンを見直しましょう。` : `短すぎます。主人公の試練・成長・関係性を十分に描く場面が不足している可能性があります。` });
+  }
+  if (tp2 > 0) {
+    const a3ok = Math.abs(act3pct - target.a3) <= TOLERANCE;
+    checks.push({ label:`Act3（終幕）`, val:`${act3}p / ${act3pct}%`, ideal:`${target.a3}%前後`, ok: a3ok, tip: a3ok ? 'バランス良好' : act3pct > target.a3 + TOLERANCE ? `長すぎます。クライマックス後のデノウマンが長い可能性。「勝利を確認したら終わる」を意識。` : `短すぎます。クライマックスとデノウマンが急ぎすぎているかもしれません。主人公の変化を見せる時間を確保しましょう。` });
+  }
+  if (mp > 0 && total > 0) {
+    const mpPct = Math.round(mp/total*100);
+    const mpOk = Math.abs(mpPct - 50) <= 8;
+    checks.push({ label:`ミッドポイント`, val:`${mp}p / ${mpPct}%`, ideal:`48〜52%前後`, ok: mpOk, tip: mpOk ? '理想的な位置にあります' : `${mpPct}%地点。${mpPct < 45 ? 'Act2前半が終わりすぎています。ミッドポイントをもう少し後ろに移動するか、前半の展開を充実させましょう。' : 'Act2後半が短くなっています。ミッドポイントを前に移動するか、後半の「悪役の迫来」シーンを充実させましょう。'}` });
+  }
+  if (climax > 0 && total > 0) {
+    const climaxPct = Math.round(climax/total*100);
+    const climaxOk = climaxPct >= 85 && climaxPct <= 97;
+    checks.push({ label:`クライマックス`, val:`${climax}p / ${climaxPct}%`, ideal:`85〜97%前後`, ok: climaxOk, tip: climaxOk ? '理想的な位置にあります' : climaxPct < 85 ? '早すぎます。クライマックス後にページが余りすぎている可能性。終盤の展開を後ろに移動しましょう。' : 'クライマックスが最後すぎます。クライマックス後にデノウマン（解決）のための時間を確保しましょう。' });
+  }
+
+  const allOk = checks.every(c => c.ok);
+  const okCount = checks.filter(c => c.ok).length;
+  const score = checks.length > 0 ? Math.round(okCount/checks.length*100) : 0;
+  const scoreColor = score >= 80 ? 'var(--matcha)' : score >= 50 ? 'var(--kogane)' : 'var(--accent)';
+
+  // ビジュアルバー（全体の幕構成）
+  const barHtml = total > 0 && tp1 > 0 && tp2 > 0 ? `
+  <div style="margin-bottom:18px">
+    <div style="font-size:11.5px;font-weight:600;color:var(--text-muted);margin-bottom:6px">幕構成ビジュアル</div>
+    <div style="height:24px;border-radius:var(--radius-sm);overflow:hidden;display:flex;font-size:10px;font-weight:700;color:white">
+      <div style="width:${act1pct}%;background:var(--matcha);display:flex;align-items:center;justify-content:center;min-width:${act1pct > 5 ? 0 : 0}px">A1</div>
+      <div style="width:${act2pct}%;background:var(--accent);display:flex;align-items:center;justify-content:center">A2</div>
+      <div style="width:${act3pct}%;background:var(--fuji);display:flex;align-items:center;justify-content:center">A3</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:10.5px;color:var(--text-muted);margin-top:4px">
+      <span>0p</span>
+      ${tp1>0?`<span style="color:var(--accent)">TP1 ${tp1}p</span>`:''}
+      ${mp>0?`<span style="color:var(--kogane)">MP ${mp}p</span>`:''}
+      ${tp2>0?`<span style="color:var(--accent)">TP2 ${tp2}p</span>`:''}
+      <span>${total}p</span>
+    </div>
+  </div>` : '';
+
+  const resultsEl = document.getElementById('ah-results');
+  if (!resultsEl) return;
+  resultsEl.innerHTML = `
+  <div style="text-align:center;margin-bottom:20px;padding:16px;background:${score>=80?'var(--matcha-bg)':score>=50?'var(--kogane-bg)':'var(--accent-bg)'};border-radius:var(--radius-md);border:1px solid ${score>=80?'var(--matcha-border)':score>=50?'var(--kogane-border)':'var(--accent-border)'}">
+    <div style="font-size:42px;font-weight:700;color:${scoreColor};font-family:'Noto Serif JP',serif">${score}<span style="font-size:18px">点</span></div>
+    <div style="font-size:12px;color:var(--text-muted)">幕バランス健全度（${okCount}/${checks.length}項目OK）</div>
+  </div>
+  ${barHtml}
+  <div style="display:flex;flex-direction:column;gap:8px">
+    ${checks.map(c => `
+    <div style="padding:10px 12px;background:${c.ok?'var(--matcha-bg)':'var(--bg-subtle)'};border:1px solid ${c.ok?'var(--matcha-border)':'var(--border)'};border-radius:var(--radius-sm);border-left:3px solid ${c.ok?'var(--matcha)':'var(--accent)'}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+        <span style="font-size:12.5px;font-weight:700;color:var(--text-primary)">${c.label}</span>
+        <span style="font-size:11px;color:var(--text-muted)">${c.val}</span>
+        <span style="margin-left:auto;font-size:10.5px;color:var(--text-muted)">目安：${c.ideal}</span>
+      </div>
+      <div style="font-size:12px;color:${c.ok?'var(--matcha)':'var(--accent)'}">${c.ok?'✅ ':''}<span style="color:var(--text-secondary)">${c.tip}</span></div>
+    </div>`).join('')}
+  </div>
+  ${allOk ? `<div class="success-box" style="margin-top:14px"><i class="fas fa-circle-check"></i><div>全ての幕バランスが理想的な範囲内です！構造として健全な脚本です。</div></div>` : ''}`;
+  toast('診断完了！', 'success');
+}
+
+// ================================================================
+//  新ツール: 葛藤エスカレーションプランナー
+// ================================================================
+function renderToolConflictEscalation() {
+  return `
+  <div class="article-back-btn" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</div>
+  <div style="background:linear-gradient(135deg,var(--accent-bg),var(--bg-subtle));border:1px solid var(--accent-border);border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:20px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:80px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--accent);opacity:0.06;pointer-events:none">炎</div>
+    <div style="width:26px;height:2.5px;background:linear-gradient(90deg,var(--accent),var(--kogane));border-radius:2px;margin-bottom:10px"></div>
+    <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:5px">
+      <i class="fas fa-fire" style="color:var(--accent);margin-right:8px"></i>葛藤エスカレーションプランナー
+    </div>
+    <div style="font-size:13px;color:var(--text-muted)">主人公の目標・障害・賭けを入力し、葛藤を段階的に強化するプランを生成します。</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-bullseye icon" style="color:var(--accent)"></i> 物語の基礎設定</div></div>
+        <div class="form-group">
+          <label class="form-label">主人公の最終ゴール</label>
+          <input class="form-input" id="ce-goal" placeholder="例：20年前の事件の真犯人を突き止める">
+        </div>
+        <div class="form-group">
+          <label class="form-label">最大の障害（最終ボス）</label>
+          <input class="form-input" id="ce-obstacle" placeholder="例：元上司が真犯人であり、現在は権力者">
+        </div>
+        <div class="form-group">
+          <label class="form-label">主人公が失うものの最大値（賭け）</label>
+          <input class="form-input" id="ce-stakes" placeholder="例：命・家族・自分が守ってきた信念">
+        </div>
+        <div class="form-group">
+          <label class="form-label">主人公の内的欠如（ウーンド）</label>
+          <input class="form-input" id="ce-wound" placeholder="例：冤罪に加担した罪悪感、信頼できない人間関係">
+        </div>
+        <div class="form-group">
+          <label class="form-label">ジャンル</label>
+          <select class="form-select" id="ce-genre">
+            <option>ドラマ</option><option>サスペンス</option><option>ラブストーリー</option>
+            <option>青春</option><option>アクション</option><option>コメディ</option><option>ホラー</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" style="width:100%;margin-top:6px" onclick="generateConflictPlan()">
+          <i class="fas fa-fire"></i> エスカレーションプランを生成
+        </button>
+      </div>
+    </div>
+    <div>
+      <div class="card" style="min-height:600px;position:sticky;top:80px">
+        <div class="card-header">
+          <div class="card-title"><i class="fas fa-stairs icon" style="color:var(--accent)"></i> エスカレーションプラン</div>
+          <button class="btn btn-ghost btn-sm" id="ce-copy-btn" style="display:none" onclick="copyCePlan()"><i class="fas fa-copy"></i></button>
+        </div>
+        <div id="ce-results">
+          <div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
+            <i class="fas fa-fire" style="font-size:40px;display:block;margin-bottom:14px;opacity:0.2"></i>
+            <div style="font-size:13px">情報を入力して生成ボタンを押すと<br>葛藤エスカレーションプランが表示されます</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function generateConflictPlan() {
+  const goal    = document.getElementById('ce-goal')?.value.trim();
+  const obstacle = document.getElementById('ce-obstacle')?.value.trim();
+  const stakes  = document.getElementById('ce-stakes')?.value.trim();
+  const wound   = document.getElementById('ce-wound')?.value.trim();
+  const genre   = document.getElementById('ce-genre')?.value || 'ドラマ';
+
+  if (!goal) { toast('主人公のゴールを入力してください', 'error'); return; }
+
+  const phases = [
+    {
+      act: 'Act1 序幕',
+      level: 1,
+      color: 'var(--matcha)',
+      label: '葛藤の種まき',
+      desc: `主人公が「${goal || 'ゴール'}」に向けて動き出すが、最初の小さな障害に直面する。この段階では主人公はまだ「勝てる」と信じている。`,
+      tips: [
+        `インサイティング・インシデント：${obstacle || '障害'}の存在・予兆を示す`,
+        wound ? `ウーンド（${wound}）が表れる最初の場面` : 'キャラクターの欠如が垣間見える場面',
+        '観客が主人公を応援したくなる「Save the Cat」的場面',
+        'ゴールの難しさを示す最初の「壁」をTPl前に置く',
+      ],
+    },
+    {
+      act: 'Act2前半',
+      level: 2,
+      color: 'var(--kogane)',
+      label: '障害の具体化',
+      desc: `新世界に入った主人公が、${obstacle || '障害'}の全貌を徐々に知る。策が一つ塞がれるたびに、より大きな代償が見えてくる。`,
+      tips: [
+        '最初の計画が失敗する（小さな敗北）',
+        'BストーリーがAストーリーと交差し始める',
+        `賭け（${stakes || '失うもの'}）の意味が深まる場面`,
+        'ミッドポイントへの布石：「これで勝てる」と思わせる偽の勝利または最初の大打撃',
+      ],
+    },
+    {
+      act: 'ミッドポイント',
+      level: 3,
+      color: 'var(--accent)',
+      label: '認識の転換',
+      desc: `主人公が「自分が本当に戦っているもの」に気づく瞬間。外的なゴール（${goal}）の裏に、内的な変化の必要性が露わになる。`,
+      tips: [
+        '偽の勝利 or 偽の敗北のどちらかを明確に設置',
+        wound ? `${wound}がより深刻な形で主人公の前に立ちはだかる` : 'キャラクターの欠如が最大の障害として浮上する',
+        `${obstacle || '障害'}が単純な「敵」ではなく複雑な存在に見え始める`,
+        '主人公と観客が同時に「これは難しい」と気づくターニングポイント',
+      ],
+    },
+    {
+      act: 'Act2後半',
+      level: 4,
+      color: 'var(--accent)',
+      label: '最大の危機',
+      desc: `「悪役の迫来」フェーズ。${obstacle || '最大の敵'}が反撃に出て、主人公は最も困難な状況に追い込まれる。`,
+      tips: [
+        stakes ? `${stakes}が実際に脅かされる場面` : '主人公が最も大切なものを失いかけるシーン',
+        '主人公のライ（誤信念）が最も強く発動する場面',
+        '「All is Lost（全てを失う）」シーンの直前まで追い詰める',
+        '主人公が一時的に諦めるか、最悪の選択肢を考える',
+      ],
+    },
+    {
+      act: 'All is Lost → 暗闇の魂',
+      level: 5,
+      color: 'var(--accent)',
+      label: '最低点・どん底',
+      desc: `主人公が全てを失ったかに見える瞬間。${stakes || '全ての賭け'}が崩壊し、立ち直れないように見える。しかしこの暗闇こそが変容の前夜。`,
+      tips: [
+        `「${stakes || 'もの'}」を実際に失う or 取り返しのつかないことをしてしまう`,
+        wound ? `${wound}が主人公を完全に麻痺させる瞬間` : '最大の弱点が全面に出る',
+        '死（物理的・象徴的・感情的な何らかの死）の瞬間',
+        '「暗闇の魂」：一人で孤独に向き合う静かな場面',
+      ],
+    },
+    {
+      act: 'Act3 クライマックス',
+      level: 6,
+      color: 'var(--matcha)',
+      label: '変容による勝利',
+      desc: `主人公が変化した自分の力でクライマックスに挑む。外的ゴール（${goal}）の達成と、内的変化（ライからトゥルースへ）が同時に起きる。`,
+      tips: [
+        wound ? `${wound}の克服を行動で「証明」する場面` : '内的変化を行動で体現する決定的な場面',
+        `${obstacle || '最大の敵'}との最終対決`,
+        '「このキャラクターがあの第一場面の自分なら、この選択はできなかった」を感じさせる決断',
+        `${stakes || '全てのもの'}を犠牲にしてでも真実を選ぶ瞬間（または取り戻す瞬間）`,
+      ],
+    },
+  ];
+
+  const plansHtml = phases.map((ph, i) => `
+  <div style="padding:14px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);border-left:4px solid ${ph.color};margin-bottom:10px">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+      <div style="width:28px;height:28px;border-radius:50%;background:${ph.color};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:white;flex-shrink:0">${ph.level}</div>
+      <div>
+        <div style="font-size:12px;font-weight:700;color:var(--text-primary)">${ph.act}</div>
+        <div style="font-size:11px;font-weight:700;color:${ph.color}">${ph.label}</div>
+      </div>
+    </div>
+    <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.7;margin-bottom:8px">${ph.desc}</div>
+    <div style="font-size:11.5px;color:var(--text-muted)">
+      ${ph.tips.map(t => `<div style="padding:2px 0">• ${t}</div>`).join('')}
+    </div>
+  </div>`).join('');
+
+  const resultsEl = document.getElementById('ce-results');
+  if (!resultsEl) return;
+  window._ce_plan = phases.map(p => `[${p.act} — ${p.label}]\n${p.desc}\n• ${p.tips.join('\n• ')}`).join('\n\n');
+  resultsEl.innerHTML = plansHtml;
+  const copyBtn = document.getElementById('ce-copy-btn');
+  if (copyBtn) copyBtn.style.display = '';
+  toast('エスカレーションプラン生成完了！', 'success');
+}
+
+function copyCePlan() {
+  if (window._ce_plan) {
+    navigator.clipboard.writeText(window._ce_plan).then(() => toast('コピーしました', 'success'));
+  }
+}
+
+// ================================================================
+//  新ツール: サブテキスト変換ツール
+// ================================================================
+function renderToolSubtextRewriter() {
+  return `
+  <div class="article-back-btn" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</div>
+  <div style="background:linear-gradient(135deg,var(--asagi-bg),var(--bg-subtle));border:1px solid var(--asagi-border);border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:20px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:80px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--asagi);opacity:0.06;pointer-events:none">裏</div>
+    <div style="width:26px;height:2.5px;background:linear-gradient(90deg,var(--asagi),var(--fuji));border-radius:2px;margin-bottom:10px"></div>
+    <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:5px">
+      <i class="fas fa-comment-slash" style="color:var(--asagi);margin-right:8px"></i>サブテキスト変換ツール
+    </div>
+    <div style="font-size:13px;color:var(--text-muted)">直接的すぎるセリフを「オン・ザ・ノーズ」診断し、サブテキストを含む表現に変換するヒントを提供します。</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-pencil icon" style="color:var(--asagi)"></i> 診断するセリフ</div></div>
+        <div class="form-group">
+          <label class="form-label">直接的なセリフ（変換したいセリフ）</label>
+          <textarea class="form-textarea" id="sr-dialogue" rows="4" placeholder="例：「私はあなたのことが好きです。一緒にいると嬉しいです」&#10;例：「もうこんな会社は嫌だ。辞めたい」"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">このシーンの状況・文脈</label>
+          <textarea class="form-textarea" id="sr-context" rows="3" placeholder="例：職場で気になる相手と初めて二人になったとき&#10;例：上司に叱責されて廊下に出た直後"></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">キャラクターが本当は言いたいこと（隠したいこと）</label>
+          <input class="form-input" id="sr-true-feeling" placeholder="例：「好き」「もう限界」「あなたが必要だ」">
+        </div>
+        <div class="form-group">
+          <label class="form-label">キャラクターの性格・ボイス</label>
+          <input class="form-input" id="sr-voice" placeholder="例：内向的で不器用、照れを冗談でごまかす">
+        </div>
+        <button class="btn btn-primary" style="width:100%;margin-top:6px" onclick="rewriteSubtext()">
+          <i class="fas fa-comment-slash"></i> サブテキストに変換する
+        </button>
+      </div>
+
+      <div class="card" style="background:var(--bg-subtle)">
+        <div style="font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:10px"><i class="fas fa-lightbulb" style="color:var(--kogane);margin-right:5px"></i>サブテキストの7技法</div>
+        ${[
+          ['間接比喩', '「好き」の代わりに、相手に関わるものを大切にする行動'],
+          ['話題のすり替え', '核心を避けて関係のない話をする（逃げる行動が本音を語る）'],
+          ['沈黙・間', '言葉の代わりに沈黙が感情を語る（「…」「（間）」の活用）'],
+          ['言葉と行動の矛盾', '「もう帰ります」と言いながらドアの前で立ち止まる'],
+          ['物への執着', '大切な人の持ち物をなぜか手放せない'],
+          ['アクション・タスク', '感情の代わりに何かに熱中する（コーヒーを何度も注ぐ等）'],
+          ['断片化した言葉', '言いかけてやめる「あの…そういえば…いや、なんでもない」'],
+        ].map(([t,d]) => `<div style="display:flex;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-subtle)"><span style="font-size:11px;font-weight:700;color:var(--asagi);flex-shrink:0;min-width:90px">${t}</span><span style="font-size:11.5px;color:var(--text-secondary)">${d}</span></div>`).join('')}
+      </div>
+    </div>
+    <div>
+      <div class="card" style="min-height:500px;position:sticky;top:80px">
+        <div class="card-header"><div class="card-title"><i class="fas fa-wand-magic-sparkles icon" style="color:var(--asagi)"></i> 変換結果</div></div>
+        <div id="sr-results">
+          <div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
+            <i class="fas fa-comment-slash" style="font-size:40px;display:block;margin-bottom:14px;opacity:0.2"></i>
+            <div style="font-size:13px">セリフと状況を入力して<br>変換ボタンを押してください</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function rewriteSubtext() {
+  const dialogue    = document.getElementById('sr-dialogue')?.value.trim();
+  const context     = document.getElementById('sr-context')?.value.trim();
+  const trueFeeling = document.getElementById('sr-true-feeling')?.value.trim();
+  const voice       = document.getElementById('sr-voice')?.value.trim();
+
+  if (!dialogue) { toast('セリフを入力してください', 'error'); return; }
+
+  // オン・ザ・ノーズ診断
+  const emotionWords = ['好き','嫌い','嬉しい','悲しい','怖い','辛い','幸せ','寂しい','怒っている','愛している','憎い','不安','楽しい','悔しい','感謝'];
+  const explainWords = ['つまり','要するに','なぜなら','ということは','だから','結局'];
+  const foundEmotions = emotionWords.filter(w => dialogue.includes(w));
+  const foundExplains = explainWords.filter(w => dialogue.includes(w));
+
+  const onNoseScore = foundEmotions.length + foundExplains.length;
+  const onNoseLevel = onNoseScore === 0 ? '低（サブテキストの余地あり）' : onNoseScore <= 2 ? '中（部分的に直接的）' : '高（かなりオン・ザ・ノーズ）';
+
+  // 変換パターン生成
+  const patterns = [];
+
+  if (trueFeeling || dialogue) {
+    const feeling = trueFeeling || '感情';
+
+    // パターン1: 行動による置き換え
+    patterns.push({
+      technique: '行動・仕草による表現',
+      icon: 'fa-hand',
+      color: 'var(--asagi)',
+      original: dialogue,
+      rewrite: `（セリフを減らし、行動で表現する例）\n• 「${feeling}」を直接言う代わりに、相手に関わるものを無意識に触る・直す\n• 立ち去ろうとして、でも足が止まる\n${context ? `• ${context}の状況なら: 視線・手の動き・呼吸で感情を演出` : ''}`,
+      hint: 'セリフをなくしてト書きだけにしてみましょう。',
+    });
+
+    // パターン2: 間接的な言葉
+    patterns.push({
+      technique: '間接的・迂回した言葉',
+      icon: 'fa-route',
+      color: 'var(--fuji)',
+      original: dialogue,
+      rewrite: `（「${feeling}」を直接言わない変換例）\n• 別の話題を持ち出す「そういえば…昨日、変な夢を見た」\n• 関係のないことにこだわる「このコーヒー、前より薄いね」\n${voice ? `• ${voice}らしい言い方: 本音を包む独特のキャラクター表現` : '• キャラクターの語彙・癖を使って本音を包む'}`,
+      hint: '言いたいことを言わずに、何か別のことを言わせましょう。それが本音に見えるなら成功です。',
+    });
+
+    // パターン3: 沈黙と間
+    patterns.push({
+      technique: '沈黙・間の活用',
+      icon: 'fa-ellipsis',
+      color: 'var(--momo)',
+      original: dialogue,
+      rewrite: `（間と沈黙を使った変換例）\n[長い沈黙]\n「…そう」\n[また沈黙]\n「……今日、寒いね」\n→ 言葉が出てこないこと自体が感情を語る`,
+      hint: '「……」「（間）」「（沈黙）」を使い、セリフを削ぎ落としましょう。残ったものが本音です。',
+    });
+  }
+
+  const resultsEl = document.getElementById('sr-results');
+  if (!resultsEl) return;
+
+  resultsEl.innerHTML = `
+  <div style="padding:12px 14px;background:${onNoseScore<=1?'var(--matcha-bg)':onNoseScore<=3?'var(--kogane-bg)':'var(--accent-bg)'};border:1px solid ${onNoseScore<=1?'var(--matcha-border)':onNoseScore<=3?'var(--kogane-border)':'var(--accent-border)'};border-radius:var(--radius-md);margin-bottom:16px">
+    <div style="font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:4px">オン・ザ・ノーズ診断</div>
+    <div style="font-size:13px;font-weight:700;color:${onNoseScore<=1?'var(--matcha)':onNoseScore<=3?'var(--kogane)':'var(--accent)'}">レベル：${onNoseLevel}</div>
+    ${foundEmotions.length>0 ? `<div style="font-size:11.5px;color:var(--text-muted);margin-top:4px">感情語：「${foundEmotions.join('・')}」を使用</div>` : ''}
+    ${foundExplains.length>0 ? `<div style="font-size:11.5px;color:var(--text-muted)">説明語：「${foundExplains.join('・')}」を使用</div>` : ''}
+  </div>
+
+  <div style="font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:10px">変換パターン（3つの技法）</div>
+  ${patterns.map((p, i) => `
+  <div style="padding:12px 14px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);border-left:3px solid ${p.color};margin-bottom:10px">
+    <div style="font-size:11.5px;font-weight:700;color:${p.color};margin-bottom:6px">
+      <i class="fas ${p.icon}" style="margin-right:5px"></i>${i+1}. ${p.technique}
+    </div>
+    <div style="font-size:12px;color:var(--text-secondary);white-space:pre-line;line-height:1.7;background:white;padding:8px;border-radius:var(--radius-sm);border:1px solid var(--border);margin-bottom:8px">${p.rewrite}</div>
+    <div style="font-size:11.5px;color:var(--text-muted);font-style:italic"><i class="fas fa-lightbulb" style="color:var(--kogane);margin-right:4px"></i>${p.hint}</div>
+  </div>`).join('')}
+
+  <div class="article-callout asagi" style="margin-top:8px">
+    <strong>変換のゴール：</strong>このセリフを読んだ人が「この人は本当は${trueFeeling||'何かを言いたかった'}んだな」と"感じる"かどうか。
+  </div>`;
+
+  toast('変換パターン生成完了！', 'success');
 }
 
 // ================================================================
