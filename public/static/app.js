@@ -204,7 +204,7 @@ function render() {
   const p = State.currentPage;
 
   // 学習センター
-  if (p === 'learn' || p === 'learn-guide' || p === 'learn-articles' || p === 'learn-exercises' || p === 'learn-glossary' || p === 'learn-roadmap' || (p && (p.startsWith('article-') || p.startsWith('exercise-')))) {
+  if (p === 'learn' || p === 'learn-guide' || p === 'learn-articles' || p === 'learn-exercises' || p === 'learn-glossary' || p === 'learn-roadmap' || p === 'learn-badges' || p === 'learn-notes' || (p && (p.startsWith('article-') || p.startsWith('exercise-')))) {
     app.innerHTML = renderLayout(renderLearnPage());
     return;
   }
@@ -319,7 +319,7 @@ function render() {
 // ── Layout Shell ───────────────────────────────────────────────
 function renderLayout(content, proj = null) {
   const cp = State.currentPage;
-  const isLearnPage = cp === 'learn' || cp === 'learn-guide' || cp === 'learn-articles' || cp === 'learn-exercises' || cp === 'learn-glossary' || cp === 'learn-roadmap' || (cp && (cp.startsWith('article-') || cp.startsWith('exercise-')));
+  const isLearnPage = cp === 'learn' || cp === 'learn-guide' || cp === 'learn-articles' || cp === 'learn-exercises' || cp === 'learn-glossary' || cp === 'learn-roadmap' || cp === 'learn-badges' || cp === 'learn-notes' || (cp && (cp.startsWith('article-') || cp.startsWith('exercise-')));
   const isToolsPage = cp === 'tools' || cp === 'tool-logline' || cp === 'tool-char-diag' || cp === 'tool-scene' || cp === 'tool-timer' || cp === 'tool-pitch' || cp === 'tool-tension' || cp === 'tool-name-gen' || cp === 'tool-structure' || cp === 'tool-emotion-arc' || cp === 'tool-world-notes' || cp === 'tool-dialogue-check' || cp === 'tool-plot-holes' || cp === 'tool-beat-counter';
   const isTemplatesPage = cp === 'templates' || (cp && cp.startsWith('template-'));
   const isSettingsPage = cp === 'settings';
@@ -5159,6 +5159,8 @@ function renderLearnPage() {
     : page === 'learn-exercises' ? 'exercises'
     : page === 'learn-glossary' ? 'glossary'
     : page === 'learn-roadmap' ? 'roadmap'
+    : page === 'learn-badges' ? 'badges'
+    : page === 'learn-notes' ? 'notes'
     : 'guide';
 
   const tabBadge = (count, color='var(--fuji)') =>
@@ -5182,6 +5184,12 @@ function renderLearnPage() {
     </div>
     <div class="learn-subnav-item ${activeTab==='roadmap'?'active':''}" onclick="navigate('learn-roadmap')">
       <i class="fas fa-road"></i> ロードマップ
+    </div>
+    <div class="learn-subnav-item ${activeTab==='badges'?'active':''}" onclick="navigate('learn-badges')">
+      <i class="fas fa-trophy"></i> バッジ
+    </div>
+    <div class="learn-subnav-item ${activeTab==='notes'?'active':''}" onclick="navigate('learn-notes')">
+      <i class="fas fa-note-sticky"></i> 学習ノート
     </div>
   </div>`;
 
@@ -5369,6 +5377,10 @@ function renderLearnPage() {
     return renderLearnGlossary(hero, subnav);
   } else if (activeTab === 'roadmap') {
     return renderLearnRoadmap(hero, subnav);
+  } else if (activeTab === 'badges') {
+    return renderLearnBadges(hero, subnav);
+  } else if (activeTab === 'notes') {
+    return renderLearnNotes(hero, subnav);
   } else {
     // ガイド一覧（進捗トラッキング付き）
     const readGuides = DB.get('read_guides', []);
@@ -6030,6 +6042,7 @@ function renderExercisePage(exId) {
     </details>
     <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
       <button class="btn btn-ghost btn-sm" onclick="resetExercise('${ex.id}')"><i class="fas fa-rotate-left"></i> やり直す</button>
+      <button class="btn btn-ghost btn-sm" onclick="addExerciseToNote('${ex.id}')"><i class="fas fa-note-sticky"></i> ノートに追加</button>
     </div>
   </div>` : '';
 
@@ -6520,6 +6533,23 @@ function resetExercise(exId) {
   render();
 }
 
+function addExerciseToNote(exId) {
+  const exercises = window._EXERCISES || [];
+  const ex = exercises.find(e => e.id === exId);
+  if (!ex) return;
+  const feedback = DB.get(`ex_feedback_${exId}`, null);
+  const answer   = DB.get(`ex_answer_${exId}`, '');
+  const scoreText = feedback ? `【スコア: ${feedback.score}点 / ${feedback.grade}】\n` : '';
+  const content = `【演習】${ex.title}\nカテゴリ: ${ex.category} / 難易度: ${ex.difficulty}\n${scoreText}\n▼ 自分の解答\n${answer||'(未提出)'}\n\n▼ 気づき・メモ\n`;
+  const notes = DB.get('learn_notes', []);
+  const id = 'note-' + Date.now();
+  notes.unshift({ id, title: `演習メモ: ${ex.title}`, content, tags: [ex.category, ex.difficulty, '演習'], color: ex.color||'asagi', createdAt: Date.now(), updatedAt: Date.now() });
+  DB.set('learn_notes', notes);
+  DB.set('note_editing_id', id);
+  navigate('learn-notes');
+  toast('ノートに追加しました。内容を編集してください。', 'success');
+}
+
 function setExFilter(key, val) {
   const f = DB.get('ex_filter', { difficulty:'', category:'' });
   f[key] = val;
@@ -6643,7 +6673,8 @@ function clearGlossaryFilter() {
 function renderLearnRoadmap(hero, subnav) {
   const completedRm = DB.get('roadmap_completed', []);
 
-  const phases = [
+  window._ROADMAP_PHASES = window._ROADMAP_PHASES || null;
+  const phases = window._ROADMAP_PHASES = [
     {
       id: 'phase-1',
       phase: 'Phase 1',
@@ -6811,6 +6842,254 @@ function toggleRoadmapStep(stepId) {
   render();
 }
 
+// ================================================================
+//  達成バッジタブ
+// ================================================================
+function renderLearnBadges(hero, subnav) {
+  const readArticles   = DB.get('read_articles', []);
+  const doneExercises  = DB.get('done_exercises', []);
+  const readGuides     = DB.get('read_guides', []);
+  const roadmapDone    = DB.get('roadmap_completed', []);
+  const exercises      = window._EXERCISES || [];
+
+  const BADGES = [
+    // 記事バッジ
+    { id:'b-article-1',  icon:'fa-newspaper',      color:'beni',   title:'はじめの一歩',         desc:'最初の記事を読んだ',               check: () => readArticles.length >= 1 },
+    { id:'b-article-5',  icon:'fa-book-open',      color:'kogane', title:'読書家',               desc:'5本の記事を読んだ',               check: () => readArticles.length >= 5 },
+    { id:'b-article-10', icon:'fa-books',           color:'asagi',  title:'多読者',               desc:'10本の記事を読んだ',              check: () => readArticles.length >= 10 },
+    { id:'b-article-all',icon:'fa-crown',           color:'fuji',   title:'記事マスター',          desc:'全記事を読破した',                check: () => ARTICLES.length > 0 && readArticles.length >= ARTICLES.length },
+    // カテゴリバッジ
+    { id:'b-cat-story',  icon:'fa-sitemap',         color:'kon',    title:'構成理論家',            desc:'構成理論カテゴリを全部読んだ',    check: () => { const c=ARTICLES.filter(a=>a.category==='構成理論'); return c.length>0&&c.every(a=>readArticles.includes(a.id)); } },
+    { id:'b-cat-char',   icon:'fa-user-pen',        color:'momo',   title:'キャラクター職人',      desc:'キャラクターカテゴリを全部読んだ', check: () => { const c=ARTICLES.filter(a=>a.category==='キャラクター'); return c.length>0&&c.every(a=>readArticles.includes(a.id)); } },
+    { id:'b-cat-dial',   icon:'fa-comment-dots',    color:'asagi',  title:'セリフの達人',          desc:'セリフ技法カテゴリを全部読んだ', check: () => { const c=ARTICLES.filter(a=>a.category==='セリフ技法'); return c.length>0&&c.every(a=>readArticles.includes(a.id)); } },
+    // 演習バッジ
+    { id:'b-ex-1',       icon:'fa-pen',             color:'matcha', title:'演習スタート',          desc:'最初の演習を提出した',            check: () => doneExercises.length >= 1 },
+    { id:'b-ex-3',       icon:'fa-pen-to-square',   color:'kogane', title:'練習の鬼',              desc:'3問の演習を提出した',             check: () => doneExercises.length >= 3 },
+    { id:'b-ex-all',     icon:'fa-medal',           color:'fuji',   title:'演習マスター',          desc:'全演習を提出した',               check: () => exercises.length > 0 && doneExercises.filter(id=>exercises.some(e=>e.id===id)).length >= exercises.length },
+    { id:'b-ex-perfect', icon:'fa-star',            color:'beni',   title:'パーフェクト',          desc:'演習で100点を獲得した',           check: () => exercises.some(e => { const fb = DB.get(`ex_feedback_${e.id}`,null); return fb && fb.score >= 100; }) },
+    { id:'b-ex-high',    icon:'fa-award',           color:'kogane', title:'優秀評価',              desc:'演習で85点以上を獲得した',        check: () => exercises.some(e => { const fb = DB.get(`ex_feedback_${e.id}`,null); return fb && fb.score >= 85; }) },
+    // ガイドバッジ
+    { id:'b-guide-1',    icon:'fa-map',             color:'asagi',  title:'ガイドデビュー',        desc:'最初のガイドを読んだ',            check: () => readGuides.length >= 1 },
+    { id:'b-guide-all',  icon:'fa-compass',         color:'fuji',   title:'ガイドマスター',        desc:'全ガイドを読んだ',               check: () => GUIDES.length > 0 && GUIDES.every(g => readGuides.includes(`guide-${g.id}`)) },
+    // ロードマップバッジ
+    { id:'b-road-10',    icon:'fa-route',           color:'matcha', title:'道の開拓者',            desc:'ロードマップ10ステップ達成',      check: () => roadmapDone.length >= 10 },
+    { id:'b-road-all',   icon:'fa-flag-checkered',  color:'beni',   title:'完走',                 desc:'ロードマップを全完了した',        check: () => { const phases=[]; (window._ROADMAP_PHASES||[]).forEach(p=>phases.push(...p.steps)); return phases.length>0&&phases.every(s=>roadmapDone.includes(s.id)); } },
+    // 総合バッジ
+    { id:'b-combo-1',    icon:'fa-bolt',            color:'kogane', title:'マルチラーナー',        desc:'記事・演習・ガイドを各1つ達成',  check: () => readArticles.length>=1 && doneExercises.length>=1 && readGuides.length>=1 },
+    { id:'b-legend',     icon:'fa-gem',             color:'fuji',   title:'脚本の賢者',            desc:'全カテゴリで5つ以上達成',        check: () => readArticles.length>=10 && doneExercises.length>=3 && readGuides.length>=3 },
+  ];
+
+  const earned = BADGES.filter(b => b.check());
+  const total  = BADGES.length;
+  const pct    = Math.round(earned.length / total * 100);
+
+  // 初回取得バッジ通知
+  const prevEarned = DB.get('earned_badges', []);
+  const newBadges = earned.filter(b => !prevEarned.includes(b.id));
+  if (newBadges.length > 0) {
+    DB.set('earned_badges', earned.map(b=>b.id));
+    newBadges.forEach(b => {
+      setTimeout(() => toast(`🏅 バッジ獲得: ${b.title}！`, 'success'), 500);
+    });
+  }
+
+  const badgeCards = BADGES.map(b => {
+    const isEarned = earned.some(e => e.id === b.id);
+    const c = COLOR_MAP[b.color] || COLOR_MAP['beni'];
+    return `
+    <div style="display:flex;flex-direction:column;align-items:center;padding:16px 12px;background:${isEarned?c.bg:'var(--bg-subtle)'};border:1.5px solid ${isEarned?c.border:'var(--border)'};border-radius:var(--radius-lg);text-align:center;transition:transform .2s;${isEarned?'':'filter:grayscale(1);opacity:0.45;'}cursor:${isEarned?'default':'default'}">
+      <div style="width:52px;height:52px;border-radius:50%;background:${isEarned?c.color:'var(--text-muted)'};display:flex;align-items:center;justify-content:center;margin-bottom:8px;box-shadow:${isEarned?`0 4px 14px ${c.color}44`:'none'}">
+        <i class="fas ${b.icon}" style="color:white;font-size:20px"></i>
+      </div>
+      <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:4px">${esc(b.title)}</div>
+      <div style="font-size:11px;color:var(--text-muted);line-height:1.5">${esc(b.desc)}</div>
+      ${isEarned?`<div style="margin-top:6px;font-size:10px;padding:2px 8px;background:${c.color};color:white;border-radius:var(--radius-full);font-weight:700">獲得済み ✓</div>`:`<div style="margin-top:6px;font-size:10px;color:var(--text-muted)">未取得</div>`}
+    </div>`;
+  }).join('');
+
+  return `${hero}${subnav}
+  <!-- 進捗バー -->
+  <div style="display:flex;align-items:center;gap:16px;padding:14px 18px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:20px">
+    <div style="width:52px;height:52px;border-radius:50%;background:var(--kogane-bg);border:2px solid var(--kogane-border);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <i class="fas fa-trophy" style="color:var(--kogane);font-size:20px"></i>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:5px">
+        バッジ取得: ${earned.length}/${total}個 (${pct}%)
+        ${pct>=100?`<span style="margin-left:10px">🏆 コンプリート！</span>`:''}
+      </div>
+      <div style="height:10px;background:var(--bg-hover);border-radius:5px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${pct>=100?'var(--matcha)':'linear-gradient(90deg,var(--kogane),var(--beni,#e05a5a))'};border-radius:5px;transition:width .7s ease"></div>
+      </div>
+    </div>
+  </div>
+  <!-- バッジ説明 -->
+  <div style="padding:10px 14px;background:var(--asagi-bg);border:1px solid var(--asagi-border);border-radius:var(--radius-md);margin-bottom:20px;font-size:12.5px;color:var(--text-secondary);line-height:1.7">
+    <i class="fas fa-info-circle" style="color:var(--asagi);margin-right:6px"></i>
+    記事を読んだり、演習を提出したり、ガイドを完了するとバッジが解放されます。新しいバッジを獲得すると通知でお知らせします！
+  </div>
+  <!-- バッジグリッド -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px">
+    ${badgeCards}
+  </div>`;
+}
+
+// ================================================================
+//  学習ノートタブ
+// ================================================================
+function renderLearnNotes(hero, subnav) {
+  const notes     = DB.get('learn_notes', []);
+  const noteFilter = DB.get('learn_note_filter', { search:'', tag:'' });
+  const allTags   = [...new Set(notes.flatMap(n => n.tags||[]))];
+
+  let filtered = notes.filter(n => {
+    if (noteFilter.search && !n.content.toLowerCase().includes(noteFilter.search.toLowerCase())
+        && !n.title.toLowerCase().includes(noteFilter.search.toLowerCase())) return false;
+    if (noteFilter.tag && !(n.tags||[]).includes(noteFilter.tag)) return false;
+    return true;
+  });
+  filtered = [...filtered].sort((a,b) => (b.updatedAt||0)-(a.updatedAt||0));
+
+  const editingId  = DB.get('note_editing_id', null);
+  const editingNote = editingId ? notes.find(n=>n.id===editingId) : null;
+
+  const noteCards = filtered.length === 0
+    ? `<div style="text-align:center;padding:50px;color:var(--text-muted)">
+        <i class="fas fa-note-sticky" style="font-size:28px;opacity:.3;display:block;margin-bottom:10px"></i>
+        ${notes.length===0?'まだノートがありません。「＋ 新規ノート」から最初のメモを作りましょう。':'条件に合うノートが見つかりません'}
+       </div>`
+    : filtered.map(n => {
+        const c = COLOR_MAP[n.color||'asagi'] || COLOR_MAP['asagi'];
+        const dt = n.updatedAt ? new Date(n.updatedAt).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+        return `
+        <div class="card" style="cursor:pointer;border-left:3px solid ${c.color};padding:14px 16px;position:relative" onclick="editLearnNote('${n.id}')">
+          <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:5px">${esc(n.title||'無題')}</div>
+          <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.7;white-space:pre-wrap;max-height:72px;overflow:hidden">${esc((n.content||'').substring(0,120))}${(n.content||'').length>120?'…':''}</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
+            ${(n.tags||[]).map(t=>`<span style="font-size:10px;padding:1px 7px;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:var(--radius-full);font-weight:600">${esc(t)}</span>`).join('')}
+            <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">${dt}</span>
+          </div>
+          <button onclick="event.stopPropagation();deleteLearnNote('${n.id}')" style="position:absolute;top:10px;right:12px;background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:12px;padding:4px" title="削除">
+            <i class="fas fa-trash-can"></i>
+          </button>
+        </div>`;
+      }).join('');
+
+  const editorHtml = editingNote ? `
+  <div class="card" style="margin-bottom:20px;border-top:3px solid var(--asagi)">
+    <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:12px"><i class="fas fa-pen" style="color:var(--asagi);margin-right:6px"></i>ノートを編集</div>
+    <input id="note-edit-title" class="form-input" style="margin-bottom:8px;font-size:13px" placeholder="タイトル（省略可）" value="${esc(editingNote.title||'')}">
+    <textarea id="note-edit-content" class="form-input" rows="8" style="font-size:13px;line-height:1.9;resize:vertical" placeholder="メモを入力…">${esc(editingNote.content||'')}</textarea>
+    <input id="note-edit-tags" class="form-input" style="margin-top:8px;font-size:12px" placeholder="タグをカンマ区切りで入力（例: 三幕構成,キャラクター）" value="${esc((editingNote.tags||[]).join(','))}">
+    <div style="display:flex;gap:10px;margin-top:10px;align-items:center">
+      <select id="note-edit-color" class="form-select" style="font-size:12px;height:32px;width:auto">
+        ${['asagi','beni','matcha','kogane','fuji','momo','kon'].map(col=>`<option value="${col}" ${(editingNote.color||'asagi')===col?'selected':''}>${col}</option>`).join('')}
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="saveLearnNote('${editingNote.id}')"><i class="fas fa-save"></i> 保存</button>
+      <button class="btn btn-ghost btn-sm" onclick="cancelEditNote()"><i class="fas fa-times"></i> キャンセル</button>
+    </div>
+  </div>` : '';
+
+  return `${hero}${subnav}
+  <!-- ヘッダー行 -->
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+    <div style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif"><i class="fas fa-note-sticky" style="color:var(--asagi);margin-right:7px"></i>学習ノート</div>
+    <span style="font-size:12px;color:var(--text-muted)">${notes.length}件のメモ</span>
+    <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="newLearnNote()"><i class="fas fa-plus"></i> 新規ノート</button>
+  </div>
+  <!-- エディタ（編集中のみ） -->
+  ${editorHtml}
+  <!-- フィルターバー -->
+  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+    <div style="position:relative;flex:1;min-width:150px">
+      <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:12px;pointer-events:none"></i>
+      <input class="form-input" style="padding-left:30px;height:34px;font-size:12px" placeholder="ノートを検索…" value="${esc(noteFilter.search)}" oninput="setNoteFilter('search',this.value)">
+    </div>
+    ${allTags.length > 0 ? `
+    <select class="form-select" style="height:34px;font-size:12px;width:auto" onchange="setNoteFilter('tag',this.value)">
+      <option value="">全タグ</option>
+      ${allTags.map(t=>`<option value="${t}" ${noteFilter.tag===t?'selected':''}>${t}</option>`).join('')}
+    </select>` : ''}
+    ${(noteFilter.search||noteFilter.tag)?`<button class="btn btn-ghost btn-sm" onclick="clearNoteFilter()"><i class="fas fa-rotate-left"></i></button>`:''}
+  </div>
+  <!-- ノート説明 -->
+  ${notes.length===0 ? `<div style="padding:12px 16px;background:var(--asagi-bg);border:1px solid var(--asagi-border);border-radius:var(--radius-md);margin-bottom:16px;font-size:12.5px;color:var(--text-secondary);line-height:1.7">
+    <i class="fas fa-lightbulb" style="color:var(--asagi);margin-right:6px"></i>
+    記事や演習を読んで気づいたこと・学んだこと・自分の作品への活かし方などを自由にメモしましょう。タグで分類すれば後から探しやすくなります。
+  </div>`:''}
+  <!-- ノート一覧 -->
+  <div style="display:grid;gap:10px">${noteCards}</div>`;
+}
+
+function newLearnNote() {
+  const notes = DB.get('learn_notes', []);
+  const id = 'note-' + Date.now();
+  const newNote = { id, title:'', content:'', tags:[], color:'asagi', createdAt: Date.now(), updatedAt: Date.now() };
+  notes.unshift(newNote);
+  DB.set('learn_notes', notes);
+  DB.set('note_editing_id', id);
+  render();
+  setTimeout(() => document.getElementById('note-edit-title')?.focus(), 100);
+}
+
+function editLearnNote(noteId) {
+  DB.set('note_editing_id', noteId);
+  render();
+  setTimeout(() => document.getElementById('note-edit-title')?.focus(), 100);
+}
+
+function saveLearnNote(noteId) {
+  const notes  = DB.get('learn_notes', []);
+  const idx    = notes.findIndex(n => n.id === noteId);
+  if (idx === -1) return;
+  const title   = document.getElementById('note-edit-title')?.value?.trim() || '';
+  const content = document.getElementById('note-edit-content')?.value?.trim() || '';
+  const tagsRaw = document.getElementById('note-edit-tags')?.value?.trim() || '';
+  const color   = document.getElementById('note-edit-color')?.value || 'asagi';
+  const tags    = tagsRaw ? tagsRaw.split(',').map(t=>t.trim()).filter(Boolean) : [];
+  if (!content && !title) { toast('内容を入力してください', 'error'); return; }
+  notes[idx] = { ...notes[idx], title, content, tags, color, updatedAt: Date.now() };
+  DB.set('learn_notes', notes);
+  DB.set('note_editing_id', null);
+  toast('ノートを保存しました', 'success');
+  render();
+}
+
+function cancelEditNote() {
+  const notes = DB.get('learn_notes', []);
+  // 空の新規ノートなら削除
+  const editId = DB.get('note_editing_id', null);
+  if (editId) {
+    const n = notes.find(x=>x.id===editId);
+    if (n && !n.title && !n.content) {
+      DB.set('learn_notes', notes.filter(x=>x.id!==editId));
+    }
+  }
+  DB.set('note_editing_id', null);
+  render();
+}
+
+function deleteLearnNote(noteId) {
+  if (!confirm('このノートを削除しますか？')) return;
+  const notes = DB.get('learn_notes', []).filter(n=>n.id!==noteId);
+  DB.set('learn_notes', notes);
+  DB.set('note_editing_id', null);
+  toast('ノートを削除しました', 'success');
+  render();
+}
+
+function setNoteFilter(key, val) {
+  const f = DB.get('learn_note_filter', { search:'', tag:'' });
+  f[key] = val;
+  DB.set('learn_note_filter', f);
+  render();
+}
+
+function clearNoteFilter() {
+  DB.set('learn_note_filter', { search:'', tag:'' });
+  render();
+}
+
 function renderArticlePage(articleId) {
   const article = ARTICLES.find(a => a.id === articleId);
 
@@ -6906,6 +7185,7 @@ function renderArticlePage(articleId) {
         <button class="btn btn-ghost btn-sm" onclick="toggleArticleBookmark('${articleId}')">
           <i class="fas fa-bookmark"></i> ${isBookmarked?'ブックマーク解除':'ブックマーク'}
         </button>
+        <button class="btn btn-ghost btn-sm" onclick="addArticleToNote('${articleId}')"><i class="fas fa-note-sticky"></i> ノート</button>
         <button class="btn btn-ghost btn-sm" onclick="navigate('learn-guide')"><i class="fas fa-map"></i> ガイドも見る</button>
       </div>
     </div>
@@ -7255,6 +7535,19 @@ function toggleArticleBookmark(articleId) {
   }
   DB.set('bookmarked_articles', bm);
   navigate('article-' + articleId);
+}
+
+function addArticleToNote(articleId) {
+  const article = ARTICLES.find(a => a.id === articleId);
+  if (!article) return;
+  const content = `【記事メモ】${article.title}\nカテゴリ: ${article.category}\n\n▼ この記事で学んだこと\n\n▼ 自分の作品への活かし方\n\n▼ 気になったポイント\n`;
+  const notes = DB.get('learn_notes', []);
+  const id = 'note-' + Date.now();
+  notes.unshift({ id, title: `メモ: ${article.title}`, content, tags: [article.category, ...article.tags.slice(0,2)], color: article.categoryColor||'asagi', createdAt: Date.now(), updatedAt: Date.now() });
+  DB.set('learn_notes', notes);
+  DB.set('note_editing_id', id);
+  navigate('learn-notes');
+  toast('ノートに追加しました。内容を編集してください。', 'success');
 }
 
 function setLearnFilter(key, val) {
