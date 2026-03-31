@@ -281,7 +281,13 @@ function render() {
     if (p === 'top') {
       app.innerHTML = renderLayout(renderTopPage());
       bindTopPage();
+    } else if (p === 'dashboard') {
+      // ダッシュボードに遷移する際は現在のプロジェクトIDをクリア
+      State.currentProjectId = null;
+      app.innerHTML = renderLayout(renderDashboard());
+      bindDashboard();
     } else {
+      // currentProjectId が null で dashboard でも top でもない場合
       app.innerHTML = renderLayout(renderDashboard());
       bindDashboard();
     }
@@ -979,7 +985,7 @@ function renderDashboard() {
   };
 
   // タスク統計（ダッシュボード用）
-  const allTasks = TASK_DB.getAll();
+  const allTasks = TASK_DB.getTasks();
   const todayStr = new Date().toISOString().slice(0,10);
   const tasksDueToday = allTasks.filter(t => !t.done && t.dueDate === todayStr);
   const tasksOverdue = allTasks.filter(t => !t.done && t.dueDate && t.dueDate < todayStr);
@@ -1475,7 +1481,7 @@ function dbQuickAddTask() {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
-  TASK_DB.save(task);
+  TASK_DB.saveTask(task);
   input.value = '';
   toast(`タスク「${title}」を追加しました`, 'success', 2500);
   // ダッシュボードを再描画してタスクリストを更新
@@ -7204,82 +7210,85 @@ function renderToolsPage() {
   if (cp === 'tool-tension') return renderToolTension();
   if (cp === 'tool-name-gen') return renderToolNameGen();
 
-  // ツール一覧
-  const TOOL_LIST = [
+  // カテゴリ分けされたツール一覧
+  const TOOL_CATEGORIES = [
     {
-      id: 'tool-logline',
-      title: 'ログラインメーカー',
-      icon: 'fa-quote-left',
-      color: 'beni',
-      desc: '主人公・ゴール・障害・テーマの4要素を入力するだけでプロ品質のログラインを生成。何パターンも試せます。',
-      badge: 'おすすめ',
+      id: 'planning',
+      label: '企画・構成',
+      icon: 'fa-lightbulb',
+      color: 'var(--accent)',
+      bg: 'var(--accent-bg)',
+      border: 'var(--accent-border)',
+      desc: 'アイデアから物語の骨格を作るツール',
+      tools: [
+        { id:'tool-logline', title:'ログラインメーカー', icon:'fa-quote-left', color:'beni', desc:'4要素入力でプロ品質のログラインを複数生成', badge:'おすすめ' },
+        { id:'tool-pitch', title:'ピッチドック・メーカー', icon:'fa-bullhorn', color:'beni', desc:'企画書・あらすじ・ピッチ文書を自動生成', badge:'新機能' },
+        { id:'tool-tension', title:'テンションカーブ設計', icon:'fa-chart-line', color:'momo', desc:'物語全体の緊張度を視覚化・設計', badge:'新機能' },
+      ],
     },
     {
-      id: 'tool-pitch',
-      title: 'ピッチドック・メーカー',
-      icon: 'fa-bullhorn',
-      color: 'beni',
-      desc: '企画書・あらすじ・ピッチドキュメントを自動生成。プロデューサーや読者への売り込みに使える文書を即作成。',
-      badge: '新機能',
+      id: 'character',
+      label: 'キャラクター',
+      icon: 'fa-users',
+      color: 'var(--fuji)',
+      bg: 'var(--fuji-bg)',
+      border: 'var(--fuji-border)',
+      desc: 'キャラクターを深く設計・管理するツール',
+      tools: [
+        { id:'tool-char-diag', title:'キャラクター診断シート', icon:'fa-user-check', color:'fuji', desc:'Want/Need・バックストーリー・アーク設計を整理' },
+        { id:'tool-name-gen', title:'キャラクター名ジェネレーター', icon:'fa-signature', color:'kon', desc:'和風・洋風・古風・SF系の名前を自動生成', badge:'新機能' },
+      ],
     },
     {
-      id: 'tool-char-diag',
-      title: 'キャラクター診断シート',
-      icon: 'fa-user-check',
-      color: 'fuji',
-      desc: 'Want/Need・バックストーリー・口癖・性格特徴を整理してキャラクターの深みを診断。アーク設計のヒントも。',
-    },
-    {
-      id: 'tool-name-gen',
-      title: 'キャラクター名ジェネレーター',
-      icon: 'fa-signature',
-      color: 'kon',
-      desc: '和風・洋風・古風・SF/ファンタジー系のキャラクター名を自動生成。苗字・名前・読み仮名も提案します。',
-      badge: '新機能',
-    },
-    {
-      id: 'tool-scene',
-      title: 'シーン構造チェッカー',
-      icon: 'fa-film',
-      color: 'momo',
-      desc: '1シーンを分析して「入口・目的・対立・出口」の4要素が機能しているか診断。シーンの問題点を発見。',
-    },
-    {
-      id: 'tool-tension',
-      title: 'テンションカーブ設計',
-      icon: 'fa-chart-line',
-      color: 'momo',
-      desc: '物語全体の緊張度を視覚化してカーブを設計。山場・谷・クライマックスの配置を確認・調整できます。',
-      badge: '新機能',
-    },
-    {
-      id: 'tool-timer',
-      title: '執筆タイマー（ポモドーロ）',
-      icon: 'fa-stopwatch',
-      color: 'kogane',
-      desc: '25分執筆＋5分休憩のポモドーロテクニック。執筆セッション数・文字数目標を管理して集中力を高めます。',
+      id: 'writing',
+      label: '執筆・シーン',
+      icon: 'fa-pen-nib',
+      color: 'var(--momo)',
+      bg: 'var(--momo-bg)',
+      border: 'var(--momo-border)',
+      desc: 'シーンの構成や執筆作業を助けるツール',
+      tools: [
+        { id:'tool-scene', title:'シーン構造チェッカー', icon:'fa-film', color:'momo', desc:'入口・目的・対立・出口の4要素を診断' },
+        { id:'tool-timer', title:'執筆タイマー（ポモドーロ）', icon:'fa-stopwatch', color:'kogane', desc:'25分集中＋5分休憩で生産性アップ' },
+      ],
     },
   ];
 
-  const toolCards = TOOL_LIST.map(t => {
-    const c = { beni:'var(--accent)', fuji:'var(--fuji)', momo:'var(--momo)', kogane:'var(--kogane)', asagi:'var(--asagi)', kon:'var(--kon-lt)' };
-    const bg = { beni:'var(--accent-bg)', fuji:'var(--fuji-bg)', momo:'var(--momo-bg)', kogane:'var(--kogane-bg)', asagi:'var(--asagi-bg)', kon:'var(--kon-bg)' };
-    return `
-    <div class="guide-card" style="cursor:pointer" onclick="navigate('${t.id}')">
-      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:10px">
-        <div style="width:48px;height:48px;border-radius:var(--radius-md);background:${bg[t.color]||'var(--bg-hover)'};color:${c[t.color]||'var(--text-muted)'};display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">
+  const colorMap = { beni:'var(--accent)', fuji:'var(--fuji)', momo:'var(--momo)', kogane:'var(--kogane)', asagi:'var(--asagi)', kon:'var(--kon-lt)' };
+  const bgMap = { beni:'var(--accent-bg)', fuji:'var(--fuji-bg)', momo:'var(--momo-bg)', kogane:'var(--kogane-bg)', asagi:'var(--asagi-bg)', kon:'var(--kon-bg)' };
+
+  const categorySections = TOOL_CATEGORIES.map(cat => {
+    const toolCards = cat.tools.map(t => `
+    <div class="guide-card" style="cursor:pointer;margin-bottom:0" onclick="navigate('${t.id}')">
+      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:8px">
+        <div style="width:42px;height:42px;border-radius:var(--radius-md);background:${bgMap[t.color]||'var(--bg-hover)'};color:${colorMap[t.color]||'var(--text-muted)'};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
           <i class="fas ${t.icon}"></i>
         </div>
         <div style="flex:1">
-          <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">
-            <div class="guide-card-title" style="margin-bottom:0">${esc(t.title)}</div>
-            ${t.badge ? `<span class="tag tag-beni" style="font-size:9.5px">${t.badge}</span>` : ''}
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+            <div class="guide-card-title" style="margin-bottom:0;font-size:13.5px">${esc(t.title)}</div>
+            ${t.badge ? `<span class="tag tag-beni" style="font-size:9px">${t.badge}</span>` : ''}
           </div>
-          <div class="guide-card-desc">${esc(t.desc)}</div>
+          <div class="guide-card-desc" style="font-size:11.5px">${esc(t.desc)}</div>
         </div>
+        <i class="fas fa-arrow-right" style="font-size:10px;color:${colorMap[t.color]||'var(--text-muted)'};flex-shrink:0;margin-top:4px"></i>
       </div>
-      <div style="display:flex;justify-content:flex-end">
-        <span style="font-size:11.5px;color:${c[t.color]||'var(--text-muted)'};font-weight:600">開く <i class="fas fa-arrow-right" style="font-size:10px"></i></span>
+    </div>`).join('');
+
+    return `
+    <div class="card" style="padding:0;overflow:hidden;border-top:3px solid ${cat.color}">
+      <div style="padding:14px 16px;border-bottom:1px solid var(--border);background:var(--bg-subtle);display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;border-radius:var(--radius-sm);background:${cat.bg};border:1px solid ${cat.border};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="fas ${cat.icon}" style="color:${cat.color};font-size:15px"></i>
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${cat.label}</div>
+          <div style="font-size:11.5px;color:var(--text-muted)">${cat.desc}</div>
+        </div>
+        <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">${cat.tools.length}ツール</span>
+      </div>
+      <div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
+        ${toolCards}
       </div>
     </div>`;
   }).join('');
@@ -7291,9 +7300,11 @@ function renderToolsPage() {
     <div style="font-size:22px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:6px">
       <i class="fas fa-toolbox" style="color:var(--asagi);margin-right:8px"></i>ライターズツール
     </div>
-    <div style="font-size:13px;color:var(--text-muted)">執筆プロセスを加速する専用ツール集。アイデア出しから推敲まで、あらゆる場面をサポートします。</div>
+    <div style="font-size:13px;color:var(--text-muted)">執筆プロセスを加速する専用ツール集。カテゴリごとに整理された${TOOL_CATEGORIES.reduce((a,c)=>a+c.tools.length,0)}つのツールで、アイデア出しから推敲まで完全サポート。</div>
   </div>
-  <div class="guide-grid">${toolCards}</div>`;
+  <div style="display:flex;flex-direction:column;gap:20px">
+    ${categorySections}
+  </div>`;
 }
 
 function renderToolLogline() {
@@ -9138,10 +9149,35 @@ function renderJournalPage() {
   const today = new Date().toISOString().slice(0,10);
   const todayEntry = entries.find(e => e.date === today);
   const streak = calcWritingStreak(entries);
+  const journalSearch = State.currentTab['journal-search'] || '';
+  const journalMonth = State.currentTab['journal-month'] || '';
 
-  const recentEntries = entries.slice(0, 30).map(e => {
+  // フィルタリングされたエントリ
+  let filteredEntries = entries.slice();
+  if (journalSearch) {
+    const q = journalSearch.toLowerCase();
+    filteredEntries = filteredEntries.filter(e =>
+      (e.body||'').toLowerCase().includes(q) ||
+      (e.goal||'').toLowerCase().includes(q) ||
+      (e.reflection||'').toLowerCase().includes(q) ||
+      e.date.includes(q)
+    );
+  }
+  if (journalMonth) {
+    filteredEntries = filteredEntries.filter(e => e.date.startsWith(journalMonth));
+  }
+
+  // 月別リスト（フィルター用）
+  const monthSet = [...new Set(entries.map(e => e.date.slice(0,7)))].sort((a,b)=>b.localeCompare(a));
+
+  const recentEntries = filteredEntries.slice(0, 50).map(e => {
     const wc = e.wordCount || 0;
     const mood = e.mood || '😐';
+    const highlightText = (text) => {
+      if (!journalSearch || !text) return esc(text||'');
+      const q = journalSearch.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      return esc(text).replace(new RegExp(q, 'gi'), m => `<mark style="background:var(--kogane-bg);color:var(--kogane);border-radius:2px">${m}</mark>`);
+    };
     return `
     <div class="card" style="padding:14px;margin-bottom:10px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
@@ -9153,9 +9189,9 @@ function renderJournalPage() {
           <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteJournalEntry('${e.id}')"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
         </div>
       </div>
-      ${e.goal ? `<div style="font-size:12px;font-weight:600;color:var(--matcha);margin-bottom:5px"><i class="fas fa-bullseye" style="font-size:10px;margin-right:4px"></i>目標: ${esc(e.goal)}</div>` : ''}
-      <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.7;white-space:pre-wrap">${esc(e.body||'').slice(0,200)}${(e.body||'').length>200?'…':''}</div>
-      ${e.reflection ? `<div style="margin-top:8px;font-size:12px;color:var(--text-muted);border-top:1px solid var(--border);padding-top:8px;font-style:italic"><i class="fas fa-comment" style="font-size:9px;margin-right:4px"></i>${esc(e.reflection)}</div>` : ''}
+      ${e.goal ? `<div style="font-size:12px;font-weight:600;color:var(--matcha);margin-bottom:5px"><i class="fas fa-bullseye" style="font-size:10px;margin-right:4px"></i>目標: ${highlightText(e.goal)}</div>` : ''}
+      <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.7;white-space:pre-wrap">${highlightText((e.body||'').slice(0,200))}${(e.body||'').length>200?'…':''}</div>
+      ${e.reflection ? `<div style="margin-top:8px;font-size:12px;color:var(--text-muted);border-top:1px solid var(--border);padding-top:8px;font-style:italic"><i class="fas fa-comment" style="font-size:9px;margin-right:4px"></i>${highlightText(e.reflection)}</div>` : ''}
     </div>`;
   }).join('');
 
@@ -9251,14 +9287,33 @@ function renderJournalPage() {
       </div>
 
       <!-- 過去の記録 -->
-      <div style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif;margin-bottom:12px">
-        <i class="fas fa-clock-rotate-left" style="color:var(--momo);margin-right:8px"></i>過去の記録
-        <span style="font-size:12px;font-weight:400;color:var(--text-muted);margin-left:6px">(${entries.length}件)</span>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">
+          <i class="fas fa-clock-rotate-left" style="color:var(--momo);margin-right:8px"></i>過去の記録
+          <span style="font-size:12px;font-weight:400;color:var(--text-muted);margin-left:6px">(${filteredEntries.length} / ${entries.length}件)</span>
+        </div>
       </div>
-      ${entries.length === 0 ?
+      <!-- 日誌検索バー -->
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <div style="flex:1;position:relative">
+          <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:12px;pointer-events:none"></i>
+          <input class="form-input" id="journal-search" value="${esc(journalSearch)}" placeholder="過去の日誌を全文検索…"
+            style="padding-left:30px;font-size:12.5px;height:34px"
+            oninput="setJournalSearch(this.value)">
+        </div>
+        <select class="form-select" style="font-size:12px;height:34px;padding:0 10px;width:auto" onchange="setJournalMonth(this.value)">
+          <option value="">全期間</option>
+          ${monthSet.map(m => {
+            const [yr,mo] = m.split('-');
+            return `<option value="${m}" ${journalMonth===m?'selected':''}>${yr}年${parseInt(mo)}月</option>`;
+          }).join('')}
+        </select>
+        ${journalSearch||journalMonth ? `<button class="btn btn-ghost btn-sm" onclick="setJournalSearch('');setJournalMonth('')"><i class="fas fa-xmark"></i></button>` : ''}
+      </div>
+      ${filteredEntries.length === 0 ?
         `<div style="text-align:center;padding:40px;color:var(--text-muted);background:var(--bg-subtle);border-radius:var(--radius-md);border:2px dashed var(--border)">
-          <i class="fas fa-book" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.3"></i>
-          まだ記録がありません。今日の執筆を記録しましょう！
+          <i class="fas fa-search" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.3"></i>
+          ${journalSearch||journalMonth ? '条件に一致する記録がありません' : 'まだ記録がありません。今日の執筆を記録しましょう！'}
         </div>`
         : recentEntries}
     </div>
@@ -9380,6 +9435,16 @@ function deleteJournalEntry(id) {
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
      <button class="btn btn-danger" onclick="confirmDeleteJournalEntry('${id}')"><i class="fas fa-trash"></i> 削除</button>`
   );
+}
+
+function setJournalSearch(q) {
+  State.currentTab['journal-search'] = q;
+  navigate('journal');
+}
+
+function setJournalMonth(m) {
+  State.currentTab['journal-month'] = m;
+  navigate('journal');
 }
 
 function confirmDeleteJournalEntry(id) {
@@ -9795,37 +9860,75 @@ function renderInspirationPage() {
 function renderInspirationScratch(scratches) {
   const tags = [...new Set(scratches.flatMap(s => s.tags||[]))].filter(Boolean);
   const filterTag = State.currentTab['insp-tag'] || '';
+  const searchQ = State.currentTab['insp-search'] || '';
+  const filterType = State.currentTab['insp-type'] || '';
+  const sortMode = State.currentTab['insp-sort'] || 'newest';
+  const filterPeriod = State.currentTab['insp-period'] || 'all';
 
-  const filteredScratches = filterTag
-    ? scratches.filter(s => (s.tags||[]).includes(filterTag))
-    : scratches;
+  // 複合フィルタリング
+  let filtered = scratches.slice();
+  if (filterTag) filtered = filtered.filter(s => (s.tags||[]).includes(filterTag));
+  if (filterType) filtered = filtered.filter(s => (s.type||'その他') === filterType);
+  if (searchQ) {
+    const q = searchQ.toLowerCase();
+    filtered = filtered.filter(s =>
+      (s.title||'').toLowerCase().includes(q) ||
+      (s.body||'').toLowerCase().includes(q) ||
+      (s.tags||[]).some(t => t.toLowerCase().includes(q))
+    );
+  }
+  if (filterPeriod !== 'all') {
+    const now = new Date();
+    const limits = { today: 1, week: 7, month: 30, quarter: 90 };
+    const days = limits[filterPeriod] || 9999;
+    filtered = filtered.filter(s => (now - new Date(s.createdAt)) < days*86400000);
+  }
+  // ソート
+  if (sortMode === 'newest') filtered.sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt));
+  else if (sortMode === 'oldest') filtered.sort((a,b) => new Date(a.createdAt)-new Date(b.createdAt));
+  else if (sortMode === 'alpha') filtered.sort((a,b) => (a.title||a.body||'').localeCompare(b.title||b.body||''));
+  else if (sortMode === 'pinned') filtered.sort((a,b) => (b.pinned?1:0)-(a.pinned?1:0));
+  // ピン留めは常に上
+  const pinnedFirst = [...filtered.filter(s=>s.pinned), ...filtered.filter(s=>!s.pinned)];
+  const displayList = sortMode === 'pinned' ? filtered : pinnedFirst;
 
-  const scratchCards = filteredScratches.length === 0
+  const typeColor = { '着想':'var(--kogane)','シーン':'var(--momo)','セリフ':'var(--fuji)','テーマ':'var(--asagi)','キャラ':'var(--accent)','設定':'var(--matcha)','その他':'var(--text-muted)' };
+
+  const scratchCards = displayList.length === 0
     ? `<div class="insp-empty">
-        <i class="fas fa-pen-to-square" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.25"></i>
-        ${filterTag ? `「${filterTag}」のメモはありません` : 'まだメモがありません。上の入力欄から最初のアイデアを書きましょう！'}
+        <i class="fas fa-search" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.25"></i>
+        <div style="font-size:14px;font-weight:600;margin-bottom:6px">${searchQ || filterTag || filterType ? '条件に一致するメモがありません' : 'まだメモがありません'}</div>
+        <div style="font-size:12px;color:var(--text-muted)">${searchQ||filterTag||filterType ? 'フィルターをリセットしてみてください' : '上の入力欄からアイデアを書き留めましょう'}</div>
        </div>`
-    : filteredScratches.map(s => {
+    : displayList.map(s => {
         const tagHtml = (s.tags||[]).map(t =>
           `<span class="insp-tag" onclick="filterScratchByTag('${esc(t)}')">${esc(t)}</span>`
         ).join('');
-        const typeColor = { '着想':'var(--kogane)','シーン':'var(--momo)','セリフ':'var(--fuji)','テーマ':'var(--asagi)','キャラ':'var(--accent)','設定':'var(--matcha)','その他':'var(--text-muted)' };
         const tc = typeColor[s.type||'その他'] || 'var(--text-muted)';
+        // 検索ハイライト
+        const highlightText = (text) => {
+          if (!searchQ || !text) return esc(text||'');
+          const q = searchQ.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          return esc(text).replace(new RegExp(q, 'gi'), m => `<mark style="background:var(--kogane-bg);color:var(--kogane);border-radius:2px">${m}</mark>`);
+        };
         return `
         <div class="insp-scratch-card ${s.pinned?'pinned':''}" id="sc-${s.id}">
           <div class="insp-scratch-top">
-            <span style="font-size:10px;font-weight:700;color:${tc};padding:2px 8px;background:white;border:1px solid ${tc};border-radius:var(--radius-full)">${s.type||'その他'}</span>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:10px;font-weight:700;color:${tc};padding:2px 8px;background:white;border:1px solid ${tc};border-radius:var(--radius-full)">${s.type||'その他'}</span>
+              ${s.pinned?`<i class="fas fa-thumbtack" style="font-size:9px;color:var(--kogane)"></i>`:''}
+            </div>
             <div style="display:flex;gap:4px;align-items:center">
-              <span style="font-size:10px;color:var(--text-light)">${fmtDate(s.createdAt)}</span>
+              <span style="font-size:10px;color:var(--text-light)">${s.createdAt ? s.createdAt.slice(0,10) : ''}</span>
               <button class="btn btn-ghost btn-icon btn-sm" onclick="togglePinScratch('${s.id}')" title="${s.pinned?'ピン解除':'ピン留め'}">
-                <i class="fas ${s.pinned?'fa-thumbtack':'fa-thumbtack'}" style="font-size:10px;color:${s.pinned?'var(--kogane)':'var(--text-muted)'}"></i>
+                <i class="fas fa-thumbtack" style="font-size:10px;color:${s.pinned?'var(--kogane)':'var(--text-muted)'}"></i>
               </button>
               <button class="btn btn-ghost btn-icon btn-sm" onclick="openEditScratch('${s.id}')"><i class="fas fa-pen" style="font-size:10px"></i></button>
               <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteScratch('${s.id}')"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
             </div>
           </div>
-          ${s.title ? `<div style="font-size:13px;font-weight:700;color:var(--text-primary);margin:6px 0 4px;font-family:'Noto Serif JP',serif">${esc(s.title)}</div>` : ''}
-          <div class="insp-scratch-body">${esc(s.body||'')}</div>
+          ${s.title ? `<div style="font-size:13px;font-weight:700;color:var(--text-primary);margin:6px 0 4px;font-family:'Noto Serif JP',serif">${highlightText(s.title)}</div>` : ''}
+          <div class="insp-scratch-body">${highlightText(s.body||'')}</div>
           ${tagHtml ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">${tagHtml}</div>` : ''}
           <div style="margin-top:10px;display:flex;gap:6px">
             <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="developScratch('${s.id}')"><i class="fas fa-wand-magic-sparkles"></i> 展開する</button>
@@ -9835,12 +9938,12 @@ function renderInspirationScratch(scratches) {
       }).join('');
 
   return `
-  <div style="display:grid;grid-template-columns:1fr 320px;gap:20px">
-    <!-- 左: 入力 + カード一覧 -->
+  <div style="display:grid;grid-template-columns:1fr 300px;gap:20px">
+    <!-- 左: 入力 + 検索 + カード一覧 -->
     <div>
       <!-- 素早く入力 -->
-      <div class="card" style="margin-bottom:16px;border-top:3px solid var(--kogane)">
-        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:10px"><i class="fas fa-lightning-bolt" style="color:var(--kogane);margin-right:6px"></i>アイデアをすぐに書き留める</div>
+      <div class="card" style="margin-bottom:14px;border-top:3px solid var(--kogane)">
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:10px"><i class="fas fa-bolt" style="color:var(--kogane);margin-right:6px"></i>アイデアをすぐに書き留める</div>
         <div class="grid-2" style="gap:8px;margin-bottom:8px">
           <input class="form-input" id="sc-title" placeholder="タイトル（任意）" style="font-size:13px">
           <select class="form-select" id="sc-type" style="font-size:13px">
@@ -9851,14 +9954,14 @@ function renderInspirationScratch(scratches) {
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
           <input class="form-input" id="sc-tags-input" placeholder="タグ（カンマ区切り）例: 主人公, 終盤" style="font-size:12px;max-width:220px">
           <div style="display:flex;gap:6px">
-            <button class="btn btn-ghost btn-sm" onclick="addScratch(true)"><i class="fas fa-thumbtack"></i> ピン留めで追加</button>
+            <button class="btn btn-ghost btn-sm" onclick="addScratch(true)"><i class="fas fa-thumbtack"></i> ピン</button>
             <button class="btn btn-primary" onclick="addScratch(false)"><i class="fas fa-plus"></i> 追加</button>
           </div>
         </div>
       </div>
 
       <!-- ブレインストーミングモード -->
-      <div class="card" style="margin-bottom:16px;background:var(--fuji-bg);border:1.5px solid var(--fuji-border)">
+      <div class="card" style="margin-bottom:14px;background:var(--fuji-bg);border:1.5px solid var(--fuji-border)">
         <div style="display:flex;align-items:center;justify-content:space-between">
           <div style="font-size:13px;font-weight:600;color:var(--fuji)"><i class="fas fa-brain" style="margin-right:6px"></i>ブレインストーミングモード</div>
           <button class="btn btn-sm" style="background:var(--fuji);color:white;border:none" onclick="startBrainStorm()"><i class="fas fa-play"></i> 開始</button>
@@ -9876,13 +9979,50 @@ function renderInspirationScratch(scratches) {
         </div>
       </div>
 
-      <!-- タグフィルター -->
-      ${tags.length > 0 ? `
-      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px">
-        <span style="font-size:11.5px;color:var(--text-muted)"><i class="fas fa-tag" style="margin-right:4px"></i>フィルター:</span>
-        <span class="insp-tag ${!filterTag?'active':''}" onclick="filterScratchByTag('')">すべて</span>
-        ${tags.map(t => `<span class="insp-tag ${filterTag===t?'active':''}" onclick="filterScratchByTag('${esc(t)}')">${esc(t)}</span>`).join('')}
-      </div>` : ''}
+      <!-- 🔍 万能検索・フィルターバー -->
+      <div class="card" style="margin-bottom:14px;padding:12px 14px;background:var(--bg-subtle)">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+          <div style="flex:1;position:relative">
+            <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:12px;pointer-events:none"></i>
+            <input class="form-input" id="sc-search" value="${esc(searchQ)}" placeholder="タイトル・本文・タグを全文検索…"
+              style="padding-left:30px;font-size:12.5px;height:34px"
+              oninput="setScratchSearch(this.value)">
+          </div>
+          ${searchQ ? `<button class="btn btn-ghost btn-sm" onclick="setScratchSearch('')" style="white-space:nowrap"><i class="fas fa-xmark"></i></button>` : ''}
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <!-- タイプフィルター -->
+          <select class="form-select" style="font-size:11.5px;height:28px;padding:0 8px;width:auto" onchange="setScratchFilter('type',this.value)">
+            <option value="" ${!filterType?'selected':''}>すべてのタイプ</option>
+            ${['着想','シーン','セリフ','テーマ','キャラ','設定','その他'].map(t=>`<option value="${t}" ${filterType===t?'selected':''}>${t}</option>`).join('')}
+          </select>
+          <!-- 期間フィルター -->
+          <select class="form-select" style="font-size:11.5px;height:28px;padding:0 8px;width:auto" onchange="setScratchFilter('period',this.value)">
+            <option value="all" ${filterPeriod==='all'?'selected':''}>全期間</option>
+            <option value="today" ${filterPeriod==='today'?'selected':''}>今日</option>
+            <option value="week" ${filterPeriod==='week'?'selected':''}>今週</option>
+            <option value="month" ${filterPeriod==='month'?'selected':''}>今月</option>
+            <option value="quarter" ${filterPeriod==='quarter'?'selected':''}>過去3ヶ月</option>
+          </select>
+          <!-- ソート -->
+          <select class="form-select" style="font-size:11.5px;height:28px;padding:0 8px;width:auto" onchange="setScratchFilter('sort',this.value)">
+            <option value="newest" ${sortMode==='newest'?'selected':''}>新しい順</option>
+            <option value="oldest" ${sortMode==='oldest'?'selected':''}>古い順</option>
+            <option value="alpha" ${sortMode==='alpha'?'selected':''}>あいうえお順</option>
+            <option value="pinned" ${sortMode==='pinned'?'selected':''}>ピン優先</option>
+          </select>
+          <!-- 件数表示 -->
+          <span style="font-size:11px;color:var(--text-muted);margin-left:auto">${displayList.length} / ${scratches.length}件</span>
+        </div>
+        <!-- タグフィルター -->
+        ${tags.length > 0 ? `
+        <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+          <span style="font-size:10.5px;color:var(--text-muted)"><i class="fas fa-tag" style="margin-right:3px"></i></span>
+          <span class="insp-tag ${!filterTag?'active':''}" onclick="filterScratchByTag('')">すべて</span>
+          ${tags.slice(0, 15).map(t => `<span class="insp-tag ${filterTag===t?'active':''}" onclick="filterScratchByTag('${esc(t)}')">${esc(t)}</span>`).join('')}
+          ${tags.length > 15 ? `<span style="font-size:10px;color:var(--text-muted)">他${tags.length-15}件…</span>` : ''}
+        </div>` : ''}
+      </div>
 
       <!-- カード一覧 -->
       <div id="scratch-list" style="display:flex;flex-direction:column;gap:10px">
@@ -9894,14 +10034,14 @@ function renderInspirationScratch(scratches) {
     <div style="display:flex;flex-direction:column;gap:14px">
       <!-- 統計 -->
       <div class="card" style="padding:14px">
-        <div style="font-size:12.5px;font-weight:600;margin-bottom:10px;color:var(--text-secondary)"><i class="fas fa-chart-simple" style="color:var(--asagi);margin-right:6px"></i>メモ統計</div>
+        <div style="font-size:12.5px;font-weight:600;margin-bottom:10px;color:var(--text-secondary)"><i class="fas fa-chart-simple" style="color:var(--asagi);margin-right:6px"></i>メモ図書館</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           ${[
             { label:'総メモ', val: scratches.length, color:'var(--asagi)' },
             { label:'ピン留め', val: scratches.filter(s=>s.pinned).length, color:'var(--kogane)' },
             { label:'タグ数', val: tags.length, color:'var(--fuji)' },
             { label:'今週追加', val: scratches.filter(s => { const d=new Date(s.createdAt); const now=new Date(); return (now-d) < 7*86400000; }).length, color:'var(--matcha)' },
-          ].map(s => `<div style="text-align:center;padding:8px;background:var(--bg-subtle);border-radius:var(--radius-sm)">
+          ].map(s => `<div style="text-align:center;padding:8px;background:var(--bg-subtle);border-radius:var(--radius-sm);cursor:pointer">
             <div style="font-size:18px;font-weight:700;color:${s.color}">${s.val}</div>
             <div style="font-size:10.5px;color:var(--text-muted)">${s.label}</div>
           </div>`).join('')}
@@ -9913,30 +10053,51 @@ function renderInspirationScratch(scratches) {
       <div class="card" style="padding:14px">
         <div style="font-size:12.5px;font-weight:600;margin-bottom:10px;color:var(--text-secondary)"><i class="fas fa-layer-group" style="color:var(--momo);margin-right:6px"></i>タイプ別</div>
         ${(function(){
-          const tc = { '着想':'var(--kogane)','シーン':'var(--momo)','セリフ':'var(--fuji)','テーマ':'var(--asagi)','キャラ':'var(--accent)','設定':'var(--matcha)','その他':'var(--text-muted)' };
           const counts = {};
           scratches.forEach(s => { const t=s.type||'その他'; counts[t]=(counts[t]||0)+1; });
-          return Object.entries(counts).map(([t,c]) => {
+          return Object.entries(counts).sort((a,b)=>b[1]-a[1]).map(([t,c]) => {
             const pct = Math.round(c/scratches.length*100);
-            return `<div style="margin-bottom:6px">
+            const tc2 = typeColor[t]||'var(--text-muted)';
+            return `<div style="margin-bottom:6px;cursor:pointer" onclick="setScratchFilter('type','${filterType===t?'':t}')">
               <div style="display:flex;justify-content:space-between;margin-bottom:2px">
-                <span style="font-size:11.5px;color:${tc[t]||'var(--text-muted)'};">${t}</span>
+                <span style="font-size:11.5px;color:${tc2};font-weight:${filterType===t?700:400}">${t}</span>
                 <span style="font-size:11px;color:var(--text-light)">${c}</span>
               </div>
-              <div style="height:4px;background:var(--bg-hover);border-radius:2px"><div style="height:100%;width:${pct}%;background:${tc[t]||'var(--text-muted)'};border-radius:2px"></div></div>
+              <div style="height:4px;background:var(--bg-hover);border-radius:2px"><div style="height:100%;width:${pct}%;background:${tc2};border-radius:2px"></div></div>
             </div>`;
           }).join('');
         })()}
       </div>` : ''}
 
-      <!-- ピン留めメモ -->
+      <!-- ピン留めメモ（クイックアクセス） -->
       ${scratches.filter(s=>s.pinned).length > 0 ? `
       <div class="card" style="padding:14px">
-        <div style="font-size:12.5px;font-weight:600;margin-bottom:10px;color:var(--text-secondary)"><i class="fas fa-thumbtack" style="color:var(--kogane);margin-right:6px"></i>ピン留めメモ</div>
+        <div style="font-size:12.5px;font-weight:600;margin-bottom:10px;color:var(--text-secondary)"><i class="fas fa-thumbtack" style="color:var(--kogane);margin-right:6px"></i>ピン留め</div>
         ${scratches.filter(s=>s.pinned).map(s => `
-          <div style="padding:8px 10px;background:var(--kogane-bg);border:1px solid var(--kogane-border);border-radius:var(--radius-sm);margin-bottom:6px;cursor:pointer" onclick="scrollToScratch('${s.id}')">
-            <div style="font-size:12px;font-weight:600;color:var(--kogane)">${esc(s.title||s.body?.slice(0,30)||'無題')}…</div>
+          <div style="padding:8px 10px;background:var(--kogane-bg);border:1px solid var(--kogane-border);border-radius:var(--radius-sm);margin-bottom:5px;cursor:pointer" onclick="scrollToScratch('${s.id}')">
+            <div style="font-size:11px;font-weight:600;color:var(--kogane);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(s.title||s.body?.slice(0,30)||'無題')}</div>
+            <div style="font-size:10px;color:var(--text-muted)">${s.createdAt?s.createdAt.slice(0,10):''}</div>
           </div>`).join('')}
+      </div>` : ''}
+
+      <!-- 月別アーカイブ -->
+      ${scratches.length > 0 ? `
+      <div class="card" style="padding:14px">
+        <div style="font-size:12.5px;font-weight:600;margin-bottom:10px;color:var(--text-secondary)"><i class="fas fa-calendar-days" style="color:var(--asagi);margin-right:6px"></i>月別アーカイブ</div>
+        ${(function(){
+          const months = {};
+          scratches.forEach(s => {
+            const m = (s.createdAt||'').slice(0,7);
+            if (m) months[m] = (months[m]||0)+1;
+          });
+          return Object.entries(months).sort((a,b)=>b[0].localeCompare(a[0])).slice(0,8).map(([m,c]) => {
+            const [yr,mo] = m.split('-');
+            return `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="setScratchFilter('period','all');setScratchSearch('')">
+              <span style="font-size:11.5px;color:var(--text-secondary)">${yr}年${parseInt(mo)}月</span>
+              <span style="font-size:11px;font-weight:600;color:var(--asagi);background:var(--asagi-bg);padding:1px 7px;border-radius:10px">${c}</span>
+            </div>`;
+          }).join('');
+        })()}
       </div>` : ''}
 
       <!-- タグクラウド -->
@@ -9946,8 +10107,9 @@ function renderInspirationScratch(scratches) {
         <div style="display:flex;flex-wrap:wrap;gap:5px">
           ${tags.map(t => {
             const cnt = scratches.filter(s=>(s.tags||[]).includes(t)).length;
-            const size = cnt>=3?'13px':cnt>=2?'12px':'11px';
-            return `<span class="insp-tag" style="font-size:${size}" onclick="filterScratchByTag('${esc(t)}')">${esc(t)} <span style="opacity:0.6">${cnt}</span></span>`;
+            const size = cnt>=5?'13.5px':cnt>=3?'13px':cnt>=2?'12px':'11px';
+            const active = filterTag === t;
+            return `<span class="insp-tag ${active?'active':''}" style="font-size:${size}" onclick="filterScratchByTag('${esc(t)}')">${esc(t)} <span style="opacity:0.6">${cnt}</span></span>`;
           }).join('')}
         </div>
       </div>` : ''}
@@ -10783,6 +10945,18 @@ function deleteScratch(id) {
 
 function filterScratchByTag(tag) {
   State.currentTab['insp-tag'] = tag;
+  navigate('inspiration');
+}
+
+function setScratchSearch(q) {
+  State.currentTab['insp-search'] = q;
+  navigate('inspiration');
+}
+
+function setScratchFilter(key, val) {
+  if (key === 'type') State.currentTab['insp-type'] = val;
+  else if (key === 'period') State.currentTab['insp-period'] = val;
+  else if (key === 'sort') State.currentTab['insp-sort'] = val;
   navigate('inspiration');
 }
 
@@ -12480,7 +12654,7 @@ function renderSceneCard(card, mapId, actIdx, cardIdx) {
 
 // ── StoryMap Functions ──────────────────────────────────────
 function openStorymap(mapId) { StorymapState.currentMapId = mapId; render(); }
-function closeStorymapToList() { StorymapState.currentMapId = null; render(); }
+function closeStorymapToList() { StorymapState.currentMapId = null; BoardState.listTab = 'maps'; render(); }
 
 function addActToMap(mapId) {
   const map = STORYMAP_DB.getMap(mapId);
@@ -12879,6 +13053,13 @@ const STORY_FUNCTIONS = ['日常を示す','事件の発端','関係性の構築
 function renderBoardPage() {
   const boards = BOARD_DB.getBoards();
   const currentBoard = BoardState.currentBoardId ? BOARD_DB.getBoard(BoardState.currentBoardId) : null;
+
+  // シーンマップが開かれている場合はそちらを優先表示
+  if (StorymapState.currentMapId) {
+    const currentMap = STORYMAP_DB.getMap(StorymapState.currentMapId);
+    if (currentMap) return renderStorymapBoard(currentMap);
+    StorymapState.currentMapId = null; // マップが見つからない場合はリセット
+  }
 
   if (!currentBoard) {
     return renderBoardList(boards);
