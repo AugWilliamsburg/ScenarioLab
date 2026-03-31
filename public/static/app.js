@@ -204,13 +204,13 @@ function render() {
   const p = State.currentPage;
 
   // 学習センター
-  if (p === 'learn' || p === 'learn-guide' || p === 'learn-articles' || (p && p.startsWith('article-'))) {
+  if (p === 'learn' || p === 'learn-guide' || p === 'learn-articles' || p === 'learn-exercises' || p === 'learn-faq' || (p && p.startsWith('article-'))) {
     app.innerHTML = renderLayout(renderLearnPage());
     return;
   }
 
   // ツールページ
-  if (p === 'tools' || p === 'tool-logline' || p === 'tool-char-diag' || p === 'tool-scene' || p === 'tool-timer') {
+  if (p === 'tools' || p === 'tool-logline' || p === 'tool-char-diag' || p === 'tool-scene' || p === 'tool-timer' || p === 'tool-pitch' || p === 'tool-tension' || p === 'tool-name-gen' || p === 'tool-structure' || p === 'tool-emotion-arc' || p === 'tool-world-notes' || p === 'tool-dialogue-check' || p === 'tool-plot-holes' || p === 'tool-beat-counter') {
     app.innerHTML = renderLayout(renderToolsPage());
     bindToolsPage();
     return;
@@ -319,8 +319,8 @@ function render() {
 // ── Layout Shell ───────────────────────────────────────────────
 function renderLayout(content, proj = null) {
   const cp = State.currentPage;
-  const isLearnPage = cp === 'learn' || cp === 'learn-guide' || cp === 'learn-articles' || (cp && cp.startsWith('article-'));
-  const isToolsPage = cp === 'tools' || cp === 'tool-logline' || cp === 'tool-char-diag' || cp === 'tool-scene' || cp === 'tool-timer' || cp === 'tool-pitch' || cp === 'tool-tension' || cp === 'tool-name-gen' || cp === 'tool-structure' || cp === 'tool-emotion-arc' || cp === 'tool-world-notes';
+  const isLearnPage = cp === 'learn' || cp === 'learn-guide' || cp === 'learn-articles' || cp === 'learn-exercises' || cp === 'learn-faq' || (cp && cp.startsWith('article-'));
+  const isToolsPage = cp === 'tools' || cp === 'tool-logline' || cp === 'tool-char-diag' || cp === 'tool-scene' || cp === 'tool-timer' || cp === 'tool-pitch' || cp === 'tool-tension' || cp === 'tool-name-gen' || cp === 'tool-structure' || cp === 'tool-emotion-arc' || cp === 'tool-world-notes' || cp === 'tool-dialogue-check' || cp === 'tool-plot-holes' || cp === 'tool-beat-counter';
   const isTemplatesPage = cp === 'templates' || (cp && cp.startsWith('template-'));
   const isSettingsPage = cp === 'settings';
   const isJournalPage = cp === 'journal';
@@ -5007,6 +5007,50 @@ const ARTICLES = [
     readTime: 9,
     desc: '良い脚本はテーマを語らない——テーマを見せる。「これはこういう話です」と説明することなく、キャラクターの行動・対話・イメージによってテーマを伝える技術を解説。',
   },
+  {
+    id: 'antagonist-design',
+    title: '敵役設計の技法 — 強い敵がいる物語',
+    subtitle: '観客に愛される「信念ある敵役」をどう作るか',
+    category: 'キャラクター',
+    categoryColor: 'momo',
+    icon: 'fa-masks-theater',
+    tags: ['敵役','アンタゴニスト','キャラクター','対立'],
+    readTime: 10,
+    desc: '「最良のビラン（悪役）は自分が正しいと信じている」。主人公と等価値の動機を持つ敵役が物語を深くする理由と、設計の具体的な方法を解説。',
+  },
+  {
+    id: 'subplots-bstory',
+    title: 'サブプロット設計 — Bストーリーの活かし方',
+    subtitle: 'メインプロットを補完し、テーマを体現するサブプロットの設計法',
+    category: '構成技法',
+    categoryColor: 'fuji',
+    icon: 'fa-code-branch',
+    tags: ['サブプロット','Bストーリー','構成','テーマ'],
+    readTime: 9,
+    desc: 'Bストーリー（サブプロット）はメインプロットの「鏡」。恋愛・友情・家族を絡めることで、主人公の内的テーマを立体的に映し出す。Save the Catでのp.30開始の意味から実装まで。',
+  },
+  {
+    id: 'rewriting-strategy',
+    title: '改稿の戦略 — どこを直すかの判断基準',
+    subtitle: '初稿から何が「優先して直すべき問題」かを見抜く技術',
+    category: '執筆プロセス',
+    categoryColor: 'asagi',
+    icon: 'fa-arrows-rotate',
+    tags: ['改稿','初稿','推敲','優先順位'],
+    readTime: 8,
+    desc: '改稿は「全部を直す」のではなく「何を直すかを決める」ことが9割。大局→構造→シーン→セリフの優先順位で改稿することで、同じ時間でも成果が10倍変わる。',
+  },
+  {
+    id: 'visual-storytelling',
+    title: 'ビジュアル・ストーリーテリング — 見せる脚本',
+    subtitle: '映像で語るために、言葉ではなく「画」で設計する技術',
+    category: '執筆技法',
+    categoryColor: 'kon',
+    icon: 'fa-eye',
+    tags: ['映像','ビジュアル','ト書き','演出'],
+    readTime: 9,
+    desc: '脚本は「読む」ものではなく「見る」ものを設計する。台詞に頼らず、行動・画・象徴・音で物語を語るビジュアル・ストーリーテリングの原則と実践法。',
+  },
 ];
 
 // ガイドデータ
@@ -5104,8 +5148,17 @@ function renderLearnPage() {
     return renderArticlePage(articleId);
   }
 
-  // デフォルトはガイドタブ
-  const activeTab = page === 'learn-articles' ? 'articles' : 'guide';
+  // タブ判定（練習問題・FAQ対応）
+  const activeTab = page === 'learn-articles' ? 'articles'
+    : page === 'learn-exercises' ? 'exercises'
+    : page === 'learn-faq' ? 'faq'
+    : 'guide';
+
+  const tabBadge = (label, count, color='var(--fuji)') =>
+    count ? `<span style="font-size:9px;padding:1px 5px;background:${color};color:white;border-radius:8px;margin-left:3px">${count}</span>` : '';
+
+  const EXERCISES = window._EXERCISES || [];
+  const FAQ_DATA  = window._FAQ_DATA  || [];
 
   const subnav = `
   <div class="learn-subnav">
@@ -5113,7 +5166,13 @@ function renderLearnPage() {
       <i class="fas fa-map"></i> ガイド
     </div>
     <div class="learn-subnav-item ${activeTab==='articles'?'active':''}" onclick="navigate('learn-articles')">
-      <i class="fas fa-newspaper"></i> 記事 <span style="font-size:9px;padding:1px 5px;background:var(--fuji);color:white;border-radius:8px;margin-left:3px">${ARTICLES.length}</span>
+      <i class="fas fa-newspaper"></i> 記事${tabBadge(null, ARTICLES.length)}
+    </div>
+    <div class="learn-subnav-item ${activeTab==='exercises'?'active':''}" onclick="navigate('learn-exercises')">
+      <i class="fas fa-pen-to-square"></i> 練習問題${tabBadge(null, EXERCISES.length, 'var(--matcha)')}
+    </div>
+    <div class="learn-subnav-item ${activeTab==='faq'?'active':''}" onclick="navigate('learn-faq')">
+      <i class="fas fa-circle-question"></i> FAQ${tabBadge(null, FAQ_DATA.length, 'var(--kogane)')}
     </div>
   </div>`;
 
@@ -5131,7 +5190,8 @@ function renderLearnPage() {
     const readArticles = DB.get('read_articles', []);
     const bookmarkedArticles = DB.get('bookmarked_articles', []);
     const readCount = ARTICLES.filter(a => readArticles.includes(a.id)).length;
-    const learnFilter = DB.get('learn_article_filter', { category: '', search: '', showBookmark: false });
+    const learnFilter = DB.get('learn_article_filter', { category: '', search: '', showBookmark: false, viewMode: 'grid' });
+    const viewMode = learnFilter.viewMode || 'grid';
 
     // カテゴリ一覧（動的生成）
     const allCategories = [...new Set(ARTICLES.map(a => a.category))];
@@ -5140,43 +5200,99 @@ function renderLearnPage() {
     let filteredArticles = ARTICLES.filter(a => {
       if (learnFilter.category && a.category !== learnFilter.category) return false;
       if (learnFilter.search && !a.title.toLowerCase().includes(learnFilter.search.toLowerCase())
-          && !a.desc.toLowerCase().includes(learnFilter.search.toLowerCase())) return false;
+          && !(a.desc||'').toLowerCase().includes(learnFilter.search.toLowerCase())
+          && !a.tags.some(t => t.toLowerCase().includes(learnFilter.search.toLowerCase()))) return false;
       if (learnFilter.showBookmark && !bookmarkedArticles.includes(a.id)) return false;
       return true;
     });
 
-    // 記事カード
-    const articleCards = filteredArticles.length === 0
-      ? `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-search" style="font-size:24px;opacity:.3;display:block;margin-bottom:10px"></i>条件に合う記事が見つかりません</div>`
-      : filteredArticles.map(a => {
-          const c = COLOR_MAP[a.categoryColor] || COLOR_MAP['beni'];
-          const isRead = readArticles.includes(a.id);
-          const isBm   = bookmarkedArticles.includes(a.id);
-          return `
-          <div class="article-card ${isRead?'read':''}" onclick="navigate('article-${a.id}')" style="position:relative">
-            ${isRead ? `<div style="position:absolute;top:10px;right:10px;font-size:10px;padding:2px 8px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border);border-radius:var(--radius-full);font-weight:600"><i class="fas fa-check" style="font-size:9px;margin-right:2px"></i>既読</div>` : ''}
-            ${isBm ? `<div style="position:absolute;top:10px;right:${isRead?'70':'10'}px;font-size:13px;color:var(--kogane)"><i class="fas fa-bookmark"></i></div>` : ''}
-            <div class="article-card-header">
-              <div class="article-card-icon" style="background:${c.bg};color:${c.color}">
-                <i class="fas ${a.icon}"></i>
-              </div>
-              <div>
-                <div style="font-size:10px;padding:2px 7px;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:var(--radius-full);display:inline-block;margin-bottom:3px;font-weight:600">${a.category}</div>
-                <div class="article-card-title">${esc(a.title)}</div>
-              </div>
+    // 記事カード生成
+    const makeArticleCard = (a) => {
+      const c = COLOR_MAP[a.categoryColor] || COLOR_MAP['beni'];
+      const isRead = readArticles.includes(a.id);
+      const isBm   = bookmarkedArticles.includes(a.id);
+      if (viewMode === 'list') {
+        return `
+        <div class="card" style="padding:12px 16px;cursor:pointer;margin-bottom:6px;display:flex;align-items:center;gap:12px${isRead?';opacity:.85':''}" onclick="navigate('article-${a.id}')">
+          <div style="width:38px;height:38px;border-radius:var(--radius-md);background:${c.bg};color:${c.color};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">
+            <i class="fas ${a.icon}"></i>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:2px">
+              <span style="font-size:10px;padding:1px 6px;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:var(--radius-full);font-weight:600;flex-shrink:0">${a.category}</span>
+              <span style="font-size:13px;font-weight:700;color:var(--text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.title)}</span>
             </div>
-            <div class="article-card-body">
-              <div class="article-card-desc">${esc(a.desc)}</div>
-              <div class="article-card-tags">
-                ${a.tags.map(t => `<span class="tag tag-gray">${t}</span>`).join('')}
-              </div>
+            <div style="font-size:11.5px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(a.desc||'')}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+            ${isBm ? `<i class="fas fa-bookmark" style="color:var(--kogane);font-size:13px"></i>` : ''}
+            ${isRead ? `<span style="font-size:10px;padding:1px 7px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border);border-radius:var(--radius-full);font-weight:600"><i class="fas fa-check" style="font-size:8px"></i> 既読</span>` : ''}
+            <span style="font-size:11px;color:var(--text-muted)"><i class="fas fa-clock" style="font-size:9px"></i> ${a.readTime}分</span>
+            <i class="fas fa-chevron-right" style="font-size:10px;color:var(--text-muted)"></i>
+          </div>
+        </div>`;
+      }
+      return `
+      <div class="article-card ${isRead?'read':''}" onclick="navigate('article-${a.id}')" style="position:relative">
+        ${isRead ? `<div style="position:absolute;top:10px;right:10px;font-size:10px;padding:2px 8px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border);border-radius:var(--radius-full);font-weight:600"><i class="fas fa-check" style="font-size:9px;margin-right:2px"></i>既読</div>` : ''}
+        ${isBm ? `<div style="position:absolute;top:10px;right:${isRead?'70':'10'}px;font-size:13px;color:var(--kogane)"><i class="fas fa-bookmark"></i></div>` : ''}
+        <div class="article-card-header">
+          <div class="article-card-icon" style="background:${c.bg};color:${c.color}">
+            <i class="fas ${a.icon}"></i>
+          </div>
+          <div>
+            <div style="font-size:10px;padding:2px 7px;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:var(--radius-full);display:inline-block;margin-bottom:3px;font-weight:600">${a.category}</div>
+            <div class="article-card-title">${esc(a.title)}</div>
+          </div>
+        </div>
+        <div class="article-card-body">
+          <div class="article-card-desc">${esc(a.desc||'')}</div>
+          <div class="article-card-tags">
+            ${(a.tags||[]).map(t => `<span class="tag tag-gray">${t}</span>`).join('')}
+          </div>
+        </div>
+        <div class="article-card-footer">
+          <div class="article-read-time"><i class="fas fa-clock"></i> 約${a.readTime}分で読む</div>
+          <span style="font-size:11px;color:var(--accent);font-weight:600">読む <i class="fas fa-arrow-right" style="font-size:9px"></i></span>
+        </div>
+      </div>`;
+    };
+
+    const emptyMsg = `<div style="${viewMode==='grid'?'grid-column:1/-1;':''}text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-search" style="font-size:24px;opacity:.3;display:block;margin-bottom:10px"></i>条件に合う記事が見つかりません</div>`;
+
+    let articlesHtml = '';
+    if (filteredArticles.length === 0) {
+      articlesHtml = `<div ${viewMode==='grid'?'class="article-grid"':''}>${emptyMsg}</div>`;
+    } else if (viewMode === 'category') {
+      // カテゴリ別グループ表示
+      const byCategory = {};
+      filteredArticles.forEach(a => {
+        if (!byCategory[a.category]) byCategory[a.category] = [];
+        byCategory[a.category].push(a);
+      });
+      const catColorMap = {};
+      filteredArticles.forEach(a => { catColorMap[a.category] = a.categoryColor; });
+      articlesHtml = Object.entries(byCategory).map(([cat, articles]) => {
+        const cc = COLOR_MAP[catColorMap[cat]] || COLOR_MAP['beni'];
+        const catReadCount = articles.filter(a => readArticles.includes(a.id)).length;
+        return `
+        <div style="margin-bottom:28px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid ${cc.color}33">
+            <div style="width:26px;height:26px;border-radius:50%;background:${cc.bg};border:1px solid ${cc.border};display:flex;align-items:center;justify-content:center;font-size:12px;color:${cc.color}"><i class="fas fa-folder"></i></div>
+            <span style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${cat}</span>
+            <span style="font-size:11px;color:var(--text-muted)">${catReadCount}/${articles.length}本読了</span>
+            <div style="flex:1;height:4px;background:var(--bg-hover);border-radius:2px;overflow:hidden;max-width:100px">
+              <div style="height:100%;width:${articles.length>0?Math.round(catReadCount/articles.length*100):0}%;background:${cc.color};border-radius:2px"></div>
             </div>
-            <div class="article-card-footer">
-              <div class="article-read-time"><i class="fas fa-clock"></i> 約${a.readTime}分で読む</div>
-              <span style="font-size:11px;color:var(--accent);font-weight:600">読む <i class="fas fa-arrow-right" style="font-size:9px"></i></span>
-            </div>
-          </div>`;
-        }).join('');
+          </div>
+          <div class="article-grid">${articles.map(makeArticleCard).join('')}</div>
+        </div>`;
+      }).join('');
+    } else if (viewMode === 'list') {
+      articlesHtml = `<div>${filteredArticles.length === 0 ? emptyMsg : filteredArticles.map(makeArticleCard).join('')}</div>`;
+    } else {
+      articlesHtml = `<div class="article-grid">${filteredArticles.length === 0 ? emptyMsg : filteredArticles.map(makeArticleCard).join('')}</div>`;
+    }
 
     // 進捗バッジ
     const progressPct = Math.round(readCount / ARTICLES.length * 100);
@@ -5207,17 +5323,22 @@ function renderLearnPage() {
     <div class="learn-filter-bar">
       <div style="position:relative;flex:1">
         <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:12px;pointer-events:none"></i>
-        <input class="form-input" style="padding-left:30px;height:34px;font-size:12px" placeholder="記事を検索…" value="${esc(learnFilter.search)}"
+        <input class="form-input" style="padding-left:30px;height:34px;font-size:12px" placeholder="タイトル・タグで検索…" value="${esc(learnFilter.search)}"
           oninput="setLearnFilter('search',this.value)">
       </div>
       <select class="form-select" style="height:34px;font-size:12px;width:auto" onchange="setLearnFilter('category',this.value)">
         <option value="">全カテゴリ</option>
         ${allCategories.map(cat=>`<option value="${cat}" ${learnFilter.category===cat?'selected':''}>${cat}</option>`).join('')}
       </select>
-      <button class="btn ${learnFilter.showBookmark?'btn-primary':'btn-ghost'} btn-sm" onclick="setLearnFilter('showBookmark',${!learnFilter.showBookmark})" style="white-space:nowrap">
-        <i class="fas fa-bookmark"></i> ブックマーク
+      <button class="btn ${learnFilter.showBookmark?'btn-primary':'btn-ghost'} btn-sm" onclick="setLearnFilter('showBookmark',${!learnFilter.showBookmark})" title="ブックマーク">
+        <i class="fas fa-bookmark"></i>
       </button>
-      ${(learnFilter.category||learnFilter.search||learnFilter.showBookmark) ? `<button class="btn btn-ghost btn-sm" onclick="clearLearnFilter()" style="white-space:nowrap"><i class="fas fa-rotate-left"></i></button>` : ''}
+      <div style="display:flex;gap:2px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0">
+        <button class="btn btn-sm ${viewMode==='grid'?'btn-primary':'btn-ghost'}" onclick="setLearnFilter('viewMode','grid')" title="グリッド表示" style="border-radius:0;padding:4px 8px"><i class="fas fa-grid-2"></i></button>
+        <button class="btn btn-sm ${viewMode==='list'?'btn-primary':'btn-ghost'}" onclick="setLearnFilter('viewMode','list')" title="リスト表示" style="border-radius:0;padding:4px 8px"><i class="fas fa-list"></i></button>
+        <button class="btn btn-sm ${viewMode==='category'?'btn-primary':'btn-ghost'}" onclick="setLearnFilter('viewMode','category')" title="カテゴリ別" style="border-radius:0;padding:4px 8px"><i class="fas fa-folder-tree"></i></button>
+      </div>
+      ${(learnFilter.category||learnFilter.search||learnFilter.showBookmark) ? `<button class="btn btn-ghost btn-sm" onclick="clearLearnFilter()" title="フィルタをリセット"><i class="fas fa-rotate-left"></i></button>` : ''}
     </div>`;
 
     return `${hero}${subnav}
@@ -5227,9 +5348,16 @@ function renderLearnPage() {
       ${filteredArticles.length === ARTICLES.length
         ? `全 ${ARTICLES.length} 本の記事`
         : `${filteredArticles.length} 本 (全 ${ARTICLES.length} 本中)`}
+      <span style="margin-left:10px;color:var(--text-muted)">
+        ${viewMode==='category'?'📂 カテゴリ別表示':viewMode==='list'?'📋 リスト表示':'⊞ グリッド表示'}
+      </span>
     </div>
-    <div class="article-grid">${articleCards}</div>`;
+    ${articlesHtml}`;
 
+  } else if (activeTab === 'exercises') {
+    return renderLearnExercises(hero, subnav);
+  } else if (activeTab === 'faq') {
+    return renderLearnFAQ(hero, subnav);
   } else {
     // ガイド一覧（進捗トラッキング付き）
     const readGuides = DB.get('read_guides', []);
@@ -5289,6 +5417,312 @@ function renderLearnPage() {
   }
 }
 
+// ================================================================
+//  練習問題・FAQ データ
+// ================================================================
+window._EXERCISES = [
+  {
+    id: 'ex-logline-01',
+    category: '構成',
+    difficulty: '初級',
+    title: 'ログライン完成問題',
+    question: '次の要素を使って、50字以内のログラインを完成させてください。\n\n主人公: 孤独な元刑事（52歳）\n障害: 10年前に自分が冤罪で服役させた男が復讐に来る\n目標: 真犯人を見つけ、自分の罪を償う\n\nヒント: 「欠如ある主人公が〜という目標を持つが、〜という障害がある」',
+    hint: '「元刑事」「冤罪」「復讐」「真犯人」を盛り込み、50字以内で。',
+    sampleAnswer: '冤罪を生み出した元刑事が、服役させた男の復讐に追われながら真犯人を探す。',
+    tags: ['ログライン', '構成', '初級'],
+    color: 'beni',
+  },
+  {
+    id: 'ex-scene-01',
+    category: 'シーン設計',
+    difficulty: '中級',
+    title: 'シーン目的・葛藤・変化を設計',
+    question: '以下のシーンを読んで、3つの要素（目的・葛藤・変化）を特定してください。\n\n「田中は社長に昇進の話を持ちかけられる。しかし条件は、親友の不正を告発することだった。田中は承諾しかけたが、親友の子どもの写真を見て断った」',
+    hint: '目的＝田中が達成しようとすること。葛藤＝何が妨げているか。変化＝シーン前後で何が変わったか。',
+    sampleAnswer: '目的: 昇進を手に入れる\n葛藤: 昇進と友情・倫理の間で板挟み\n変化: 昇進を諦め、友情を守るという選択をした（価値観の確認）',
+    tags: ['シーン', '目的', '葛藤', '変化'],
+    color: 'kogane',
+  },
+  {
+    id: 'ex-subtext-01',
+    category: 'セリフ',
+    difficulty: '中級',
+    title: 'サブテキストの書き換え',
+    question: '次のセリフはサブテキストがなく、感情を直接言っています。サブテキストを使って書き換えてください。\n\n元のセリフ：\n「あなたのことが心配で仕方ない。もっと自分を大切にしてほしい。あなたを失いたくない」',
+    hint: '「心配」「大切」「失いたくない」を直接言わず、言動・行動・間接的な言葉で表現してみましょう。',
+    sampleAnswer: '「……傘、持ってる？」\n（沈黙）\n「今夜、雨が降るって言ってたから」',
+    tags: ['セリフ', 'サブテキスト', '書き換え'],
+    color: 'fuji',
+  },
+  {
+    id: 'ex-arc-01',
+    category: 'キャラクター',
+    difficulty: '上級',
+    title: 'キャラクターアークの設計',
+    question: '次のキャラクター設定から、ポジティブアークを設計してください。\n\nキャラクター: 美咲（29歳・会社員）\n冒頭の状態: 人を信じることができない。子供の頃に親友に裏切られた経験から、感情を閉ざしている。\n物語の大枠: 転職先で意外なパートナーと仕事をすることになる。\n\n「欠如」「誤った信念」「転換点」「クライマックスでの変化」を設計してください。',
+    hint: '「人は信じられない（誤った信念）→試練→信じることで得るものを経験→信じる勇気を持つ（変化）」という流れで考えましょう。',
+    sampleAnswer: '欠如: 孤立、本音を言えない、常に一人で抱える\n誤った信念: 「人を信じると必ず裏切られる」\n転換点: パートナーが自分を信頼して重要なミスを隠さず告白してくれた\nクライマックスでの変化: 自分もパートナーの失敗を庇い、一緒に解決しようとする選択をする',
+    tags: ['キャラクター', 'アーク', '上級'],
+    color: 'momo',
+  },
+  {
+    id: 'ex-tension-01',
+    category: '構成',
+    difficulty: '中級',
+    title: 'テンションカーブの評価',
+    question: '以下のシーン順番を見て、テンションカーブの問題点を指摘してください。\n\nシーン1: 主人公が事件の依頼を受ける（緊張度:3）\nシーン2: 手がかりを発見する（緊張度:4）\nシーン3: 敵に気づかれる（緊張度:7）\nシーン4: 仲間と食事をして作戦を立てる（緊張度:2）\nシーン5: アジトへ突入する（緊張度:9）\nシーン6: 全員が生き残って成功する（緊張度:10）\nシーン7: エンディング（緊張度:8）',
+    hint: 'テンションはクライマックスに向けて上昇し、その後「下降」するのが基本。クライマックスの前後関係、「谷」（弛緩）の位置も確認してください。',
+    sampleAnswer: '問題点:\n1. シーン6がクライマックスのはずだが、シーン7で緊張度が8に維持されており、適切な解放感がない\n2. 谷（シーン4の2）の前後落差が激しすぎて不自然\n3. Act1（シーン1-2）の緊張度が低すぎて引きが弱い\n\n改善案: シーン7を緊張度3-4程度の余韻シーンに。シーン1の緊張度を4-5に引き上げる。',
+    tags: ['テンション', '構成', 'カーブ'],
+    color: 'asagi',
+  },
+  {
+    id: 'ex-opening-01',
+    category: '執筆技術',
+    difficulty: '初級',
+    title: '冒頭シーンの評価',
+    question: '次の冒頭シーンを読んで、「良い点」と「改善すべき点」を挙げてください。\n\n「内・田中家・朝\n田中明子（34）が台所に立っている。朝の光。夫の哲也（36）が新聞を読んでいる。\n\n明子「おはよう」\n哲也「……」\n\n哲也は新聞から目を離さない。明子は黙って朝食の準備を続ける。電話が鳴る。明子が出ると、知らない男の声。「奥さんのご主人のことで…」」',
+    hint: '良い点: キャラクター間の緊張感。改善: 設定・時代・場所の情報が不足しているかも。フックの強さは？',
+    sampleAnswer: '良い点: 夫婦間の緊張感をセリフと沈黙で見せている。謎の電話でフックを作っている\n\n改善点: 明子のビジュアル情報が少ない。「34歳」以外の外見・立ち振る舞いが見えない。電話の謎の提示方法はやや平凡。もう一段ひねりを加えると更に引き込まれる（例: 電話に出た明子が「哲也に聞こえないように小声になる」などの細部）',
+    tags: ['冒頭', '評価', '初級'],
+    color: 'beni',
+  },
+];
+
+window._FAQ_DATA = [
+  {
+    id: 'faq-01',
+    question: '三幕構成とSave the Catはどちらを使うべきですか？',
+    category: '構成理論',
+    answer: '三幕構成は「大きな枠組み」を把握するのに最適です。一方Save the Catは15のビートで「細部の設計」を行うためのものです。多くのプロは両方を使います。\n\n推奨フロー:\n① 三幕構成でざっくりと Act1/Act2/Act3 を設計\n② Save the Cat で15ビートを当てはめて詳細化\n③ 両者が矛盾しないか確認\n\nどちらかだけなら、初心者は三幕構成から始めることをお勧めします。',
+    icon: 'fa-scale-balanced',
+    color: 'kon',
+  },
+  {
+    id: 'faq-02',
+    question: 'セリフが説明的になってしまいます。どう直せばいいですか？',
+    category: 'セリフ技法',
+    answer: '「説明的なセリフ」は脚本の最も一般的な問題です。主な原因と対策:\n\n原因1: キャラクターが知っていることを改めて言っている\n→ 「君も知ってるだろうが、父さんは10年前に死んだ」はNG。受け手が知らないときだけ言う\n\n原因2: テーマを直接言っている\n→ 「人生で大切なのは家族だ」はNG。行動でテーマを見せる\n\n原因3: 感情をラベリングしている\n→「悲しい」→「……傘、持ってる？（雨の中を一人で帰らせたくない）」に変える\n\n実践法: セリフを書いたら「このキャラクターは本当にこれを言うか？」と問いかけてください。',
+    icon: 'fa-comment-slash',
+    color: 'asagi',
+  },
+  {
+    id: 'faq-03',
+    question: 'アクト2（中盤）が間延びしてしまいます。どうすれば良いですか？',
+    category: '構成理論',
+    answer: 'アクト2の間延びは脚本家が最も悩む問題です。6つの対策:\n\n① ミッドポイントを設ける\n主人公の目標や認識が変わる中間点。「偽の勝利」か「偽の敗北」が効果的\n\n② サブプロットを絡ませる\nBストーリー（恋愛・友情）がメインテーマと交差するタイミングを設計する\n\n③ カウントダウンを入れる\n「3日以内に解決しないと…」などの時間的制約で緊張を維持する\n\n④ 情報を小出しにする\n謎の答えを一度に出さず、少しずつ開示してページを捲らせる\n\n⑤ キャラクターを追い詰める\n解決策が見えかけたら、より大きな問題を起こす\n\n⑥ テーマの反証を入れる\n主人公が信じることを「一度否定される」場面がアクト2に深みを与える',
+    icon: 'fa-shield-halved',
+    color: 'beni',
+  },
+  {
+    id: 'faq-04',
+    question: '主人公の動機が弱いと言われました。どう強化しますか？',
+    category: 'キャラクター',
+    answer: '動機の弱さは「なぜ主人公がその目標を追うのか」が不明確なことから生まれます。\n\n動機を強化する3つの方法:\n\n① 感情的なステークス（賭け）を設ける\n「成功した場合に得られるもの」「失敗した場合に失うもの」を具体化する。物理的なものより感情的なものが強い（例：命ではなく「愛する人の信頼」）\n\n② バックストーリーと結びつける\n過去のトラウマや未解決の問題が現在の目標と連動するとき、動機は有機的になる\n\n③ ウーンド（傷）を設ける\n主人公が抱える心の傷が、今回の目標を「他の人が選ばないこと」として際立たせると強くなる',
+    icon: 'fa-person-walking',
+    color: 'momo',
+  },
+  {
+    id: 'faq-05',
+    question: '脚本のフォーマットはどこまで厳密に守るべきですか？',
+    category: '執筆技術',
+    answer: 'フォーマットの厳守度は目的によって異なります。\n\nプロ向け投稿・コンクール応募: 厳守が必要。読む側のストレスを排除することがプロとしての礼儀\n\n個人練習・ドラフト段階: ある程度の柔軟性でOK。内容に集中することを優先\n\n日本式特有の注意点:\n- 柱書き（シーンヘッダー）は「○内/外」から始める\n- ト書きは一人称の視点を避ける（「見えない感情」は書かない）\n- セリフのインデントはおよそ全角4文字\n\n最低限守るべきルール:\n① 柱書きとト書きとセリフを明確に分ける\n② 1シーン1場所（基本）\n③ ト書きを簡潔に（視覚的に映るものだけ）',
+    icon: 'fa-file-alt',
+    color: 'fuji',
+  },
+  {
+    id: 'faq-06',
+    question: '「テーマ」の決め方がわかりません。どうすれば良いですか？',
+    category: '執筆技術',
+    answer: 'テーマは「物語が問いかける人生の問い」です。書く前に決める必要はありません。\n\n後から見つける方法:\n① 主人公が物語の終わりに「学ぶこと」を書いてみる\n② 「この物語で私は何を言いたいのか」を1文で言ってみる\n③ テーマの反対（「家族は大切だ」→「家族は時に足枷になる」）を考えてみる\n\n好きなテーマの見つけ方:\n「自分が怒っていること」「自分が恐れていること」「自分が信じていること」から引き出すと自然なテーマが生まれます。\n\nテーマを入れるとき:\n直接言わず、主人公の最終的な「選択」でテーマを表現するのが最も美しい方法です。',
+    icon: 'fa-thread',
+    color: 'kogane',
+  },
+  {
+    id: 'faq-07',
+    question: '初稿はどのくらいのクオリティで書けば良いですか？',
+    category: '執筆プロセス',
+    answer: '初稿は「下書き中の下書き」で問題ありません。\n\n初稿の目的は「書き終えること」です。完成しない初稿より、荒削りでも最後まで書いた初稿の方が価値があります。\n\n初稿で意識すること:\n- 筋が通っているかどうか\n- 主人公が何を目指しているかが明確か\n- 始まりと終わりがあるか\n\n初稿でしなくて良いこと:\n- 完璧なセリフを書こうとしない\n- 詳細なト書きを作り込まない\n- 細部の整合性を確認しない（後でやる）\n\n「初稿は泥、最終稿は宝石」——泥から始めることを恐れないでください。',
+    icon: 'fa-rotate',
+    color: 'asagi',
+  },
+  {
+    id: 'faq-08',
+    question: '脚本の長さ（ページ数）の目安は？',
+    category: '執筆技術',
+    answer: '脚本のページ数は媒体によって大きく異なります。\n\n映画脚本: 90〜120ページ（1ページ≒1分）\n→ コメディ・ホラー: 短め（90ページ前後）\n→ 大作・SFX系: やや長め（110〜120ページ）\n\nTV単発ドラマ（60分枠）: 50〜70ページ\nTV連続ドラマ（1話45分）: 40〜50ページ\n短編映画（15分）: 15〜18ページ\n\n日本式脚本の場合:\n文字数換算が多いため、原稿用紙換算で考えることも。1時間ドラマの場合、400字×150〜200枚程度が目安。\n\nシナリオラボでは脚本エディタでページ数（400文字＝1ページ換算）を確認できます。',
+    icon: 'fa-file-lines',
+    color: 'kon',
+  },
+];
+
+// ── 練習問題ページ ────────────────────────────────────────────
+function renderLearnExercises(hero, subnav) {
+  const exercises = window._EXERCISES || [];
+  const doneExercises = DB.get('done_exercises', []);
+  const exFilter = DB.get('ex_filter', { difficulty: '', category: '' });
+
+  const allDifficulties = [...new Set(exercises.map(e => e.difficulty))];
+  const allCategories = [...new Set(exercises.map(e => e.category))];
+
+  let filtered = exercises.filter(e => {
+    if (exFilter.difficulty && e.difficulty !== exFilter.difficulty) return false;
+    if (exFilter.category && e.category !== exFilter.category) return false;
+    return true;
+  });
+
+  const filterBar = `
+  <div class="learn-filter-bar">
+    <select class="form-select" style="height:34px;font-size:12px;width:auto" onchange="setExFilter('difficulty',this.value)">
+      <option value="">全難易度</option>
+      ${allDifficulties.map(d=>`<option value="${d}" ${exFilter.difficulty===d?'selected':''}>${d}</option>`).join('')}
+    </select>
+    <select class="form-select" style="height:34px;font-size:12px;width:auto" onchange="setExFilter('category',this.value)">
+      <option value="">全カテゴリ</option>
+      ${allCategories.map(c=>`<option value="${c}" ${exFilter.category===c?'selected':''}>${c}</option>`).join('')}
+    </select>
+    ${(exFilter.difficulty||exFilter.category) ? `<button class="btn btn-ghost btn-sm" onclick="clearExFilter()"><i class="fas fa-rotate-left"></i></button>` : ''}
+  </div>`;
+
+  const diffColor = { '初級':'var(--matcha)', '中級':'var(--kogane)', '上級':'var(--accent)' };
+  const cards = filtered.map(ex => {
+    const done = doneExercises.includes(ex.id);
+    const c = COLOR_MAP[ex.color] || COLOR_MAP['beni'];
+    return `
+    <div class="card" style="margin-bottom:0;border-top:3px solid ${c.color};position:relative${done?';opacity:.8':''}">
+      ${done ? `<div style="position:absolute;top:10px;right:10px;font-size:10px;padding:2px 8px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border);border-radius:var(--radius-full);font-weight:600"><i class="fas fa-check"></i> 回答済み</div>` : ''}
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-size:10px;padding:2px 8px;background:${diffColor[ex.difficulty]||'var(--text-muted)'}22;color:${diffColor[ex.difficulty]||'var(--text-muted)'};border:1px solid ${diffColor[ex.difficulty]||'var(--text-muted)'}44;border-radius:var(--radius-full);font-weight:700">${ex.difficulty}</span>
+        <span style="font-size:10px;padding:2px 8px;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:var(--radius-full);font-weight:600">${ex.category}</span>
+        <span style="font-size:13.5px;font-weight:700;color:var(--text-primary)">${esc(ex.title)}</span>
+      </div>
+      <div style="font-size:12.5px;color:var(--text-secondary);white-space:pre-line;line-height:1.8;background:var(--bg-subtle);border-radius:var(--radius-sm);padding:12px;margin-bottom:10px">${esc(ex.question)}</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="toggleExHint('${ex.id}')"><i class="fas fa-lightbulb"></i> ヒント</button>
+        <button class="btn btn-ghost btn-sm" onclick="toggleExAnswer('${ex.id}')"><i class="fas fa-eye"></i> 模範解答</button>
+        <button class="btn ${done?'btn-secondary':'btn-primary'} btn-sm" style="margin-left:auto" onclick="toggleExDone('${ex.id}')">
+          ${done ? '<i class="fas fa-undo"></i> 未回答に戻す' : '<i class="fas fa-check"></i> 回答完了'}
+        </button>
+      </div>
+      <div id="ex-hint-${ex.id}" style="display:none;margin-top:10px;padding:10px 12px;background:var(--kogane-bg);border:1px solid var(--kogane-border);border-radius:var(--radius-sm)">
+        <div style="font-size:11px;font-weight:700;color:var(--kogane);margin-bottom:4px"><i class="fas fa-lightbulb"></i> ヒント</div>
+        <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.7">${esc(ex.hint)}</div>
+      </div>
+      <div id="ex-answer-${ex.id}" style="display:none;margin-top:10px;padding:10px 12px;background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-sm)">
+        <div style="font-size:11px;font-weight:700;color:var(--matcha);margin-bottom:4px"><i class="fas fa-check-circle"></i> 模範解答</div>
+        <div style="font-size:12.5px;color:var(--text-secondary);white-space:pre-line;line-height:1.8">${esc(ex.sampleAnswer)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const doneCount = doneExercises.filter(id => exercises.some(e => e.id === id)).length;
+
+  return `${hero}${subnav}
+  <div style="padding:12px 16px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:16px;display:flex;align-items:center;gap:14px">
+    <div style="width:44px;height:44px;border-radius:50%;background:var(--matcha-bg);border:2px solid var(--matcha-border);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <i class="fas fa-pen-to-square" style="color:var(--matcha);font-size:16px"></i>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:4px">練習問題: ${doneCount}/${exercises.length}問完了 (${Math.round(doneCount/Math.max(exercises.length,1)*100)}%)</div>
+      <div style="height:7px;background:var(--bg-hover);border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${Math.round(doneCount/Math.max(exercises.length,1)*100)}%;background:linear-gradient(90deg,var(--matcha),var(--matcha-lt,#9dd));border-radius:4px;transition:width .5s ease"></div>
+      </div>
+    </div>
+  </div>
+  ${filterBar}
+  <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">${filtered.length}問 (全${exercises.length}問)</div>
+  <div style="display:grid;gap:14px">${cards || '<div style="text-align:center;padding:40px;color:var(--text-muted)">条件に合う問題が見つかりません</div>'}</div>`;
+}
+
+function toggleExHint(id) {
+  const el = document.getElementById(`ex-hint-${id}`);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+function toggleExAnswer(id) {
+  const el = document.getElementById(`ex-answer-${id}`);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+function toggleExDone(id) {
+  const done = DB.get('done_exercises', []);
+  const idx = done.indexOf(id);
+  if (idx === -1) done.push(id); else done.splice(idx, 1);
+  DB.set('done_exercises', done);
+  render();
+}
+function setExFilter(key, val) {
+  const f = DB.get('ex_filter', { difficulty:'', category:'' });
+  f[key] = val;
+  DB.set('ex_filter', f);
+  render();
+}
+function clearExFilter() {
+  DB.set('ex_filter', { difficulty:'', category:'' });
+  render();
+}
+
+// ── FAQページ ────────────────────────────────────────────────
+function renderLearnFAQ(hero, subnav) {
+  const faqs = window._FAQ_DATA || [];
+  const openFaq = DB.get('open_faq', null);
+  const faqFilter = DB.get('faq_filter', { category: '' });
+  const allCategories = [...new Set(faqs.map(f => f.category))];
+  let filtered = faqs.filter(f => !faqFilter.category || f.category === faqFilter.category);
+
+  const filterBar = `
+  <div class="learn-filter-bar">
+    <select class="form-select" style="height:34px;font-size:12px;width:auto" onchange="setFaqFilter('category',this.value)">
+      <option value="">全カテゴリ</option>
+      ${allCategories.map(c=>`<option value="${c}" ${faqFilter.category===c?'selected':''}>${c}</option>`).join('')}
+    </select>
+    ${faqFilter.category ? `<button class="btn btn-ghost btn-sm" onclick="setFaqFilter('category','')"><i class="fas fa-rotate-left"></i></button>` : ''}
+  </div>`;
+
+  const items = filtered.map(f => {
+    const isOpen = openFaq === f.id;
+    const c = COLOR_MAP[f.color] || COLOR_MAP['beni'];
+    return `
+    <div style="border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;background:${isOpen?'var(--bg-subtle)':'var(--bg-card)'};transition:background .2s" onclick="toggleFaq('${f.id}')">
+        <div style="width:34px;height:34px;border-radius:var(--radius-sm);background:${c.bg};color:${c.color};display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0">
+          <i class="fas ${f.icon}"></i>
+        </div>
+        <div style="flex:1">
+          <div style="font-size:10px;color:${c.color};font-weight:600;margin-bottom:2px">${f.category}</div>
+          <div style="font-size:13.5px;font-weight:700;color:var(--text-primary)">${esc(f.question)}</div>
+        </div>
+        <i class="fas fa-chevron-${isOpen?'up':'down'}" style="color:var(--text-muted);font-size:11px;flex-shrink:0"></i>
+      </div>
+      ${isOpen ? `<div style="padding:16px;border-top:1px solid var(--border);background:var(--bg-subtle)">
+        <div style="font-size:13px;color:var(--text-secondary);white-space:pre-line;line-height:1.9">${esc(f.answer)}</div>
+      </div>` : ''}
+    </div>`;
+  }).join('');
+
+  return `${hero}${subnav}
+  <div style="padding:14px 16px;background:var(--kogane-bg);border:1px solid var(--kogane-border);border-radius:var(--radius-md);margin-bottom:18px;display:flex;align-items:center;gap:12px">
+    <i class="fas fa-circle-question" style="color:var(--kogane);font-size:22px;flex-shrink:0"></i>
+    <div>
+      <div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-bottom:2px">よくある質問 (FAQ)</div>
+      <div style="font-size:12px;color:var(--text-muted)">脚本執筆でよく直面する疑問・問題への回答集。クリックで展開します。</div>
+    </div>
+  </div>
+  ${filterBar}
+  <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">${filtered.length}件</div>
+  ${items || '<div style="text-align:center;padding:40px;color:var(--text-muted)">条件に合うFAQが見つかりません</div>'}`;
+}
+
+function toggleFaq(id) {
+  const cur = DB.get('open_faq', null);
+  DB.set('open_faq', cur === id ? null : id);
+  render();
+}
+function setFaqFilter(key, val) {
+  const f = DB.get('faq_filter', { category:'' });
+  f[key] = val;
+  DB.set('faq_filter', f);
+  render();
+}
+
 function renderArticlePage(articleId) {
   const article = ARTICLES.find(a => a.id === articleId);
 
@@ -5328,6 +5762,10 @@ function renderArticlePage(articleId) {
     'world-building': renderArticleWorldBuilding(),
     'opening-scenes': renderArticleOpeningScenes(),
     'theme-integration': renderArticleThemeIntegration(),
+    'antagonist-design': renderArticleAntagonistDesign(),
+    'subplots-bstory': renderArticleSubplotsBstory(),
+    'rewriting-strategy': renderArticleRewritingStrategy(),
+    'visual-storytelling': renderArticleVisualStorytelling(),
   };
 
   const body = bodies[articleId] || `<p>コンテンツは準備中です。</p>`;
@@ -6997,6 +7435,135 @@ function renderArticleThemeIntegration() {
   </div>`;
 }
 
+// ── 新記事: 敵役設計 ────────────────────────────────────────
+function renderArticleAntagonistDesign() {
+  return `
+  <div class="article-callout beni">
+    「悪役は自分が正しいと信じている」——強い敵役は単なる障害ではなく、主人公と等価値の「別の答え」を体現する存在です。
+  </div>
+  <h2>なぜ敵役が重要なのか</h2>
+  <p>主人公の強さは「どれだけ強い敵役と対決するか」で決まります。弱い敵役は主人公を輝かせず、テーマも薄くなります。強い敵役がいることで、物語は「人生の選択」を問いかけるものになります。</p>
+  <h2>良い敵役の3条件</h2>
+  <div class="beat-list">
+    <div class="beat-item"><div class="beat-num" style="background:var(--accent)">1</div><div class="beat-content"><div class="beat-title">自分が正しいという信念がある</div><div class="beat-desc">悪役は「自分が悪い」とは思っていません。自分の行動が正当化できる理由・哲学・傷を持っています。観客が「一理ある」と感じるほど強い敵役です。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--accent)">2</div><div class="beat-content"><div class="beat-title">主人公と同じ欲求を持つ（手段が違う）</div><div class="beat-desc">主人公と敵役が「同じものを求めながら、正反対の方法を選ぶ」とき、テーマが浮かび上がります。愛・正義・安全——同じ目標への異なるアプローチが対立を深めます。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--accent)">3</div><div class="beat-content"><div class="beat-title">主人公の弱点を攻撃できる</div><div class="beat-desc">良い敵役は主人公の最大の弱点を知っています。外的な力だけでなく、主人公の内的な恐れや「誤った信念」を利用することで、克服の困難さが際立ちます。</div></div></div>
+  </div>
+  <h2>敵役の種類</h2>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin:14px 0">
+    ${[
+      {t:'人物型',d:'明確な意思を持つ敵（殺人犯・組織のボス・ライバル）。最もわかりやすく感情的対立が生まれる'},
+      {t:'社会・制度型',d:'不条理な社会・法・組織が敵。主人公は「変えるべき世界」と戦う'},
+      {t:'自然・運命型',d:'病気・災害・時間が敵。外的な力と内的な抵抗が交差する'},
+      {t:'内面型',d:'主人公自身の恐れ・欲望・誤信念が敵。最も深いテーマを生む'},
+    ].map(item=>`<div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);padding:12px"><div style="font-size:12px;font-weight:700;color:var(--accent);margin-bottom:4px">${item.t}</div><div style="font-size:11.5px;color:var(--text-secondary);line-height:1.7">${item.d}</div></div>`).join('')}
+  </div>
+  <h2>敵役設計ワーク</h2>
+  <p>あなたの敵役に対して、以下を答えてみましょう：</p>
+  <div style="background:var(--bg-subtle);border-radius:var(--radius-md);padding:16px;margin:12px 0;font-size:13px;color:var(--text-secondary);line-height:2">
+    ① なぜ敵役は自分の行動が正しいと信じているか？<br>
+    ② 敵役の「傷・バックストーリー」は何か？<br>
+    ③ 主人公と何が共通しているか？<br>
+    ④ 主人公の最大の弱点は何で、それをどう利用するか？
+  </div>
+  <div class="article-callout fuji">
+    <strong>最強の敵役テスト：</strong>敵役の言い分だけを聞いたとき、観客が「それも一理ある……」と感じれば、その敵役は成功しています。
+  </div>`;
+}
+
+// ── 新記事: サブプロット・Bストーリー ────────────────────────
+function renderArticleSubplotsBstory() {
+  return `
+  <div class="article-callout fuji">
+    Bストーリーはメインプロットの「鏡」です。主人公の内的テーマを、外的な物語とは別の角度から照らし出します。
+  </div>
+  <h2>サブプロットとBストーリーの役割</h2>
+  <p>メインプロット（Aストーリー）は「主人公が外的目標を追う物語」です。Bストーリーは多くの場合「内的テーマを体現する関係性の物語」（恋愛・友情・師弟関係など）です。</p>
+  <div class="beat-list">
+    <div class="beat-item"><div class="beat-num" style="background:var(--fuji)">A</div><div class="beat-content"><div class="beat-title">Aストーリー（メイン）</div><div class="beat-desc">主人公の外的目標と行動。「何をしているか」の物語。観客が追う主な展開。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--momo)">B</div><div class="beat-content"><div class="beat-title">Bストーリー（サブ）</div><div class="beat-desc">内的テーマを体現する関係性。「なぜそれをしているか」の物語。感情的な深みを与える。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--asagi)">C</div><div class="beat-content"><div class="beat-title">Cストーリー（脇役）</div><div class="beat-desc">脇役の小さな目標。コミックリリーフや情報提供の役割。テーマの変奏。</div></div></div>
+  </div>
+  <h2>Save the Cat での位置づけ</h2>
+  <p>BストーリーはSave the Catのビート8（p.30）で「始まる」のが基本です。Bストーリーのキャラクターは「テーマの体現者」であり、最初は主人公の信念に疑問を投げかけます。</p>
+  <h2>Bストーリーが機能するための3条件</h2>
+  <div style="display:grid;gap:10px;margin:14px 0">
+    ${[
+      {n:1,t:'メインプロットと交差する',d:'Bストーリーの展開がAストーリーの転換点と「同時に」動くとき、感情的インパクトが倍増します。'},
+      {n:2,t:'テーマを反対側から照らす',d:'AストーリーとBストーリーが「同じテーマへの異なるアプローチ」をとることで、テーマに立体感が生まれます。'},
+      {n:3,t:'クライマックスで統合される',d:'最終クライマックスでAとBが合流するとき、物語に解放感と完結感が生まれます。'},
+    ].map(item=>`<div style="display:flex;gap:10px;padding:12px;background:var(--bg-subtle);border-radius:var(--radius-md);border:1px solid var(--border)"><div style="width:26px;height:26px;border-radius:50%;background:var(--fuji);color:white;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">${item.n}</div><div><div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:3px">${item.t}</div><div style="font-size:12px;color:var(--text-secondary);line-height:1.7">${item.d}</div></div></div>`).join('')}
+  </div>
+  <div class="article-callout matcha">
+    <strong>実践ワーク：</strong>自分の脚本のAストーリーを一文で書いてください。次に「この物語のテーマを別の角度で体現するBストーリーを担うキャラクターは誰か？」を考えましょう。
+  </div>`;
+}
+
+// ── 新記事: 改稿の戦略 ───────────────────────────────────────
+function renderArticleRewritingStrategy() {
+  return `
+  <div class="article-callout asagi">
+    プロの脚本家は「初稿は捨て稿」と言います。初稿を書くことと、それを磨くことは、全く別のスキルです。
+  </div>
+  <h2>改稿の本質：何を直すかを決めること</h2>
+  <p>改稿で失敗する最大の理由は「全部を同時に直そうとすること」です。脚本の問題には「大小の優先順位」があります。細部のセリフを直しても、構造的な問題があれば意味がありません。</p>
+  <h2>改稿の4つのレベル</h2>
+  <div class="beat-list">
+    <div class="beat-item"><div class="beat-num" style="background:var(--asagi)">1</div><div class="beat-content"><div class="beat-title">大局レビュー（最初に行う）</div><div class="beat-desc">脚本全体を一気読みし、感情曲線・主人公の目標明確度・全体の印象を確認。一切書き込まず、読者として読む。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--asagi)">2</div><div class="beat-content"><div class="beat-title">構造チェック（次に行う）</div><div class="beat-desc">幕の境界・転換点・クライマックスが機能しているか確認。構造の問題が最優先課題。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--asagi)">3</div><div class="beat-content"><div class="beat-title">シーン整理（その後）</div><div class="beat-desc">不要なシーンの削除・シーンの目的明確化・順番の調整。「このシーンを削れるか？」と問い続ける。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--asagi)">4</div><div class="beat-content"><div class="beat-title">セリフ・ト書き（最後に行う）</div><div class="beat-desc">説明的セリフの削除・感情ラベリングの排除・ト書きのスリム化。構造が固まってから行う。</div></div></div>
+  </div>
+  <h2>削除の判断基準</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0">
+    <div style="background:var(--momo-bg);border:1px solid var(--momo-border);border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--momo);margin-bottom:6px">削除すべきシーン</div>
+      <div style="font-size:12px;color:var(--text-secondary);line-height:1.8">・削除しても物語が通じる<br>・情報がすでに別の場所で伝わっている<br>・キャラクターが変化しない<br>・テンポを下げるだけの「移動」シーン</div>
+    </div>
+    <div style="background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--matcha);margin-bottom:6px">残すべきシーン</div>
+      <div style="font-size:12px;color:var(--text-secondary);line-height:1.8">・削除すると論理が破綻する<br>・キャラクターが変化する<br>・テーマを体現している<br>・観客の感情を動かす</div>
+    </div>
+  </div>
+  <div class="article-callout kogane">
+    <strong>改稿の黄金律：</strong>「好き」だからといって残してはいけません。シーンの存在意義を問い続けてください。「削れる？」と問うたとき「それは困る」と感じるシーンが、本当に必要なシーンです。
+  </div>`;
+}
+
+// ── 新記事: ビジュアル・ストーリーテリング ───────────────────
+function renderArticleVisualStorytelling() {
+  return `
+  <div class="article-callout kon">
+    脚本は「読む」のではなく「見る」ものを設計します。言葉より映像で語る——それが脚本執筆の本質です。
+  </div>
+  <h2>ビジュアル・ストーリーテリングとは</h2>
+  <p>優れた脚本は「映像にならないもの」を書きません。主人公の「内面の独白」ではなく、「行動・表情・選択」によって感情を伝えます。</p>
+  <h2>映像で語る5つの技法</h2>
+  <div class="beat-list">
+    <div class="beat-item"><div class="beat-num" style="background:var(--kon-lt)">1</div><div class="beat-content"><div class="beat-title">行動で感情を見せる</div><div class="beat-desc">「田中は悲しかった」→「田中は返信しかけたメッセージを消し、スマホを伏せた」。感情は状態ではなく行動で見せます。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--kon-lt)">2</div><div class="beat-content"><div class="beat-title">象徴を使う</div><div class="beat-desc">繰り返し登場するオブジェクト（鍵・写真・手紙）が感情やテーマの「象徴」になるとき、言葉なしでメッセージを伝えられます。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--kon-lt)">3</div><div class="beat-content"><div class="beat-title">対比・コントラストを使う</div><div class="beat-desc">冒頭のシーンと末尾のシーンが「同じ状況・異なる選択」になると、主人公の変化がビジュアルで伝わります。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--kon-lt)">4</div><div class="beat-content"><div class="beat-title">沈黙と間を活かす</div><div class="beat-desc">台詞がない瞬間——沈黙・表情・ためらい——が最も多くを語ることがあります。「沈黙の5秒」がセリフ10行分の感情を運ぶことも。</div></div></div>
+    <div class="beat-item"><div class="beat-num" style="background:var(--kon-lt)">5</div><div class="beat-content"><div class="beat-title">冒頭イメージで世界を確立する</div><div class="beat-desc">物語の最初の「画」が世界観・トーン・テーマを設定します。オープニングイメージは映画の「約束」です。</div></div></div>
+  </div>
+  <h2>ト書きを磨く</h2>
+  <p>ビジュアル表現の実践はト書きから始まります。</p>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0">
+    <div style="background:var(--momo-bg);border:1px solid var(--momo-border);border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--momo);margin-bottom:6px">❌ 避けるべきト書き</div>
+      <div style="font-size:12px;color:var(--text-secondary);line-height:1.8">・「田中は不安を感じた」（内面描写）<br>・「美しい夕日が沈んでいた」（映画的でない抒情）<br>・「この後2年が経過する」（直接的な時間表示）</div>
+    </div>
+    <div style="background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-md);padding:14px">
+      <div style="font-size:12px;font-weight:700;color:var(--matcha);margin-bottom:6px">✅ 映像的なト書き</div>
+      <div style="font-size:12px;color:var(--text-secondary);line-height:1.8">・「田中の手が、ドアノブの前で止まる」<br>・「夕日。田中の影が長く伸びる」<br>・「田中の髪に白いものが混じっている」</div>
+    </div>
+  </div>
+  <div class="article-callout fuji">
+    <strong>実践ワーク：</strong>自分の脚本から「感情を直接書いているト書き」を探してください。それを「カメラに映る具体的な行動・画」に置き換えてみましょう。
+  </div>`;
+}
+
+
 function renderGuidePage(guideId) {
   const guide = GUIDES.find(g => `guide-${g.id}` === guideId);
   if (!guide) {
@@ -7576,6 +8143,9 @@ function renderToolsPage() {
   if (cp === 'tool-structure') return renderToolStructure();
   if (cp === 'tool-emotion-arc') return renderToolEmotionArc();
   if (cp === 'tool-world-notes') return renderToolWorldNotes();
+  if (cp === 'tool-dialogue-check') return renderToolDialogueCheck();
+  if (cp === 'tool-plot-holes') return renderToolPlotHoles();
+  if (cp === 'tool-beat-counter') return renderToolBeatCounter();
 
   // カテゴリ分けされたツール一覧
   const TOOL_CATEGORIES = [
@@ -7619,7 +8189,10 @@ function renderToolsPage() {
       tools: [
         { id:'tool-scene', title:'シーン構造チェッカー', icon:'fa-film', color:'momo', desc:'入口・目的・対立・出口の4要素を診断' },
         { id:'tool-timer', title:'執筆タイマー（ポモドーロ）', icon:'fa-stopwatch', color:'kogane', desc:'25分集中＋5分休憩で生産性アップ' },
-        { id:'tool-world-notes', title:'世界観メモパッド', icon:'fa-globe', color:'asagi', desc:'設定・ルール・用語・地名などを素早くメモ', badge:'新機能' },
+        { id:'tool-world-notes', title:'世界観メモパッド', icon:'fa-globe', color:'asagi', desc:'設定・ルール・用語・地名などを素早くメモ' },
+        { id:'tool-dialogue-check', title:'セリフ磨き診断', icon:'fa-comments', color:'fuji', desc:'台詞をAI診断基準で採点・改善提案', badge:'新機能' },
+        { id:'tool-plot-holes', title:'プロット穴探し', icon:'fa-magnifying-glass', color:'beni', desc:'論理矛盾・伏線未回収・動機不備を検出', badge:'新機能' },
+        { id:'tool-beat-counter', title:'ビートカウンター', icon:'fa-list-ol', color:'kogane', desc:'Save the Cat 15ビートを脚本に対応付け', badge:'新機能' },
       ],
     },
   ];
@@ -9507,6 +10080,401 @@ function setWorldFilter(cat) {
 
 function setWorldSearch(q) {
   localStorage.setItem('sl_world_search', q);
+  render();
+}
+
+// ================================================================
+// ── 新ツール: セリフ磨き診断 ─────────────────────────────────
+function renderToolDialogueCheck() {
+  return `
+  <div class="page-header">
+    <button class="btn btn-ghost btn-sm" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</button>
+  </div>
+  <div style="background:linear-gradient(135deg,var(--fuji-bg),var(--bg-subtle));border:1px solid var(--fuji-border);border-radius:var(--radius-lg);padding:22px 26px;margin-bottom:22px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:70px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--fuji);opacity:0.07;pointer-events:none">台</div>
+    <div style="width:28px;height:2.5px;background:linear-gradient(90deg,var(--fuji),var(--momo));border-radius:2px;margin-bottom:10px"></div>
+    <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:5px">
+      <i class="fas fa-comments" style="color:var(--fuji);margin-right:8px"></i>セリフ磨き診断
+    </div>
+    <div style="font-size:13px;color:var(--text-muted)">台詞を入力して品質チェック。8つの診断項目でセリフを採点・改善提案します。</div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:10px"><i class="fas fa-pencil" style="color:var(--fuji);margin-right:6px"></i>キャラクター情報</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;font-weight:600">キャラクター名</div>
+        <input class="form-input" id="dc-char-name" placeholder="例: 田中誠" style="font-size:13px">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;font-weight:600">シーンの感情トーン</div>
+        <select class="form-select" id="dc-tone" style="font-size:13px">
+          <option value="">選択…</option>
+          <option value="angry">怒り・対立</option>
+          <option value="sad">悲しみ・喪失</option>
+          <option value="happy">喜び・興奮</option>
+          <option value="tense">緊張・恐怖</option>
+          <option value="neutral">中立・情報</option>
+          <option value="love">愛情・親密</option>
+        </select>
+      </div>
+    </div>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;font-weight:600">診断するセリフ（1〜3行推奨）</div>
+    <textarea class="form-input" id="dc-dialogue" rows="4" placeholder="例：&#10;「あなたのことを思って言っているんだよ」&#10;「でも……私にはわからない。何が正しいのか」" style="font-size:13px;line-height:1.7;resize:vertical"></textarea>
+    <div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;margin-top:10px;font-weight:600">セリフの背景・文脈（任意）</div>
+    <input class="form-input" id="dc-context" placeholder="例: 別れを告げる直前のシーン、相手は気づいていない" style="font-size:13px">
+    <button class="btn btn-primary" style="margin-top:14px;width:100%" onclick="analyzeDialogue()">
+      <i class="fas fa-magnifying-glass"></i> セリフを診断する
+    </button>
+  </div>
+
+  <div id="dc-results" style="display:none">
+    <div class="card" style="margin-bottom:16px;border-top:3px solid var(--fuji)">
+      <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:14px;font-family:'Noto Serif JP',serif">
+        <i class="fas fa-chart-bar" style="color:var(--fuji);margin-right:7px"></i>診断結果
+      </div>
+      <div id="dc-score-bar" style="margin-bottom:16px"></div>
+      <div id="dc-items-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px"></div>
+    </div>
+    <div class="card" style="border-top:3px solid var(--matcha)">
+      <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:12px">
+        <i class="fas fa-lightbulb" style="color:var(--matcha);margin-right:7px"></i>改善アドバイス
+      </div>
+      <div id="dc-advice" style="font-size:13px;color:var(--text-secondary);line-height:1.8"></div>
+    </div>
+  </div>`;
+}
+
+function analyzeDialogue() {
+  const dialogue = document.getElementById('dc-dialogue')?.value.trim();
+  const charName = document.getElementById('dc-char-name')?.value.trim() || 'キャラクター';
+  const tone = document.getElementById('dc-tone')?.value;
+  const context = document.getElementById('dc-context')?.value.trim();
+  if (!dialogue) { toast('セリフを入力してください', 'error'); return; }
+
+  const checks = [
+    { id:'len', label:'長さ', icon:'fa-ruler', desc:'1台詞あたりの適切な長さ',
+      check: () => { const lines = dialogue.split('\n').filter(Boolean); const maxL = Math.max(...lines.map(l=>l.length)); return maxL <= 60 ? { pass:true, note:'適切な長さです' } : { pass:false, note:`${maxL}文字。1行60字以下が目安。分割を検討してください。` }; }
+    },
+    { id:'label', label:'感情ラベリング', icon:'fa-face-meh', desc:'感情を直接言っていないか',
+      check: () => { const bad = ['悲しい','嬉しい','怖い','辛い','幸せ','寂しい','怒っている']; const found = bad.filter(w => dialogue.includes(w)); return found.length===0 ? { pass:true, note:'感情のラベリングなし（良好）' } : { pass:false, note:`「${found.join('・')}」を使用。感情は行動・言い回しで見せましょう。` }; }
+    },
+    { id:'explain', label:'説明過多', icon:'fa-scroll', desc:'テーマや状況を直接説明していないか',
+      check: () => { const p = ['つまり','要するに','ということは','だから言っているんだ','結局のところ']; const f = p.filter(w=>dialogue.includes(w)); return f.length===0 ? { pass:true, note:'説明過多なし（良好）' } : { pass:false, note:`「${f.join('・')}」は説明的すぎる傾向があります。` }; }
+    },
+    { id:'onomatop', label:'語尾のバリエーション', icon:'fa-shuffle', desc:'語尾が単調でないか',
+      check: () => { const ends = dialogue.replace(/」/g,'').split(/[。…！？\n]/).filter(Boolean).map(l=>l.slice(-2)); const uniq = new Set(ends); return uniq.size >= Math.min(2, ends.length) ? { pass:true, note:'語尾に変化あり（良好）' } : { pass:false, note:'語尾が単調かもしれません。リズムを変えてみましょう。' }; }
+    },
+    { id:'subtext', label:'サブテキスト', icon:'fa-comment-dots', desc:'言外の意味・裏の意図があるか',
+      check: () => { const words = dialogue.length; const q = (dialogue.match(/[…。]/g)||[]).length; const score = q/Math.max(words,1); return q >= 1 || context ? { pass:true, note:'含みや余白が感じられます' } : { pass:false, note:'もう少し「言わない」部分を増やすとサブテキストが生まれます。' }; }
+    },
+    { id:'character', label:'キャラクター性', icon:'fa-user', desc:'このキャラクターらしさがあるか',
+      check: () => { const n = charName !== 'キャラクター'; return n ? { pass:true, note:`${charName}のセリフとして記録しました。声の個性を意識しましょう。` } : { pass:'warn', note:'キャラクター名が未入力です。名前を入れると一貫性チェックがしやすくなります。' }; }
+    },
+    { id:'repeat', label:'繰り返し', icon:'fa-copy', desc:'同じ言葉の繰り返しがないか',
+      check: () => { const ws = dialogue.replace(/[「」、。！？…\n]/g,' ').split(/\s+/).filter(w=>w.length>=2); const cnt = {}; ws.forEach(w=>cnt[w]=(cnt[w]||0)+1); const dup = Object.entries(cnt).filter(([w,c])=>c>=2).map(([w])=>w); return dup.length===0 ? { pass:true, note:'不要な繰り返しなし（良好）' } : { pass:false, note:`「${dup.join('・')}」が複数回出現。意図的でなければ削除を。` }; }
+    },
+    { id:'question', label:'余白・間', icon:'fa-ellipsis', desc:'沈黙・間・余白があるか',
+      check: () => { const has = /[…。\u3002]{2,}|（沈黙|（間|（ポーズ/.test(dialogue); return has ? { pass:true, note:'間・余白の表現があります' } : { pass:'warn', note:'「……」や「（沈黙）」などで間を演出すると効果的な場合があります。' }; }
+    },
+  ];
+
+  const results = checks.map(c => ({ ...c, result: c.check() }));
+  const passCount = results.filter(r => r.result.pass === true).length;
+  const warnCount = results.filter(r => r.result.pass === 'warn').length;
+  const failCount = results.filter(r => r.result.pass === false).length;
+  const score = Math.round((passCount + warnCount * 0.5) / results.length * 100);
+  const scoreColor = score >= 80 ? 'var(--matcha)' : score >= 60 ? 'var(--kogane)' : 'var(--accent)';
+  const scoreLabel = score >= 80 ? '優秀' : score >= 60 ? '良好' : '要改善';
+
+  const scoreBar = `
+  <div style="display:flex;align-items:center;gap:16px;padding:14px 18px;background:var(--bg-subtle);border-radius:var(--radius-md);border:1px solid var(--border)">
+    <div style="width:60px;height:60px;border-radius:50%;background:var(--bg-card);border:3px solid ${scoreColor};display:flex;align-items:center;justify-content:center;flex-direction:column;flex-shrink:0">
+      <div style="font-size:18px;font-weight:800;color:${scoreColor}">${score}</div>
+      <div style="font-size:9px;color:var(--text-muted)">点</div>
+    </div>
+    <div style="flex:1">
+      <div style="font-size:15px;font-weight:700;color:${scoreColor};margin-bottom:4px">${scoreLabel}</div>
+      <div style="display:flex;gap:12px;font-size:12px">
+        <span style="color:var(--matcha)"><i class="fas fa-check-circle"></i> 合格 ${passCount}</span>
+        <span style="color:var(--kogane)"><i class="fas fa-exclamation-circle"></i> 注意 ${warnCount}</span>
+        <span style="color:var(--accent)"><i class="fas fa-times-circle"></i> 要修正 ${failCount}</span>
+      </div>
+      <div style="margin-top:6px;height:5px;background:var(--bg-hover);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${score}%;background:${scoreColor};border-radius:3px;transition:width .6s ease"></div>
+      </div>
+    </div>
+  </div>`;
+
+  const items = results.map(r => {
+    const status = r.result.pass === true ? { icon:'fa-check-circle', color:'var(--matcha)', bg:'var(--matcha-bg)', border:'var(--matcha-border)' }
+      : r.result.pass === 'warn' ? { icon:'fa-exclamation-circle', color:'var(--kogane)', bg:'var(--kogane-bg)', border:'var(--kogane-border)' }
+      : { icon:'fa-times-circle', color:'var(--accent)', bg:'var(--accent-bg)', border:'var(--accent-border)' };
+    return `
+    <div style="padding:10px 12px;background:${status.bg};border:1px solid ${status.border};border-radius:var(--radius-md)">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">
+        <i class="fas ${status.icon}" style="color:${status.color};font-size:13px"></i>
+        <span style="font-size:12.5px;font-weight:700;color:var(--text-primary)">${r.label}</span>
+      </div>
+      <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.6">${r.result.note}</div>
+    </div>`;
+  }).join('');
+
+  // 改善アドバイス
+  const advices = [];
+  if (failCount === 0 && warnCount === 0) advices.push('🏆 すべての診断項目をクリアしました！このセリフは高品質です。声に出して読んで最終確認しましょう。');
+  if (results.find(r=>r.id==='label' && r.result.pass===false)) advices.push('💡 <strong>感情を見せる</strong>: 「悲しい」→「…もう笑えない」のように、状態ではなく言動でキャラクターの感情を伝えましょう。');
+  if (results.find(r=>r.id==='subtext' && r.result.pass!==true)) advices.push('💡 <strong>サブテキスト</strong>: 本音を言わせず、行間に意味を隠しましょう。「愛してる」より「なんで……こんなとこまで来たんだ」の方が深みが出ます。');
+  if (results.find(r=>r.id==='len' && r.result.pass===false)) advices.push('💡 <strong>セリフの分割</strong>: 長いセリフは他のキャラクターのリアクションや間で分割すると、テンポが生まれます。');
+  if (results.find(r=>r.id==='explain' && r.result.pass===false)) advices.push('💡 <strong>説明を削る</strong>: 観客に説明するのではなく、シーンで体験させましょう。登場人物は知っている情報を「説明」しません。');
+  if (tone === 'tense' && !dialogue.includes('…')) advices.push('💡 <strong>緊張シーンのテクニック</strong>: 緊張場面では短いセリフ・沈黙・「……」を多用すると心拍数が上がります。');
+  if (advices.length === 0) advices.push('📝 このセリフは概ね良好です。次は声に出して読み、自然さを確認しましょう。');
+
+  document.getElementById('dc-score-bar').innerHTML = scoreBar;
+  document.getElementById('dc-items-grid').innerHTML = items;
+  document.getElementById('dc-advice').innerHTML = advices.join('<br><br>');
+  document.getElementById('dc-results').style.display = 'block';
+  document.getElementById('dc-results').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// ── 新ツール: プロット穴探し ──────────────────────────────────
+function renderToolPlotHoles() {
+  return `
+  <div class="page-header">
+    <button class="btn btn-ghost btn-sm" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</button>
+  </div>
+  <div style="background:linear-gradient(135deg,var(--accent-bg),var(--bg-subtle));border:1px solid var(--accent-border);border-radius:var(--radius-lg);padding:22px 26px;margin-bottom:22px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:70px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--accent);opacity:0.07;pointer-events:none">穴</div>
+    <div style="width:28px;height:2.5px;background:linear-gradient(90deg,var(--accent),var(--kogane));border-radius:2px;margin-bottom:10px"></div>
+    <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:5px">
+      <i class="fas fa-magnifying-glass" style="color:var(--accent);margin-right:8px"></i>プロット穴探し
+    </div>
+    <div style="font-size:13px;color:var(--text-muted)">物語の構造を入力して論理矛盾・伏線未回収・動機不備を自動検出します。</div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:14px;font-family:'Noto Serif JP',serif">
+      <i class="fas fa-layer-group" style="color:var(--accent);margin-right:7px"></i>物語の骨格を入力
+    </div>
+    <div style="display:grid;gap:14px">
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;font-weight:600">主人公の目標（何を達成しようとしているか）<span style="color:var(--accent)">*</span></div>
+        <input class="form-input" id="ph-goal" placeholder="例: 失踪した妹を見つけ出す" style="font-size:13px">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;font-weight:600">主な障害・敵役（何が妨げているか）</div>
+        <input class="form-input" id="ph-obstacle" placeholder="例: 組織に追われている・妹は死んでいると思っている" style="font-size:13px">
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;font-weight:600">Act 1 の終わり（転換点1）</div>
+        <textarea class="form-input" id="ph-act1" rows="2" placeholder="例: 妹から暗号メッセージを受け取り、追われる立場になる" style="font-size:13px;resize:vertical"></textarea>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;font-weight:600">ミッドポイント（中盤の転換）</div>
+        <textarea class="form-input" id="ph-mid" rows="2" placeholder="例: 協力者が組織の人間だと判明、信頼関係が崩れる" style="font-size:13px;resize:vertical"></textarea>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;font-weight:600">クライマックス（最終対決）</div>
+        <textarea class="form-input" id="ph-climax" rows="2" placeholder="例: 組織のアジトに単身乗り込み、妹を救出" style="font-size:13px;resize:vertical"></textarea>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;font-weight:600">伏線リスト（張った伏線をカンマ区切りで）</div>
+        <textarea class="form-input" id="ph-foreshadow" rows="2" placeholder="例: 協力者の左手首の傷、妹が残したメモ、謎の写真" style="font-size:13px;resize:vertical"></textarea>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:5px;font-weight:600">回収した伏線（カンマ区切りで）</div>
+        <input class="form-input" id="ph-resolved" placeholder="例: 協力者の左手首の傷、謎の写真" style="font-size:13px">
+      </div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:16px;width:100%" onclick="analyzePlotHoles()">
+      <i class="fas fa-magnifying-glass"></i> プロット穴を検出する
+    </button>
+  </div>
+
+  <div id="ph-results" style="display:none"></div>`;
+}
+
+function analyzePlotHoles() {
+  const goal = document.getElementById('ph-goal')?.value.trim();
+  const obstacle = document.getElementById('ph-obstacle')?.value.trim();
+  const act1 = document.getElementById('ph-act1')?.value.trim();
+  const mid = document.getElementById('ph-mid')?.value.trim();
+  const climax = document.getElementById('ph-climax')?.value.trim();
+  const foreshadowRaw = document.getElementById('ph-foreshadow')?.value.trim();
+  const resolvedRaw = document.getElementById('ph-resolved')?.value.trim();
+  if (!goal) { toast('主人公の目標を入力してください', 'error'); return; }
+
+  const foreshadows = foreshadowRaw ? foreshadowRaw.split(/[,、，]/).map(s=>s.trim()).filter(Boolean) : [];
+  const resolved = resolvedRaw ? resolvedRaw.split(/[,、，]/).map(s=>s.trim()).filter(Boolean) : [];
+  const unresolved = foreshadows.filter(f => !resolved.some(r => r.includes(f.slice(0,4)) || f.includes(r.slice(0,4))));
+
+  const issues = [];
+  const warnings = [];
+  const ok = [];
+
+  // 目標チェック
+  if (goal.length < 8) issues.push({ title:'目標が漠然としている', desc:'主人公の目標は具体的で測定可能なものにしましょう。「何を、いつまでに達成するか」が明確であるほど物語の推進力が増します。' });
+  else ok.push({ title:'目標が設定されている', desc:`「${goal}」という明確な目標があります。` });
+
+  // 障害チェック
+  if (!obstacle) warnings.push({ title:'障害・敵役の記述なし', desc:'主人公の目標を妨げる障害や対立が明記されていません。強い障害がないと物語は弛緩します。' });
+  else ok.push({ title:'障害が設定されている', desc:'目標に対する対立構造があります。' });
+
+  // 構造チェック
+  if (!act1) warnings.push({ title:'Act1終了（転換点）が未記入', desc:'転換点1がないと物語が一本調子になります。主人公が「引き返せない選択」をする瞬間を設けましょう。' });
+  else ok.push({ title:'転換点1が設定されている', desc:'' });
+  if (!mid) warnings.push({ title:'ミッドポイントが未記入', desc:'ミッドポイントがないとAct2が間延びしやすくなります。主人公の目標・認識が変わる中間点を設けましょう。' });
+  else ok.push({ title:'ミッドポイントが設定されている', desc:'' });
+  if (!climax) issues.push({ title:'クライマックスが未記入', desc:'クライマックスは物語の「証明」です。主人公が変化したことを行動で示す最終対決を明確にしましょう。' });
+  else ok.push({ title:'クライマックスが設定されている', desc:'' });
+
+  // 伏線チェック
+  if (foreshadows.length === 0) warnings.push({ title:'伏線が記録されていない', desc:'伏線と回収は物語に必然性を生みます。重要な設定・小道具・セリフを伏線リストで管理しましょう。' });
+  else if (unresolved.length > 0) {
+    issues.push({ title:`未回収の伏線: ${unresolved.length}件`, desc:`「${unresolved.join('・')}」が回収されていないようです。意図的でなければ物語の穴になります。` });
+  } else {
+    ok.push({ title:'全伏線が回収されている', desc:`${foreshadows.length}件の伏線がすべて回収されています。` });
+  }
+
+  // クライマックスと目標の整合
+  if (climax && goal && !climax.includes(goal.slice(0,4)) && !goal.includes(climax.slice(0,4))) {
+    warnings.push({ title:'クライマックスと目標の整合を確認', desc:`目標「${goal.slice(0,15)}…」とクライマックスの直接的なつながりが見えにくいかもしれません。目標の達成/失敗がクライマックスで明確に示されているか確認しましょう。` });
+  }
+
+  const totalIssues = issues.length;
+  const totalWarnings = warnings.length;
+  const healthScore = Math.max(0, 100 - totalIssues * 20 - totalWarnings * 8);
+  const healthColor = healthScore >= 80 ? 'var(--matcha)' : healthScore >= 60 ? 'var(--kogane)' : 'var(--accent)';
+
+  const makeItems = (arr, type) => arr.map(item => {
+    const s = type === 'issue' ? { icon:'fa-circle-xmark', color:'var(--accent)', bg:'var(--accent-bg)', border:'var(--accent-border)' }
+      : type === 'warn' ? { icon:'fa-triangle-exclamation', color:'var(--kogane)', bg:'var(--kogane-bg)', border:'var(--kogane-border)' }
+      : { icon:'fa-circle-check', color:'var(--matcha)', bg:'var(--matcha-bg)', border:'var(--matcha-border)' };
+    return `<div style="padding:12px 14px;background:${s.bg};border:1px solid ${s.border};border-radius:var(--radius-md);margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:7px;margin-bottom:4px">
+        <i class="fas ${s.icon}" style="color:${s.color}"></i>
+        <span style="font-size:13px;font-weight:700;color:var(--text-primary)">${item.title}</span>
+      </div>
+      ${item.desc ? `<div style="font-size:12px;color:var(--text-secondary);line-height:1.7;padding-left:20px">${item.desc}</div>` : ''}
+    </div>`;
+  }).join('');
+
+  const html = `
+  <div class="card" style="border-top:3px solid ${healthColor};margin-bottom:16px">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px">
+      <div style="width:64px;height:64px;border-radius:50%;background:var(--bg-subtle);border:3px solid ${healthColor};display:flex;align-items:center;justify-content:center;flex-direction:column;flex-shrink:0">
+        <div style="font-size:20px;font-weight:800;color:${healthColor}">${healthScore}</div>
+        <div style="font-size:9px;color:var(--text-muted)">健全度</div>
+      </div>
+      <div>
+        <div style="font-size:16px;font-weight:700;color:${healthColor};margin-bottom:4px">${healthScore >= 80 ? '物語構造は健全です' : healthScore >= 60 ? '一部要修正' : '重大な穴があります'}</div>
+        <div style="font-size:12px;color:var(--text-muted)">問題 ${totalIssues}件 / 注意 ${totalWarnings}件 / 良好 ${ok.length}件</div>
+      </div>
+    </div>
+    ${totalIssues > 0 ? `<div style="font-size:12.5px;font-weight:700;color:var(--accent);margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:6px"><i class="fas fa-circle-xmark"></i> 重大な問題 (${totalIssues})</div>${makeItems(issues,'issue')}` : ''}
+    ${totalWarnings > 0 ? `<div style="font-size:12.5px;font-weight:700;color:var(--kogane);margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:6px;margin-top:${totalIssues>0?12:0}px"><i class="fas fa-triangle-exclamation"></i> 注意事項 (${totalWarnings})</div>${makeItems(warnings,'warn')}` : ''}
+    ${ok.length > 0 ? `<div style="font-size:12.5px;font-weight:700;color:var(--matcha);margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:6px;margin-top:12px"><i class="fas fa-circle-check"></i> 良好な点 (${ok.length})</div>${makeItems(ok,'ok')}` : ''}
+  </div>`;
+
+  document.getElementById('ph-results').innerHTML = html;
+  document.getElementById('ph-results').style.display = 'block';
+  document.getElementById('ph-results').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+// ── 新ツール: ビートカウンター (Save the Cat) ────────────────────
+function renderToolBeatCounter() {
+  const beats = DB.get('sl_beat_counter', {});
+  const BEAT_LIST = [
+    { id:'opening', name:'オープニングイメージ', pct:1, color:'var(--kon-lt)', desc:'物語の最初の印象。世界の状態を示す「静止画」' },
+    { id:'theme', name:'テーマの提示', pct:5, color:'var(--fuji)', desc:'主人公が聞き流す、物語のテーマとなる一言' },
+    { id:'setup', name:'設定', pct:10, color:'var(--fuji)', desc:'世界・主人公・友人・日常を紹介する' },
+    { id:'catalyst', name:'触媒・発端', pct:12, color:'var(--accent)', desc:'主人公の日常を変える出来事' },
+    { id:'debate', name:'議論', pct:25, color:'var(--kogane)', desc:'変化への恐れ。行くべきか留まるべきか' },
+    { id:'act2start', name:'第二幕への突入', pct:25, color:'var(--accent)', desc:'主人公が選択し新世界へ踏み出す' },
+    { id:'bstory', name:'Bストーリー開始', pct:30, color:'var(--momo)', desc:'サブプロット（恋愛・友情）の始まり。テーマの体現者' },
+    { id:'fun', name:'楽しみと遊び', pct:50, color:'var(--matcha)', desc:'新世界での活動。映画の「予告編要素」' },
+    { id:'midpoint', name:'ミッドポイント', pct:50, color:'var(--accent)', desc:'主人公が「これが欲しい」と認識する転換点' },
+    { id:'badguys', name:'悪役の迫来', pct:75, color:'var(--accent)', desc:'敵が反撃。主人公への圧力が増す' },
+    { id:'allis', name:'すべてを失う', pct:75, color:'var(--accent)', desc:'主人公が最低点に。すべてが崩壊する瞬間' },
+    { id:'dark', name:'暗闇の魂', pct:85, color:'var(--fuji)', desc:'すべてを失った後の省察・再起のための沈黙' },
+    { id:'finalact', name:'第三幕への突入', pct:85, color:'var(--accent)', desc:'クライマックスに向けた行動開始' },
+    { id:'climax', name:'クライマックス', pct:99, color:'var(--accent)', desc:'主人公が変化を証明する最終対決' },
+    { id:'closing', name:'クロージングイメージ', pct:100, color:'var(--kon-lt)', desc:'オープニングイメージの対になる「新しい世界」の静止画' },
+  ];
+
+  const completedCount = BEAT_LIST.filter(b => beats[b.id]?.completed).length;
+  const pct = Math.round(completedCount / BEAT_LIST.length * 100);
+
+  const beatItems = BEAT_LIST.map((b, i) => {
+    const done = beats[b.id]?.completed;
+    const note = beats[b.id]?.note || '';
+    return `
+    <div style="padding:12px 14px;background:${done ? 'var(--matcha-bg)' : 'var(--bg-subtle)'};border:1px solid ${done ? 'var(--matcha-border)' : 'var(--border)'};border-radius:var(--radius-md);margin-bottom:8px;transition:all .2s">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <div style="display:flex;align-items:center;gap:8px;flex:1">
+          <input type="checkbox" id="beat-cb-${b.id}" ${done ? 'checked' : ''} onchange="toggleBeat('${b.id}')" style="width:16px;height:16px;accent-color:var(--matcha);flex-shrink:0;margin-top:2px">
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="font-size:11px;background:${b.color}22;color:${b.color};padding:1px 7px;border-radius:var(--radius-full);font-weight:700">${i+1}</span>
+              <span style="font-size:13.5px;font-weight:${done?'600':'700'};color:${done?'var(--text-muted)':'var(--text-primary)'};text-decoration:${done?'line-through':''}">${b.name}</span>
+              <span style="font-size:10px;color:var(--text-muted)">p.${b.pct}</span>
+            </div>
+            <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;padding-left:24px">${b.desc}</div>
+            <input class="form-input" style="margin-top:6px;padding-left:24px;font-size:11.5px;height:30px;background:transparent;border-color:${done?'var(--matcha-border)':'var(--border)'}" placeholder="メモ（シーン番号、ページ数など）" value="${esc(note)}" oninput="saveBeatNote('${b.id}',this.value)">
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="page-header">
+    <button class="btn btn-ghost btn-sm" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</button>
+  </div>
+  <div style="background:linear-gradient(135deg,var(--kogane-bg),var(--bg-subtle));border:1px solid var(--kogane-border);border-radius:var(--radius-lg);padding:22px 26px;margin-bottom:22px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:70px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--kogane);opacity:0.07;pointer-events:none">ビ</div>
+    <div style="width:28px;height:2.5px;background:linear-gradient(90deg,var(--kogane),var(--accent));border-radius:2px;margin-bottom:10px"></div>
+    <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:5px">
+      <i class="fas fa-list-ol" style="color:var(--kogane);margin-right:8px"></i>ビートカウンター
+    </div>
+    <div style="font-size:13px;color:var(--text-muted)">Save the Cat の15ビートを脚本に対応付け、進捗をトラッキング</div>
+  </div>
+
+  <div style="padding:12px 16px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:16px;display:flex;align-items:center;gap:14px">
+    <div style="flex:1">
+      <div style="font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:5px">進捗: ${completedCount}/${BEAT_LIST.length}ビート完了 (${pct}%)</div>
+      <div style="height:8px;background:var(--bg-hover);border-radius:4px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${pct>=100?'var(--matcha)':'linear-gradient(90deg,var(--kogane),var(--accent))'};border-radius:4px;transition:width .5s ease"></div>
+      </div>
+    </div>
+    <button class="btn btn-ghost btn-sm" onclick="if(confirm('進捗をリセットしますか？'))resetBeatCounter()"><i class="fas fa-rotate-left"></i></button>
+  </div>
+
+  <div class="card">
+    <div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-bottom:14px;font-family:'Noto Serif JP',serif">
+      <i class="fas fa-cat" style="color:var(--kogane);margin-right:7px"></i>Save the Cat — 15ビートシート
+    </div>
+    ${beatItems}
+  </div>`;
+}
+
+function toggleBeat(beatId) {
+  const beats = DB.get('sl_beat_counter', {});
+  if (!beats[beatId]) beats[beatId] = {};
+  beats[beatId].completed = !beats[beatId].completed;
+  DB.set('sl_beat_counter', beats);
+  render();
+}
+
+function saveBeatNote(beatId, val) {
+  const beats = DB.get('sl_beat_counter', {});
+  if (!beats[beatId]) beats[beatId] = {};
+  beats[beatId].note = val;
+  DB.set('sl_beat_counter', beats);
+}
+
+function resetBeatCounter() {
+  DB.set('sl_beat_counter', {});
   render();
 }
 
