@@ -16,16 +16,28 @@ app.get('*', (c) => {
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>シナリオラボ — 脚本執筆支援ツール</title>
-  <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=Noto+Serif+JP:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=Noto+Serif+JP:wght@400;500;600;700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
   <link rel="stylesheet" href="/static/app.css">
+  <style>
+    /* Tailwind 競合防止 — カスタムCSSが必ず優先 */
+    html { font-size: 14px; }
+    body { background: #f4f1eb !important; color: #16120a !important; font-family: 'Noto Sans JP', sans-serif !important; margin: 0; padding: 0; }
+    #app { min-height: 100vh; }
+  </style>
 </head>
-<body class="bg-gray-950 text-gray-100 font-sans">
-  <div id="app"></div>
+<body>
+  <div id="app">
+    <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f4f1eb">
+      <div style="text-align:center;color:#7a6050">
+        <div style="font-size:24px;margin-bottom:8px">シナリオラボ</div>
+        <div style="font-size:13px">読み込み中…</div>
+      </div>
+    </div>
+  </div>
   <script src="/static/app.js"></script>
 </body>
 </html>`)

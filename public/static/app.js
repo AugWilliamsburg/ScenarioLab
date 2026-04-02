@@ -1809,6 +1809,17 @@ function bindProjectPage(proj) {
     inp.addEventListener('change', () => autoSaveField(inp, proj));
     inp.addEventListener('blur', () => autoSaveField(inp, proj));
   });
+
+  // 原稿用紙エディタ初期化
+  if (State.currentPage === 'editor') {
+    const fmtKey = DB.get(`editor_format_${proj.id}`, 'genko');
+    if (fmtKey === 'genko') {
+      // 次フレームでDOMが確実に存在してから初期化
+      requestAnimationFrame(() => {
+        setTimeout(() => genkoEditorInit(), 50);
+      });
+    }
+  }
 }
 
 function autoSaveField(inp, proj) {
@@ -3652,7 +3663,7 @@ function deleteOutlineScene(projId, actIdx, sceneIdx) {
 }
 
 // ================================================================
-//  PAGE: 脚本エディタ（初稿）Ver.1-1-2
+//  PAGE: 脚本エディタ（初稿）Ver.1-1-3
 // ================================================================
 
 // ── エディタ フォーマット定義 ───────────────────────────────────
@@ -3898,56 +3909,21 @@ function renderEditor(proj) {
 }
 
 // ── 原稿用紙ページ ラッパー ───────────────────────────────────
+// ── 原稿用紙ページ ラッパー ─────────────────────────────────────
+// 実際の原稿用紙様式：縦20マス×横20列（1ページ=400字）
+// 縦書きで右から左へ進み、1列20文字
+// ページは横にスクロールして複数列を並べる
 function renderScriptPageWrapper(proj, scriptContent, fmt, formatKey, activeDraft) {
-  const isVertical = fmt.writingMode === 'vertical-rl';
-  const fontSize = DB.get('editor_font_size', fmt.fontSize);
+  const cellSize = DB.get('editor_cell_size', 32); // 1マスのピクセルサイズ
 
   if (formatKey === 'genko') {
-    // 縦書き原稿用紙モード
-    return `
-    <div class="genko-page-container" id="genko-container">
-      <div class="genko-title-block">
-        <div class="genko-title">${esc(proj.title)}</div>
-        <div class="genko-subtitle">${esc(proj.genre)} / ${esc(proj.format)}</div>
-        ${activeDraft ? `<div class="genko-draft-label">${esc(activeDraft.name||'第1稿')}</div>` : ''}
-      </div>
-      <div class="genko-writing-area" id="genko-writing-area">
-        <div class="genko-paper-bg" id="genko-paper-bg" aria-hidden="true">${renderGenkoPaperBg(20, 20)}</div>
-        <textarea id="script-editor"
-          class="genko-textarea"
-          style="font-size:${fontSize}px;writing-mode:vertical-rl;text-orientation:mixed;"
-          placeholder="${esc(fmt.placeholder)}"
-          oninput="onEditorInput('${proj.id}','${activeDraft?.id||''}')"
-          spellcheck="false"
-          autocomplete="off"
-        >${esc(scriptContent)}</textarea>
-      </div>
-    </div>`;
+    return renderGenkoVerticalEditor(proj, scriptContent, activeDraft, cellSize);
   } else if (formatKey === 'genko-h') {
-    // 横書き原稿用紙モード
-    return `
-    <div class="genko-h-page-container" id="genko-h-container">
-      <div class="genko-title-block">
-        <div class="genko-title">${esc(proj.title)}</div>
-        <div class="genko-subtitle">${esc(proj.genre)} / ${esc(proj.format)}</div>
-        ${activeDraft ? `<div class="genko-draft-label">${esc(activeDraft.name||'第1稿')}</div>` : ''}
-      </div>
-      <div class="genko-h-writing-area">
-        <div class="genko-h-paper-bg" aria-hidden="true">${renderGenkoHPaperBg(20)}</div>
-        <textarea id="script-editor"
-          class="genko-h-textarea"
-          style="font-size:${fontSize}px;"
-          placeholder="${esc(fmt.placeholder)}"
-          oninput="onEditorInput('${proj.id}','${activeDraft?.id||''}')"
-          spellcheck="false"
-          autocomplete="off"
-        >${esc(scriptContent)}</textarea>
-      </div>
-    </div>`;
+    return renderGenkoHorizontalEditor(proj, scriptContent, activeDraft, cellSize);
   } else {
-    // 標準横書きモード（日本標準・ハリウッド・ラジオ・舞台・フリー）
     const fontFamily = fmt.fontFamily || "'Noto Serif JP', serif";
     const lineHeight = fmt.lineHeight || 2.2;
+    const fontSize = DB.get('editor_font_size', fmt.fontSize || 13);
     return `
     <div class="script-page script-page-${formatKey}">
       <div class="script-title-block">
@@ -3966,23 +3942,729 @@ function renderScriptPageWrapper(proj, scriptContent, fmt, formatKey, activeDraf
   }
 }
 
-// ── 縦書き原稿用紙グリッド生成 ─────────────────────────────────
-function renderGenkoPaperBg(cols, rows) {
-  let cells = '';
-  for (let c = 0; c < cols; c++) {
-    for (let r = 0; r < rows; r++) {
-      cells += `<div class="genko-cell"></div>`;
-    }
-  }
-  return `<div class="genko-grid" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">${cells}</div>`;
+// ================================================================
+//  縦書き原稿用紙エディタ v3 — グリッドセル方式
+//  仕様: 20行×20列/ページ = 400字/ページ
+//  列は右から左へ。各文字を個別の div セルで描画。
+//  隠し textarea で入力受付（IME・コピペ対応）
+// ================================================================
+
+// ── グローバル状態 ──────────────────────────────────────────
+window._GENKO = {
+  projId: '',
+  draftId: '',
+  cell: 32,
+  ROWS: 20,
+  COLS: 20,
+  lines: [],        // string[] 行テキストの配列
+  cursorLine: 0,    // カーソル行インデックス
+  cursorCol: 0,     // カーソル列インデックス（文字インデックス）
+  composing: false, // IME変換中フラグ
+  dirty: false,
+};
+
+// ── テキスト→ライン配列変換 ────────────────────────────────
+function genkoTextToLines(text) {
+  return (text || '').split('\n');
 }
 
-function renderGenkoHPaperBg(cols) {
-  let lines = '';
-  for (let i = 0; i < 20; i++) {
-    lines += `<div class="genko-h-line"><div class="genko-h-cells">${Array(cols).fill('<div class="genko-h-cell"></div>').join('')}</div></div>`;
+function genkoLinesToText(lines) {
+  return lines.join('\n');
+}
+
+// ── メインレンダリング ──────────────────────────────────────
+function renderGenkoVerticalEditor(proj, scriptContent, activeDraft, cellSize) {
+  const G = window._GENKO;
+  G.projId = proj.id;
+  G.draftId = activeDraft?.id || '';
+  G.cell = cellSize || 32;
+  G.ROWS = 20;
+  G.COLS = 20;
+  G.lines = genkoTextToLines(scriptContent || '');
+  if (G.lines.length === 0) G.lines = [''];
+  G.cursorLine = 0;
+  G.cursorCol = 0;
+  G.composing = false;
+
+  const cell = G.cell;
+  const ROWS = G.ROWS;
+  const COLS = G.COLS;
+  const paperW = cell * COLS;
+  const paperH = cell * ROWS;
+  const charCount = (scriptContent||'').replace(/\n/g,'').length;
+  const pageEstimate = Math.max(1, Math.ceil(charCount / (ROWS * COLS)));
+
+  return `
+  <div class="genko-outer" id="genko-outer" style="--genko-cell:${cell}px">
+    <div class="genko-title-block" style="display:flex;align-items:center;justify-content:space-between;width:100%;max-width:${Math.max(paperW + 80, 720)}px;flex-wrap:wrap;gap:8px;">
+      <div style="text-align:center;flex:1;min-width:0">
+        <div class="genko-title">${esc(proj.title)}</div>
+        <div class="genko-subtitle">${esc(proj.genre||'')}${proj.format?' / '+esc(proj.format):''}</div>
+        ${activeDraft ? `<div class="genko-draft-label"><i class="fas fa-file-lines" style="margin-right:3px"></i>${esc(activeDraft.name||'第1稿')}</div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0">
+        <div class="genko-cell-size-ctrl">
+          <span>マスサイズ</span>
+          <button onclick="changeGenkoCellSize(-2)" title="小さく（最小24px）">－</button>
+          <span style="min-width:30px;text-align:center;font-weight:700;color:#5a3a10">${cell}px</span>
+          <button onclick="changeGenkoCellSize(2)" title="大きく（最大52px）">＋</button>
+        </div>
+        <div style="font-size:10px;color:#9a7050;writing-mode:horizontal-tb;text-align:right">
+          <span id="genko-char-count" style="font-weight:700;color:#7a5030">${charCount.toLocaleString()}字</span>
+          <span style="margin:0 4px">·</span>
+          <span>約${pageEstimate}ページ</span>
+          <span style="margin:0 4px">·</span>
+          <span>1ページ=400字</span>
+        </div>
+      </div>
+    </div>
+
+    <div style="writing-mode:horizontal-tb;width:100%;max-width:${Math.max(paperW+80,720)}px;margin-bottom:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:#9a7a60;background:#fdf8f0;border:1px solid #d4c5a8;border-radius:6px;padding:4px 10px">
+        <i class="fas fa-arrow-right" style="font-size:9px"></i>
+        <span>右→書き始め・上↓下の順に縦20字</span>
+        <i class="fas fa-arrows-left-right" style="font-size:9px;margin-left:6px"></i>
+        <span>横スクロールで次列</span>
+      </div>
+    </div>
+
+    <div class="genko-page-wrapper" id="genko-page-wrapper">
+      <div class="genko-paper" id="genko-paper" style="--genko-cell:${cell}px;--genko-cols:${COLS};--genko-rows:${ROWS};">
+        <div id="genko-pages-container" style="display:inline-flex;flex-direction:row-reverse;gap:12px;vertical-align:top;padding:0 16px;">
+          <!-- ページはJSで動的に構築 (row-reverse: p=0が右端、スクロールは左へ=次ページ) -->
+        </div>
+      </div>
+    </div>
+
+    <div class="genko-col-footer" id="genko-col-footer" style="width:${paperW}px;max-width:100%">
+      ${buildGenkoColNumbers(COLS, cell)}
+    </div>
+
+    <!-- 隠し入力エリア（IME・キーボード受付専用） -->
+    <textarea
+      id="script-editor"
+      aria-hidden="true"
+      style="position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;resize:none;"
+      spellcheck="false"
+      autocomplete="off"
+      autocorrect="off"
+      autocapitalize="off"
+    >${esc(scriptContent)}</textarea>
+  </div>`;
+}
+
+// ── ページDOM構築 ───────────────────────────────────────────
+function genkoBuildPages() {
+  const G = window._GENKO;
+  const { cell, ROWS, COLS, lines } = G;
+  const paperW = cell * COLS;
+  const paperH = cell * ROWS;
+  const container = document.getElementById('genko-pages-container');
+  if (!container) return;
+
+  // 全テキストをフラットな文字配列に変換
+  // 改行は「段落区切り」として扱い、次の列の先頭に配置
+  // 原稿用紙方式: 列 = 縦書きの1行（20文字）、行 = 縦の位置
+  // 表示: 右から左に列が並ぶ
+
+  // テキストを原稿用紙セル座標にマッピング
+  // globalPos → { page, col, row }
+  const chars = []; // { ch, line, charInLine, page, col, row }
+  let page = 0, col = 0, row = 0;
+
+  for (let li = 0; li < lines.length; li++) {
+    const lineText = lines[li];
+    if (lineText.length === 0) {
+      // 空行（改行のみ） → 現在位置に改行マーカーを置き次の列へ
+      chars.push({ ch: '\n', line: li, charInLine: 0, page, col, row, isNewline: true });
+      // 次の列へ
+      col++;
+      row = 0;
+      if (col >= COLS) { col = 0; page++; }
+    } else {
+      for (let ci = 0; ci < lineText.length; ci++) {
+        chars.push({ ch: lineText[ci], line: li, charInLine: ci, page, col, row, isNewline: false });
+        row++;
+        if (row >= ROWS) {
+          row = 0;
+          col++;
+          if (col >= COLS) { col = 0; page++; }
+        }
+      }
+      // 行末の改行処理：次の文字は新しい列の先頭に
+      if (li < lines.length - 1) {
+        // 改行マーカーを現在位置に記録（セルには表示しない）
+        chars.push({ ch: '\n', line: li, charInLine: lineText.length, page, col, row, isNewline: true, afterLine: true });
+        // rowが0でない場合は次の列へ移動
+        if (row > 0) {
+          col++;
+          row = 0;
+          if (col >= COLS) { col = 0; page++; }
+        }
+      }
+    }
   }
+
+  // ページ数を算出
+  const totalPages = page + 1;
+
+  // カーソル位置をセル座標に変換
+  const cursorPos = genkoCursorToCell(G.cursorLine, G.cursorCol);
+
+  // 空テキストの場合は1ページ分を確保
+  const actualTotalPages = Math.max(1, totalPages);
+
+  // ページを生成
+  let pagesHTML = '';
+  for (let p = 0; p < actualTotalPages; p++) {
+    // このページの文字を収集
+    const pageChars = chars.filter(c => c.page === p);
+    // セルマップ: [col][row] = char
+    const cellMap = {};
+    for (const c of pageChars) {
+      if (!c.isNewline) {
+        const key = `${c.col}_${c.row}`;
+        cellMap[key] = c;
+      }
+    }
+
+    // SVGグリッド
+    const svgGrid = buildGenkoSVGGrid(cell, ROWS, COLS);
+    const paperWpx = `${paperW}px`;
+    const paperHpx = `${paperH}px`;
+
+    // セル描画（縦書き: 右から左へ列、上から下へ行）
+    // col=0 → 右端（x = (COLS-1)*cell）, col=19 → 左端（x=0）
+    // row=0 → 上（y=0）, row=19 → 下（y=(ROWS-1)*cell）
+    let cellsHTML = '';
+    for (let c = 0; c < COLS; c++) {
+      const xPos = (COLS - 1 - c) * cell; // 右から左方向のX座標
+      for (let r = 0; r < ROWS; r++) {
+        const yPos = r * cell;
+        const key = `${c}_${r}`;
+        const charInfo = cellMap[key];
+        const ch = charInfo ? charInfo.ch : '';
+        const isCursor = cursorPos && cursorPos.page === p && cursorPos.col === c && cursorPos.row === r;
+        // 句読点・括弧（縦書き用フォントフィーチャー）
+        const isRotate = ch && /[「」『』【】〔〕（）。、!?！？…‥・〈〉《》]/.test(ch);
+        // 縦中横（半角数字・英字）
+        const isTcy = ch && /^[0-9a-zA-Z]{1,2}$/.test(ch);
+        const extraClass = isRotate ? ' genko-ch-rotate' : (isTcy ? ' genko-ch-tcy' : '');
+        // 全角スペースは薄いドットで表示
+        const isSpace = ch === '　' || ch === ' ';
+        const displayCh = isSpace ? '<span class="genko-space-dot">·</span>' : (ch ? esc(ch) : '');
+        cellsHTML += `<div class="genko-cell${isCursor?' genko-cursor-cell':''}${extraClass}${isSpace?' genko-space-cell':''}" style="position:absolute;left:${xPos}px;top:${yPos}px;width:${cell}px;height:${cell}px;" data-p="${p}" data-c="${c}" data-r="${r}" onclick="genkoClickCell(${p},${c},${r})">${displayCh}</div>`;
+      }
+    }
+
+    pagesHTML += `
+    <div class="genko-page genko-page-v" id="genko-page-${p}" style="width:${paperWpx};height:${paperHpx};position:relative;flex-shrink:0;">
+      <svg class="genko-page-grid" viewBox="0 0 ${paperW} ${paperH}" width="${paperW}" height="${paperH}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="position:absolute;inset:0;pointer-events:none;z-index:0">${svgGrid}</svg>
+      <div class="genko-cells-layer" style="position:absolute;inset:0;z-index:1;">
+        ${cellsHTML}
+      </div>
+      <div class="genko-page-num" style="position:absolute;bottom:-22px;left:50%;transform:translateX(-50%);writing-mode:horizontal-tb;">p.${p+1}</div>
+    </div>`;
+  }
+
+  container.innerHTML = pagesHTML;
+
+  // カーソルページへスクロール
+  if (cursorPos) {
+    setTimeout(() => genkoScrollToCursor(cursorPos), 50);
+  }
+
+  // 空テキストのプレースホルダー表示
+  const allContent = genkoLinesToText(G.lines).trim();
+  if (!allContent) {
+    const firstCell = container.querySelector('[data-p="0"][data-c="0"][data-r="0"]');
+    if (firstCell && !firstCell.textContent) {
+      // プレースホルダーとしてガイドテキストを薄く表示
+      const guideEl = document.createElement('div');
+      guideEl.style.cssText = `
+        position:absolute;
+        top:0;left:0;right:0;bottom:0;
+        display:flex;align-items:center;justify-content:center;
+        pointer-events:none;
+        z-index:0;
+        writing-mode:vertical-rl;
+        font-family:'Noto Serif JP',serif;
+        font-size:${Math.round(cell * 0.65)}px;
+        color:rgba(180,145,90,0.4);
+        line-height:${cell}px;
+        letter-spacing:0.15em;
+        padding-right:${(COLS - 1) * cell}px;
+      `;
+      guideEl.textContent = '１○シーン名　ト書き。　キャラ「セリフ」';
+      const layer = container.querySelector('.genko-cells-layer');
+      if (layer) layer.appendChild(guideEl);
+    }
+  }
+}
+
+// ── カーソル位置のセル座標を求める ─────────────────────────
+function genkoCursorToCell(cursorLine, cursorCol) {
+  const G = window._GENKO;
+  const { ROWS, COLS, lines } = G;
+  let col = 0, row = 0, page = 0;
+
+  for (let li = 0; li < lines.length; li++) {
+    const lineText = lines[li];
+
+    if (li === cursorLine) {
+      // このライン上のカーソル位置
+      const pos = Math.min(cursorCol, lineText.length);
+      // 現在位置から pos 文字進む
+      row += pos;
+      while (row >= ROWS) {
+        row -= ROWS;
+        col++;
+        if (col >= COLS) { col = 0; page++; }
+      }
+      return { page, col, row };
+    }
+
+    // このラインをスキップ
+    if (lineText.length === 0) {
+      // 空行 → 列を1つ進める
+      col++;
+      row = 0;
+      if (col >= COLS) { col = 0; page++; }
+    } else {
+      row += lineText.length;
+      while (row >= ROWS) {
+        row -= ROWS;
+        col++;
+        if (col >= COLS) { col = 0; page++; }
+      }
+      // 行末改行で次列先頭へ（rowが0でない場合）
+      if (row > 0 && li < lines.length - 1) {
+        col++;
+        row = 0;
+        if (col >= COLS) { col = 0; page++; }
+      }
+    }
+  }
+  return { page, col, row };
+}
+
+// ── セルクリックでカーソル移動 ──────────────────────────────
+function genkoClickCell(p, c, r) {
+  const G = window._GENKO;
+  const { ROWS, COLS, lines } = G;
+
+  // セル座標 → テキスト位置
+  // globalChar = p*COLS*ROWS + (COLS-1-c)*ROWS + r  (RTL方向)
+  // ただし改行を含むので逆算が複雑 → シンプルに線形探索
+  let col = 0, row = 0, page = 0;
+
+  for (let li = 0; li < lines.length; li++) {
+    const lineText = lines[li];
+
+    if (lineText.length === 0) {
+      if (page === p && col === c && row === r) {
+        G.cursorLine = li; G.cursorCol = 0;
+        genkoUpdateDisplay();
+        return;
+      }
+      col++; row = 0;
+      if (col >= COLS) { col = 0; page++; }
+    } else {
+      for (let ci = 0; ci <= lineText.length; ci++) {
+        if (page === p && col === c && row === r) {
+          G.cursorLine = li; G.cursorCol = ci;
+          genkoUpdateDisplay();
+          genkoFocusHidden();
+          return;
+        }
+        if (ci < lineText.length) {
+          row++;
+          if (row >= ROWS) { row = 0; col++; if (col >= COLS) { col = 0; page++; } }
+        }
+      }
+      // 行末改行
+      if (row > 0) {
+        col++; row = 0;
+        if (col >= COLS) { col = 0; page++; }
+      }
+    }
+  }
+
+  // 末尾クリック
+  const last = lines.length - 1;
+  G.cursorLine = last;
+  G.cursorCol = lines[last].length;
+  genkoUpdateDisplay();
+  genkoFocusHidden();
+}
+
+// ── 隠しtextareaにフォーカス ────────────────────────────────
+function genkoFocusHidden() {
+  const ta = document.getElementById('script-editor');
+  if (ta) ta.focus();
+}
+
+// ── カーソルセルへのスクロール ──────────────────────────────
+function genkoScrollToCursor(pos) {
+  const wrapper = document.getElementById('genko-page-wrapper');
+  if (!wrapper || !pos) return;
+
+  // カーソルセル要素を直接探してスクロール
+  setTimeout(() => {
+    const cellEl = document.querySelector(`[data-p="${pos.page}"][data-c="${pos.col}"][data-r="${pos.row}"]`);
+    if (cellEl) {
+      const wrapperRect = wrapper.getBoundingClientRect();
+      const cellRect = cellEl.getBoundingClientRect();
+      const relLeft = cellRect.left - wrapperRect.left + wrapper.scrollLeft;
+      const targetScroll = relLeft - wrapper.clientWidth / 2 + cellRect.width / 2;
+      wrapper.scrollLeft = Math.max(0, targetScroll);
+    }
+  }, 30);
+}
+
+// ── 表示更新（再描画） ──────────────────────────────────────
+function genkoUpdateDisplay() {
+  genkoBuildPages();
+  // 文字カウント更新
+  const G = window._GENKO;
+  const content = genkoLinesToText(G.lines);
+  const charCount = content.replace(/\n/g,'').length;
+  const pageEst = Math.max(1, Math.ceil(charCount / 400));
+  const el = document.getElementById('genko-char-count');
+  if (el) el.textContent = `${charCount.toLocaleString()}字`;
+  // シーンナビ・統計更新
+  const navEl = document.getElementById('scene-nav');
+  if (navEl) navEl.innerHTML = renderSceneNav(content);
+  const statsEl = document.getElementById('editor-stats-live');
+  if (statsEl) {
+    const proj = DB.getProject(G.projId);
+    const fmtKey = DB.get(`editor_format_${G.projId}`, 'genko');
+    const fmt = EDITOR_FORMATS[fmtKey] || EDITOR_FORMATS['genko'];
+    if (proj) statsEl.innerHTML = renderEditorStats(proj, content, fmt);
+  }
+  // autosave
+  genkoScheduleSave();
+}
+
+// ── オートセーブ ────────────────────────────────────────────
+let _genkoSaveTimer = null;
+function genkoScheduleSave() {
+  clearTimeout(_genkoSaveTimer);
+  const ind = document.getElementById('editor-autosave-indicator');
+  if (ind) ind.innerHTML = '<i class="fas fa-circle-notch fa-spin" style="font-size:10px;color:var(--text-muted)"></i><span style="color:var(--text-muted)">保存中…</span>';
+  _genkoSaveTimer = setTimeout(() => {
+    const G = window._GENKO;
+    const content = genkoLinesToText(G.lines);
+    // 隠しtextareaの値を同期してから saveEditorContent を呼ぶ
+    const ta = document.getElementById('script-editor');
+    if (ta) ta.value = content;
+    saveEditorContent(G.projId, G.draftId);
+    if (ind) ind.innerHTML = '<i class="fas fa-cloud-check" style="font-size:10px;color:var(--matcha)"></i><span style="color:var(--matcha)">保存済み</span>';
+  }, 1500);
+}
+
+// ── キーボードイベント処理 ──────────────────────────────────
+function genkoHandleKeydown(e) {
+  const G = window._GENKO;
+  if (G.composing) return; // IME変換中は無視
+
+  const { lines, cursorLine, cursorCol } = G;
+  let li = cursorLine;
+  let ci = cursorCol;
+
+  switch (e.key) {
+    case 'ArrowUp': {
+      // 縦書きの「上」= カーソルを1行前（row-1）
+      if (ci > 0) { G.cursorCol--; }
+      else if (li > 0) { G.cursorLine--; G.cursorCol = lines[G.cursorLine].length; }
+      e.preventDefault();
+      genkoUpdateDisplay();
+      break;
+    }
+    case 'ArrowDown': {
+      // 縦書きの「下」= カーソルを1行後
+      if (ci < lines[li].length) { G.cursorCol++; }
+      else if (li < lines.length - 1) { G.cursorLine++; G.cursorCol = 0; }
+      e.preventDefault();
+      genkoUpdateDisplay();
+      break;
+    }
+    case 'ArrowLeft': {
+      // 縦書きの「左」= 前の列（前のライン/改行へ）
+      if (li > 0) { G.cursorLine--; G.cursorCol = lines[G.cursorLine].length; }
+      e.preventDefault();
+      genkoUpdateDisplay();
+      break;
+    }
+    case 'ArrowRight': {
+      // 縦書きの「右」= 次の列
+      if (li < lines.length - 1) { G.cursorLine++; G.cursorCol = 0; }
+      e.preventDefault();
+      genkoUpdateDisplay();
+      break;
+    }
+    case 'Backspace': {
+      if (ci > 0) {
+        G.lines[li] = lines[li].slice(0, ci - 1) + lines[li].slice(ci);
+        G.cursorCol--;
+      } else if (li > 0) {
+        const prevLine = lines[li - 1];
+        G.lines.splice(li, 1);
+        G.cursorLine--;
+        G.cursorCol = G.lines[G.cursorLine].length;
+        // 削除した行の内容を前行末に結合
+        G.lines[G.cursorLine] = prevLine + (lines[li] || '');
+      }
+      e.preventDefault();
+      genkoUpdateDisplay();
+      break;
+    }
+    case 'Delete': {
+      if (ci < lines[li].length) {
+        G.lines[li] = lines[li].slice(0, ci) + lines[li].slice(ci + 1);
+      } else if (li < lines.length - 1) {
+        const nextContent = G.lines[li + 1];
+        G.lines.splice(li + 1, 1);
+        G.lines[li] = lines[li] + nextContent;
+      }
+      e.preventDefault();
+      genkoUpdateDisplay();
+      break;
+    }
+    case 'Enter': {
+      const before = lines[li].slice(0, ci);
+      const after = lines[li].slice(ci);
+      G.lines[li] = before;
+      G.lines.splice(li + 1, 0, after);
+      G.cursorLine++;
+      G.cursorCol = 0;
+      e.preventDefault();
+      genkoUpdateDisplay();
+      break;
+    }
+    case 'Tab': {
+      // 全角スペース2つ挿入（インデント）
+      const ins = '　　';
+      G.lines[li] = lines[li].slice(0, ci) + ins + lines[li].slice(ci);
+      G.cursorCol += ins.length;
+      e.preventDefault();
+      genkoUpdateDisplay();
+      break;
+    }
+  }
+}
+
+// ── 通常文字入力処理 ────────────────────────────────────────
+function genkoHandleInput(e) {
+  const G = window._GENKO;
+  const ta = document.getElementById('script-editor');
+  if (!ta) return;
+
+  if (G.composing) {
+    // IME変換中はtextareaに任せ、確定時に処理
+    return;
+  }
+
+  // input値を取得して差分を反映
+  const newVal = ta.value;
+  const content = genkoLinesToText(G.lines);
+
+  if (newVal !== content) {
+    G.lines = genkoTextToLines(newVal);
+    if (G.lines.length === 0) G.lines = [''];
+    // カーソルをtextareaのselectionStartから逆算
+    const pos = ta.selectionStart || 0;
+    let remaining = pos;
+    for (let li = 0; li < G.lines.length; li++) {
+      if (remaining <= G.lines[li].length) {
+        G.cursorLine = li;
+        G.cursorCol = remaining;
+        break;
+      }
+      remaining -= G.lines[li].length + 1; // +1 for \n
+      if (li === G.lines.length - 1) {
+        G.cursorLine = li;
+        G.cursorCol = G.lines[li].length;
+      }
+    }
+    genkoUpdateDisplay();
+  }
+}
+
+// ── IMEイベント処理 ─────────────────────────────────────────
+function genkoHandleCompositionStart() {
+  window._GENKO.composing = true;
+}
+
+function genkoHandleCompositionEnd(e) {
+  const G = window._GENKO;
+  G.composing = false;
+  const ta = document.getElementById('script-editor');
+  if (!ta) return;
+
+  // IME確定後のテキストを反映
+  const newVal = ta.value;
+  G.lines = genkoTextToLines(newVal);
+  if (G.lines.length === 0) G.lines = [''];
+
+  // カーソル位置更新
+  const pos = ta.selectionStart || 0;
+  let remaining = pos;
+  for (let li = 0; li < G.lines.length; li++) {
+    if (remaining <= G.lines[li].length) {
+      G.cursorLine = li;
+      G.cursorCol = remaining;
+      break;
+    }
+    remaining -= G.lines[li].length + 1;
+    if (li === G.lines.length - 1) {
+      G.cursorLine = li;
+      G.cursorCol = G.lines[li].length;
+    }
+  }
+  genkoUpdateDisplay();
+}
+
+// ── ペースト処理 ─────────────────────────────────────────────
+function genkoHandlePaste(e) {
+  // textareaのデフォルトペーストを使い、compositionEnd同様に処理
+  setTimeout(() => {
+    const ta = document.getElementById('script-editor');
+    if (!ta) return;
+    const G = window._GENKO;
+    const newVal = ta.value;
+    G.lines = genkoTextToLines(newVal);
+    if (G.lines.length === 0) G.lines = [''];
+    const pos = ta.selectionStart || 0;
+    let remaining = pos;
+    for (let li = 0; li < G.lines.length; li++) {
+      if (remaining <= G.lines[li].length) {
+        G.cursorLine = li;
+        G.cursorCol = remaining;
+        break;
+      }
+      remaining -= G.lines[li].length + 1;
+    }
+    genkoUpdateDisplay();
+  }, 10);
+}
+
+// ── エディタ初期化（DOM生成後に呼ぶ） ──────────────────────
+function genkoEditorInit() {
+  const ta = document.getElementById('script-editor');
+  if (!ta || ta._genkoInitialized) return;
+  ta._genkoInitialized = true;
+
+  // textareaの内容を同期
+  const G = window._GENKO;
+  ta.value = genkoLinesToText(G.lines);
+
+  ta.addEventListener('keydown', genkoHandleKeydown);
+  ta.addEventListener('input', genkoHandleInput);
+  ta.addEventListener('compositionstart', genkoHandleCompositionStart);
+  ta.addEventListener('compositionend', genkoHandleCompositionEnd);
+  ta.addEventListener('paste', genkoHandlePaste);
+
+  // ページクリックでフォーカス
+  const wrapper = document.getElementById('genko-page-wrapper');
+  if (wrapper) {
+    wrapper.addEventListener('click', () => genkoFocusHidden());
+  }
+
+  // 初回描画
+  genkoBuildPages();
+  setTimeout(() => {
+    // 初期スクロールを右端（ページ0）に設定
+    const wrapperEl = document.getElementById('genko-page-wrapper');
+    if (wrapperEl) {
+      wrapperEl.scrollLeft = wrapperEl.scrollWidth - wrapperEl.clientWidth;
+    }
+    genkoFocusHidden();
+  }, 80);
+}
+
+// ── SVGグリッド線を生成（原稿用紙様式） ───────────────────
+function buildGenkoSVGGrid(cell, rows, cols) {
+  const W = cell * cols;
+  const H = cell * rows;
+  let lines = '';
+
+  lines += `<rect x="0" y="0" width="${W}" height="${H}" fill="none"/>`;
+
+  for (let c = 1; c < cols; c++) {
+    const x = c * cell;
+    const isEmphasis = (c % 5 === 0);
+    const color = isEmphasis ? '#b89060' : 'rgba(180,145,90,0.40)';
+    const width = isEmphasis ? '0.9' : '0.5';
+    lines += `<line x1="${x}" y1="0" x2="${x}" y2="${H}" stroke="${color}" stroke-width="${width}"/>`;
+  }
+
+  for (let r = 1; r < rows; r++) {
+    const y = r * cell;
+    const isEmphasis = (r % 5 === 0);
+    const color = isEmphasis ? '#b89060' : 'rgba(180,145,90,0.40)';
+    const width = isEmphasis ? '0.9' : '0.5';
+    lines += `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="${color}" stroke-width="${width}"/>`;
+  }
+
+  lines += `<rect x="0.5" y="0.5" width="${W-1}" height="${H-1}" fill="none" stroke="#8b7355" stroke-width="1.5"/>`;
+
   return lines;
+}
+
+// 列番号フッター生成
+function buildGenkoColNumbers(cols, cell) {
+  let html = '';
+  for (let c = 0; c < cols; c++) {
+    const colNum = cols - c;
+    html += `<div class="genko-col-num" style="width:${cell}px">${colNum}</div>`;
+  }
+  return html;
+}
+
+// ================================================================
+//  横書き原稿用紙エディタ
+//  仕様: 20行×20列/ページ = 400字/ページ
+// ================================================================
+function renderGenkoHorizontalEditor(proj, scriptContent, activeDraft, cellSize) {
+  const ROWS = 20;
+  const COLS = 20;
+  const cell = cellSize || 31;
+  const paperW = cell * COLS;
+  const paperH = cell * ROWS;
+
+  return `
+  <div class="genko-h-outer" id="genko-h-outer">
+    <div class="genko-h-page-container">
+      <div class="genko-h-title-block">
+        <div class="genko-h-title">${esc(proj.title)}</div>
+        <div class="genko-h-subtitle">${esc(proj.genre||'')} / ${esc(proj.format||'')}
+          ${activeDraft ? ` — ${esc(activeDraft.name||'第1稿')}` : ''}
+        </div>
+      </div>
+      <div class="genko-h-writing-area" style="width:${paperW}px;height:${paperH}px;--hcell-w:${cell}px;--hcell-h:${cell}px">
+        <div class="genko-h-grid" style="--hcell-w:${cell}px;--hcell-h:${cell}px;--hgrid-cols:${COLS};--hgrid-rows:${ROWS};width:${paperW}px;height:${paperH}px;position:relative;">
+          <textarea
+            id="script-editor"
+            class="genko-h-textarea"
+            style="
+              font-size:${Math.round(cell * 0.72)}px;
+              line-height:${cell}px;
+              letter-spacing:${Math.round(cell * 0.15)}px;
+              padding:${Math.round(cell * 0.14)}px ${Math.round(cell * 0.14)}px;
+            "
+            placeholder="${esc('【シーン１】場所・時間\n\n　ト書き。\n\nキャラ名「セリフ」\n\nカットＴＯ：')}"
+            oninput="onEditorInput('${proj.id}','${activeDraft?.id||''}')"
+            spellcheck="false"
+            autocomplete="off"
+          >${esc(scriptContent)}</textarea>
+        </div>
+      </div>
+      <div style="font-size:10px;color:#9a8060;padding:6px 12px;border-top:1px solid #d4c5a8">
+        横書き原稿用紙 ${COLS}字×${ROWS}行 = ${ROWS*COLS}字/ページ
+      </div>
+    </div>
+  </div>`;
 }
 
 // ── 進捗バー ─────────────────────────────────────────────────
@@ -4007,22 +4689,221 @@ function renderEditorProgressBar(proj, content, fmt) {
 }
 
 // ── シーンナビ ────────────────────────────────────────────────
+// 日本の脚本フォーマット対応:
+//   縦書き原稿用紙: 「1\n○\nホール・ステージ上」→ "1○ホール"
+//   日本標準:       「１　○○社　昼」「【1】○○（外）— 昼」
+//   ハリウッド:     「INT. LOCATION - DAY」
+//   舞台:           「第一幕 第一場」
 function renderSceneNav(content) {
-  const lines = (content||'').split('\n');
+  const text = content || '';
+  const lines = text.split('\n');
   const scenes = [];
+
+  // 全角→半角数字変換ヘルパー
+  function toHalf(s) {
+    return s.replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+  }
+
+  // ── パターン1: 縦書き原稿用紙「数字行→○行→場所名行」──────────
+  // 例（踊り場にて形式）:
+  //   ３  → (半角も可)
+  //   ○
+  //   踊り場
+  for (let i = 0; i < lines.length - 2; i++) {
+    const t = lines[i].trim();
+    const numMatch = t.match(/^([０-９0-9]{1,3})$/);
+    if (!numMatch) continue;
+    // 直後または1行空いて○が来るパターン
+    for (let j = i + 1; j <= Math.min(i + 3, lines.length - 1); j++) {
+      const next = lines[j].trim();
+      if (next === '') continue; // 空行は飛ばす
+      if (/^[○◯]$/.test(next)) {
+        // ○の次の空でない行が場所名
+        let locLine = '';
+        for (let k = j + 1; k <= Math.min(j + 3, lines.length - 1); k++) {
+          const mayLoc = lines[k].trim();
+          if (mayLoc.length > 0) { locLine = mayLoc; break; }
+        }
+        if (locLine.length > 0) {
+          const alreadyAdded = scenes.some(s => Math.abs(s.line - i) < 3);
+          if (!alreadyAdded) {
+            const numInt = parseInt(toHalf(numMatch[1]));
+            scenes.push({ line: i, text: numInt + '○ ' + locLine.slice(0, 20), num: numInt, fmt: 'genko-v' });
+          }
+        }
+        break;
+      } else {
+        break; // ○でない文字が来たら中断
+      }
+    }
+  }
+
+  // ── パターン1b: 縦書き「数字＋場所名」連結行 ────────────────
+  // 例: "１○踊り場", "3○ホール"（数字と○と場所名が同一行）
+  for (let i = 0; i < lines.length; i++) {
+    const t = lines[i].trim();
+    const m = t.match(/^([０-９0-9]{1,3})[○◯](.{1,30})/);
+    if (m) {
+      const already = scenes.some(s => Math.abs(s.line - i) < 2);
+      if (!already) {
+        const numInt = parseInt(toHalf(m[1]));
+        scenes.push({ line: i, text: numInt + '○ ' + m[2].slice(0, 20), num: numInt, fmt: 'genko-h' });
+      }
+    }
+  }
+
+  // ── パターン2: ○単独行の後に場所名（縦書き変形） ───────────────
+  // 例: 行i "○", 行i+1 "踊り場"
+  for (let i = 0; i < lines.length - 1; i++) {
+    const t = lines[i].trim();
+    if (/^[○◯]$/.test(t)) {
+      const locLine = lines[i + 1]?.trim() || '';
+      if (locLine.length > 1) {
+        const already = scenes.some(s => Math.abs(s.line - i) < 3);
+        if (!already) {
+          // 直前の数字行を探す
+          let num = null;
+          for (let k = i - 1; k >= Math.max(0, i - 3); k--) {
+            const prev = lines[k].trim();
+            if (/^[０-９0-9]{1,3}$/.test(prev)) { num = parseInt(toHalf(prev)); break; }
+          }
+          const label = num ? num + '○ ' + locLine.slice(0, 20) : '○ ' + locLine.slice(0, 20);
+          scenes.push({ line: Math.max(0, i - 1), text: label, num: num, fmt: 'genko-v' });
+        }
+      }
+    }
+  }
+
+  // ── パターン3: 【シーン番号】形式 ────────────────────────────
   lines.forEach((l, i) => {
     const t = l.trim();
-    if (/^【\d+】|^[０-９\d]+[．\.]\s*[^\s]/.test(t) || t.includes('（外）') || t.includes('（内）') ||
-        /^INT\.|^EXT\.|^INT\/EXT\./.test(t) || /^第[一二三四五六七八九十\d]+[幕場]/.test(t)) {
-      scenes.push({ line: i, text: t });
+    const m = t.match(/^【([０-９\d]+)】\s*(.{0,28})/);
+    if (m) {
+      const already = scenes.some(s => s.line === i);
+      if (!already) {
+        const numInt = parseInt(toHalf(m[1]));
+        const label = m[2] ? `【${numInt}】${m[2].slice(0,16)}` : `【${numInt}】`;
+        scenes.push({ line: i, text: label, num: numInt, fmt: 'bracket' });
+      }
     }
   });
-  if (scenes.length === 0) return `<div style="font-size:12px;color:var(--text-muted);padding:4px 0">シーン見出し未検出<br><span style="font-size:10px">【1】やINT.で始まる行が検出されます</span></div>`;
-  return scenes.slice(0, 40).map((s, i) => `
-    <div class="scene-list-item" onclick="jumpToSceneLine(${s.line})" title="行${s.line+1}: ${esc(s.text)}">
-      <span style="color:var(--accent);font-size:10px;flex-shrink:0;font-weight:600">S${i+1}</span>
-      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${esc(s.text.slice(0,28))}</span>
-    </div>`).join('');
+
+  // ── パターン4: 日本TVドラマ標準「数字 ○場所 時間帯」形式 ───────
+  // 例: "１　○○社・応接室（昼）", "３　公園（夜）"
+  lines.forEach((l, i) => {
+    const t = l.trim();
+    // 数字+全角スペース+場所 パターン
+    const m = t.match(/^([０-９0-9]{1,3})\s+(?:[○◯]?)(.{2,28})$/);
+    if (m && (t.includes('（外）') || t.includes('（内）') || t.includes('（夜）') ||
+              t.includes('（昼）') || t.includes('（朝）') || t.includes('（夕）') ||
+              t.includes('(外)') || t.includes('(内)') || /[○◯]/.test(m[0]))) {
+      const already = scenes.some(s => Math.abs(s.line - i) < 2);
+      if (!already) {
+        const numInt = parseInt(toHalf(m[1]));
+        scenes.push({ line: i, text: numInt + ' ' + m[2].slice(0, 22), num: numInt, fmt: 'jp-std' });
+      }
+    }
+  });
+
+  // ── パターン5: 場所（外/内/昼/夜）記号のみ行 ────────────────
+  lines.forEach((l, i) => {
+    const t = l.trim();
+    if (
+      (t.includes('（外）') || t.includes('（内）') || t.includes('（夜）') ||
+       t.includes('（昼）') || t.includes('（朝）') || t.includes('（夕）')) &&
+      t.length < 40 && t.length > 3
+    ) {
+      const already = scenes.some(s => Math.abs(s.line - i) < 2);
+      if (!already) scenes.push({ line: i, text: t.slice(0, 28), num: null, fmt: 'jp-std' });
+    }
+  });
+
+  // ── パターン6: ハリウッド形式 INT./EXT. ────────────────────
+  lines.forEach((l, i) => {
+    const t = l.trim();
+    if (/^(INT\.|EXT\.|INT\/EXT\.)/.test(t)) {
+      const already = scenes.some(s => s.line === i);
+      if (!already) scenes.push({ line: i, text: t.slice(0, 30), num: null, fmt: 'hollywood' });
+    }
+  });
+
+  // ── パターン7: 舞台 第○幕 第○場 ────────────────────────────
+  lines.forEach((l, i) => {
+    const t = l.trim();
+    if (/^第[一二三四五六七八九十百\d０-９]+[幕場]/.test(t)) {
+      const already = scenes.some(s => s.line === i);
+      if (!already) scenes.push({ line: i, text: t.slice(0, 28), num: null, fmt: 'stage' });
+    }
+  });
+
+  // ── パターン8: ラジオ/音声 「SCENE:」形式 ──────────────────
+  lines.forEach((l, i) => {
+    const t = l.trim();
+    if (/^[＜<]?(SCENE|シーン|scene)\s*[:：\d]/.test(t)) {
+      const already = scenes.some(s => s.line === i);
+      if (!already) scenes.push({ line: i, text: t.slice(0, 28), num: null, fmt: 'radio' });
+    }
+  });
+
+  // 行番号でソート・重複除去
+  scenes.sort((a, b) => a.line - b.line);
+
+  // 近接する重複を除去（3行以内の同フォーマット）
+  const deduped = [];
+  for (const s of scenes) {
+    const last = deduped[deduped.length - 1];
+    if (last && Math.abs(last.line - s.line) < 3 && last.fmt === s.fmt) continue;
+    deduped.push(s);
+  }
+
+  if (deduped.length === 0) {
+    return `<div style="font-size:11px;color:var(--text-muted);padding:8px 4px;line-height:2">
+      <div style="color:#c8a870;font-weight:600;margin-bottom:6px"><i class="fas fa-map-signs" style="margin-right:4px"></i>シーン未検出</div>
+      <div style="font-size:10px;background:#fdf8f0;border:1px solid #d4c5a8;border-radius:6px;padding:8px 10px;line-height:1.9">
+        <div style="font-weight:700;color:#7a5a30;margin-bottom:4px">縦書き原稿用紙の記法:</div>
+        <code style="display:block;font-family:monospace;font-size:10px;color:#5a3a10">１</code>
+        <code style="display:block;font-family:monospace;font-size:10px;color:#5a3a10">○</code>
+        <code style="display:block;font-family:monospace;font-size:10px;color:#5a3a10">踊り場</code>
+        <div style="margin-top:5px;color:#9a7a60;border-top:1px solid #e0d0b8;padding-top:5px">
+          その他: <code>【1】場所</code> / <code>INT. LOCATION</code>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  // フォーマット別カラー
+  const fmtColor = {
+    'genko-v': 'var(--accent)', 'genko-h': 'var(--accent)',
+    'jp-std': 'var(--kogane)', 'bracket': 'var(--fuji)',
+    'hollywood': 'var(--matcha)', 'stage': 'var(--fuji)',
+    'radio': 'var(--text-secondary)', 'circle': 'var(--accent)',
+  };
+  const fmtLabel = {
+    'genko-v': '縦', 'genko-h': '横',
+    'jp-std': 'TV', 'bracket': '【】',
+    'hollywood': 'HW', 'stage': '舞台',
+    'radio': 'RA',
+  };
+
+  return `
+  <div style="font-size:10px;color:var(--text-muted);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center">
+    <span><i class="fas fa-film" style="margin-right:3px;color:var(--momo)"></i><strong style="color:var(--text-primary)">${deduped.length}</strong>シーン検出</span>
+    <button class="btn btn-ghost btn-sm" style="padding:1px 6px;font-size:9px" onclick="jumpToSceneLine(0)" title="先頭へ">
+      <i class="fas fa-angle-double-up"></i>先頭
+    </button>
+  </div>
+  ${deduped.slice(0, 80).map((s, i) => {
+    const label = s.text.slice(0, 22);
+    const color = fmtColor[s.fmt] || 'var(--fuji)';
+    const hasCircle = s.text.includes('○') || s.text.includes('◯');
+    const numStr = s.num ? String(s.num) : ('S'+(i+1));
+    const badge = fmtLabel[s.fmt] || '';
+    return `<div class="scene-list-item" onclick="jumpToSceneLine(${s.line})" title="行${s.line+1}: ${esc(s.text)}">
+      <span style="color:${color};font-size:10.5px;flex-shrink:0;font-weight:800;min-width:22px;font-family:'Noto Serif JP',serif;text-align:right">${numStr}${hasCircle&&s.num?'○':''}</span>
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:var(--text-primary);flex:1">${esc(label)}</span>
+      <span style="font-size:8px;color:${color};background:${color}18;border-radius:3px;padding:1px 3px;flex-shrink:0;opacity:0.8">${badge}</span>
+    </div>`;
+  }).join('')}`;
 }
 
 // ── 統計パネル ────────────────────────────────────────────────
@@ -4065,15 +4946,34 @@ function renderEditorStats(proj, content, fmt) {
 function renderFormatGuide(formatKey) {
   const guides = {
     'genko': `
-      <div style="font-size:11px;color:var(--text-muted);line-height:1.9">
-        <div><span style="color:var(--matcha);font-weight:600">縦書き 20字×20行</span></div>
-        <div style="margin-top:6px"><span style="color:var(--accent-light);font-weight:600">シーン：</span> 【1】○○・昼</div>
-        <div style="margin-top:4px"><span style="color:var(--accent3);font-weight:600">ト書き：</span> 1字下げで記述</div>
-        <div style="margin-top:4px"><span style="color:var(--accent4);font-weight:600">キャラ名：</span> 行頭・全角</div>
-        <div style="margin-top:4px"><span style="color:var(--accent2);font-weight:600">セリフ：</span> 「〜〜」</div>
-        <div style="margin-top:4px"><span style="color:var(--text-secondary);font-weight:600">転換：</span> ＯＬ / カットＴＯ</div>
-        <div style="margin-top:8px;padding:6px;background:var(--bg-subtle);border-radius:4px;font-size:10px">
-          💡 原稿用紙1枚＝400字<br>1時間ドラマ＝約25〜30枚
+      <div style="font-size:11px;color:var(--text-muted);line-height:1.8">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+          <span style="background:var(--accent);color:white;font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px">縦書き</span>
+          <span style="color:var(--text-primary);font-weight:700">原稿用紙 20字×20行</span>
+        </div>
+        <div style="background:#fdf8f0;border:1px solid #d4c5a8;border-radius:6px;padding:8px 10px;margin-bottom:8px">
+          <div style="font-weight:700;color:#8b5a2b;font-size:10px;margin-bottom:5px">シーン記法（3行形式）</div>
+          <div style="display:flex;gap:4px;align-items:baseline">
+            <div style="display:flex;flex-direction:column;gap:1px">
+              <code style="background:#f0e8d8;padding:1px 5px;border-radius:3px;font-size:10px;color:#5a3010;display:block">１</code>
+              <code style="background:#f0e8d8;padding:1px 5px;border-radius:3px;font-size:10px;color:#c0391c;display:block">○</code>
+              <code style="background:#f0e8d8;padding:1px 5px;border-radius:3px;font-size:10px;color:#5a3010;display:block">場所名</code>
+            </div>
+            <span style="color:var(--text-light);font-size:10px">→自動ナビ検出</span>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:auto 1fr;gap:2px 6px;font-size:10.5px">
+          <span style="color:var(--matcha);font-weight:600">ト書き</span><span>　〜する。</span>
+          <span style="color:var(--kon-lt);font-weight:600">キャラ名</span><span>行頭フルネーム</span>
+          <span style="color:var(--fuji);font-weight:600">セリフ</span><span>　「〜〜」</span>
+          <span style="color:var(--kogane);font-weight:600">演技指定</span><span>（小声で）</span>
+          <span style="color:var(--momo);font-weight:600">転換</span><span>カットＴＯ：</span>
+          <span style="color:var(--asagi);font-weight:600">SE</span><span>SE：（効果音）</span>
+        </div>
+        <div style="margin-top:8px;padding:6px 8px;background:var(--matcha-bg);border-left:3px solid var(--matcha);border-radius:0 4px 4px 0;font-size:10px;line-height:1.7">
+          <strong style="color:var(--matcha)">規格</strong><br>
+          1枚＝400字 / 1時間ドラマ≈25〜30枚<br>
+          原稿用紙換算: <strong>左上 → 右端 → 右から左へ</strong>
         </div>
       </div>`,
     'genko-h': `
@@ -4189,6 +5089,14 @@ function onEditorInput(projId, draftId) {
   const pc = Math.max(1, Math.ceil(wc / (fmt2.pageChars || 400)));
   const wcEl = document.getElementById('editor-wc-display');
   if (wcEl) wcEl.textContent = `${wc.toLocaleString()}字 / 約${pc}ページ`;
+
+  // 原稿用紙モード: ヘッダーの文字カウント更新
+  const genkoCountEl = document.getElementById('genko-char-count');
+  if (genkoCountEl) {
+    const rawCount = content.replace(/\n/g,'').length;
+    const pages = Math.ceil(rawCount / 400);
+    genkoCountEl.textContent = `${rawCount.toLocaleString()}字`;
+  }
 
   // オートセーブ表示
   const ind = document.getElementById('editor-autosave-indicator');
@@ -4414,6 +5322,22 @@ function insertElement(type) {
   const projId = State.currentProject;
   const fmtKey = projId ? DB.get(`editor_format_${projId}`, 'genko') : 'genko';
 
+  // genko（縦書き原稿用紙）: シーン見出しは「番号→○→場所名」の3行形式
+  const nextSceneNum = (() => {
+    const content = ta.value;
+    const nums = [...content.matchAll(/^([０-９0-9]{1,3})\n[○◯]/gm)].map(m=>parseInt(m[1].replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))));
+    return nums.length > 0 ? Math.max(...nums) + 1 : 1;
+  })();
+  const inserts_genko = {
+    'scene-heading': `\n${nextSceneNum}\n○\n場所名\n\n`,
+    'action':        '\n　（ト書き）\n\n',
+    'character':     '\nキャラ名\n',
+    'dialogue':      '　「セリフ。」\n\n',
+    'parenthetical': '（）',
+    'transition':    '\nカットＴＯ：\n\n',
+    'se':            '\nSE：（効果音）\n',
+    'note':          '\n※メモ：\n',
+  };
   const inserts_japan = {
     'scene-heading': '\n【　】　　（外）— 昼\n\n',
     'action':        '\n　\n\n',
@@ -4456,23 +5380,61 @@ function insertElement(type) {
   };
 
   let map = inserts_japan;
-  if (fmtKey === 'hollywood') map = inserts_hollywood;
+  if (fmtKey === 'genko') map = inserts_genko;
+  else if (fmtKey === 'hollywood') map = inserts_hollywood;
   else if (fmtKey === 'radio-drama') map = inserts_radio;
   else if (fmtKey === 'stage-play') map = inserts_stage;
 
   const text = map[type] || '\n';
+
+  // genkoグリッドエディタ: _GENKOに直接挿入
+  if (fmtKey === 'genko' && window._GENKO && document.getElementById('genko-pages-container')) {
+    genkoInsertText(text);
+    return;
+  }
+
+  // 通常のtextarea
   const pos = ta.selectionStart;
   ta.value = ta.value.slice(0, pos) + text + ta.value.slice(pos);
   ta.selectionStart = ta.selectionEnd = pos + text.length;
   ta.focus();
+  // オートセーブトリガー
+  onEditorInput(projId || '', '');
+}
+
+// ── genkoグリッドへのテキスト挿入 ──────────────────────────
+function genkoInsertText(text) {
+  const G = window._GENKO;
+  if (!G) return;
+  let { lines, cursorLine, cursorCol } = G;
+
+  // テキストを分割して行ごとに挿入
+  const insertLines = text.split('\n');
+  const currentLine = lines[cursorLine] || '';
+  const before = currentLine.slice(0, cursorCol);
+  const after = currentLine.slice(cursorCol);
+
+  if (insertLines.length === 1) {
+    G.lines[cursorLine] = before + insertLines[0] + after;
+    G.cursorCol = cursorCol + insertLines[0].length;
+  } else {
+    const newLines = [
+      before + insertLines[0],
+      ...insertLines.slice(1, -1),
+      insertLines[insertLines.length - 1] + after
+    ];
+    G.lines.splice(cursorLine, 1, ...newLines);
+    G.cursorLine = cursorLine + insertLines.length - 1;
+    G.cursorCol = insertLines[insertLines.length - 1].length;
+  }
+  genkoUpdateDisplay();
+  genkoFocusHidden();
 }
 
 function insertCharName(name) {
-  const ta = $('#script-editor');
-  if (!ta) return;
   const projId = State.currentProject;
   const fmtKey = projId ? DB.get(`editor_format_${projId}`, 'genko') : 'genko';
-  const pos = ta.selectionStart;
+
   let text;
   if (fmtKey === 'hollywood') {
     text = `\n\n                    ${name.toUpperCase()}\n          `;
@@ -4481,6 +5443,16 @@ function insertCharName(name) {
   } else {
     text = `\n\n${name}\n　「」\n`;
   }
+
+  // genkoグリッドエディタ
+  if (fmtKey === 'genko' && window._GENKO && document.getElementById('genko-pages-container')) {
+    genkoInsertText(text);
+    return;
+  }
+
+  const ta = $('#script-editor');
+  if (!ta) return;
+  const pos = ta.selectionStart;
   ta.value = ta.value.slice(0, pos) + text + ta.value.slice(pos);
   ta.selectionStart = ta.selectionEnd = pos + text.length;
   ta.focus();
@@ -4506,14 +5478,18 @@ function toggleEditorFind() {
 
 function doEditorFind() {
   const query = document.getElementById('find-input')?.value || '';
-  const ta = document.getElementById('script-editor');
   const countEl = document.getElementById('find-count');
-  if (!ta || !query) {
+
+  // genkoエディタ対応
+  const G = window._GENKO;
+  const isGenko = G && document.getElementById('genko-pages-container');
+  const text = isGenko ? genkoLinesToText(G.lines) : (document.getElementById('script-editor')?.value || '');
+
+  if (!query) {
     _findMatches = []; _findIndex = 0;
     if (countEl) countEl.textContent = '';
     return;
   }
-  const text = ta.value;
   const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
   _findMatches = [];
   let m;
@@ -4578,18 +5554,34 @@ function doEditorReplaceAll() {
 
 // ── シーン行ジャンプ ─────────────────────────────────────────
 function jumpToSceneLine(lineIndex) {
+  // グリッドエディタ（genko縦書き）の場合
+  const G = window._GENKO;
+  const container = document.getElementById('genko-pages-container');
+  if (container && G && G.lines && G.lines.length > 0) {
+    // lineIndex = テキストの行番号
+    const safeIdx = Math.max(0, Math.min(lineIndex, G.lines.length - 1));
+    G.cursorLine = safeIdx;
+    G.cursorCol = 0;
+    genkoUpdateDisplay();
+    const pos = genkoCursorToCell(safeIdx, 0);
+    genkoScrollToCursor(pos);
+    toast(`${lineIndex + 1}行目にジャンプ`, 'info');
+    return;
+  }
+
+  // 通常テキストエリア（横書き等）
   const ta = document.getElementById('script-editor');
   if (!ta) return;
-  const lines = ta.value.split('\n');
+  const lines = (ta.value || '').split('\n');
   let charPos = 0;
   for (let i = 0; i < lineIndex && i < lines.length; i++) {
     charPos += lines[i].length + 1;
   }
   ta.focus();
-  ta.setSelectionRange(charPos, charPos);
-  // スクロール位置の調整
+  ta.setSelectionRange(charPos, charPos + (lines[lineIndex]?.length || 0));
   const lineHeight = parseInt(getComputedStyle(ta).lineHeight) || 24;
   ta.scrollTop = Math.max(0, lineIndex * lineHeight - ta.clientHeight / 2);
+  toast(`${lineIndex + 1}行目にジャンプ`, 'info');
 }
 
 // ── 集中執筆モード ───────────────────────────────────────────
@@ -4630,6 +5622,14 @@ function changeEditorFontSize(delta) {
   const sizeEl = $('#editor-font-size');
   if (sizeEl) sizeEl.textContent = newSize;
   DB.set('editor_font_size', newSize);
+}
+
+// ── 原稿用紙マスサイズ変更 ──────────────────────────────────────
+function changeGenkoCellSize(delta) {
+  const currentSize = DB.get('editor_cell_size', 32);
+  const newSize = Math.min(52, Math.max(22, currentSize + delta));
+  DB.set('editor_cell_size', newSize);
+  render(); // マスサイズ変更はリレンダーが必要
 }
 
 // ── 執筆タイマー ─────────────────────────────────────────────
@@ -7232,7 +8232,323 @@ C) 技法：具体的な行動（お味噌汁を送る）で愛情・心配を�
     relatedArticles: ['character-arc', 'subtext', 'antagonist-design'],
     tags: ['キャラクター', 'ウーンド', '上級', 'アーク設計'],
   },
+
+  // ── 新規追加演習 ───────────────────────────────────────────────
+  {
+    id: 'ex-conflict-01',
+    category: '葛藤・対立',
+    difficulty: '中級',
+    title: '対立シーンの設計：2人の目的をぶつける',
+    estimatedTime: 25,
+    icon: 'fa-people-arrows',
+    color: 'momo',
+    overview: '1つのシーンに2人の登場人物が登場し、それぞれ異なる目的を持って衝突する。外的な対立の裏に内的な葛藤を隠す技術を練習します。古典的名場面を参照しながら、「表の目的」と「裏の本音」を設計する。',
+    question: `以下の状況設定を使って、2人の対立シーンを脚本形式で書いてください（150〜300字程度）。
+
+【設定】
+・登場人物A：母親（55歳）。娘に東京の大学を辞めて帰郷してほしい
+・登場人物B：娘（22歳）。東京での生活を続けたい。でも本当は父親の介護が心配
+・場所：実家のキッチン（昼）
+・制約：「帰ってきて」「嫌だ」は禁止ワード。お互いの「本音」を直接言わせない
+
+【書き方のポイント】
+①Aの「表の要求」と「裏の本音（寂しさ）」を行動・小道具で示す
+②Bの「表の反論」と「裏の本音（心配）」も同様に
+③セリフの最後に「（間）」「（沈黙）」を使って余白を作る`,
+    rubric: [
+      { point: 'AとBそれぞれが異なる「目的」を持ってシーンに入っているか', weight: 25 },
+      { point: '禁止ワードを使わずに感情・本音を「行動/小道具/セリフの余白」で表現しているか', weight: 25 },
+      { point: 'セリフと行動が交互に組み合わさり、テンポよく対立が進行しているか', weight: 20 },
+      { point: '「間」「沈黙」「間接的なセリフ」によるサブテキストが機能しているか', weight: 15 },
+      { point: 'シーンの終わりで何かが「変化」または「明確化」されているか', weight: 15 },
+    ],
+    hint: `対立シーンの黄金律:「2人は表では戦っているが、本当は同じことを恐れている」。
+
+小道具を使うと感情を外化しやすい。例:
+・母がコップを洗いながら話す → 「手が止まる」で感情が出る
+・娘が荷物を整理しながら話す → 「荷物を置く」で態度が変わる
+
+クラシック参照:「東京物語」(小津安二郎)の家族対話シーンでは、直接感情を言わず、食事の準備・お茶・間で全てを語る。`,
+    sampleAnswer: `１○実家・キッチン（昼）
+
+母は冷蔵庫を開けながら。
+
+母「おはぎ、作っておいたよ。あなたの好きなこしあん」
+
+娘のカバンの横に皿を置く。娘は荷物を確認しながら。
+
+娘「ありがとう。でも新幹線の時間が——」
+
+母「最近、お父さん、薬を飲み忘れることが増えてね」
+
+(間)
+
+娘、手が止まる。
+
+娘「……それは先生に言った?」
+
+母「言ったわよ。でも私一人では——」
+
+(沈黙)
+
+娘、カバンを床に置く。
+
+娘「お茶、もう一杯もらえる?」
+
+母、初めてこちらを向く。`,
+    relatedArticles: ['subtext', 'scene-structure', 'three-act'],
+    tags: ['対立', 'サブテキスト', '中級', '対話'],
+  },
+
+  {
+    id: 'ex-scene-goal-01',
+    category: 'シーン設計',
+    difficulty: '中級',
+    title: 'シーンゴールの設計と達成/失敗の分岐',
+    estimatedTime: 20,
+    icon: 'fa-bullseye',
+    color: 'asagi',
+    overview: '優れた脚本の各シーンには「主人公がそのシーンで達成しようとする目標（シーンゴール）」がある。目標が明確なシーンほど観客は緊張を持続できる。ここではシーンゴールを明示し、達成・失敗の両パターンを設計する。',
+    question: `以下の条件で、シーン設計書と短い脚本（100字程度）を書いてください。
+
+【与えられた状況】
+夫（40歳）が妻（38歳）に離婚を切り出すシーン。
+夫のシーンゴール：「離婚届に署名させる」
+妻の反応：「まだ愛している」と引き止めようとする
+
+【書くもの】
+①シーン設計書（箇条書き）
+  ・夫のシーンゴール（1文）
+  ・妻のシーンゴール（1文）
+  ・シーン前の夫の感情状態（1文）
+  ・このシーンが達成する物語上の機能（1文）
+  ・シーンゴール達成/失敗 どちらで終わるか（1文）
+
+②100字程度の脚本シーン（達成か失敗か片方でよい）`,
+    rubric: [
+      { point: '設計書に夫と妻の「シーンゴール」が対立する形で明記されているか', weight: 25 },
+      { point: '「物語上の機能」が具体的か（単なる感情表現でなく、物語を前進させるか）', weight: 20 },
+      { point: '脚本シーンで主人公の目標達成への行動が具体的に書かれているか', weight: 25 },
+      { point: 'シーンの最後に何らかの「変化」（目標達成/失敗/状況の変質）があるか', weight: 20 },
+      { point: '感情ラベルを使わず、行動で感情を表現しているか', weight: 10 },
+    ],
+    hint: `シーンゴールの設計3原則:
+①「〜を得たい」「〜をしてほしい」という具体的な欲求で書く（「幸せになりたい」は×）
+②主人公と対立者のゴールが正面衝突するように設計する
+③「達成/失敗」がシーンを閉じる条件になる
+
+参考:「万引き家族」(是枝裕和)は各シーンに明確なゴールが設定され、達成か失敗かで次のシーンに接続している。`,
+    sampleAnswer: `①シーン設計書
+・夫のゴール: 離婚届を受け取り署名させ、法的な終結を手に入れる
+・妻のゴール: 夫の翻意を引き出し、話し合いの場を作る
+・夫の感情状態: 決意は固いが、最後の良心が残っている（罪悪感×安堵の混在）
+・物語機能: 第二幕の「ポイント・オブ・ノーリターン」——この選択で物語が不可逆になる
+・結末: 失敗（妻が署名を拒否し、夫が離婚届を引っ込める）
+
+②脚本シーン
+１○リビング（夜）
+
+夫、テーブルに封筒を置く。
+
+夫「開けてみてくれ」
+
+妻、封筒を見る。動かない。
+
+夫「頼む」
+
+妻、封筒を手に取り——棚の引き出しにしまう。
+
+夫「……」
+
+妻「コーヒー、飲む?」`,
+    relatedArticles: ['scene-structure', 'three-act', 'subtext'],
+    tags: ['シーンゴール', '構成', '中級'],
+  },
+
+  {
+    id: 'ex-rewrite-scene-01',
+    category: '推敲・リライト',
+    difficulty: '上級',
+    title: '「説明台詞」を排除してリライトする',
+    estimatedTime: 30,
+    icon: 'fa-rotate',
+    color: 'fuji',
+    overview: '「説明台詞（エクスポジション）」とは、登場人物が観客に向けて情報を直接説明するセリフのこと。優秀な脚本家はこれを「行動」「サブテキスト」「間接的な会話」に変換して隠す。コンクール審査員が最も嫌う欠点の1つ。',
+    question: `以下の「説明台詞だらけ」のシーンを、説明台詞を使わずにリライトしてください。
+
+【Before（リライト前・NG例）】
+１○病院・面会室（昼）
+
+田中「山田さん、3年ぶりですね。あなたは昔、私の父の主治医でした。父は去年亡くなりました。私は今でもあなたを恨んでいます。でも今日は、あなたに頼みがあります」
+
+山田「田中さん……。あなたのお父さんの死は私も後悔しています。でも私にはできることが限られていました。何が頼みですか?」
+
+【リライト条件】
+①「3年ぶり」「父の主治医だった」「父は去年亡くなった」などの情報を、セリフ以外で伝える
+②「恨んでいる」などの感情ラベルを削除し、行動・態度で示す
+③2人の関係性が「自然に」伝わるようにする
+④字数: リライト後は Before とほぼ同等（100〜150字程度）`,
+    rubric: [
+      { point: '「〜ですね」「〜でした」など説明的な情報開示セリフが排除されているか', weight: 30 },
+      { point: '情報（3年、主治医、父の死）が行動/小道具/間接表現で伝わっているか', weight: 25 },
+      { point: '感情ラベル（「恨んでいる」「後悔している」等）が具体的行動に変換されているか', weight: 25 },
+      { point: '2人の関係性・緊張感が読者に自然に伝わるか', weight: 20 },
+    ],
+    hint: `説明台詞を消す3つの変換:
+①情報 → 小道具に変換（「3年ぶり」→ 古びた診察券を持っている）
+②感情 → 行動に変換（「恨んでいる」→ 椅子を引かずに立ったまま）
+③関係性 → セリフの温度に変換（フルネームで呼ぶ = 距離感がある）
+
+参考:「南極料理人」(沖田修一)は極端な説明台詞を使わず、食事の様子と間だけで人物関係を描写。`,
+    sampleAnswer: `１○病院・面会室（昼）
+
+田中、白衣の山田を見る。手に古びた診察録のコピー。
+
+（沈黙。3秒。）
+
+山田「……来てくれるとは思わなかった」
+
+田中、答えず、椅子を引かない。立ったまま、コピーをテーブルに置く。
+
+山田、それを見る。目を細める。
+
+田中「息子の担当医を探しています」
+
+山田「……誰に聞いた」
+
+田中「あなたの息子さんから」
+
+（間）
+
+山田、はじめて目を上げる。`,
+    relatedArticles: ['subtext', 'scene-structure'],
+    tags: ['推敲', '説明台詞', '上級', 'サブテキスト'],
+  },
+
+  {
+    id: 'ex-theme-scene-01',
+    category: 'テーマ・構造',
+    difficulty: '上級',
+    title: 'テーマをシーンで体現する：セリフに頼らない主題表現',
+    estimatedTime: 35,
+    icon: 'fa-lightbulb',
+    color: 'kogane',
+    overview: '「テーマを語るな、テーマを見せろ」はプロ脚本家の鉄則。「友情の大切さ」を主人公に言わせるのは三流。優れた脚本はテーマを登場人物の選択・行動・視覚的イメージとして表現する。この演習ではそのテクニックを実践する。',
+    question: `テーマ「孤独と繋がり」を、セリフで直接語らずに1シーン（150字程度）で表現してください。
+
+【条件】
+・登場人物: 1人（または2人まで）
+・「孤独」「繋がり」「一人」「友達」などの直接的な言葉は使用禁止
+・視覚的・行動的なイメージを使うこと
+・シーン形式（ト書き＋セリフ）で書くこと
+
+【採点の視点】
+審査員として「このシーンはなぜ孤独と繋がりのテーマを表現できているか」を
+具体的な根拠で説明できる作品を目指してください。`,
+    rubric: [
+      { point: '禁止ワードを使わずにテーマが視覚的・行動的に表現されているか', weight: 30 },
+      { point: '「孤独」と「繋がり」の両面（または一方の喪失と回復）が1シーンに込められているか', weight: 25 },
+      { point: '具体的なイメージ（小道具・場所・行動）がテーマの「象徴」として機能しているか', weight: 25 },
+      { point: 'セリフがある場合、間接的・詩的な言語でテーマを体現しているか', weight: 20 },
+    ],
+    hint: `テーマを「見せる」3つのテクニック:
+①象徴的小道具: 「壊れた電話」= 繋がりの断絶 / 「電話帳」= かつての繋がりの痕跡
+②空間の使い方: 「人が大勢いる部屋の隅で一人いる」 = 孤独の視覚化
+③行動の二重性: 「誰かに話しかけようとして、やめる」 = 繋がりへの渇望と恐れ
+
+参考シーン: 「her/世界でひとつの彼女」(スパイク・ジョーンズ)の冒頭——
+サムが混雑した地下鉄でイヤホンをしている。周囲の声は聞こえない。
+これだけでテーマ(繋がりと孤独の逆説)が伝わる。`,
+    sampleAnswer: `１○コンビニ（深夜）
+
+蛍光灯の下、棚が並ぶ。客は誰もいない。
+
+店員の田所（34）、雑誌の棚を整える。
+一冊、手が止まる。7年前の面影が見える。
+
+（田所、表紙を撮影しようとして——スマホを下げる）
+
+自動ドアが開く。
+
+老人（70代）が傘をたたみながら入ってくる。
+
+田所「いらっしゃいませ」
+
+老人、立ち止まる。振り返る。
+
+老人「……ありがとう」
+
+（沈黙。老人、奥へ歩いていく。田所、また棚を整える）`,
+    relatedArticles: ['subtext', 'character-arc', 'scene-structure'],
+    tags: ['テーマ', '視覚的表現', '上級', '象徴'],
+  },
 ];
+
+// ── 師範添削エンジン: 新規演習フォールバック評価器 ──────────────
+// 新しい演習用の汎用高精度評価（キーワードベース+構造解析）
+window._DOJO_ADVANCED_EVAL = {
+  'ex-conflict-01': [
+    (r, ans) => {
+      // 目的の対立
+      const hasGoalA = /母|母親|帰|来|戻/.test(ans);
+      const hasGoalB = /娘|東京|続|残|嫌|行/.test(ans);
+      const hasConflict = hasGoalA && hasGoalB;
+      const hasActionA = /洗|置|作|開|準備|立|向/.test(ans);
+      const pass = hasConflict && hasActionA;
+      const pts = pass ? r.weight : hasConflict ? Math.floor(r.weight * 0.7) : Math.floor(r.weight * 0.3);
+      const comment = pass
+        ? '◎ 2人の目的が明確に対立する構造で設計されています。行動描写で感情を外化する技術が出来ています。'
+        : hasConflict
+          ? '△ 2人の対立は見えますが、どちらか一方の目的が不明確です。各登場人物が「そのシーンで何を得たいか」を明示してください。'
+          : '▲ 2人の目的が対立する構造になっていません。「表の要求」と「裏の本音」をそれぞれ設計してから書き直してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const hasForbidden = /帰って|嫌だ/.test(ans);
+      const hasAction = /手が|立ち|止まる|置く|向く|開く|取る|見る|下げる|引く/.test(ans);
+      const hasIndirect = /コーヒー|お茶|食事|荷物|料理|薬|病院|仕事|手/.test(ans);
+      const pass = !hasForbidden && (hasAction || hasIndirect);
+      const pts = pass ? r.weight : hasForbidden ? Math.floor(r.weight * 0.2) : Math.floor(r.weight * 0.5);
+      const comment = pass
+        ? '◎ 禁止ワードを使わず、行動・小道具・間接表現で感情を表現できています。サブテキストの基本を習得しています。'
+        : hasForbidden
+          ? '✕ 禁止ワード（「帰ってきて」「嫌だ」）が含まれています。これらを削除して、代わりの表現に変換してください。'
+          : '△ 感情の直接表現が多いです。「悲しい」「辛い」などの感情ラベルを、具体的な行動（手が止まる/目を逸らす）に変換してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const dialogCount = (ans.match(/「[^」]+」/g) || []).length;
+      const actionLineCount = (ans.match(/[、。]\n|（[^）]+）/g) || []).length;
+      const pass = dialogCount >= 2 && actionLineCount >= 1;
+      const pts = pass ? r.weight : dialogCount >= 2 ? Math.floor(r.weight * 0.7) : Math.floor(r.weight * 0.4);
+      const comment = pass
+        ? '◎ セリフと行動の交互配置でテンポよく対立が進行しています。読者の緊張を維持できる構成です。'
+        : '△ セリフが続きすぎるか、行動描写が少なすぎます。「セリフ→行動→セリフ→行動」のリズムを意識してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const hasMax = /（間）|（沈黙）|（ビート）|……|—{2,}/.test(ans);
+      const hasSilence = ans.includes('（') && ans.includes('）');
+      const pass = hasMax;
+      const pts = pass ? r.weight : hasSilence ? Math.floor(r.weight * 0.6) : Math.floor(r.weight * 0.2);
+      const comment = pass
+        ? '◎ 「間」「沈黙」が効果的に機能しています。読者に想像の余地を与え、緊張を高める技術です。'
+        : '▲ 「（間）」「（沈黙）」などのサブテキスト指定が足りません。感情が最も高まる瞬間に「間」を置くと、劇的効果が倍増します。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const lastLines = ans.split('\n').slice(-5).join('\n');
+      const hasChange = /止まる|置く|向く|開く|出る|立ち上がる|座る|取る|渡す|受け取る|引く/.test(lastLines);
+      const pass = hasChange && ans.length > 80;
+      const pts = pass ? r.weight : Math.floor(r.weight * 0.5);
+      const comment = pass
+        ? '◎ シーンの終わりに変化が生まれています。「変化前/変化後」の構造がシーンを完結させています。'
+        : '△ シーンの終わりに「何かが変わった」という瞬間が弱いです。シーンの最後の行動で変化（物の移動/立場の変化/沈黙の質の変化）を示してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+  ],
+};
+
 // ── 道場ページ ─────────────────────────────────────────────
 function renderLearnExercises(hero, subnav) {
   const exercises = window._EXERCISES || [];
@@ -7520,13 +8836,22 @@ function renderExercisePage(exId) {
             </div>
             <div id="ex-autosave-label" style="font-size:11px;color:var(--text-muted)"></div>
           </div>
-          <textarea id="ex-answer-input" class="form-input" rows="14" placeholder="ここに解答を入力してください…&#10;&#10;問題文をよく読み、要件をすべて満たすように書きましょう。&#10;完成したら「提出して添削を受ける」ボタンを押してください。" style="font-size:13px;line-height:1.9;resize:vertical;font-family:'Noto Serif JP',serif" oninput="autoSaveExAnswer('${ex.id}',this.value)">${esc(savedAnswer)}</textarea>
+          <!-- テンプレート（穴埋め式入力台紙） -->
+          ${window._EX_TEMPLATES && window._EX_TEMPLATES[ex.id] ? `
+          <div style="margin-bottom:10px;padding:8px 12px;background:var(--kogane-bg);border:1px solid var(--kogane-border);border-radius:var(--radius-sm);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-size:11.5px;color:var(--kogane);font-weight:700"><i class="fas fa-file-lines" style="margin-right:4px"></i>入力台紙あり</span>
+            <span style="font-size:11px;color:var(--text-muted);flex:1">項目を埋めながら回答できます</span>
+            <button class="btn btn-ghost btn-sm" style="font-size:11px;border-color:var(--kogane-border)" onclick="loadExTemplate('${ex.id}')">
+              <i class="fas fa-paste"></i> 台紙を読み込む（白紙から）
+            </button>
+          </div>` : ''}
+          <textarea id="ex-answer-input" class="form-input" rows="16" placeholder="ここに解答を入力してください…&#10;&#10;問題文をよく読み、要件をすべて満たすように書きましょう。&#10;&#10;↑「台紙を読み込む」ボタンで穴埋め式のテンプレートを表示できます。&#10;完成したら「提出して添削を受ける」ボタンを押してください。" style="font-size:13px;line-height:1.9;resize:vertical;font-family:'Noto Serif JP',serif" oninput="autoSaveExAnswer('${ex.id}',this.value)">${esc(savedAnswer)}</textarea>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:8px;flex-wrap:wrap">
             <div style="font-size:11.5px;color:var(--text-muted)">
               <span id="ex-char-count">${savedAnswer.length}</span>字
               <span style="margin-left:8px;color:var(--text-muted)">目安: ${ex.estimatedTime * 40}字以上</span>
             </div>
-            <div style="display:flex;gap:8px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn btn-ghost btn-sm" onclick="showExHint('${ex.id}')"><i class="fas fa-lightbulb"></i> ヒント</button>
               <button class="btn btn-ghost btn-sm" onclick="togglePreSubmitCheck()" id="ex-precheck-btn"><i class="fas fa-clipboard-check"></i> 提出前確認</button>
               <button class="btn btn-primary" onclick="submitExercise('${ex.id}')" id="ex-submit-btn">
@@ -7661,6 +8986,372 @@ function autoSaveExAnswer(exId, val) {
 function showExHint(exId) {
   const el = document.getElementById('ex-hint-panel');
   if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+// ── 演習入力台紙（穴埋めテンプレート） ────────────────────────
+window._EX_TEMPLATES = {
+  'ex-logline-01': `【ログライン完成 — 入力台紙】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ ステップ1: 4要素を整理する
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+主人公（欠如＋属性）:
+  例）孤独な元刑事（誤認逮捕の過去を抱える）
+  あなたの案→
+
+外的目標（主人公が達成しようとすること）:
+  例）真犯人を見つけ出し、冤罪を晴らす
+  あなたの案→
+
+最大の障害（目標の前に立ちはだかるもの）:
+  例）冤罪で服役した男の復讐
+  あなたの案→
+
+テーマ（物語が問う根本的な問い/答え）:
+  例）罪と赦し
+  あなたの案→
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ ステップ2: 60字以内のログラインを書く
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+（ここに最終版を書いてください）
+
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ ステップ3: セルフチェック
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+□ 主人公の「欠如」が1語で読み取れるか
+□ 目標が動詞で明確に示されているか
+□ 障害が目標を阻むものとして機能しているか
+□ 60字以内か（計: __ 字）
+□ テーマの余韻が感じられるか`,
+
+  'ex-scene-01': `【シーン設計 — 入力台紙】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ パート1: 分析（問題文のシーンを読んで記入）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+目的（シーンの主人公は何を達成しようとしているか）:
+  →
+
+葛藤（目的を阻む対立は何か）:
+  →
+
+変化（シーンの最初と最後で何が変わったか）:
+  →
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ パート2: 脚本シーン（15〜25行）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+○○社・社長室（昼）
+
+（ここから脚本形式で書いてください）
+・柱書き: 場所・時間帯
+・ト書き: 行動や状況描写（感情ラベルは使わない）
+・セリフ: キャラ名「セリフ」
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ パート3: 設計の振り返り
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+□ 目的が冒頭で明確になっているか
+□ 葛藤が高まってから変化が起きているか
+□ 変化が行動・セリフ・状況の変化で示されているか`,
+
+  'ex-subtext-01': `【サブテキスト — 入力台紙】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ ステップ1: 問題の感情を確認
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+表現すべき感情:
+禁止ワード（絶対に書かないこと）:
+  □ 悲しい / 辛い / 苦しい
+  □ うれしい / 楽しい
+  □ 怖い / 不安 / 心配
+  □ 怒っている / 憤慨
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ ステップ2: 代替表現を考える
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+感情を表す「行動」（動詞で）:
+  例）指が止まる / 視線をそらす / 立ち上がる
+  あなたの案→
+
+感情を表す「小道具」:
+  例）写真立て / 空のグラス / 消えかけたろうそく
+  あなたの案→
+
+感情を表す「間（ま）」:
+  例）（沈黙） / ……。/ （長い間）
+  あなたの案→
+
+感情を表す「言わないセリフ」（サブテキスト）:
+  例）「…ここ、どう訳せばいいんだ」（本当は別のことを考えている）
+  あなたの案→
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ ステップ3: シーンを書く（10〜20行）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+（ここからシーンを書いてください）`,
+
+  'ex-opening-01': `【冒頭シーン — 入力台紙】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ 設計メモ（書く前に決める）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+主人公名・年齢・職業:
+居場所（場所・時間帯）:
+日常の描写に使う「モノ」（3つ）:
+  1.
+  2.
+  3.
+「欠如」を示す表現（モノ・状況・不在）:
+最初のセリフ（サブテキストを含む1行）:
+フック（最後の1〜2行で置く「問い」または「違和感」）:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ 冒頭シーン（20〜30行）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+（場所）（時間帯）
+
+（ここから脚本形式で書いてください）
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ 提出前チェック
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+□ 柱書き（場所・時間）が正しく書かれているか
+□ 主人公の「日常と欠如」がモノの描写で示されているか
+□ 感情ラベリング（悲しい/嬉しい等）が使われていないか
+□ 最初のセリフにサブテキストがあるか
+□ 最後にフック（問い/違和感）があるか`,
+
+  'ex-arc-01': `【キャラクターアーク — 入力台紙】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ アーク設計の7要素
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+①欠如（Wound / 内的な傷）:
+  主人公は何を「失った」「壊された」か
+  →
+
+②誤信念（Lie / 主人公が信じている間違い）:
+  その傷から形成された「世界の見方の歪み」
+  例）「別れは喪失だ → だから誰とも親しくなるな」
+  →
+
+③ゴースト（Ghost / 欠如の原因となった過去の出来事）:
+  欠如を生み出した具体的な出来事
+  →
+
+④Want（外的目標 / 主人公が「欲しい」と思っているもの）:
+  →
+
+⑤Need（内的成長 / 主人公が「本当に必要な」もの）:
+  ※ Wantと対立していること
+  →
+
+⑥最低点（All Is Lost / 主人公がすべてを失う瞬間）:
+  →
+
+⑦クライマックスの選択（ThemeStated の証明）:
+  主人公が「誤信念を捨て、Needを選ぶ」瞬間
+  →
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ ストーリーへの落とし込み
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+第一幕で「欠如＋誤信念」が見えるシーン:
+  →
+転換点1（欠如が揺らぎ始めるきっかけ）:
+  →
+クライマックスで「変化を証明する行動」:
+  →`,
+
+  'ex-conflict-01': `【葛藤シーン — 入力台紙】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ シーン設計メモ（書く前に決める）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+登場人物A（名前・関係）:
+  →
+登場人物Bの立場（名前・関係）:
+  →
+Aのシーンゴール（「〜を得たい / 〜してほしい」）:
+  →
+Bのシーンゴール（Aと対立するもの）:
+  →
+どちらが「勝つ」か（達成/失敗どちらで終わるか）:
+  →
+葛藤を高める「物」や「状況」（道具立て）:
+  →
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ シーン本文（20〜30行）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+○（場所）・（時間帯）
+
+（ここから脚本形式で書いてください）
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ 提出前チェック
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+□ 2人のゴールが正面衝突しているか
+□ 禁止ワード（「帰って」「嫌だ」等の直接感情）は使っていないか
+□ セリフと行動が交互に配置されているか
+□ 「間（ま）」が1か所以上あるか
+□ シーン最後に「変化」が起きているか`,
+
+  'ex-scene-goal-01': `【シーンゴール設計 — 入力台紙】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ パート1: シーン設計書
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+夫のシーンゴール（具体的な欲求を動詞で）:
+  →
+
+妻のシーンゴール（夫と対立するもの）:
+  →
+
+シーン前の夫の感情状態（心理状態を1文で）:
+  →
+
+このシーンの物語機能（なぜこのシーンが必要か）:
+  →
+
+シーンゴールの達成/失敗（どちらで終わるか）:
+  →
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ パート2: 脚本シーン（100字程度）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+○（場所）・（時間帯）
+
+（ここから脚本形式で書いてください）`,
+
+  'ex-rewrite-scene-01': `【説明台詞排除リライト — 入力台紙】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ 問題の「説明台詞」を分解する
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+含まれている情報（直接言われている情報）:
+  1. （例：3年ぶり）→
+  2. （例：父の主治医だった）→
+  3. （例：父は亡くなった）→
+  4. （例：田中は山田を恨んでいる）→
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ 変換戦略（各情報をどう「見せるか」）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+情報1の変換方法:
+  （例：古びた診察録のコピーを持っている）→
+
+情報2の変換方法:
+  →
+
+情報3の変換方法:
+  →
+
+感情（恨み）の変換方法:
+  （例：椅子を引かない / 立ったまま）→
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ リライト後のシーン（100〜150字）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+１○病院・面会室（昼）
+
+（ここから書いてください）`,
+
+  'ex-theme-scene-01': `【テーマを見せる — 入力台紙】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ 設計: テーマを「物」「行動」「空間」に変換する
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+テーマ: 孤独と繋がり
+
+禁止ワード: 孤独 / 繋がり / 一人 / 友達 / 寂しい
+
+■ テーマを体現する「象徴的な物（小道具）」:
+  （例：誰かに送られなかったメッセージ / 二人分の食器）
+  →
+
+■ テーマを体現する「空間の状況」:
+  （例：人が大勢いる部屋の隅で一人でいる）
+  →
+
+■ テーマを体現する「行動の二重性」:
+  （例：誰かに話しかけようとして、やめる）
+  →
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ シーン本文（150字程度）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+○（場所）・（時間帯）
+
+（ここから書いてください）
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ テーマ体現の自己解説（50字程度）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+このシーンがテーマを体現している理由:
+  →`,
+
+  'ex-dialogue-01': `【セリフ技法 — 入力台紙】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ セリフ禁則チェックリスト
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+□ 「私は〜が好きです」→ 行動で示す
+□ 「あなたのことが心配」→ 具体的な確認行動に変換
+□ 「悲しい / うれしい」→ 感情ラベルを使わない
+□ 「実は〜なんです」→ 状況や小道具で自然に示す
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ シーン設計
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+設定（場所・時間・登場人物の関係）:
+  →
+このシーンで達成したい感情効果:
+  →
+使う「小道具」:
+  →
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ シーン本文（10〜20行）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+（ここから書いてください）`,
+
+  'ex-tension-01': `【テンション設計 — 入力台紙】
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ シーンのテンション要素を設計する
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+テンションを上げる要素（3つ以上）:
+  1. （情報の非対称: 観客は知っていてキャラは知らない）→
+  2. （タイムプレッシャー: 締切・期限・カウントダウン）→
+  3. （危険・リスク: 失うものが大きい）→
+  4. （サブテキスト: 言えないことがある）→
+
+テンションの「最高点」（クライマックス）:
+  →
+
+テンションの「落とし方」（解放）:
+  →
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+■ シーン本文（15〜25行）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+○（場所）・（時間帯）
+
+（ここから書いてください）`,
+};
+
+function loadExTemplate(exId) {
+  const tmpl = window._EX_TEMPLATES && window._EX_TEMPLATES[exId];
+  if (!tmpl) { toast('この演習にはテンプレートがありません', 'error'); return; }
+  const el = document.getElementById('ex-answer-input');
+  if (!el) return;
+  if (el.value.trim().length > 0 && !confirm('現在の入力内容をクリアして台紙を読み込みますか？')) return;
+  el.value = tmpl;
+  el.dispatchEvent(new Event('input'));
+  el.focus();
+  el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  toast('入力台紙を読み込みました。空欄（→ の後）を埋めてください', 'success');
 }
 
 // ── 道場 提出→師範添削 ───────────────────────────────────────
@@ -8209,18 +9900,34 @@ function generateExerciseFeedback(ex, answer) {
 
   // ── ルーブリック評価実行 ───────────────────────────────────────
   const rubricFeedback = ex.rubric.map((r, i) => {
+    // 専用評価器（メイン）
     const exEval = evaluators[ex.id];
     if (exEval && exEval[i]) {
       const result = exEval[i](r);
       return { pass: result.pass, comment: result.comment, earnedPoints: Math.min(result.earnedPoints, r.weight) };
     }
-    // フォールバック（他の演習）
+    // 高精度汎用評価器（新規演習・拡張用）
+    const advEval = (window._DOJO_ADVANCED_EVAL || {})[ex.id];
+    if (advEval && advEval[i]) {
+      const result = advEval[i](r, ans);
+      return { pass: result.pass, comment: result.comment, earnedPoints: Math.min(result.earnedPoints, r.weight) };
+    }
+    // フォールバック（汎用 + 長さ評価の組み合わせ）
     const kwArr = r.point.replace(/[（）・、。？！]/g,' ').split(/\s+/).filter(k => k.length >= 2);
     const matched = kwArr.filter(k => ans.includes(k)).length;
     const ratio = matched / Math.max(kwArr.length, 1);
-    const pass = ratio >= 0.3 && len >= minLen * 0.4;
-    const earnedPoints = Math.min(Math.floor(r.weight * Math.min(1, ratio + (len >= minLen ? 0.3 : 0))), r.weight);
-    return { pass, comment: pass ? 'この採点項目の要素が確認できます。' : 'この採点項目の要件を再確認してください。', earnedPoints };
+    const hasDialogue = (ans.match(/「[^」]+」/g)||[]).length >= 1;
+    const hasAction = /（[^）]+）|　[^\s]/.test(ans);
+    const lengthOk = len >= minLen * 0.4;
+    const bonusScore = (hasDialogue ? 0.1 : 0) + (hasAction ? 0.1 : 0);
+    const pass = ratio >= 0.3 && lengthOk;
+    const earnedPoints = Math.min(Math.floor(r.weight * Math.min(1, ratio + (lengthOk ? 0.25 : 0) + bonusScore)), r.weight);
+    const fb = pass
+      ? `◎ この採点項目の要素（${kwArr.slice(0,3).join('/')}）が確認できます。`
+      : ratio > 0
+        ? `△ 採点項目「${r.point}」の要素が部分的です。${kwArr.filter(k=>!ans.includes(k)).slice(0,2).map(k=>`「${k}」`).join('と')}の要素をより明確に示してください。`
+        : `▲ 採点項目「${r.point}」の要素が不足しています。問題文の要件を再確認してください。`;
+    return { pass, comment: fb, earnedPoints };
   });
 
   const totalScore = rubricFeedback.reduce((s, r) => s + r.earnedPoints, 0);
@@ -8281,6 +9988,34 @@ function generateExerciseFeedback(ex, answer) {
       B: '冒頭シーンの構造は出来ています。感情ラベリングの排除と、「欠如を示す小道具」の追加が次の課題です。',
       C: '形式は取れています。主人公の「日常の中の欠如」を具体的な「モノ」で示すことから始めてください。',
       D: 'まず柱書きを書き、主人公の名前と居場所から始めましょう。脚本の最初の行は「場所と時間」の設定です。',
+    },
+    'ex-conflict-01': {
+      S: '対立シーン設計の水準がコンクール上位レベルに達しています。「東京物語」「万引き家族」の水準で「表の対立」と「裏の本音」が完璧に共存しています。2人が同じことを恐れながらも正反対の行動を取る——この逆説的構造が読者を釘付けにします。',
+      A: '対立の設計はできています。サブテキストの密度をさらに上げることで師範水準に届きます。特に「最後の1行」で余韻を残す工夫が有効です。',
+      B: '対立の構造は見えています。禁止ワードの代替表現と、行動描写のバリエーションを増やすことが次の課題です。',
+      C: '方向性は正しいです。「2人はそれぞれ何をそのシーンで手に入れようとしているか」を先に決めてから書き直してください。',
+      D: 'ヒントにある「東京物語」の対話シーンを参考にしてください。感情を直接言わずに伝える技術の基礎から学ぶことをお勧めします。',
+    },
+    'ex-scene-goal-01': {
+      S: 'シーンゴール設計の精度がプロレベルです。設計書の論理的一貫性と、脚本シーンへの正確な落とし込み——「目標の設定→障害→変化」という物語の原子単位が完璧に機能しています。',
+      A: '設計書と脚本の一貫性は出来ています。「物語上の機能」をより具体化（何が不可逆になるか）することで師範水準に届きます。',
+      B: '設計書は書けています。脚本シーンで「変化の瞬間」をより明確に示すことが次の課題です。変化は動作で示してください。',
+      C: '設計書の形式は取れています。「シーンゴール達成/失敗」の結末から逆算して、シーンの展開を組み立て直してください。',
+      D: '問題文の要件に沿って設計書を一つずつ埋めることから始めてください。設計→脚本の順番が重要です。',
+    },
+    'ex-rewrite-scene-01': {
+      S: '説明台詞の排除が完璧に実行され、代替表現も質が高い。「小道具・行動・温度感のあるセリフ」で同等の情報を伝えながら、原文より劇的緊張度が上がっています。これが「隠れたエクスポジション」の技術です。',
+      A: '説明台詞の排除はできています。代替の行動・小道具の選択がさらに「象徴的」になると師範水準に届きます。',
+      B: '一部の説明台詞を行動に変換できています。残っている説明的な部分を「誰でも分かる具体的な行動」に置き換えてください。',
+      C: '方向性は正しいです。「この情報を小道具1つで伝えるとしたら何か」という発想法でトライしてください。',
+      D: 'まずBefore版を声に出して読み、「説明している台詞」に線を引いてください。それを消して「代わりの行動」を考える順番で進めてください。',
+    },
+    'ex-theme-scene-01': {
+      S: 'テーマを「見せる」技術が完成しています。禁止ワードを使わず、視覚的イメージと行動でテーマを体現——「her/世界でひとつの彼女」冒頭シーンに匹敵するレベルです。「なぜこのシーンがテーマを表現しているか」を第三者に説明できる設計力があります。',
+      A: 'テーマの視覚化はできています。「孤独」と「繋がり」の両面をより対比的に見せることで師範水準に届きます。',
+      B: 'テーマのイメージは見えています。禁止ワードをすべて確認・削除し、代わりの象徴的小道具を追加してください。',
+      C: 'テーマを視覚化する方向性は正しいです。「このシーンの最後のイメージ（画）は何か」から逆算して書いてみてください。',
+      D: 'ヒントにある3つのテクニック（象徴的小道具/空間の使い方/行動の二重性）のどれか1つだけを使って書き直してください。',
     },
   };
 
@@ -9306,7 +11041,7 @@ function renderLearnBadges(hero, subnav) {
     const c = COLOR_MAP[b.color] || COLOR_MAP['beni'];
     return `
     <div style="display:flex;flex-direction:column;align-items:center;padding:16px 12px;background:${isEarned?c.bg:'var(--bg-subtle)'};border:1.5px solid ${isEarned?c.border:'var(--border)'};border-radius:var(--radius-lg);text-align:center;transition:transform .2s;${isEarned?'':'filter:grayscale(1);opacity:0.45;'}cursor:${isEarned?'default':'default'}">
-      <div style="width:52px;height:52px;border-radius:50%;background:${isEarned?c.color:'var(--text-muted)'};display:flex;align-items:center;justify-content:center;margin-bottom:8px;box-shadow:${isEarned?`0 4px 14px ${c.color}44`:'none'}">
+      <div style="width:52px;height:52px;border-radius:50%;background:${isEarned?c.color:'var(--text-muted)'};display:flex;align-items:center;justify-content:center;margin-bottom:8px;box-shadow:${isEarned?'0 4px 14px '+c.color+'44':'none'}">
         <i class="fas ${b.icon}" style="color:white;font-size:20px"></i>
       </div>
       <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:4px">${esc(b.title)}</div>
@@ -19564,13 +21299,15 @@ function newTask(data = {}) {
 }
 
 const TASK_CATEGORIES = [
-  { id:'writing',   label:'執筆',     icon:'fa-pen-nib',    color:'var(--accent)' },
-  { id:'research',  label:'リサーチ', icon:'fa-search',     color:'var(--fuji)' },
-  { id:'revision',  label:'推敲',     icon:'fa-rotate',     color:'var(--momo)' },
-  { id:'planning',  label:'計画',     icon:'fa-map',        color:'var(--matcha)' },
-  { id:'meeting',   label:'打合せ',   icon:'fa-comments',   color:'var(--asagi)' },
-  { id:'reading',   label:'読書',     icon:'fa-book',       color:'var(--kon)' },
-  { id:'other',     label:'その他',   icon:'fa-ellipsis',   color:'var(--text-muted)' },
+  { id:'writing',    label:'執筆',       icon:'fa-pen-nib',       color:'var(--accent)' },
+  { id:'research',   label:'リサーチ',   icon:'fa-magnifying-glass', color:'var(--fuji)' },
+  { id:'revision',   label:'推敲',       icon:'fa-rotate',        color:'var(--momo)' },
+  { id:'planning',   label:'構成・設計', icon:'fa-map',           color:'var(--matcha)' },
+  { id:'submission', label:'応募・提出', icon:'fa-paper-plane',   color:'var(--kogane)' },
+  { id:'meeting',    label:'打合せ',     icon:'fa-comments',      color:'var(--asagi)' },
+  { id:'reading',    label:'読書・分析', icon:'fa-book-open',     color:'var(--kon)' },
+  { id:'habit',      label:'習慣',       icon:'fa-fire',          color:'#d01050' },
+  { id:'other',      label:'その他',     icon:'fa-ellipsis',      color:'var(--text-muted)' },
 ];
 
 const TASK_PRIORITIES = {
@@ -20283,19 +22020,54 @@ function openAddTaskModal(prefillDate = '') {
   return openNewTaskModal(prefillDate);
 }
 
+// ── 脚本執筆タスクテンプレート ──────────────────────────────────
+const WRITING_TASK_TEMPLATES = [
+  // 執筆系
+  { icon: 'fa-pen-nib',    label: '初稿執筆',      title: '第__話 初稿を書く',              category: 'writing',   priority: 'high',   estimatedMin: 90,  body: 'シーン: \n目標字数: \n今日の書き始めシーン: \n今日のポイント: ' },
+  { icon: 'fa-stopwatch',  label: 'ポモドーロ執筆', title: 'ポモドーロ×__セット 執筆',       category: 'writing',   priority: 'medium', estimatedMin: 25,  body: '25分×__セット\nセット間休憩: 5分\n目標字数/セット: \n目標シーン: ' },
+  { icon: 'fa-bolt',       label: 'スプリント',     title: '__時間で__字を書くスプリント',    category: 'writing',   priority: 'urgent', estimatedMin: 120, body: '開始時刻: \n終了目標: \n目標字数: \n書くシーン（箇条書き）: \n１. \n２. \n３. ' },
+  // 推敲・改稿系
+  { icon: 'fa-rotate',     label: '推敲・リライト',  title: '第__話 推敲・リライト',           category: 'revision',  priority: 'medium', estimatedMin: 60,  body: 'リライト対象シーン: \n重点確認点: \n□ 説明台詞の排除\n□ 感情ラベリングの削除\n□ 間（ま）の追加\n□ 行動描写の強化' },
+  { icon: 'fa-comments',   label: 'セリフ磨き',     title: '__シーンのセリフを磨く',           category: 'revision',  priority: 'low',    estimatedMin: 30,  body: '対象シーン: \n禁止ワードリスト: 悲しい/嬉しい/寂しい/怖い\n置き換え方針: 行動・間・小道具\n完了条件: 禁止ワード0個' },
+  { icon: 'fa-eye',        label: 'FB反映',        title: '第__稿のフィードバックを反映',     category: 'revision',  priority: 'high',   estimatedMin: 120, body: 'フィードバック元: \n優先修正箇所（大→小）:\n1. \n2. \n3. \n完了の定義: ' },
+  { icon: 'fa-spell-check', label: '最終校正',      title: '第__話 最終校正・誤字脱字チェック', category: 'revision', priority: 'medium', estimatedMin: 40,  body: 'チェック対象稿: \n□ 誤字脱字\n□ セリフの句読点統一\n□ 登場人物名の表記統一\n□ ト書きの文末統一' },
+  // 設計・企画系
+  { icon: 'fa-map',        label: '構成設計',       title: '第__話 プロット・構成設計',         category: 'planning',  priority: 'high',   estimatedMin: 60,  body: '目標: 3幕構成の骨格を完成させる\n第一幕の終わり（転換点）: \n第二幕のミッドポイント: \nクライマックスの核: \n重要シーン数目標: ' },
+  { icon: 'fa-users',      label: 'キャラ設計',     title: '__のキャラクター設計',              category: 'planning',  priority: 'medium', estimatedMin: 45,  body: 'キャラ名: \nWant(外的目標): \nNeed(内的成長): \nLie(誤信念): \nGhost(過去の傷): \n最低点での選択: ' },
+  { icon: 'fa-sitemap',    label: '全話構成',       title: '__話完成 シリーズ構成設計',          category: 'planning',  priority: 'high',   estimatedMin: 120, body: '全話数: \n中心テーマ: \n各話のゴール（箇条書き）:\n第1話: \n第2話: \n折り返し点（第__話）: \n最終話のクライマックス: ' },
+  // リサーチ系
+  { icon: 'fa-book',       label: 'リサーチ',       title: '__についてリサーチする',             category: 'research',  priority: 'medium', estimatedMin: 45,  body: '調査テーマ: \n調査理由（どのシーンで使う）: \n参考資料・URL: \nキーワード: \nメモ: ' },
+  { icon: 'fa-film',       label: '参考作品分析',    title: '__を分析する（構造・キャラ・テーマ）', category: 'research', priority: 'low',    estimatedMin: 60,  body: '作品名: \n分析軸: □構成 □キャラ □テーマ □セリフ技法\n3幕の区切りシーン: \n印象的な技法メモ: \n自作への応用: ' },
+  // 提出・公開系
+  { icon: 'fa-paper-plane', label: '応募・提出',    title: '__コンクール 応募書類準備',           category: 'submission', priority: 'urgent', estimatedMin: 90, body: '締切日: \n必要書類:\n□ 応募原稿（__枚）\n□ あらすじ（__字以内）\n□ 登場人物表\n□ 応募フォーム\n注意事項: ' },
+  { icon: 'fa-upload',     label: '入稿・入力',     title: '第__話 入稿データ整理・提出',         category: 'submission', priority: 'high',  estimatedMin: 30,  body: '入稿先: \nフォーマット: \nファイル名規則: \nチェック事項:\n□ ページ数\n□ 作者情報\n□ フォント設定' },
+];
+
 function openNewTaskModal(prefillDate = '') {
   const projects = DB.getProjects();
   const today = new Date().toISOString().slice(0,10);
   const sections = TASK_SECTIONS_DB.getSections();
+
+  const templateBtns = WRITING_TASK_TEMPLATES.map((t, i) => `
+    <button class="btn btn-ghost btn-sm" style="font-size:11px;padding:4px 8px;border:1px solid var(--border);border-radius:var(--radius-sm)"
+      onclick="applyTaskTemplate(${i})">
+      <i class="fas ${t.icon}" style="font-size:9px;color:var(--accent)"></i> ${t.label}
+    </button>`).join('');
+
   openModal(
     `<i class="fas fa-plus" style="color:var(--matcha)"></i> タスクを追加`,
-    `<div class="form-group">
+    `<!-- テンプレート選択 -->
+    <div style="margin-bottom:14px;padding:10px 12px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md)">
+      <div style="font-size:11px;color:var(--text-muted);margin-bottom:7px;font-weight:600"><i class="fas fa-wand-magic-sparkles" style="color:var(--kogane);margin-right:4px"></i>クイックテンプレート（タップで入力）</div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px">${templateBtns}</div>
+    </div>
+    <div class="form-group">
       <label class="form-label">タスク名 <span style="color:var(--accent)">*</span></label>
       <input class="form-input" id="nt-title" placeholder="例: 第3話の初稿を書く" autofocus>
     </div>
     <div class="form-group">
       <label class="form-label">メモ・詳細</label>
-      <textarea class="form-textarea" id="nt-body" rows="2" placeholder="補足・詳細メモ…"></textarea>
+      <textarea class="form-textarea" id="nt-body" rows="3" placeholder="補足・詳細メモ…"></textarea>
     </div>
     <div class="grid-2">
       <div class="form-group">
@@ -20367,6 +22139,23 @@ function openNewTaskModal(prefillDate = '') {
      <button class="btn btn-primary" onclick="saveNewTask()"><i class="fas fa-plus"></i> 追加</button>`,
     { size: 'modal-lg' }
   );
+}
+
+function applyTaskTemplate(idx) {
+  const t = WRITING_TASK_TEMPLATES[idx];
+  if (!t) return;
+  const titleEl = document.getElementById('nt-title');
+  const bodyEl = document.getElementById('nt-body');
+  const catEl = document.getElementById('nt-cat');
+  const priEl = document.getElementById('nt-pri');
+  const estEl = document.getElementById('nt-est');
+  if (titleEl) titleEl.value = t.title;
+  if (bodyEl) bodyEl.value = t.body;
+  if (catEl) catEl.value = t.category;
+  if (priEl) priEl.value = t.priority;
+  if (estEl) estEl.value = t.estimatedMin;
+  titleEl?.focus();
+  titleEl?.select();
 }
 
 function addSubtaskInput() {
