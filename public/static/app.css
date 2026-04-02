@@ -1365,11 +1365,15 @@ body {
 /* ================================================================
    エディタ
    ================================================================ */
+/* ================================================================
+   脚本エディタ Ver.1-1-2 — レイアウト基盤
+   ================================================================ */
 .editor-layout {
   display: grid;
-  grid-template-columns: 1fr 270px;
-  gap: 16px;
+  grid-template-columns: 1fr 280px;
+  gap: 14px;
   height: calc(100vh - 120px);
+  min-height: 600px;
 }
 .editor-main {
   display: flex;
@@ -1379,15 +1383,26 @@ body {
   border-radius: var(--radius-md);
   overflow: hidden;
   box-shadow: var(--shadow-card);
+  min-height: 0;
 }
 .editor-toolbar {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 12px;
+  padding: 7px 12px;
   background: var(--bg-subtle);
   border-bottom: 1px solid var(--border);
   flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.editor-toolbar-top {
+  padding: 6px 12px;
+  min-height: 40px;
+}
+.editor-toolbar-insert {
+  padding: 5px 10px;
+  background: var(--bg-primary);
+  border-top: none;
 }
 .editor-toolbar-group {
   display: flex;
@@ -1395,19 +1410,89 @@ body {
   gap: 4px;
   flex-wrap: wrap;
 }
-.editor-body { flex: 1; overflow-y: auto; padding: 24px; }
+.editor-autosave-ind {
+  font-size: 11px;
+  color: var(--matcha);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── 検索・置換バー ── */
+.editor-find-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: #fefce8;
+  border-bottom: 1px solid #fde047;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+.dark .editor-find-bar { background: #1a1a2e; border-color: var(--border); }
+
+/* ── エディタ本体エリア ── */
+.editor-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px 24px;
+  min-height: 0;
+}
+
+/* ── フッター進捗バー ── */
+.editor-footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--bg-subtle);
+  padding: 6px 14px;
+}
+.editor-footer-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.editor-footer-stats {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.editor-footer-stats span { display: flex; align-items: center; gap: 4px; }
+.editor-footer-bar {
+  flex: 1;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.editor-footer-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.5s ease;
+}
+.editor-footer-target { font-size: 10px; color: var(--text-muted); white-space: nowrap; }
+
+/* ── サイドバー ── */
+.editor-sidebar {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  gap: 0;
+}
 .editor-panel {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  margin-bottom: 12px;
+  margin-bottom: 10px;
   overflow: hidden;
   box-shadow: var(--shadow-xs);
+  flex-shrink: 0;
 }
 .editor-panel-header {
-  padding: 8px 12px;
+  padding: 7px 12px;
   background: var(--bg-subtle);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border);
@@ -1415,8 +1500,21 @@ body {
   align-items: center;
   gap: 6px;
 }
-.editor-panel-body { padding: 10px 12px; overflow-y: auto; max-height: 160px; }
-.editor-sidebar { display: flex; flex-direction: column; overflow-y: auto; }
+.editor-panel-body { padding: 8px 12px; overflow-y: auto; max-height: 150px; }
+.editor-char-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 4px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.15s;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.editor-char-item:hover { background: var(--bg-hover); }
+
+/* ── シーンナビ ── */
 .scene-list-item {
   display: flex;
   align-items: center;
@@ -1426,25 +1524,188 @@ body {
   cursor: pointer;
   transition: background 0.1s;
 }
-.scene-list-item:hover { background: var(--bg-hover); }
+.scene-list-item:hover { background: var(--bg-hover); border-radius: 3px; }
 
-/* 日本式脚本フォーマット */
+/* ── フォーマット選択カード ── */
+.format-option-card {
+  border-radius: var(--radius-md);
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 2px solid var(--border);
+}
+.format-option-card:hover { transform: translateY(-1px); box-shadow: var(--shadow-card); }
+.format-option-card.selected { box-shadow: 0 0 0 1px currentColor; }
+
+/* ================================================================
+   原稿用紙（縦書き）フォーマット
+   ================================================================ */
+.genko-page-container {
+  max-width: 100%;
+  margin: 0 auto;
+  background: #fdf8f0;
+  border: 1px solid #d4c5a8;
+  border-radius: 6px;
+  padding: 24px;
+  box-shadow: 0 3px 16px rgba(0,0,0,0.1);
+  font-family: 'Noto Serif JP', serif;
+}
+.genko-title-block {
+  text-align: center;
+  margin-bottom: 20px;
+  padding-bottom: 14px;
+  border-bottom: 2px solid #8b7355;
+}
+.genko-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #2a1f1a;
+  margin-bottom: 4px;
+}
+.genko-subtitle {
+  font-size: 12px;
+  color: #7a6050;
+}
+.genko-draft-label {
+  font-size: 11px;
+  color: #9a7a60;
+  margin-top: 2px;
+}
+.genko-writing-area {
+  position: relative;
+  width: 100%;
+  overflow-x: auto;
+}
+.genko-paper-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.genko-grid {
+  display: grid;
+  width: 100%;
+  height: 100%;
+}
+.genko-cell {
+  border-right: 1px solid #c8b48a;
+  border-bottom: 1px solid #c8b48a;
+  box-sizing: border-box;
+}
+/* 縦書きテキストエリア */
+.genko-textarea {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-height: 560px;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: 'Noto Serif JP', serif;
+  color: #2a1f1a;
+  resize: none;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  direction: ltr;
+  line-height: 1.9;
+  letter-spacing: 0.1em;
+  padding: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: pre;
+}
+.genko-textarea::placeholder { color: #c0a880; }
+.genko-textarea:focus { outline: none; }
+
+/* ================================================================
+   原稿用紙（横書き）フォーマット
+   ================================================================ */
+.genko-h-page-container {
+  max-width: 680px;
+  margin: 0 auto;
+  background: #fdf8f0;
+  border: 1px solid #d4c5a8;
+  border-radius: 6px;
+  padding: 28px 32px;
+  box-shadow: 0 3px 16px rgba(0,0,0,0.1);
+  font-family: 'Noto Serif JP', serif;
+}
+.genko-h-writing-area {
+  position: relative;
+  width: 100%;
+}
+.genko-h-paper-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.genko-h-line {
+  border-top: 1px solid #c8b48a;
+}
+.genko-h-cells {
+  display: flex;
+}
+.genko-h-cell {
+  flex: 1;
+  height: 32px;
+  border-right: 1px solid #c8b48a;
+}
+.genko-h-textarea {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  min-height: 560px;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: 'Noto Serif JP', serif;
+  color: #2a1f1a;
+  resize: none;
+  line-height: 2.2;
+  letter-spacing: 0.05em;
+  padding: 2px 0;
+  white-space: pre-wrap;
+}
+.genko-h-textarea::placeholder { color: #c0a880; }
+
+/* ================================================================
+   標準スクリプトページ（横書き各フォーマット）
+   ================================================================ */
 .script-page {
-  max-width: 660px;
+  max-width: 680px;
   margin: 0 auto;
   background: white;
-  padding: 38px 50px;
+  padding: 36px 48px;
   font-family: 'Noto Serif JP', serif;
   font-size: 13.5px;
   color: #1a1a1a;
   min-height: 520px;
   box-shadow: 0 2px 12px rgba(0,0,0,0.06);
   border-radius: var(--radius-sm);
+  border: 1px solid #e8e0d0;
+}
+.script-page-hollywood {
+  font-family: 'Courier Prime', 'Courier New', monospace;
+  background: #fafafa;
+  border-left: 4px solid #e0c060;
+}
+.script-page-radio-drama {
+  background: #f8f4fb;
+  border-left: 4px solid #c8a0f7;
+}
+.script-page-stage-play {
+  background: #fff8f8;
+  border-left: 4px solid #f7a0c8;
+}
+.script-page-free {
+  background: #f4fbf4;
+  border-left: 4px solid #a0f7b8;
 }
 .script-title-block {
   text-align: center;
-  margin-bottom: 36px;
-  padding-bottom: 18px;
+  margin-bottom: 32px;
+  padding-bottom: 16px;
   border-bottom: 1px solid #2a1f1a;
 }
 .script-title-block .main-title {
@@ -1456,6 +1717,24 @@ body {
   font-size: 12.5px;
   color: #666;
 }
+
+/* ================================================================
+   エディタ テーマ
+   ================================================================ */
+.editor-theme-manuscript .editor-body { background: #fdf8f0; }
+.editor-theme-dark .editor-body { background: #1a1a2e; }
+.editor-theme-dark .genko-page-container { background: #0d0d1a; border-color: #2a2a4a; color: #d0d0e0; }
+.editor-theme-dark .genko-textarea { color: #d0d0e0; }
+.editor-theme-dark .script-page { background: #0d0d1a; color: #d0d0e0; }
+.editor-theme-focus .editor-body { background: #0d0d0d; }
+.editor-theme-focus .genko-page-container { background: #000; border-color: #333; color: #e8e8e8; }
+.editor-theme-focus .genko-textarea { color: #e8e8e8; }
+.editor-theme-focus .script-page { background: #0d0d0d; color: #e8e8e8; }
+.editor-theme-nature .editor-body { background: #f0f5ec; }
+.editor-theme-ocean .editor-body { background: #eef4fb; }
+.editor-theme-sepia .editor-body { background: #fdf6e3; }
+.editor-theme-sepia .genko-page-container { background: #fdf6e3; border-color: #c8a870; }
+.editor-theme-sepia .script-page { background: #fdf6e3; }
 
 /* ================================================================
    改稿タイムライン

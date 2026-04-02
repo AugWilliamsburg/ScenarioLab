@@ -204,7 +204,7 @@ function render() {
   const p = State.currentPage;
 
   // 学習センター
-  if (p === 'learn' || p === 'learn-guide' || p === 'learn-articles' || p === 'learn-exercises' || p === 'learn-glossary' || p === 'learn-notes' || (p && (p.startsWith('article-') || p.startsWith('exercise-') || p.startsWith('glossary-cat-') || p.startsWith('glossary-term-') || p.startsWith('articles-cat-')))) {
+  if (p === 'learn' || p === 'learn-guide' || p === 'learn-articles' || p === 'learn-exercises' || p === 'learn-glossary' || p === 'learn-notes' || p === 'learn-habits' || p === 'learn-stats' || (p && (p.startsWith('article-') || p.startsWith('exercise-') || p.startsWith('glossary-cat-') || p.startsWith('glossary-term-') || p.startsWith('articles-cat-')))) {
     app.innerHTML = renderLayout(renderLearnPage());
     return;
   }
@@ -319,7 +319,7 @@ function render() {
 // ── Layout Shell ───────────────────────────────────────────────
 function renderLayout(content, proj = null) {
   const cp = State.currentPage;
-  const isLearnPage = cp === 'learn' || cp === 'learn-guide' || cp === 'learn-articles' || cp === 'learn-exercises' || cp === 'learn-glossary' || cp === 'learn-notes' || (cp && (cp.startsWith('article-') || cp.startsWith('exercise-')));
+  const isLearnPage = cp === 'learn' || cp === 'learn-guide' || cp === 'learn-articles' || cp === 'learn-exercises' || cp === 'learn-glossary' || cp === 'learn-notes' || cp === 'learn-habits' || cp === 'learn-stats' || (cp && (cp.startsWith('article-') || cp.startsWith('exercise-')));
   const isToolsPage = cp === 'tools' || cp === 'tool-logline' || cp === 'tool-char-diag' || cp === 'tool-scene' || cp === 'tool-timer' || cp === 'tool-pitch' || cp === 'tool-tension' || cp === 'tool-name-gen' || cp === 'tool-structure' || cp === 'tool-emotion-arc' || cp === 'tool-world-notes' || cp === 'tool-dialogue-check' || cp === 'tool-plot-holes' || cp === 'tool-beat-counter';
   const isTemplatesPage = cp === 'templates' || (cp && cp.startsWith('template-'));
   const isSettingsPage = cp === 'settings';
@@ -3652,12 +3652,108 @@ function deleteOutlineScene(projId, actIdx, sceneIdx) {
 }
 
 // ================================================================
-//  PAGE: 脚本エディタ（初稿）
+//  PAGE: 脚本エディタ（初稿）Ver.1-1-2
 // ================================================================
+
+// ── エディタ フォーマット定義 ───────────────────────────────────
+const EDITOR_FORMATS = {
+  'genko': {
+    label: '原稿用紙（縦20×横20）',
+    icon: 'fa-table-cells',
+    color: '#6af7c8',
+    desc: '日本の原稿用紙様式。縦書き20字×20行。標準的な日本語脚本フォーマット。',
+    cols: 20, rows: 20,
+    pageChars: 400,
+    writingMode: 'vertical-rl',
+    fontFamily: "'Noto Serif JP', serif",
+    fontSize: 14,
+    lineHeight: 2.0,
+    placeholder: '【シーン１】室内・昼\n\nト書きをここに書きます。\n\nキャラクター名\n「セリフをここに書きます。」\n\nカットＴＯ：',
+  },
+  'genko-h': {
+    label: '原稿用紙（横書き）',
+    icon: 'fa-table-cells-large',
+    color: '#a0e8f7',
+    desc: '横書き原稿用紙様式。1行20字×20行。横書きでも原稿用紙感覚で執筆。',
+    cols: 20, rows: 20,
+    pageChars: 400,
+    writingMode: 'horizontal-tb',
+    fontFamily: "'Noto Serif JP', serif",
+    fontSize: 14,
+    lineHeight: 2.2,
+    placeholder: '【シーン１】室内・昼\n\nト書きをここに書きます。\n\nキャラクター名\n「セリフをここに書きます。」\n\nカットＴＯ：',
+  },
+  'japan-standard': {
+    label: '日本標準脚本',
+    icon: 'fa-film',
+    color: '#f7d06a',
+    desc: 'テレビドラマ・映画の日本標準フォーマット。シーン番号【】・ト書き・セリフの構造。',
+    pageChars: 400,
+    writingMode: 'horizontal-tb',
+    fontFamily: "'Noto Serif JP', serif",
+    fontSize: 13,
+    lineHeight: 2.2,
+    placeholder: '【シーン１】○○（外）— 昼\n\n　ト書き（情景・動作の説明）\n\nキャラクター名\n　「セリフ」\n\n　ト書き続き\n\nＯＬ（オーバーラップ） / カットＴＯ：',
+  },
+  'hollywood': {
+    label: 'ハリウッド式（英語）',
+    icon: 'fa-star',
+    color: '#f7a06a',
+    desc: '欧米標準フォーマット。INT./EXT. シーン見出し・Action・CHARACTER・DIALOGUE 構造。',
+    pageChars: 300,
+    writingMode: 'horizontal-tb',
+    fontFamily: "'Courier Prime', 'Courier New', monospace",
+    fontSize: 12,
+    lineHeight: 2.0,
+    placeholder: 'INT. LOCATION - DAY\n\nAction description goes here. Characters move and react.\n\n                    CHARACTER NAME\n          (parenthetical action)\n          Dialogue goes here, centered\n          on the page like this.\n\n                                          CUT TO:\n\nEXT. ANOTHER LOCATION - NIGHT',
+  },
+  'radio-drama': {
+    label: 'ラジオドラマ・朗読劇',
+    icon: 'fa-microphone',
+    color: '#c8a0f7',
+    desc: '音声作品専用フォーマット。SE・BGM・ナレーション・セリフが明確に区分されます。',
+    pageChars: 350,
+    writingMode: 'horizontal-tb',
+    fontFamily: "'Noto Serif JP', serif",
+    fontSize: 13,
+    lineHeight: 2.4,
+    placeholder: '【オープニング】\nSE：（波の音、遠くのカモメ）\nBGM：（IN 静かなピアノ曲）\n\nナレーション：ここはどこかの海辺の町。\n\nキャラクター名：「セリフをここに書きます。」\n\nキャラクター２：「返答のセリフ。」\n\nSE：（扉が閉まる音）\nBGM：（フェードアウト）',
+  },
+  'stage-play': {
+    label: '舞台脚本',
+    icon: 'fa-masks-theater',
+    color: '#f7a0c8',
+    desc: '舞台・演劇用フォーマット。幕・場の構造、舞台指定、登場人物のセリフ形式。',
+    pageChars: 350,
+    writingMode: 'horizontal-tb',
+    fontFamily: "'Noto Serif JP', serif",
+    fontSize: 13,
+    lineHeight: 2.2,
+    placeholder: '第一幕　第一場\n\n【舞台設定】小さな喫茶店。昼下がり。\n\n（登場人物Ａが椅子に座っている。ドアが開き、Ｂが入ってくる。）\n\nＡ：「いらっしゃい。今日は早いね。」\n\nＢ：（コートを脱ぎながら）「少し話したいことがあって。」\n\n（二人、向かい合う。沈黙。）',
+  },
+  'free': {
+    label: 'フリースタイル',
+    icon: 'fa-feather',
+    color: '#a0f7b8',
+    desc: 'フォーマットなし。自由な形式で執筆できます。アイデア出し・下書きに最適。',
+    pageChars: 400,
+    writingMode: 'horizontal-tb',
+    fontFamily: "'Noto Serif JP', serif",
+    fontSize: 13,
+    lineHeight: 2.0,
+    placeholder: '自由に書いてください。\nフォーマットの制約はありません。\nアイデアをそのまま言語化しましょう。',
+  },
+};
+
+// ── エディタ メイン レンダー ───────────────────────────────────
 function renderEditor(proj) {
   const drafts = proj.drafts || [];
   const activeDraftId = State.activeDraftId || (drafts[0]?.id);
   const activeDraft = drafts.find(d => d.id === activeDraftId) || drafts[0];
+
+  // フォーマット設定を取得（デフォルト: 原稿用紙縦書き）
+  const currentFormat = DB.get(`editor_format_${proj.id}`, 'genko');
+  const fmt = EDITOR_FORMATS[currentFormat] || EDITOR_FORMATS['genko'];
 
   const draftTabs = drafts.map(d => `
     <div class="tab ${activeDraft?.id===d.id?'active':''}" onclick="switchDraft('${proj.id}','${d.id}')">
@@ -3667,179 +3763,531 @@ function renderEditor(proj) {
 
   const scriptContent = activeDraft ? activeDraft.content || '' : '';
   const wordCount = countWords(scriptContent);
-  const pageCount = Math.max(1, Math.ceil(wordCount / 400));
+  const pageCount = Math.max(1, Math.ceil(wordCount / (fmt.pageChars || 400)));
   const lastSaved = activeDraft?.updatedAt ? new Date(activeDraft.updatedAt).toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit'}) : '未保存';
+
+  // テーマ設定
+  const editorTheme = DB.get('editor_theme', 'manuscript');
+  const themeClass = `editor-theme-${editorTheme}`;
+
+  // 検索バー表示状態
+  const showFind = DB.get('editor_show_find', false);
 
   return `
   <div class="section-header">
     <div class="section-title"><i class="fas fa-pen-nib" style="color:#6af7c8"></i> 脚本エディタ <span class="phase-badge-lg">Phase 7</span></div>
-    <div class="section-desc">日本の脚本フォーマットで執筆しましょう。オートセーブ有効（1.5秒）</div>
+    <div class="section-desc">
+      <i class="fas ${fmt.icon}" style="color:${fmt.color};margin-right:4px"></i>
+      ${fmt.label} — オートセーブ有効（1.5秒）
+    </div>
   </div>
-  <div class="editor-layout">
+  <div class="editor-layout ${themeClass}" id="editor-layout-root">
     <div class="editor-main">
-      <div class="editor-toolbar">
+
+      <!-- ── 上段ツールバー：稿タブ ── -->
+      <div class="editor-toolbar editor-toolbar-top">
         <div class="editor-toolbar-group">
           ${draftTabs}
-          <button class="btn btn-ghost btn-sm" onclick="addNewDraft('${proj.id}')"><i class="fas fa-plus"></i></button>
+          <button class="btn btn-ghost btn-sm" onclick="addNewDraft('${proj.id}')" title="新しい稿を追加"><i class="fas fa-plus"></i></button>
+          <button class="btn btn-ghost btn-sm" onclick="openRenameDraftModal('${proj.id}','${activeDraft?.id||''}')" title="稿の名前を変更" style="font-size:11px"><i class="fas fa-pencil"></i></button>
         </div>
-        <div class="editor-toolbar-group">
+        <div class="editor-toolbar-group" style="margin-left:auto;gap:6px">
+          <span id="editor-autosave-indicator" class="editor-autosave-ind" title="最終保存: ${lastSaved}">
+            <i class="fas fa-cloud-check" style="font-size:10px"></i><span>${lastSaved}</span>
+          </span>
+          <button class="btn btn-ghost btn-sm" onclick="toggleEditorFind()" id="find-toggle-btn" title="検索・置換（Ctrl+F）"><i class="fas fa-magnifying-glass"></i></button>
+          <button class="btn btn-ghost btn-sm" onclick="openEditorFormatModal('${proj.id}')" title="フォーマット選択" style="color:${fmt.color}"><i class="fas ${fmt.icon}"></i> <span style="font-size:10px">${fmt.label.slice(0,6)}</span></button>
+          <button class="btn btn-ghost btn-sm" onclick="openEditorThemeModal()" title="テーマ・配色設定"><i class="fas fa-palette"></i></button>
+          <button class="btn btn-ghost btn-sm" onclick="toggleFocusMode()" id="focus-mode-btn" title="集中執筆モード（Ctrl+Shift+F）"><i class="fas fa-expand"></i></button>
+          <button class="btn btn-primary btn-sm" onclick="saveEditorContent('${proj.id}','${activeDraft?.id||''}')"><i class="fas fa-floppy-disk"></i> 保存</button>
+        </div>
+      </div>
+
+      <!-- ── 中段ツールバー：挿入ボタン群 ── -->
+      <div class="editor-toolbar editor-toolbar-insert">
+        <div class="editor-toolbar-group" style="flex-wrap:wrap;gap:4px">
+          <span style="font-size:10px;color:var(--text-muted);padding:0 4px;align-self:center">挿入：</span>
           <button class="btn btn-secondary btn-sm" onclick="insertElement('scene-heading')" title="シーン見出し【○○】"><i class="fas fa-clapperboard"></i> シーン</button>
           <button class="btn btn-secondary btn-sm" onclick="insertElement('action')" title="ト書き（情景・動作）"><i class="fas fa-align-left"></i> ト書き</button>
           <button class="btn btn-secondary btn-sm" onclick="insertElement('character')" title="キャラクター名"><i class="fas fa-user"></i> キャラ</button>
           <button class="btn btn-secondary btn-sm" onclick="insertElement('dialogue')" title="セリフ「」"><i class="fas fa-comment"></i> セリフ</button>
           <button class="btn btn-secondary btn-sm" onclick="insertElement('parenthetical')" title="演技指定（）"><i class="fas fa-brackets-round"></i> 指定</button>
           <button class="btn btn-secondary btn-sm" onclick="insertElement('transition')" title="転換OP/カット"><i class="fas fa-right-long"></i> 転換</button>
+          <button class="btn btn-secondary btn-sm" onclick="insertElement('se')" title="SE（効果音）"><i class="fas fa-music"></i> SE</button>
+          <button class="btn btn-secondary btn-sm" onclick="insertElement('note')" title="執筆メモ（後で削除）"><i class="fas fa-note-sticky"></i> メモ</button>
         </div>
-        <div class="editor-toolbar-group" style="margin-left:auto;gap:8px">
-          <span id="editor-autosave-indicator" style="font-size:11px;color:var(--matcha);display:flex;align-items:center;gap:4px" title="最終保存: ${lastSaved}">
-            <i class="fas fa-cloud-arrow-up" style="font-size:10px"></i><span>${lastSaved}</span>
-          </span>
-          <span style="font-size:11px;color:var(--text-muted)">${wordCount.toLocaleString()}字 / 約${pageCount}ページ</span>
-          <button class="btn btn-ghost btn-sm" onclick="toggleFocusMode()" id="focus-mode-btn" title="集中執筆モード"><i class="fas fa-expand"></i></button>
+        <div class="editor-toolbar-group" style="margin-left:auto;gap:4px">
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="changeEditorFontSize(-1)" title="文字を小さく"><i class="fas fa-minus" style="font-size:9px"></i></button>
+          <span id="editor-font-size" style="font-size:11px;color:var(--text-muted);min-width:28px;text-align:center">${DB.get('editor_font_size', fmt.fontSize)}</span>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="changeEditorFontSize(1)" title="文字を大きく"><i class="fas fa-plus" style="font-size:9px"></i></button>
+          <span style="font-size:11px;color:var(--text-muted);padding:0 6px" id="editor-wc-display">${wordCount.toLocaleString()}字 / 約${pageCount}ページ</span>
           <button class="btn btn-ghost btn-sm" onclick="openWordGoalModal('${proj.id}')" title="目標文字数設定"><i class="fas fa-bullseye"></i></button>
-          <div style="display:flex;align-items:center;gap:4px">
-            <button class="btn btn-ghost btn-icon btn-sm" onclick="changeEditorFontSize(-1)" title="文字を小さく"><i class="fas fa-minus" style="font-size:9px"></i></button>
-            <span id="editor-font-size" style="font-size:11px;color:var(--text-muted);min-width:28px;text-align:center">13</span>
-            <button class="btn btn-ghost btn-icon btn-sm" onclick="changeEditorFontSize(1)" title="文字を大きく"><i class="fas fa-plus" style="font-size:9px"></i></button>
-          </div>
-          <button class="btn btn-primary btn-sm" onclick="saveEditorContent('${proj.id}','${activeDraft?.id||''}')"><i class="fas fa-floppy-disk"></i> 保存</button>
         </div>
       </div>
-      <div class="editor-body">
-        <div class="script-page">
-          <div class="script-title-block">
-            <div class="main-title">${esc(proj.title)}</div>
-            <div class="subtitle">${esc(proj.genre)} / ${esc(proj.format)}</div>
-          </div>
-          <textarea id="script-editor"
-            style="width:100%;min-height:600px;background:transparent;border:none;outline:none;font-family:'Noto Serif JP',serif;font-size:13px;line-height:2.2;color:#1a1a1a;resize:none;white-space:pre-wrap;"
-            placeholder="ここに脚本を書いてください。&#10;&#10;【シーン番号】場所（外/内）— 時間帯&#10;&#10;　ト書き（情景・動作の説明）&#10;&#10;キャラクター名&#10;　（心情・行動の指定）&#10;　「セリフ」&#10;&#10;ＯＬ（オーバーラップ）/ カット TO: / FI（フェードイン）"
-            oninput="onEditorInput('${proj.id}','${activeDraft?.id||''}')"
-          >${esc(scriptContent)}</textarea>
-        </div>
+
+      <!-- ── 検索・置換バー ── -->
+      <div class="editor-find-bar" id="editor-find-bar" style="${showFind?'':'display:none'}">
+        <i class="fas fa-magnifying-glass" style="color:var(--text-muted);font-size:12px"></i>
+        <input id="find-input" class="form-input" style="flex:1;padding:4px 8px;font-size:12px;max-width:200px" placeholder="検索..." oninput="doEditorFind()">
+        <span id="find-count" style="font-size:11px;color:var(--text-muted);min-width:48px"></span>
+        <button class="btn btn-ghost btn-sm" onclick="findPrev()" title="前を検索"><i class="fas fa-chevron-up"></i></button>
+        <button class="btn btn-ghost btn-sm" onclick="findNext()" title="次を検索"><i class="fas fa-chevron-down"></i></button>
+        <span style="width:1px;height:16px;background:var(--border);margin:0 4px"></span>
+        <input id="replace-input" class="form-input" style="flex:1;padding:4px 8px;font-size:12px;max-width:200px" placeholder="置換後...">
+        <button class="btn btn-ghost btn-sm" onclick="doEditorReplace()" style="font-size:11px">置換</button>
+        <button class="btn btn-ghost btn-sm" onclick="doEditorReplaceAll()" style="font-size:11px">全置換</button>
+        <button class="btn btn-ghost btn-sm" onclick="toggleEditorFind()"><i class="fas fa-xmark"></i></button>
+      </div>
+
+      <!-- ── エディタ本体 ── -->
+      <div class="editor-body" id="editor-body-wrap">
+        ${renderScriptPageWrapper(proj, scriptContent, fmt, currentFormat, activeDraft)}
+      </div>
+
+      <!-- ── フッター：進捗バー ── -->
+      <div class="editor-footer">
+        ${renderEditorProgressBar(proj, scriptContent, fmt)}
       </div>
     </div>
-    <div class="editor-sidebar">
+
+    <!-- ── サイドバー ── -->
+    <div class="editor-sidebar" id="editor-sidebar">
       <div class="editor-panel">
-        <div class="editor-panel-header"><i class="fas fa-list"></i> シーンナビ</div>
+        <div class="editor-panel-header"><i class="fas fa-list-ol"></i> シーンナビ</div>
         <div class="editor-panel-body" id="scene-nav">
           ${renderSceneNav(scriptContent)}
         </div>
       </div>
       <div class="editor-panel">
-        <div class="editor-panel-header"><i class="fas fa-chart-pie"></i> 統計</div>
+        <div class="editor-panel-header"><i class="fas fa-chart-pie"></i> 統計 &amp; 進捗</div>
         <div class="editor-panel-body" id="editor-stats-live">
-          ${renderEditorStats(proj, scriptContent)}
+          ${renderEditorStats(proj, scriptContent, fmt)}
         </div>
       </div>
       <div class="editor-panel">
-        <div class="editor-panel-header"><i class="fas fa-users"></i> キャラクター</div>
+        <div class="editor-panel-header"><i class="fas fa-users"></i> キャラクター挿入</div>
         <div class="editor-panel-body">
           ${(proj.characters||[]).map(ch=>`
-            <div style="display:flex;align-items:center;gap:6px;padding:4px 0;cursor:pointer;font-size:12px;color:var(--text-secondary)"
-              onclick="insertCharName('${esc(ch.name)}')">
-              <span>${ch.emoji||'👤'}</span> ${esc(ch.name)}
-              <span style="font-size:10px;color:var(--text-muted);margin-left:auto">${esc(ch.role||'')}</span>
+            <div class="editor-char-item" onclick="insertCharName('${esc(ch.name)}')">
+              <span>${ch.emoji||'👤'}</span>
+              <div style="flex:1;min-width:0">
+                <div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(ch.name)}</div>
+                <div style="font-size:10px;color:var(--text-muted)">${esc(ch.role||'')}</div>
+              </div>
+              <i class="fas fa-plus" style="font-size:9px;color:var(--text-muted)"></i>
             </div>`).join('') || `<div style="font-size:12px;color:var(--text-muted)">キャラ未登録</div>`}
         </div>
       </div>
       <div class="editor-panel">
-        <div class="editor-panel-header"><i class="fas fa-lightbulb"></i> 脚本フォーマットガイド</div>
+        <div class="editor-panel-header">
+          <i class="fas fa-book-open"></i> フォーマットガイド
+          <span style="font-size:9px;background:${fmt.color}22;color:${fmt.color};border-radius:4px;padding:1px 6px;margin-left:4px">${fmt.label.slice(0,8)}</span>
+        </div>
+        <div class="editor-panel-body" id="format-guide-panel">
+          ${renderFormatGuide(currentFormat)}
+        </div>
+      </div>
+      <div class="editor-panel">
+        <div class="editor-panel-header"><i class="fas fa-stopwatch"></i> 執筆タイマー</div>
         <div class="editor-panel-body">
-          <div style="font-size:11px;color:var(--text-muted);line-height:1.8">
-            <div><span style="color:var(--accent-light);font-weight:600">シーン見出し：</span><br>【1】○○（外）— 昼</div>
-            <div style="margin-top:6px"><span style="color:var(--accent3);font-weight:600">ト書き：</span><br>　〜する。/〜だ。</div>
-            <div style="margin-top:6px"><span style="color:var(--accent4);font-weight:600">キャラ名：</span><br>（ページ中央・大文字）</div>
-            <div style="margin-top:6px"><span style="color:var(--accent2);font-weight:600">セリフ：</span><br>　「〜〜〜」</div>
-            <div style="margin-top:6px"><span style="color:var(--text-secondary);font-weight:600">転換：</span><br>ＯＬ / カットＴＯ / ＦＩ / ＦＯ</div>
-          </div>
-          <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
-            <div style="font-size:10.5px;font-weight:700;color:var(--text-muted);margin-bottom:6px">執筆のヒント</div>
-            <div style="font-size:10.5px;color:var(--text-muted);line-height:1.8">
-              ✏️ まず最後まで書ききること<br>
-              🎬 内面より行動で感情を表現<br>
-              💬 セリフは短く・個性的に<br>
-              ✂️ 1シーン = 1つの変化<br>
-              🔄 推敲は2稿目以降で
-            </div>
-          </div>
+          ${renderWritingTimer()}
         </div>
       </div>
     </div>
   </div>`;
 }
 
+// ── 原稿用紙ページ ラッパー ───────────────────────────────────
+function renderScriptPageWrapper(proj, scriptContent, fmt, formatKey, activeDraft) {
+  const isVertical = fmt.writingMode === 'vertical-rl';
+  const fontSize = DB.get('editor_font_size', fmt.fontSize);
+
+  if (formatKey === 'genko') {
+    // 縦書き原稿用紙モード
+    return `
+    <div class="genko-page-container" id="genko-container">
+      <div class="genko-title-block">
+        <div class="genko-title">${esc(proj.title)}</div>
+        <div class="genko-subtitle">${esc(proj.genre)} / ${esc(proj.format)}</div>
+        ${activeDraft ? `<div class="genko-draft-label">${esc(activeDraft.name||'第1稿')}</div>` : ''}
+      </div>
+      <div class="genko-writing-area" id="genko-writing-area">
+        <div class="genko-paper-bg" id="genko-paper-bg" aria-hidden="true">${renderGenkoPaperBg(20, 20)}</div>
+        <textarea id="script-editor"
+          class="genko-textarea"
+          style="font-size:${fontSize}px;writing-mode:vertical-rl;text-orientation:mixed;"
+          placeholder="${esc(fmt.placeholder)}"
+          oninput="onEditorInput('${proj.id}','${activeDraft?.id||''}')"
+          spellcheck="false"
+          autocomplete="off"
+        >${esc(scriptContent)}</textarea>
+      </div>
+    </div>`;
+  } else if (formatKey === 'genko-h') {
+    // 横書き原稿用紙モード
+    return `
+    <div class="genko-h-page-container" id="genko-h-container">
+      <div class="genko-title-block">
+        <div class="genko-title">${esc(proj.title)}</div>
+        <div class="genko-subtitle">${esc(proj.genre)} / ${esc(proj.format)}</div>
+        ${activeDraft ? `<div class="genko-draft-label">${esc(activeDraft.name||'第1稿')}</div>` : ''}
+      </div>
+      <div class="genko-h-writing-area">
+        <div class="genko-h-paper-bg" aria-hidden="true">${renderGenkoHPaperBg(20)}</div>
+        <textarea id="script-editor"
+          class="genko-h-textarea"
+          style="font-size:${fontSize}px;"
+          placeholder="${esc(fmt.placeholder)}"
+          oninput="onEditorInput('${proj.id}','${activeDraft?.id||''}')"
+          spellcheck="false"
+          autocomplete="off"
+        >${esc(scriptContent)}</textarea>
+      </div>
+    </div>`;
+  } else {
+    // 標準横書きモード（日本標準・ハリウッド・ラジオ・舞台・フリー）
+    const fontFamily = fmt.fontFamily || "'Noto Serif JP', serif";
+    const lineHeight = fmt.lineHeight || 2.2;
+    return `
+    <div class="script-page script-page-${formatKey}">
+      <div class="script-title-block">
+        <div class="main-title">${esc(proj.title)}</div>
+        <div class="subtitle">${esc(proj.genre)} / ${esc(proj.format)}</div>
+        ${activeDraft ? `<div style="font-size:11px;color:#888;margin-top:4px">${esc(activeDraft.name||'第1稿')}</div>` : ''}
+      </div>
+      <textarea id="script-editor"
+        style="width:100%;min-height:600px;background:transparent;border:none;outline:none;font-family:${fontFamily};font-size:${fontSize}px;line-height:${lineHeight};color:#1a1a1a;resize:none;white-space:pre-wrap;padding:0;"
+        placeholder="${esc(fmt.placeholder)}"
+        oninput="onEditorInput('${proj.id}','${activeDraft?.id||''}')"
+        spellcheck="false"
+        autocomplete="off"
+      >${esc(scriptContent)}</textarea>
+    </div>`;
+  }
+}
+
+// ── 縦書き原稿用紙グリッド生成 ─────────────────────────────────
+function renderGenkoPaperBg(cols, rows) {
+  let cells = '';
+  for (let c = 0; c < cols; c++) {
+    for (let r = 0; r < rows; r++) {
+      cells += `<div class="genko-cell"></div>`;
+    }
+  }
+  return `<div class="genko-grid" style="grid-template-columns:repeat(${cols},1fr);grid-template-rows:repeat(${rows},1fr)">${cells}</div>`;
+}
+
+function renderGenkoHPaperBg(cols) {
+  let lines = '';
+  for (let i = 0; i < 20; i++) {
+    lines += `<div class="genko-h-line"><div class="genko-h-cells">${Array(cols).fill('<div class="genko-h-cell"></div>').join('')}</div></div>`;
+  }
+  return lines;
+}
+
+// ── 進捗バー ─────────────────────────────────────────────────
+function renderEditorProgressBar(proj, content, fmt) {
+  const wc = countWords(content);
+  const target = proj.wordTarget || 12000;
+  const pct = Math.min(100, Math.round(wc / target * 100));
+  const pctColor = pct >= 80 ? 'var(--matcha)' : pct >= 50 ? 'var(--kogane)' : 'var(--accent)';
+  const pages = Math.ceil(wc / (fmt.pageChars || 400));
+  return `
+  <div class="editor-footer-inner">
+    <div class="editor-footer-stats">
+      <span><i class="fas fa-text-height" style="color:var(--kon-lt)"></i> ${wc.toLocaleString()}字</span>
+      <span><i class="fas fa-file" style="color:var(--fuji)"></i> 約${pages}ページ</span>
+      <span style="color:${pctColor}"><i class="fas fa-bullseye"></i> ${pct}% 達成</span>
+    </div>
+    <div class="editor-footer-bar">
+      <div class="editor-footer-bar-fill" style="width:${pct}%;background:${pctColor}"></div>
+    </div>
+    <div class="editor-footer-target">目標 ${target.toLocaleString()}字</div>
+  </div>`;
+}
+
+// ── シーンナビ ────────────────────────────────────────────────
 function renderSceneNav(content) {
   const lines = (content||'').split('\n');
-  const scenes = lines.filter(l => /^【\d+】|^[０-９\d]+[．\.]\s*[^\s]/.test(l.trim()) || l.includes('（外）') || l.includes('（内）'));
-  if (scenes.length === 0) return `<div style="font-size:12px;color:var(--text-muted)">シーン見出し未検出</div>`;
-  return scenes.slice(0, 30).map((s, i) => `
-    <div class="scene-list-item">
-      <span style="color:var(--text-muted);font-size:10px;flex-shrink:0">S${i+1}</span>
-      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${esc(s.trim().slice(0,28))}</span>
+  const scenes = [];
+  lines.forEach((l, i) => {
+    const t = l.trim();
+    if (/^【\d+】|^[０-９\d]+[．\.]\s*[^\s]/.test(t) || t.includes('（外）') || t.includes('（内）') ||
+        /^INT\.|^EXT\.|^INT\/EXT\./.test(t) || /^第[一二三四五六七八九十\d]+[幕場]/.test(t)) {
+      scenes.push({ line: i, text: t });
+    }
+  });
+  if (scenes.length === 0) return `<div style="font-size:12px;color:var(--text-muted);padding:4px 0">シーン見出し未検出<br><span style="font-size:10px">【1】やINT.で始まる行が検出されます</span></div>`;
+  return scenes.slice(0, 40).map((s, i) => `
+    <div class="scene-list-item" onclick="jumpToSceneLine(${s.line})" title="行${s.line+1}: ${esc(s.text)}">
+      <span style="color:var(--accent);font-size:10px;flex-shrink:0;font-weight:600">S${i+1}</span>
+      <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px">${esc(s.text.slice(0,28))}</span>
     </div>`).join('');
 }
 
-function renderEditorStats(proj, content) {
+// ── 統計パネル ────────────────────────────────────────────────
+function renderEditorStats(proj, content, fmt) {
   const wc = countWords(content);
   const lines = (content||'').split('\n').length;
-  const dialogueLines = (content||'').split('\n').filter(l => l.trim().startsWith('「') || l.trim().startsWith('『')).length;
-  const sceneCount = (content||'').split('\n').filter(l => /^【\d+】/.test(l.trim()) || l.includes('（外）') || l.includes('（内）')).length;
-  const charLines = (content||'').split('\n').filter(l => /^[A-Z\u3040-\u30ff\u4e00-\u9fff]{1,10}$/.test(l.trim())).length;
+  const dialogueLines = (content||'').split('\n').filter(l => l.trim().startsWith('「') || l.trim().startsWith('『') || /^\s{6,}\w/.test(l)).length;
+  const sceneCount = (content||'').split('\n').filter(l => /^【\d+】/.test(l.trim()) || l.includes('（外）') || l.includes('（内）') || /^INT\.|^EXT\./.test(l.trim())).length;
+  const charLineCount = (content||'').split('\n').filter(l => /^[A-Z\u3040-\u30ff\u4e00-\u9fff]{1,12}$/.test(l.trim())).length;
+  const actionLines = (content||'').split('\n').filter(l => /^　/.test(l) || (l.trim().length > 0 && !/^[「『【]/.test(l.trim()) && !/^[A-Z\u4e00-\u9fff]{1,12}$/.test(l.trim()))).length;
   const target = proj.wordTarget || 12000;
   const pct = Math.min(100, Math.round(wc/target*100));
   const pctColor = pct >= 80 ? 'var(--matcha)' : pct >= 50 ? 'var(--kogane)' : 'var(--accent)';
+  const pageChars = (fmt || EDITOR_FORMATS['genko']).pageChars || 400;
   return `
-  <div style="margin-bottom:12px">
+  <div style="margin-bottom:10px">
     <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-bottom:3px">
       <span>目標達成率</span><span style="color:${pctColor};font-weight:600">${pct}%</span>
     </div>
     <div class="wc-bar"><div class="wc-fill" style="width:${pct}%;background:${pctColor}"></div></div>
     <div style="font-size:10px;color:var(--text-muted);margin-top:2px">${wc.toLocaleString()} / ${target.toLocaleString()}字</div>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">
     ${[
       {label:'文字数', val: wc.toLocaleString(), icon:'fa-text-height', color:'var(--kon-lt)'},
-      {label:'ページ数', val: Math.ceil(wc/400)+'p', icon:'fa-file', color:'var(--fuji)'},
-      {label:'シーン数', val: sceneCount, icon:'fa-clapperboard', color:'var(--momo)'},
-      {label:'行数', val: lines, icon:'fa-align-left', color:'var(--matcha)'},
-      {label:'セリフ行', val: dialogueLines, icon:'fa-comment', color:'var(--kogane)'},
-      {label:'キャラ登場', val: charLines+'行', icon:'fa-user', color:'var(--asagi)'},
+      {label:'ページ数', val: Math.ceil(wc/pageChars)+'p', icon:'fa-file', color:'var(--fuji)'},
+      {label:'シーン数', val: sceneCount+'本', icon:'fa-clapperboard', color:'var(--momo)'},
+      {label:'総行数', val: lines+'行', icon:'fa-align-left', color:'var(--matcha)'},
+      {label:'セリフ行', val: dialogueLines+'行', icon:'fa-comment', color:'var(--kogane)'},
+      {label:'キャラ登場', val: charLineCount+'行', icon:'fa-user', color:'var(--asagi)'},
     ].map(s=>`
-    <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-xs);padding:6px 8px;text-align:center">
-      <div style="font-size:10px;color:var(--text-muted);margin-bottom:2px"><i class="fas ${s.icon}" style="color:${s.color};margin-right:3px"></i>${s.label}</div>
-      <div style="font-size:13px;font-weight:700;color:var(--text-primary)">${s.val}</div>
+    <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-xs);padding:5px 6px;text-align:center">
+      <div style="font-size:9.5px;color:var(--text-muted);margin-bottom:1px"><i class="fas ${s.icon}" style="color:${s.color};margin-right:2px"></i>${s.label}</div>
+      <div style="font-size:12px;font-weight:700;color:var(--text-primary)">${s.val}</div>
     </div>`).join('')}
   </div>`;
 }
 
+// ── フォーマットガイド ─────────────────────────────────────────
+function renderFormatGuide(formatKey) {
+  const guides = {
+    'genko': `
+      <div style="font-size:11px;color:var(--text-muted);line-height:1.9">
+        <div><span style="color:var(--matcha);font-weight:600">縦書き 20字×20行</span></div>
+        <div style="margin-top:6px"><span style="color:var(--accent-light);font-weight:600">シーン：</span> 【1】○○・昼</div>
+        <div style="margin-top:4px"><span style="color:var(--accent3);font-weight:600">ト書き：</span> 1字下げで記述</div>
+        <div style="margin-top:4px"><span style="color:var(--accent4);font-weight:600">キャラ名：</span> 行頭・全角</div>
+        <div style="margin-top:4px"><span style="color:var(--accent2);font-weight:600">セリフ：</span> 「〜〜」</div>
+        <div style="margin-top:4px"><span style="color:var(--text-secondary);font-weight:600">転換：</span> ＯＬ / カットＴＯ</div>
+        <div style="margin-top:8px;padding:6px;background:var(--bg-subtle);border-radius:4px;font-size:10px">
+          💡 原稿用紙1枚＝400字<br>1時間ドラマ＝約25〜30枚
+        </div>
+      </div>`,
+    'genko-h': `
+      <div style="font-size:11px;color:var(--text-muted);line-height:1.9">
+        <div><span style="color:var(--asagi);font-weight:600">横書き 20字×20行</span></div>
+        <div style="margin-top:6px"><span style="color:var(--accent-light);font-weight:600">シーン：</span> 【1】○○・昼</div>
+        <div style="margin-top:4px"><span style="color:var(--accent3);font-weight:600">ト書き：</span> 1字下げ</div>
+        <div style="margin-top:4px"><span style="color:var(--accent2);font-weight:600">セリフ：</span> 「〜〜」</div>
+        <div style="margin-top:8px;padding:6px;background:var(--bg-subtle);border-radius:4px;font-size:10px">
+          💡 横書き原稿用紙も400字/枚
+        </div>
+      </div>`,
+    'japan-standard': `
+      <div style="font-size:11px;color:var(--text-muted);line-height:1.9">
+        <div><span style="color:var(--kogane);font-weight:600">日本TVドラマ標準</span></div>
+        <div style="margin-top:6px"><span style="color:var(--accent-light);font-weight:600">シーン見出し：</span><br>【1】○○（外）— 昼</div>
+        <div style="margin-top:4px"><span style="color:var(--accent3);font-weight:600">ト書き：</span><br>　〜する。</div>
+        <div style="margin-top:4px"><span style="color:var(--accent4);font-weight:600">キャラ名：</span> 行頭全角</div>
+        <div style="margin-top:4px"><span style="color:var(--accent2);font-weight:600">セリフ：</span><br>　「〜〜〜」</div>
+        <div style="margin-top:4px"><span style="color:var(--text-secondary);font-weight:600">転換：</span> ＯＬ/カットＴＯ</div>
+      </div>`,
+    'hollywood': `
+      <div style="font-size:11px;color:var(--text-muted);line-height:1.9;font-family:monospace">
+        <div><span style="color:var(--momo);font-weight:600">Hollywood Standard</span></div>
+        <div style="margin-top:6px"><span style="color:var(--accent-light);font-weight:600">Scene heading：</span><br>INT. PLACE - DAY</div>
+        <div style="margin-top:4px"><span style="color:var(--accent3);font-weight:600">Action：</span> Left-aligned</div>
+        <div style="margin-top:4px"><span style="color:var(--accent4);font-weight:600">Character：</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;NAME</div>
+        <div style="margin-top:4px"><span style="color:var(--accent2);font-weight:600">Dialogue：</span><br>&nbsp;&nbsp;&nbsp;&nbsp;Indented text</div>
+        <div style="margin-top:4px"><span style="color:var(--text-secondary);font-weight:600">Trans：</span> CUT TO: / FADE</div>
+      </div>`,
+    'radio-drama': `
+      <div style="font-size:11px;color:var(--text-muted);line-height:1.9">
+        <div><span style="color:var(--fuji);font-weight:600">ラジオドラマ形式</span></div>
+        <div style="margin-top:6px"><span style="color:var(--accent-light);font-weight:600">SE：</span> （効果音の説明）</div>
+        <div style="margin-top:4px"><span style="color:var(--accent3);font-weight:600">BGM：</span> （IN 曲調）</div>
+        <div style="margin-top:4px"><span style="color:var(--accent4);font-weight:600">ナレーション：</span> テキスト</div>
+        <div style="margin-top:4px"><span style="color:var(--accent2);font-weight:600">キャラ名：</span> 「セリフ」</div>
+        <div style="margin-top:4px"><span style="color:var(--text-secondary);font-weight:600">間：</span> （沈黙・3秒）</div>
+      </div>`,
+    'stage-play': `
+      <div style="font-size:11px;color:var(--text-muted);line-height:1.9">
+        <div><span style="color:var(--momo);font-weight:600">舞台脚本形式</span></div>
+        <div style="margin-top:6px"><span style="color:var(--accent-light);font-weight:600">幕・場：</span> 第一幕 第一場</div>
+        <div style="margin-top:4px"><span style="color:var(--accent3);font-weight:600">舞台設定：</span> 【】内に記述</div>
+        <div style="margin-top:4px"><span style="color:var(--accent4);font-weight:600">ト書き：</span> （動作・心情）</div>
+        <div style="margin-top:4px"><span style="color:var(--accent2);font-weight:600">キャラ：</span> Ａ：「セリフ」</div>
+        <div style="margin-top:4px"><span style="color:var(--text-secondary);font-weight:600">間：</span> （沈黙。）</div>
+      </div>`,
+    'free': `
+      <div style="font-size:11px;color:var(--text-muted);line-height:1.9">
+        <div><span style="color:var(--matcha);font-weight:600">フリースタイル</span></div>
+        <div style="margin-top:6px">フォーマットの制約はありません。<br>アイデアや下書きを<br>自由に書き込めます。</div>
+        <div style="margin-top:8px;padding:6px;background:var(--bg-subtle);border-radius:4px;font-size:10px">
+          💡 自由な形式で最初の草稿を<br>書くのに最適です
+        </div>
+      </div>`,
+  };
+  return guides[formatKey] || guides['genko'];
+}
+
+// ── 執筆タイマー ─────────────────────────────────────────────
+function renderWritingTimer() {
+  const saved = DB.get('writing_timer', {elapsed:0, running:false});
+  const totalMin = Math.floor(saved.elapsed / 60);
+  const totalSec = saved.elapsed % 60;
+  return `
+  <div style="text-align:center;padding:4px 0">
+    <div id="writing-timer-display" style="font-size:22px;font-weight:700;font-family:monospace;color:var(--text-primary);letter-spacing:2px">${String(totalMin).padStart(2,'0')}:${String(totalSec).padStart(2,'0')}</div>
+    <div style="display:flex;justify-content:center;gap:6px;margin-top:8px">
+      <button class="btn btn-ghost btn-sm" id="timer-start-btn" onclick="toggleWritingTimer()">
+        <i class="fas fa-${saved.running?'pause':'play'}"></i> ${saved.running?'一時停止':'スタート'}
+      </button>
+      <button class="btn btn-ghost btn-sm" onclick="resetWritingTimer()"><i class="fas fa-rotate-left"></i> リセット</button>
+    </div>
+    <div style="font-size:10px;color:var(--text-muted);margin-top:6px">今日の執筆時間</div>
+  </div>`;
+}
+
+// ── エディタ オートセーブ & 入力ハンドラ ──────────────────────
 let editorSaveTimer = null;
+let _writingTimerInterval = null;
+
 function onEditorInput(projId, draftId) {
   clearTimeout(editorSaveTimer);
-  // Update scene nav and stats live
   const content = $('#script-editor')?.value || '';
+
+  // シーンナビ更新
   const navEl = $('#scene-nav');
   if (navEl) navEl.innerHTML = renderSceneNav(content);
-  // Update live stats
+
+  // 統計更新
   const statsEl = document.getElementById('editor-stats-live');
   if (statsEl) {
     const proj = DB.getProject(projId);
-    if (proj) statsEl.innerHTML = renderEditorStats(proj, content);
+    const fmtKey = DB.get(`editor_format_${projId}`, 'genko');
+    const fmt = EDITOR_FORMATS[fmtKey] || EDITOR_FORMATS['genko'];
+    if (proj) statsEl.innerHTML = renderEditorStats(proj, content, fmt);
   }
-  // Update word count in toolbar
+
+  // フッター進捗バー更新
+  const footerEl = document.querySelector('.editor-footer');
+  if (footerEl) {
+    const proj = DB.getProject(projId);
+    const fmtKey = DB.get(`editor_format_${projId}`, 'genko');
+    const fmt = EDITOR_FORMATS[fmtKey] || EDITOR_FORMATS['genko'];
+    if (proj) footerEl.innerHTML = renderEditorProgressBar(proj, content, fmt);
+  }
+
+  // ツールバー文字数更新
   const wc = countWords(content);
-  const pc = Math.max(1, Math.ceil(wc / 400));
-  const wcEl = document.querySelector('.editor-toolbar-group [data-wc]');
+  const fmtKey2 = DB.get(`editor_format_${projId}`, 'genko');
+  const fmt2 = EDITOR_FORMATS[fmtKey2] || EDITOR_FORMATS['genko'];
+  const pc = Math.max(1, Math.ceil(wc / (fmt2.pageChars || 400)));
+  const wcEl = document.getElementById('editor-wc-display');
   if (wcEl) wcEl.textContent = `${wc.toLocaleString()}字 / 約${pc}ページ`;
-  // Show saving indicator
+
+  // オートセーブ表示
   const ind = document.getElementById('editor-autosave-indicator');
   if (ind) ind.innerHTML = '<i class="fas fa-circle-notch fa-spin" style="font-size:10px;color:var(--text-muted)"></i><span style="color:var(--text-muted)">保存中…</span>';
+
   editorSaveTimer = setTimeout(() => {
     saveEditorContent(projId, draftId);
     if (ind) ind.innerHTML = '<i class="fas fa-cloud-check" style="font-size:10px;color:var(--matcha)"></i><span style="color:var(--matcha)">保存済み</span>';
   }, 1500);
 }
 
+// ── フォーマット選択モーダル ──────────────────────────────────
+function openEditorFormatModal(projId) {
+  const current = DB.get(`editor_format_${projId}`, 'genko');
+  const options = Object.entries(EDITOR_FORMATS).map(([key, f]) => `
+    <div class="format-option-card ${key===current?'selected':''}" onclick="selectEditorFormat('${projId}','${key}')"
+      style="border:2px solid ${key===current?f.color:'var(--border)'};background:${key===current?f.color+'15':'var(--bg-subtle)'}">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <i class="fas ${f.icon}" style="color:${f.color};font-size:16px"></i>
+        <div>
+          <div style="font-size:12px;font-weight:700;color:var(--text-primary)">${f.label}</div>
+          ${key===current?`<span style="font-size:10px;color:${f.color};font-weight:600">✓ 現在選択中</span>`:''}
+        </div>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);line-height:1.6">${f.desc}</div>
+    </div>`).join('');
+
+  openModal(`
+  <div class="modal-header">
+    <div class="modal-title"><i class="fas fa-file-pen" style="color:var(--accent)"></i> 脚本フォーマット選択</div>
+  </div>
+  <div class="modal-body">
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+      <i class="fas fa-circle-info" style="color:var(--asagi)"></i>
+      フォーマットを変更しても既存の文章は失われません。見た目と入力補助が変わります。
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      ${options}
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeModal()">閉じる</button>
+  </div>`);
+}
+
+function selectEditorFormat(projId, formatKey) {
+  DB.set(`editor_format_${projId}`, formatKey);
+  const fmt = EDITOR_FORMATS[formatKey] || EDITOR_FORMATS['genko'];
+  closeModal();
+  toast(`フォーマットを「${fmt.label}」に変更しました`, 'success');
+  render();
+}
+
+// ── テーマ選択モーダル ──────────────────────────────────────
+function openEditorThemeModal() {
+  const current = DB.get('editor_theme', 'manuscript');
+  const themes = [
+    { key:'manuscript', label:'原稿用紙', color:'#f5f0e8', textColor:'#2a1f1a', desc:'温かみのあるクリーム色の原稿用紙風' },
+    { key:'dark', label:'ダークモード', color:'#1a1a2e', textColor:'#e0e0e0', desc:'夜間執筆に最適なダーク背景' },
+    { key:'focus', label:'集中モード', color:'#0d0d0d', textColor:'#f0f0f0', desc:'余計な情報を排除した黒背景' },
+    { key:'nature', label:'自然・緑', color:'#f0f5ec', textColor:'#1a2a1a', desc:'目に優しい淡い緑のナチュラルテーマ' },
+    { key:'ocean', label:'海・青', color:'#eef4fb', textColor:'#0a1a2a', desc:'落ち着いた青系のクールテーマ' },
+    { key:'sepia', label:'セピア', color:'#fdf6e3', textColor:'#3a2a1a', desc:'クラシックなセピアトーン' },
+  ];
+  const opts = themes.map(t => `
+    <div class="format-option-card ${t.key===current?'selected':''}" onclick="selectEditorTheme('${t.key}')"
+      style="border:2px solid ${t.key===current?'var(--accent)':'var(--border)'};cursor:pointer">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div style="width:32px;height:32px;border-radius:6px;background:${t.color};border:1px solid var(--border);display:flex;align-items:center;justify-content:center">
+          <span style="color:${t.textColor};font-size:12px;font-weight:700">あ</span>
+        </div>
+        <div>
+          <div style="font-size:12px;font-weight:600">${t.label}</div>
+          <div style="font-size:10px;color:var(--text-muted)">${t.desc}</div>
+        </div>
+        ${t.key===current?'<i class="fas fa-check" style="color:var(--accent);margin-left:auto"></i>':''}
+      </div>
+    </div>`).join('');
+
+  openModal(`
+  <div class="modal-header">
+    <div class="modal-title"><i class="fas fa-palette" style="color:var(--fuji)"></i> エディタテーマ設定</div>
+  </div>
+  <div class="modal-body">
+    <div style="display:flex;flex-direction:column;gap:8px">${opts}</div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeModal()">閉じる</button>
+  </div>`);
+}
+
+function selectEditorTheme(key) {
+  DB.set('editor_theme', key);
+  closeModal();
+  toast('テーマを変更しました', 'success');
+  render();
+}
+
+// ── 目標文字数モーダル ──────────────────────────────────────
 function openWordGoalModal(projId) {
   const proj = DB.getProject(projId);
   if (!proj) return;
@@ -3853,7 +4301,7 @@ function openWordGoalModal(projId) {
       <div style="font-size:11px;color:var(--text-muted);margin-top:4px">目安：短編=4,000〜8,000字 / 1時間ドラマ=10,000〜14,000字 / 映画=12,000〜18,000字</div>
     </div>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
-      ${[4000,8000,12000,16000].map(v=>`<button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="document.getElementById('word-goal-input').value=${v}">${v.toLocaleString()}字</button>`).join('')}
+      ${[4000,8000,12000,16000,20000].map(v=>`<button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="document.getElementById('word-goal-input').value=${v}">${v.toLocaleString()}字</button>`).join('')}
     </div>
   </div>
   <div class="modal-footer">
@@ -3875,6 +4323,42 @@ function saveWordGoal(projId) {
   render();
 }
 
+// ── 稿名変更モーダル ─────────────────────────────────────────
+function openRenameDraftModal(projId, draftId) {
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const draft = (proj.drafts||[]).find(d => d.id === draftId);
+  if (!draft) return;
+  openModal(`
+  <div class="modal-header"><div class="modal-title"><i class="fas fa-pencil" style="color:var(--accent)"></i> 稿の名前を変更</div></div>
+  <div class="modal-body">
+    <div class="form-group">
+      <label class="form-label">稿の名前</label>
+      <input class="form-input" id="draft-rename-input" value="${esc(draft.name||'')}" placeholder="例：第1稿、書き直し版、演出提出用" autofocus>
+    </div>
+  </div>
+  <div class="modal-footer">
+    <button class="btn btn-ghost" onclick="closeModal()">キャンセル</button>
+    <button class="btn btn-primary" onclick="saveRenameDraft('${projId}','${draftId}')"><i class="fas fa-check"></i> 変更</button>
+  </div>`);
+}
+
+function saveRenameDraft(projId, draftId) {
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const draft = (proj.drafts||[]).find(d => d.id === draftId);
+  if (!draft) return;
+  const newName = document.getElementById('draft-rename-input')?.value?.trim();
+  if (!newName) { toast('名前を入力してください', 'error'); return; }
+  draft.name = newName;
+  proj.updatedAt = now();
+  DB.saveProject(proj);
+  closeModal();
+  toast('稿の名前を変更しました', 'success');
+  render();
+}
+
+// ── 保存 ─────────────────────────────────────────────────────
 function saveEditorContent(projId, draftId) {
   const proj = DB.getProject(projId);
   if (!proj) return;
@@ -3891,6 +4375,7 @@ function saveEditorContent(projId, draftId) {
   DB.saveProject(proj);
 }
 
+// ── 稿管理 ───────────────────────────────────────────────────
 function addNewDraft(projId) {
   const proj = DB.getProject(projId);
   if (!proj) return;
@@ -3912,25 +4397,70 @@ function switchDraft(projId, draftId) {
 function deleteDraft(projId, draftId) {
   const proj = DB.getProject(projId);
   if (!proj) return;
+  if ((proj.drafts||[]).length <= 1) { toast('最後の稿は削除できません', 'error'); return; }
+  if (!confirm('この稿を削除してもよろしいですか？')) return;
   proj.drafts = (proj.drafts||[]).filter(d => d.id !== draftId);
   proj.updatedAt = now();
   DB.saveProject(proj);
   if (State.activeDraftId === draftId) State.activeDraftId = proj.drafts[0]?.id || null;
+  toast('稿を削除しました', 'info');
   render();
 }
 
+// ── 挿入要素（フォーマット対応） ────────────────────────────
 function insertElement(type) {
   const ta = $('#script-editor');
   if (!ta) return;
-  const inserts = {
-    'scene-heading': '\n【　】　　（　）— 昼\n\n',
-    'action': '\n　\n\n',
-    'character': '\n\n\n',
-    'dialogue': '\n　「」\n\n',
-    'parenthetical': '（）\n',
-    'transition': '\n\t\t\t\t\t\tＯＬ\n\n',
+  const projId = State.currentProject;
+  const fmtKey = projId ? DB.get(`editor_format_${projId}`, 'genko') : 'genko';
+
+  const inserts_japan = {
+    'scene-heading': '\n【　】　　（外）— 昼\n\n',
+    'action':        '\n　\n\n',
+    'character':     '\n\n',
+    'dialogue':      '\n　「」\n\n',
+    'parenthetical': '（）',
+    'transition':    '\n\n\t\t\t\t\t\tＯＬ\n\n',
+    'se':            '\nSE：（）\n',
+    'note':          '\n※執筆メモ：\n',
   };
-  const text = inserts[type] || '\n';
+  const inserts_hollywood = {
+    'scene-heading': '\nINT. LOCATION - DAY\n\n',
+    'action':        '\nAction description.\n\n',
+    'character':     '\n\n                    CHARACTER\n',
+    'dialogue':      '\n          Dialogue goes here.\n\n',
+    'parenthetical': '\n                    (action)\n',
+    'transition':    '\n                                          CUT TO:\n\n',
+    'se':            '\nSOUND: (description)\n',
+    'note':          '\n// NOTE: \n',
+  };
+  const inserts_radio = {
+    'scene-heading': '\n【シーン】\n',
+    'action':        '\n（ト書き）\n',
+    'character':     '\nキャラクター名：「',
+    'dialogue':      '」\n',
+    'parenthetical': '（）',
+    'transition':    '\nSE：（転換音）\n',
+    'se':            '\nSE：（）\n',
+    'note':          '\n※メモ：\n',
+  };
+  const inserts_stage = {
+    'scene-heading': '\n第　幕　第　場\n\n【舞台設定】\n\n',
+    'action':        '\n（）\n\n',
+    'character':     '\nキャラ：「',
+    'dialogue':      '」\n',
+    'parenthetical': '（）',
+    'transition':    '\n（暗転）\n',
+    'se':            '\nSE：（）\n',
+    'note':          '\n※ト書き補足：\n',
+  };
+
+  let map = inserts_japan;
+  if (fmtKey === 'hollywood') map = inserts_hollywood;
+  else if (fmtKey === 'radio-drama') map = inserts_radio;
+  else if (fmtKey === 'stage-play') map = inserts_stage;
+
+  const text = map[type] || '\n';
   const pos = ta.selectionStart;
   ta.value = ta.value.slice(0, pos) + text + ta.value.slice(pos);
   ta.selectionStart = ta.selectionEnd = pos + text.length;
@@ -3940,44 +4470,210 @@ function insertElement(type) {
 function insertCharName(name) {
   const ta = $('#script-editor');
   if (!ta) return;
+  const projId = State.currentProject;
+  const fmtKey = projId ? DB.get(`editor_format_${projId}`, 'genko') : 'genko';
   const pos = ta.selectionStart;
-  const text = `\n\n${name}\n　「」\n`;
+  let text;
+  if (fmtKey === 'hollywood') {
+    text = `\n\n                    ${name.toUpperCase()}\n          `;
+  } else if (fmtKey === 'radio-drama' || fmtKey === 'stage-play') {
+    text = `\n${name}：「」\n`;
+  } else {
+    text = `\n\n${name}\n　「」\n`;
+  }
   ta.value = ta.value.slice(0, pos) + text + ta.value.slice(pos);
   ta.selectionStart = ta.selectionEnd = pos + text.length;
   ta.focus();
 }
 
-// ── 集中執筆モード ───────────────────────────────────────────────
+// ── 検索・置換 ────────────────────────────────────────────────
+let _findMatches = [];
+let _findIndex = 0;
+
+function toggleEditorFind() {
+  const bar = document.getElementById('editor-find-bar');
+  if (!bar) return;
+  const showing = bar.style.display !== 'none';
+  bar.style.display = showing ? 'none' : '';
+  DB.set('editor_show_find', !showing);
+  if (!showing) {
+    setTimeout(() => {
+      const inp = document.getElementById('find-input');
+      if (inp) { inp.focus(); inp.select(); }
+    }, 50);
+  }
+}
+
+function doEditorFind() {
+  const query = document.getElementById('find-input')?.value || '';
+  const ta = document.getElementById('script-editor');
+  const countEl = document.getElementById('find-count');
+  if (!ta || !query) {
+    _findMatches = []; _findIndex = 0;
+    if (countEl) countEl.textContent = '';
+    return;
+  }
+  const text = ta.value;
+  const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+  _findMatches = [];
+  let m;
+  while ((m = regex.exec(text)) !== null) _findMatches.push(m.index);
+  if (countEl) countEl.textContent = _findMatches.length > 0 ? `${_findIndex+1}/${_findMatches.length}` : '0件';
+  if (_findMatches.length > 0) highlightFind();
+}
+
+function highlightFind() {
+  const ta = document.getElementById('script-editor');
+  if (!ta || _findMatches.length === 0) return;
+  const idx = _findMatches[_findIndex] ?? _findMatches[0];
+  ta.focus();
+  ta.setSelectionRange(idx, idx + (document.getElementById('find-input')?.value?.length || 0));
+  const countEl = document.getElementById('find-count');
+  if (countEl) countEl.textContent = `${_findIndex+1}/${_findMatches.length}`;
+}
+
+function findNext() {
+  if (_findMatches.length === 0) { doEditorFind(); return; }
+  _findIndex = (_findIndex + 1) % _findMatches.length;
+  highlightFind();
+}
+
+function findPrev() {
+  if (_findMatches.length === 0) { doEditorFind(); return; }
+  _findIndex = (_findIndex - 1 + _findMatches.length) % _findMatches.length;
+  highlightFind();
+}
+
+function doEditorReplace() {
+  const ta = document.getElementById('script-editor');
+  if (!ta) return;
+  const query = document.getElementById('find-input')?.value || '';
+  const replace = document.getElementById('replace-input')?.value || '';
+  if (!query) return;
+  const start = ta.selectionStart;
+  const sel = ta.value.substring(ta.selectionStart, ta.selectionEnd);
+  if (sel.toLowerCase() === query.toLowerCase()) {
+    ta.value = ta.value.slice(0, ta.selectionStart) + replace + ta.value.slice(ta.selectionEnd);
+    toast('1件置換しました', 'success');
+    doEditorFind();
+    findNext();
+  } else {
+    findNext();
+  }
+}
+
+function doEditorReplaceAll() {
+  const ta = document.getElementById('script-editor');
+  if (!ta) return;
+  const query = document.getElementById('find-input')?.value || '';
+  const replace = document.getElementById('replace-input')?.value || '';
+  if (!query) return;
+  const regex = new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+  const before = ta.value;
+  ta.value = before.replace(regex, replace);
+  const count = (before.match(regex) || []).length;
+  toast(`${count}件を置換しました`, 'success');
+  doEditorFind();
+}
+
+// ── シーン行ジャンプ ─────────────────────────────────────────
+function jumpToSceneLine(lineIndex) {
+  const ta = document.getElementById('script-editor');
+  if (!ta) return;
+  const lines = ta.value.split('\n');
+  let charPos = 0;
+  for (let i = 0; i < lineIndex && i < lines.length; i++) {
+    charPos += lines[i].length + 1;
+  }
+  ta.focus();
+  ta.setSelectionRange(charPos, charPos);
+  // スクロール位置の調整
+  const lineHeight = parseInt(getComputedStyle(ta).lineHeight) || 24;
+  ta.scrollTop = Math.max(0, lineIndex * lineHeight - ta.clientHeight / 2);
+}
+
+// ── 集中執筆モード ───────────────────────────────────────────
 window._focusMode = false;
-window._editorFontSize = 13;
 
 function toggleFocusMode() {
   window._focusMode = !window._focusMode;
-  const editorLayout = document.querySelector('.editor-layout');
-  const sidebar = document.querySelector('.editor-sidebar');
+  const editorLayout = document.getElementById('editor-layout-root');
+  const sidebar = document.getElementById('editor-sidebar');
   const btn = $('#focus-mode-btn');
-  const header = document.querySelector('.page-header, .topbar, .sidebar, nav');
+  const topbar = document.querySelector('.topbar');
+  const appSidebar = document.querySelector('.app-sidebar');
 
   if (window._focusMode) {
     if (sidebar) sidebar.style.display = 'none';
-    if (editorLayout) { editorLayout.style.gridTemplateColumns = '1fr'; editorLayout.style.maxWidth = '800px'; editorLayout.style.margin = '0 auto'; }
-    if (btn) { btn.innerHTML = '<i class="fas fa-compress"></i>'; btn.title = '通常モードに戻る'; }
-    toast('集中執筆モード ON', 'success');
+    if (editorLayout) { editorLayout.style.gridTemplateColumns = '1fr'; }
+    if (topbar) { topbar.style.display = 'none'; }
+    if (appSidebar) { appSidebar.style.display = 'none'; }
+    document.body.style.overflow = 'hidden';
+    if (btn) { btn.innerHTML = '<i class="fas fa-compress"></i>'; btn.title = '通常モードに戻る（Esc）'; }
+    toast('集中執筆モード ON — Escで解除', 'success');
   } else {
     if (sidebar) sidebar.style.display = '';
-    if (editorLayout) { editorLayout.style.gridTemplateColumns = ''; editorLayout.style.maxWidth = ''; editorLayout.style.margin = ''; }
-    if (btn) { btn.innerHTML = '<i class="fas fa-expand"></i>'; btn.title = '集中執筆モード'; }
+    if (editorLayout) { editorLayout.style.gridTemplateColumns = ''; }
+    if (topbar) { topbar.style.display = ''; }
+    if (appSidebar) { appSidebar.style.display = ''; }
+    document.body.style.overflow = '';
+    if (btn) { btn.innerHTML = '<i class="fas fa-expand"></i>'; btn.title = '集中執筆モード（Ctrl+Shift+F）'; }
     toast('通常モードに戻りました', 'info');
   }
 }
 
 function changeEditorFontSize(delta) {
-  window._editorFontSize = Math.min(20, Math.max(10, window._editorFontSize + delta));
+  const currentSize = DB.get('editor_font_size', 13);
+  const newSize = Math.min(24, Math.max(10, currentSize + delta));
   const ta = $('#script-editor');
-  if (ta) ta.style.fontSize = window._editorFontSize + 'px';
+  if (ta) ta.style.fontSize = newSize + 'px';
   const sizeEl = $('#editor-font-size');
-  if (sizeEl) sizeEl.textContent = window._editorFontSize;
-  DB.set('editor_font_size', window._editorFontSize);
+  if (sizeEl) sizeEl.textContent = newSize;
+  DB.set('editor_font_size', newSize);
+}
+
+// ── 執筆タイマー ─────────────────────────────────────────────
+function toggleWritingTimer() {
+  const saved = DB.get('writing_timer', {elapsed:0, running:false});
+  if (saved.running) {
+    // 停止
+    clearInterval(_writingTimerInterval);
+    _writingTimerInterval = null;
+    saved.running = false;
+    DB.set('writing_timer', saved);
+    const btn = document.getElementById('timer-start-btn');
+    if (btn) btn.innerHTML = '<i class="fas fa-play"></i> スタート';
+    toast('タイマーを停止しました', 'info');
+  } else {
+    // 開始
+    saved.running = true;
+    DB.set('writing_timer', saved);
+    _writingTimerInterval = setInterval(() => {
+      const t = DB.get('writing_timer', {elapsed:0, running:false});
+      t.elapsed = (t.elapsed || 0) + 1;
+      DB.set('writing_timer', t);
+      const disp = document.getElementById('writing-timer-display');
+      if (disp) {
+        const m = Math.floor(t.elapsed / 60);
+        const s = t.elapsed % 60;
+        disp.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      }
+    }, 1000);
+    const btn = document.getElementById('timer-start-btn');
+    if (btn) btn.innerHTML = '<i class="fas fa-pause"></i> 一時停止';
+    toast('タイマーを開始しました ⏱', 'success');
+  }
+}
+
+function resetWritingTimer() {
+  clearInterval(_writingTimerInterval);
+  _writingTimerInterval = null;
+  DB.set('writing_timer', {elapsed:0, running:false});
+  const disp = document.getElementById('writing-timer-display');
+  if (disp) disp.textContent = '00:00';
+  const btn = document.getElementById('timer-start-btn');
+  if (btn) btn.innerHTML = '<i class="fas fa-play"></i> スタート';
+  toast('タイマーをリセットしました', 'info');
 }
 
 // ================================================================
@@ -5521,6 +6217,8 @@ function renderLearnPage() {
     : page === 'learn-exercises' ? 'dojo'
     : page === 'learn-glossary' ? 'glossary'
     : page === 'learn-notes' ? 'notes'
+    : page === 'learn-habits' ? 'habits'
+    : page === 'learn-stats' ? 'stats'
     : 'guide';
 
   const tabBadge = (count, color='var(--fuji)') =>
@@ -5544,6 +6242,12 @@ function renderLearnPage() {
     </div>
     <div class="learn-subnav-item ${activeTab==='notes'?'active':''}" onclick="navigate('learn-notes')">
       <i class="fas fa-note-sticky"></i> 学習ノート
+    </div>
+    <div class="learn-subnav-item ${activeTab==='habits'?'active':''}" onclick="navigate('learn-habits')">
+      <i class="fas fa-check-double"></i> 習慣チェック
+    </div>
+    <div class="learn-subnav-item ${activeTab==='stats'?'active':''}" onclick="navigate('learn-stats')">
+      <i class="fas fa-chart-bar"></i> 学習統計
     </div>
   </div>`;
 
@@ -5804,6 +6508,10 @@ function renderLearnPage() {
     return renderLearnGlossary(hero, subnav);
   } else if (activeTab === 'notes') {
     return renderLearnNotes(hero, subnav);
+  } else if (activeTab === 'habits') {
+    return renderLearnHabits(hero, subnav);
+  } else if (activeTab === 'stats') {
+    return renderLearnStats(hero, subnav);
   } else {
     // ガイド一覧（進捗トラッキング付き）
     const readGuides = DB.get('read_guides', []);
@@ -22571,10 +23279,31 @@ function init() {
 
 // ── Global event bindings ──────────────────────────────────────
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') closeModal();
+  if (e.key === 'Escape') {
+    closeModal();
+    // 集中モード解除
+    if (window._focusMode) toggleFocusMode();
+    // 検索バーを閉じる
+    const findBar = document.getElementById('editor-find-bar');
+    if (findBar && findBar.style.display !== 'none') toggleEditorFind();
+  }
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
     e.preventDefault();
     if (State.currentProjectId) quickSaveProject(State.currentProjectId);
+  }
+  // Ctrl+F: 検索バー トグル（エディタページのみ）
+  if ((e.ctrlKey || e.metaKey) && e.code === 'KeyF') {
+    const ta = document.getElementById('script-editor');
+    if (ta) {
+      e.preventDefault();
+      toggleEditorFind();
+    }
+  }
+  // Ctrl+Shift+F: 集中執筆モード
+  if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyF') {
+    e.preventDefault();
+    const ta = document.getElementById('script-editor');
+    if (ta) toggleFocusMode();
   }
 });
 
