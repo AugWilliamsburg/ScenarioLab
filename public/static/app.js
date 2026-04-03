@@ -2681,16 +2681,255 @@ function addResearchFiles(projId) {
   closeModal(); toast(`${pending.length}件のファイルを追加しました`,'success'); render();
 }
 
+// ================================================================
+//  共通ファイル・URLプレビューモーダル
+// ================================================================
 function openResearchFile(link) {
-  if (link.type === 'file' && link.dataUrl) {
-    // Base64 DataURLを新タブで開く
-    const w = window.open();
-    if (w) {
-      w.document.write(`<html><body style="margin:0;background:#222"><iframe src="${link.dataUrl}" style="width:100%;height:100vh;border:none"></iframe></body></html>`);
-      w.document.title = link.title;
+  openPreviewModal(link);
+}
+
+function openPreviewModal(link) {
+  const isFile = link.type === 'file';
+  const ext = (link.ext || '').toLowerCase();
+  const title = link.title || link.url || 'プレビュー';
+  const isPdf = ext === 'pdf' || (link.dataUrl && link.dataUrl.startsWith('data:application/pdf'));
+  const isImage = ['png','jpg','jpeg','gif','webp','svg'].includes(ext);
+  const isText = ['txt','md','csv'].includes(ext);
+  const isUrl = !isFile;
+
+  // オーバーレイ作成
+  const overlay = document.createElement('div');
+  overlay.id = 'preview-modal-overlay';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,12,8,0.82);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;backdrop-filter:blur(4px);animation:fadeInOverlay .18s ease';
+  overlay.onclick = (e) => { if (e.target === overlay) closePreviewModal(); };
+
+  let contentHtml = '';
+  let toolbarExtra = '';
+
+  if (isFile && isPdf) {
+    contentHtml = `
+      <div id="preview-pdf-status" style="text-align:center;padding:40px 20px;color:#ccc">
+        <div style="font-size:32px;margin-bottom:12px">📄</div>
+        <div id="preview-pdf-msg" style="font-size:14px">PDFを読み込み中…</div>
+        <div id="preview-pdf-progress" style="margin-top:12px;height:3px;background:#333;border-radius:2px;width:200px;margin-inline:auto"><div id="preview-pdf-bar" style="height:100%;background:#e87d3e;border-radius:2px;width:0%;transition:width .3s"></div></div>
+      </div>
+      <canvas id="preview-pdf-canvas" style="display:none;max-width:100%;border-radius:4px;box-shadow:0 8px 32px rgba(0,0,0,0.5)"></canvas>
+      <div id="preview-pdf-text-container" style="display:none;background:#1a1510;border-radius:8px;padding:20px 24px;color:#e8dcc8;font-family:'Noto Serif JP',serif;font-size:13px;line-height:1.9;white-space:pre-wrap;max-height:60vh;overflow-y:auto;min-width:320px;border:1px solid #3a3020"></div>`;
+    toolbarExtra = `
+      <div style="display:flex;align-items:center;gap:6px;margin-left:auto">
+        <button id="preview-pdf-prev" onclick="previewPdfPage(-1)" style="padding:4px 10px;background:#2a2010;border:1px solid #5a4a30;color:#e8d8b8;border-radius:6px;cursor:pointer;font-size:12px" title="前ページ">◀</button>
+        <span id="preview-pdf-pageinfo" style="font-size:12px;color:#a09080;min-width:60px;text-align:center">-/-</span>
+        <button id="preview-pdf-next" onclick="previewPdfPage(1)" style="padding:4px 10px;background:#2a2010;border:1px solid #5a4a30;color:#e8d8b8;border-radius:6px;cursor:pointer;font-size:12px" title="次ページ">▶</button>
+        <div style="width:1px;height:20px;background:#3a3020;margin:0 4px"></div>
+        <button onclick="previewPdfShowText()" style="padding:4px 10px;background:#2a2010;border:1px solid #5a4a30;color:#e8d8b8;border-radius:6px;cursor:pointer;font-size:12px" title="テキスト表示">📝 テキスト</button>
+        <a href="${link.dataUrl}" download="${esc(title)}" style="padding:4px 10px;background:#3a5030;border:1px solid #5a8040;color:#b8e8a8;border-radius:6px;cursor:pointer;font-size:12px;text-decoration:none">⬇ DL</a>
+      </div>`;
+  } else if (isFile && isImage) {
+    contentHtml = `<img src="${link.dataUrl}" alt="${esc(title)}" style="max-width:90vw;max-height:75vh;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);object-fit:contain">`;
+    toolbarExtra = `<a href="${link.dataUrl}" download="${esc(title)}" style="margin-left:auto;padding:4px 10px;background:#3a5030;border:1px solid #5a8040;color:#b8e8a8;border-radius:6px;cursor:pointer;font-size:12px;text-decoration:none">⬇ ダウンロード</a>`;
+  } else if (isFile && isText && link.dataUrl) {
+    // テキストファイル: Base64デコード
+    contentHtml = `<div id="preview-text-body" style="background:#1a1510;border-radius:8px;padding:20px 24px;color:#e8dcc8;font-family:'Noto Serif JP',serif;font-size:13px;line-height:1.9;white-space:pre-wrap;max-height:65vh;overflow-y:auto;min-width:320px;max-width:80vw;border:1px solid #3a3020">読み込み中…</div>`;
+    toolbarExtra = `<a href="${link.dataUrl}" download="${esc(title)}" style="margin-left:auto;padding:4px 10px;background:#3a5030;border:1px solid #5a8040;color:#b8e8a8;border-radius:6px;cursor:pointer;font-size:12px;text-decoration:none">⬇ DL</a>`;
+  } else if (isUrl) {
+    // URLプレビュー: iframeで表示試行 + フォールバック情報カード
+    const urlObj = (() => { try { return new URL(link.url); } catch { return null; } })();
+    const domain = urlObj ? urlObj.hostname : link.url;
+    contentHtml = `
+      <div style="width:min(900px,88vw);display:flex;flex-direction:column;gap:0">
+        <!-- 情報カード（常時表示） -->
+        <div style="padding:16px 20px;background:#1e1a14;border:1px solid #3a3020;border-radius:8px 8px 0 0;display:flex;align-items:center;gap:12px">
+          <div style="width:40px;height:40px;border-radius:8px;background:#2a3a5a;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">🌐</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700;color:#e8d8c0;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(link.title || domain)}</div>
+            <div style="font-size:11px;color:#7a8aa0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(link.url)}</div>
+            ${link.memo ? `<div style="font-size:11px;color:#9a8a70;margin-top:4px">${esc(link.memo)}</div>` : ''}
+          </div>
+          <a href="${esc(link.url)}" target="_blank" rel="noopener" style="padding:7px 14px;background:#2a3a5a;border:1px solid #3a5a8a;color:#a8c8f8;border-radius:6px;cursor:pointer;font-size:12px;text-decoration:none;flex-shrink:0;font-weight:600">🔗 開く</a>
+        </div>
+        <!-- iframe埋め込みプレビュー -->
+        <div style="position:relative;height:60vh;border:1px solid #3a3020;border-top:none;border-radius:0 0 8px 8px;overflow:hidden">
+          <div id="preview-url-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#1a1510;color:#a09080;font-size:13px;flex-direction:column;gap:8px;z-index:1">
+            <div style="font-size:24px">⏳</div>
+            <div>ページを読み込み中… (一部サイトは埋め込み不可)</div>
+            <a href="${esc(link.url)}" target="_blank" rel="noopener" style="padding:6px 14px;background:#2a3a5a;border:1px solid #3a5a8a;color:#a8c8f8;border-radius:6px;font-size:11px;text-decoration:none;margin-top:4px">新タブで開く →</a>
+          </div>
+          <iframe src="${esc(link.url)}" style="width:100%;height:100%;border:none;background:#fff;position:relative;z-index:2" 
+            onload="const l=document.getElementById('preview-url-loading');if(l)l.style.display='none';"
+            onerror="const l=document.getElementById('preview-url-loading');if(l){l.innerHTML='<div style=\\'font-size:20px\\'>🚫</div><div>このサイトは埋め込み表示できません</div><a href=\\'${esc(link.url)}\\' target=\\'_blank\\' rel=\\'noopener\\' style=\\'margin-top:8px;padding:7px 16px;background:#2a3a5a;border:1px solid #3a5a8a;color:#a8c8f8;border-radius:6px;font-size:12px;text-decoration:none;font-weight:600\\'>新タブで開く →</a>';}"
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+        </div>
+      </div>`;
+    toolbarExtra = `<a href="${esc(link.url)}" target="_blank" rel="noopener" style="margin-left:auto;padding:4px 10px;background:#2a3a5a;border:1px solid #3a5a8a;color:#a8c8f8;border-radius:6px;cursor:pointer;font-size:12px;text-decoration:none">🔗 新タブで開く</a>`;
+  } else if (isFile && link.dataUrl) {
+    // その他ファイル: iframe表示試行
+    contentHtml = `<iframe src="${link.dataUrl}" style="width:min(900px,88vw);height:70vh;border:none;border-radius:8px;background:#fff;box-shadow:0 8px 32px rgba(0,0,0,0.5)"></iframe>`;
+    toolbarExtra = `<a href="${link.dataUrl}" download="${esc(title)}" style="margin-left:auto;padding:4px 10px;background:#3a5030;border:1px solid #5a8040;color:#b8e8a8;border-radius:6px;cursor:pointer;font-size:12px;text-decoration:none">⬇ DL</a>`;
+  } else {
+    contentHtml = `<div style="color:#a09080;text-align:center;padding:40px"><div style="font-size:32px;margin-bottom:12px">📎</div><div>プレビューできません</div></div>`;
+  }
+
+  overlay.innerHTML = `
+    <style>
+      @keyframes fadeInOverlay { from { opacity:0 } to { opacity:1 } }
+      @keyframes slideUpModal { from { transform:translateY(24px);opacity:0 } to { transform:translateY(0);opacity:1 } }
+    </style>
+    <div style="width:min(96vw,960px);display:flex;flex-direction:column;max-height:92vh;animation:slideUpModal .22s ease">
+      <!-- ツールバー -->
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#1a1510;border-radius:10px 10px 0 0;border:1px solid #3a3020;border-bottom:none">
+        <div style="width:30px;height:30px;border-radius:6px;background:${isFile?(isPdf?'#c0392b':isImage?'#2980b9':'#27ae60'):'#2980b9'}22;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <span style="font-size:14px">${isFile?(isPdf?'📄':isImage?'🖼️':'📝'):'🌐'}</span>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:#e8d8c0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(title)}</div>
+          <div style="font-size:10px;color:#7a6a58">${isFile ? (ext.toUpperCase() + (link.size ? ' · '+(link.size<1048576?(link.size/1024).toFixed(0)+'KB':(link.size/1048576).toFixed(1)+'MB') : '')) : esc(link.url||'')}</div>
+        </div>
+        ${toolbarExtra}
+        <button onclick="closePreviewModal()" style="width:28px;height:28px;border:none;background:none;color:#7a6a58;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;border-radius:4px;flex-shrink:0" title="閉じる">✕</button>
+      </div>
+      <!-- コンテンツ -->
+      <div style="flex:1;overflow:auto;background:#120f0a;border:1px solid #3a3020;border-top:none;border-radius:0 0 10px 10px;display:flex;align-items:center;justify-content:center;padding:${isUrl||isPdf?'0':'20px'};min-height:200px">
+        ${contentHtml}
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  // ── 初期化処理 ──
+  if (isFile && isPdf && link.dataUrl) {
+    previewInitPdf(link.dataUrl);
+  } else if (isFile && isText && link.dataUrl) {
+    try {
+      const base64 = link.dataUrl.split(',')[1];
+      const text = decodeURIComponent(escape(atob(base64)));
+      const el = document.getElementById('preview-text-body');
+      if (el) el.textContent = text;
+    } catch(e) {
+      const el = document.getElementById('preview-text-body');
+      if (el) el.textContent = 'テキストの読み込みに失敗しました。';
     }
-  } else if (link.url) {
-    window.open(link.url, '_blank');
+  }
+}
+
+function closePreviewModal() {
+  const el = document.getElementById('preview-modal-overlay');
+  if (el) el.remove();
+  window._previewPdfState = null;
+}
+
+// ── PDF.js ベースのPDFプレビュー ──────────────────────────────
+window._previewPdfState = null;
+
+async function previewInitPdf(dataUrl) {
+  const msgEl = document.getElementById('preview-pdf-msg');
+  const barEl = document.getElementById('preview-pdf-bar');
+  const statusEl = document.getElementById('preview-pdf-status');
+  const canvasEl = document.getElementById('preview-pdf-canvas');
+  if (!msgEl) return;
+
+  try {
+    // PDF.js動的インポート
+    let pdfjsLib = window.pdfjsLib;
+    if (!pdfjsLib) {
+      if (msgEl) msgEl.textContent = 'PDF.jsを読み込んでいます…';
+      const mod = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs');
+      pdfjsLib = mod;
+      window.pdfjsLib = mod;
+    }
+    pdfjsLib.GlobalWorkerOptions.workerSrc = window.PDFJS_WORKER_URL;
+
+    if (barEl) barEl.style.width = '30%';
+    if (msgEl) msgEl.textContent = 'PDFデータを解析中…';
+
+    const pdfData = dataUrl.split(',')[1];
+    const binary = atob(pdfData);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+
+    if (barEl) barEl.style.width = '60%';
+    const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+    if (barEl) barEl.style.width = '100%';
+
+    window._previewPdfState = { pdf, currentPage: 1, totalPages: pdf.numPages };
+
+    if (statusEl) statusEl.style.display = 'none';
+    if (canvasEl) canvasEl.style.display = 'block';
+
+    const pageInfoEl = document.getElementById('preview-pdf-pageinfo');
+    if (pageInfoEl) pageInfoEl.textContent = `1/${pdf.numPages}`;
+
+    await previewRenderPdfPage(1);
+  } catch(e) {
+    console.error('PDF preview error:', e);
+    if (msgEl) msgEl.textContent = 'PDFの表示に失敗しました。';
+    if (barEl) barEl.style.width = '0%';
+    // フォールバック: テキスト抽出試行
+    const txtContainer = document.getElementById('preview-pdf-text-container');
+    if (txtContainer) {
+      txtContainer.style.display = 'block';
+      txtContainer.textContent = 'このPDFはブラウザで直接プレビューできません。「⬇ DL」でダウンロードしてご覧ください。';
+    }
+  }
+}
+
+async function previewRenderPdfPage(pageNum) {
+  const state = window._previewPdfState;
+  if (!state || !state.pdf) return;
+  const canvas = document.getElementById('preview-pdf-canvas');
+  if (!canvas) return;
+
+  try {
+    const page = await state.pdf.getPage(pageNum);
+    const viewport = page.getViewport({ scale: Math.min(window.innerWidth * 0.82 / page.getViewport({scale:1}).width, 2.0) });
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d');
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    state.currentPage = pageNum;
+    const pi = document.getElementById('preview-pdf-pageinfo');
+    if (pi) pi.textContent = `${pageNum}/${state.totalPages}`;
+  } catch(e) {
+    console.error('PDF page render error:', e);
+  }
+}
+
+function previewPdfPage(delta) {
+  const state = window._previewPdfState;
+  if (!state) return;
+  const next = Math.max(1, Math.min(state.totalPages, state.currentPage + delta));
+  previewRenderPdfPage(next);
+}
+
+async function previewPdfShowText() {
+  const state = window._previewPdfState;
+  const canvas = document.getElementById('preview-pdf-canvas');
+  const txtEl = document.getElementById('preview-pdf-text-container');
+  if (!txtEl) return;
+
+  if (txtEl.style.display !== 'none') {
+    txtEl.style.display = 'none';
+    if (canvas) canvas.style.display = 'block';
+    return;
+  }
+
+  if (canvas) canvas.style.display = 'none';
+  txtEl.style.display = 'block';
+  txtEl.textContent = 'テキストを抽出中…';
+
+  if (!state || !state.pdf) {
+    txtEl.textContent = 'テキスト抽出に失敗しました。';
+    return;
+  }
+  try {
+    let fullText = '';
+    for (let i = 1; i <= state.totalPages; i++) {
+      const page = await state.pdf.getPage(i);
+      const content = await page.getTextContent();
+      const pageText = content.items.map(item => item.str).join('');
+      fullText += `\n--- ページ ${i} ---\n${pageText}\n`;
+    }
+    txtEl.textContent = fullText || '（テキストが抽出できませんでした）';
+  } catch(e) {
+    txtEl.textContent = 'テキスト抽出に失敗しました: ' + e.message;
   }
 }
 
@@ -4050,6 +4289,18 @@ function renderEditor(proj) {
           ${renderWritingTimer()}
         </div>
       </div>
+      <div class="editor-panel">
+        <div class="editor-panel-header"><i class="fas fa-spell-check" style="color:var(--momo)"></i> 書式チェック</div>
+        <div class="editor-panel-body" id="script-format-check">
+          ${renderScriptFormatCheck(scriptContent, currentFormat)}
+        </div>
+      </div>
+      <div class="editor-panel">
+        <div class="editor-panel-header"><i class="fas fa-lightbulb" style="color:var(--kogane)"></i> 執筆ヒント</div>
+        <div class="editor-panel-body" id="writing-hint-panel">
+          ${renderWritingHint(proj, scriptContent)}
+        </div>
+      </div>
     </div>
   </div>`;
 }
@@ -4173,59 +4424,110 @@ function renderGenkoVerticalEditor(proj, scriptContent, activeDraft, cellSize) {
       </div>
     </div>
 
-    <!-- 入力補助ツールバー -->
-    <div class="genko-input-toolbar" style="writing-mode:horizontal-tb;width:100%;max-width:${Math.max(paperW+80,720)}px;margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:#fdf8f0;border:1px solid #d4c5a8;border-radius:8px;padding:6px 10px">
-      <span style="font-size:10px;color:#9a7a60;margin-right:2px">挿入：</span>
-      <button class="genko-tb-btn" onclick="genkoInsertText('１\\n○\\n場所名\\n')" title="シーン見出し（数字＋○＋場所名）">
-        <i class="fas fa-clapperboard"></i> シーン
-      </button>
-      <button class="genko-tb-btn" onclick="genkoInsertText('　')" title="全角スペース（インデント）">
-        <i class="fas fa-indent"></i> 全角SP
-      </button>
-      <button class="genko-tb-btn" onclick="genkoInsertText('「」')" title="台詞かぎかっこ">
-        「」
-      </button>
-      <button class="genko-tb-btn" onclick="genkoInsertText('（）')" title="丸かっこ（ト書き補足）">
-        （）
-      </button>
-      <button class="genko-tb-btn" onclick="genkoInsertText('……')" title="三点リーダー">
-        ……
-      </button>
-      <button class="genko-tb-btn" onclick="genkoInsertText('――')" title="ダッシュ">
-        ――
-      </button>
-      <button class="genko-tb-btn" onclick="genkoInsertText('　　')" title="字下げ（全角スペース2つ）">
-        <i class="fas fa-arrow-right-to-bracket" style="font-size:9px"></i> 字下げ
-      </button>
-      <div style="margin-left:auto;display:flex;align-items:center;gap:4px">
-        <button class="genko-tb-btn" onclick="genkoUndo()" title="元に戻す（Ctrl+Z）">
-          <i class="fas fa-rotate-left"></i>
+    <!-- 入力補助ツールバー（縦式参考の強化版） -->
+    <div class="genko-input-toolbar" style="writing-mode:horizontal-tb;width:100%;max-width:${Math.max(paperW+80,720)}px;margin-bottom:2px;border-radius:8px 8px 0 0;overflow:hidden">
+      <!-- タブ行 -->
+      <div style="display:flex;background:#f0e8d8;border:1px solid #d4c5a8;border-bottom:none;padding:0 8px;gap:2px">
+        <button class="genko-tab-btn active" id="genko-tab-format" onclick="genkoSwitchTab('format')" style="padding:5px 10px;font-size:10.5px;font-family:'Noto Serif JP',serif;border:none;background:none;cursor:pointer;color:#7a5a30;border-bottom:2px solid #8b5a20;font-weight:600">書式挿入</button>
+        <button class="genko-tab-btn" id="genko-tab-symbol" onclick="genkoSwitchTab('symbol')" style="padding:5px 10px;font-size:10.5px;font-family:'Noto Serif JP',serif;border:none;background:none;cursor:pointer;color:#9a7a60;border-bottom:2px solid transparent">記号</button>
+        <button class="genko-tab-btn" id="genko-tab-kana" onclick="genkoSwitchTab('kana')" style="padding:5px 10px;font-size:10.5px;font-family:'Noto Serif JP',serif;border:none;background:none;cursor:pointer;color:#9a7a60;border-bottom:2px solid transparent">よく使う表現</button>
+        <div style="margin-left:auto;display:flex;align-items:center;gap:3px;padding:3px 0">
+          <button class="genko-tb-btn" onclick="genkoUndo()" title="元に戻す（Ctrl+Z）" style="font-size:10px;padding:2px 7px">
+            <i class="fas fa-rotate-left"></i>
+          </button>
+          <button class="genko-tb-btn" onclick="genkoRedo()" title="やり直す（Ctrl+Y）" style="font-size:10px;padding:2px 7px">
+            <i class="fas fa-rotate-right"></i>
+          </button>
+          <button class="genko-tb-btn genko-tb-help-btn" onclick="genkoToggleHelp()" title="操作ガイド" style="font-size:10px;padding:2px 7px">
+            <i class="fas fa-circle-question"></i>
+          </button>
+        </div>
+      </div>
+      <!-- タブパネル: 書式挿入 -->
+      <div id="genko-panel-format" style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;background:#fdf8f0;border:1px solid #d4c5a8;border-top:none;padding:5px 8px;border-radius:0 0 0 0">
+        <button class="genko-tb-btn genko-tb-scene" onclick="genkoInsertScene()" title="シーン見出し（数字＋○＋場所名）" style="background:#fff4ee;border-color:#c87050;color:#8b3a1a">
+          <i class="fas fa-clapperboard" style="font-size:9px"></i> シーン見出し
         </button>
-        <button class="genko-tb-btn" onclick="genkoSelectAll()" title="全選択">
-          <i class="fas fa-object-group"></i>
+        <button class="genko-tb-btn" onclick="genkoInsertText('\\n　')" title="ト書き（1字下げ）" style="background:#f4fff4;border-color:#70a870;color:#2a5a2a">
+          <i class="fas fa-align-left" style="font-size:9px"></i> ト書き
         </button>
-        <button class="genko-tb-btn genko-tb-help-btn" onclick="genkoToggleHelp()" title="操作ガイド">
-          <i class="fas fa-circle-question"></i>
+        <button class="genko-tb-btn" onclick="genkoInsertDialogue()" title="セリフ「」" style="background:#f4f4ff;border-color:#7070c8;color:#2a2a8a">
+          <i class="fas fa-comment" style="font-size:9px"></i> セリフ
         </button>
+        <button class="genko-tb-btn" onclick="genkoInsertText('（）')" title="ト書き補足・演技指定（）">
+          （ ）
+        </button>
+        <button class="genko-tb-btn" onclick="genkoInsertText('\\nカットＴＯ：\\n')" title="カットＴＯ：">
+          転換
+        </button>
+        <button class="genko-tb-btn" onclick="genkoInsertText('\\nＯ・Ｌ\\n')" title="オーバーラップ（ＯＬ）">
+          ＯＬ
+        </button>
+        <button class="genko-tb-btn" onclick="genkoInsertText('\\nＦ・Ｉ\\n')" title="フェードイン">
+          ＦＩ
+        </button>
+        <button class="genko-tb-btn" onclick="genkoInsertText('\\nSE：（）\\n')" title="SE（効果音）">
+          SE：
+        </button>
+        <button class="genko-tb-btn" onclick="genkoInsertText('　')" title="全角スペース（インデント）">
+          全SP
+        </button>
+        <button class="genko-tb-btn" onclick="genkoInsertText('　　')" title="字下げ（全角スペース2つ）">
+          字下げ
+        </button>
+      </div>
+      <!-- タブパネル: 記号 -->
+      <div id="genko-panel-symbol" style="display:none;align-items:center;gap:4px;flex-wrap:wrap;background:#fdf8f0;border:1px solid #d4c5a8;border-top:none;padding:5px 8px">
+        ${['「」','『』','（）','【】','〈〉','《》','……','――','〜','・','。','、','！','？','‼','⁉','♪','✕','○','◎','●','△','▲','□','■'].map(s=>`<button class="genko-tb-btn" onclick="genkoInsertSymbol('${s}')" title="${s}" style="font-size:12px;min-width:32px;justify-content:center">${s}</button>`).join('')}
+      </div>
+      <!-- タブパネル: よく使う表現 -->
+      <div id="genko-panel-kana" style="display:none;align-items:center;gap:4px;flex-wrap:wrap;background:#fdf8f0;border:1px solid #d4c5a8;border-top:none;padding:5px 8px">
+        ${[
+          ['間、', '間があって'],
+          ['（沈黙）', '沈黙'],
+          ['（独り言）', '独り言指定'],
+          ['（小声で）', '小声'],
+          ['（大声で）', '大声'],
+          ['（笑いながら）', '笑いながら'],
+          ['（泣きながら）', '泣きながら'],
+          ['（怒りを抑えて）', '怒りを抑えて'],
+          ['（驚いて）', '驚いて'],
+          ['（間）', '間'],
+          ['ＮＡ：', 'ナレーション'],
+          ['ＭＥ：', 'モノローグ'],
+        ].map(([txt, label])=>`<button class="genko-tb-btn" onclick="genkoInsertText('${txt.replace(/'/g,"\\\\'")} ')" title="${label}" style="font-size:11px">${txt}</button>`).join('')}
       </div>
     </div>
 
     <!-- ヘルプパネル（折りたたみ） -->
-    <div id="genko-help-panel" style="display:none;writing-mode:horizontal-tb;width:100%;max-width:${Math.max(paperW+80,720)}px;margin-bottom:6px;background:#fff8f0;border:1px solid #d4c5a8;border-radius:8px;padding:10px 14px;font-size:11px;color:#7a6050;line-height:1.8">
-      <div style="font-weight:700;margin-bottom:6px;font-size:12px"><i class="fas fa-keyboard" style="color:#b89060;margin-right:4px"></i>縦書き原稿用紙 — 操作ガイド</div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 20px">
-        <div>↑↓ : セル内を移動（行）</div>
-        <div>←→ : 前後の列（行）へ</div>
-        <div>Enter : 次の列の先頭へ改行</div>
-        <div>Tab : 全角スペース2つ挿入</div>
-        <div>Backspace : 前の文字を削除</div>
-        <div>Ctrl+Z : 元に戻す</div>
-        <div>クリック : カーソル移動</div>
-        <div>ドラッグ&スクロール : ページ移動</div>
-      </div>
-      <div style="margin-top:6px;padding-top:6px;border-top:1px solid #e4d8c0;font-size:10.5px;color:#9a7860">
-        <i class="fas fa-lightbulb" style="color:#c8a040;margin-right:4px"></i>
-        <strong>書き方ヒント：</strong> 縦書きは右から始まり、左へ進みます。改行すると次の列の先頭へ。シーン番号は「１」→改行→「○」→改行→「場所名」の順で入力。
+    <div id="genko-help-panel" style="display:none;writing-mode:horizontal-tb;width:100%;max-width:${Math.max(paperW+80,720)}px;margin-bottom:6px;background:#fff8f0;border:1px solid #d4c5a8;border-radius:0 0 8px 8px;padding:10px 14px;font-size:11px;color:#7a6050;line-height:1.8">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div style="font-weight:700;margin-bottom:6px;font-size:11.5px;color:#5a3a10"><i class="fas fa-keyboard" style="color:#b89060;margin-right:4px"></i>キーボード操作</div>
+          <div style="display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:10.5px">
+            <code style="background:#f0e8d8;padding:0 4px;border-radius:3px;font-size:10px">↑↓</code><span>行移動</span>
+            <code style="background:#f0e8d8;padding:0 4px;border-radius:3px;font-size:10px">←→</code><span>前後の列へ</span>
+            <code style="background:#f0e8d8;padding:0 4px;border-radius:3px;font-size:10px">Enter</code><span>次の列先頭へ改行</span>
+            <code style="background:#f0e8d8;padding:0 4px;border-radius:3px;font-size:10px">Tab</code><span>全角SP×2挿入</span>
+            <code style="background:#f0e8d8;padding:0 4px;border-radius:3px;font-size:10px">BS/Del</code><span>前/後の文字削除</span>
+            <code style="background:#f0e8d8;padding:0 4px;border-radius:3px;font-size:10px">Ctrl+Z</code><span>元に戻す</span>
+            <code style="background:#f0e8d8;padding:0 4px;border-radius:3px;font-size:10px">Ctrl+Y</code><span>やり直し</span>
+            <code style="background:#f0e8d8;padding:0 4px;border-radius:3px;font-size:10px">クリック</code><span>カーソル移動</span>
+          </div>
+        </div>
+        <div>
+          <div style="font-weight:700;margin-bottom:6px;font-size:11.5px;color:#5a3a10"><i class="fas fa-scroll" style="color:#b89060;margin-right:4px"></i>縦書き原稿用紙 記法</div>
+          <div style="font-size:10.5px;line-height:2">
+            <div><strong>シーン見出し</strong>：数字→改行→○→改行→場所名</div>
+            <div><strong>ト書き</strong>：全角スペース＋本文</div>
+            <div><strong>セリフ</strong>：「セリフ本文」</div>
+            <div><strong>演技指定</strong>：（小声で）</div>
+            <div><strong>転換</strong>：カットＴＯ：/ ＯＬ</div>
+          </div>
+          <div style="margin-top:6px;padding:5px 8px;background:#fdf4e0;border-left:2px solid #c8a040;border-radius:0 4px 4px 0;font-size:10px;color:#7a6020">
+            💡 <strong>1枚=400字</strong> · 1時間ドラマ≈25〜30枚
+          </div>
+        </div>
       </div>
     </div>
 
@@ -4541,6 +4843,17 @@ function genkoUpdateDisplay() {
     const fmt = EDITOR_FORMATS[fmtKey] || EDITOR_FORMATS['genko'];
     if (proj) statsEl.innerHTML = renderEditorStats(proj, content, fmt);
   }
+  // 書式チェック・執筆ヒント更新
+  const fmtCheckEl = document.getElementById('script-format-check');
+  if (fmtCheckEl) {
+    const fmtKey2 = DB.get(`editor_format_${G.projId}`, 'genko');
+    fmtCheckEl.innerHTML = renderScriptFormatCheck(content, fmtKey2);
+  }
+  const hintEl = document.getElementById('writing-hint-panel');
+  if (hintEl) {
+    const proj2 = DB.getProject(G.projId);
+    if (proj2) hintEl.innerHTML = renderWritingHint(proj2, content);
+  }
   // autosave
   genkoScheduleSave();
 }
@@ -4681,9 +4994,91 @@ function genkoPushHistory() {
   }
 }
 
+// ── タブ切り替え ───────────────────────────────────────────────
+function genkoSwitchTab(tab) {
+  ['format','symbol','kana'].forEach(t => {
+    const panel = document.getElementById(`genko-panel-${t}`);
+    const btn = document.getElementById(`genko-tab-${t}`);
+    if (panel) panel.style.display = t === tab ? 'flex' : 'none';
+    if (btn) {
+      btn.style.color = t === tab ? '#7a5a30' : '#9a7a60';
+      btn.style.fontWeight = t === tab ? '600' : '400';
+      btn.style.borderBottom = t === tab ? '2px solid #8b5a20' : '2px solid transparent';
+    }
+  });
+}
+
+// ── シーン見出し挿入 ─────────────────────────────────────────
+function genkoInsertScene() {
+  const G = window._GENKO;
+  if (!G) return;
+  // 現在の最大シーン番号を取得
+  const text = genkoLinesToText(G.lines);
+  const nums = [...text.matchAll(/^([０-９0-9]{1,3})\n[○◯]/gm)].map(m => {
+    const s = m[1].replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0));
+    return parseInt(s);
+  });
+  const nextNum = nums.length > 0 ? Math.max(...nums) + 1 : 1;
+  // 全角数字に変換
+  const fullNum = String(nextNum).replace(/[0-9]/g, c => String.fromCharCode(c.charCodeAt(0) + 0xFEE0));
+  genkoInsertText(`\n${fullNum}\n○\n場所名（内・外）\n`);
+}
+
+// ── セリフ挿入 ───────────────────────────────────────────────
+function genkoInsertDialogue() {
+  genkoInsertText('「」');
+  // カーソルを「」の内側へ（1文字戻す）
+  const G = window._GENKO;
+  if (!G) return;
+  const line = G.lines[G.cursorLine] || '';
+  // 直前の「」を探してカーソルを内側に
+  const pos = line.lastIndexOf('「」', G.cursorCol);
+  if (pos !== -1) {
+    G.cursorCol = pos + 1; // 「の直後
+    genkoUpdateDisplay();
+  }
+}
+
+// ── 記号挿入（括弧系は内側にカーソル） ─────────────────────
+function genkoInsertSymbol(sym) {
+  const pairs = { '「」':1, '『』':1, '（）':1, '【】':1, '〈〉':1, '《》':1 };
+  genkoInsertText(sym);
+  if (pairs[sym]) {
+    const G = window._GENKO;
+    if (!G) return;
+    G.cursorCol = Math.max(0, G.cursorCol - 1);
+    genkoUpdateDisplay();
+  }
+}
+
+// ── redo（やり直し） ─────────────────────────────────────────
+window._GENKO_REDO = [];
+function genkoRedo() {
+  if (!window._GENKO_REDO || window._GENKO_REDO.length === 0) {
+    toast('やり直す操作がありません', 'info');
+    return;
+  }
+  const G = window._GENKO;
+  const snap = window._GENKO_REDO.pop();
+  if (!snap) return;
+  // 現在状態をundoに退避
+  if (!window._GENKO_HISTORY) window._GENKO_HISTORY = [];
+  window._GENKO_HISTORY.push({ lines: [...G.lines], cursorLine: G.cursorLine, cursorCol: G.cursorCol });
+  G.lines = snap.lines;
+  G.cursorLine = snap.cursorLine;
+  G.cursorCol = snap.cursorCol;
+  const ta = document.getElementById('script-editor');
+  if (ta) ta.value = genkoLinesToText(G.lines);
+  genkoUpdateDisplay();
+  genkoFocusHidden();
+}
+
 function genkoUndo() {
   if (window._GENKO_HISTORY.length === 0) { toast('元に戻す履歴がありません', 'info'); return; }
   const G = window._GENKO;
+  // redo用に現在状態を退避
+  if (!window._GENKO_REDO) window._GENKO_REDO = [];
+  window._GENKO_REDO.push({ lines: [...G.lines], cursorLine: G.cursorLine, cursorCol: G.cursorCol });
   const snap = window._GENKO_HISTORY.pop();
   G.lines = snap.lines;
   G.cursorLine = snap.cursorLine;
@@ -5318,6 +5713,140 @@ function renderFormatGuide(formatKey) {
   return guides[formatKey] || guides['genko'];
 }
 
+// ── 書式チェック ──────────────────────────────────────────────
+function renderScriptFormatCheck(content, formatKey) {
+  if (!content || content.length < 20) {
+    return `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:12px 0">書き始めると書式チェックが表示されます</div>`;
+  }
+  const lines = content.split('\n');
+  const issues = [];
+  const tips = [];
+
+  if (formatKey === 'genko' || formatKey === 'genko-h' || formatKey === 'japan-standard') {
+    // シーン見出しチェック
+    const hasScene = lines.some(l => /^【\d+】|^\d+$|^[０-９]+$/.test(l.trim()));
+    if (!hasScene && content.length > 200) {
+      issues.push({ icon: 'fa-clapperboard', color: 'var(--momo)', text: 'シーン番号が見当たりません' });
+    }
+
+    // 説明台詞チェック（「〜です。〜ます。」形のセリフ）
+    const expositoryLines = lines.filter(l => {
+      const t = l.trim();
+      return (t.startsWith('「') || t.startsWith('　「')) &&
+        /[\uff08説明|という|ということ|ですよね|なんですよ]/.test(t);
+    });
+    if (expositoryLines.length >= 2) {
+      issues.push({ icon: 'fa-triangle-exclamation', color: 'var(--kogane)', text: `説明台詞の可能性(${expositoryLines.length}箇所)` });
+    }
+
+    // 連続同一キャラセリフ
+    let prevChar = '', sameCount = 0, maxSame = 0;
+    lines.forEach(l => {
+      const t = l.trim();
+      if (/^[ぁ-んァ-ン一-龥Ａ-Ｚa-zA-Z]{1,10}$/.test(t) && !t.startsWith('「')) {
+        if (t === prevChar) { sameCount++; maxSame = Math.max(maxSame, sameCount); }
+        else { prevChar = t; sameCount = 1; }
+      }
+    });
+    if (maxSame >= 3) {
+      issues.push({ icon: 'fa-user', color: 'var(--fuji)', text: `同一キャラが${maxSame+1}回連続発言` });
+    }
+
+    // ト書きチェック（長すぎ）
+    const longAction = lines.filter(l => {
+      const t = l.trim();
+      return t.startsWith('　') && !t.startsWith('　「') && t.length > 60;
+    });
+    if (longAction.length >= 2) {
+      tips.push({ icon: 'fa-align-left', color: 'var(--matcha)', text: `長めのト書きあり(${longAction.length}箇所)。要約を検討` });
+    }
+
+    // ページ比率チェック
+    const dialogueLines = lines.filter(l => l.trim().startsWith('「') || l.trim().startsWith('　「')).length;
+    const totalNonEmpty = lines.filter(l => l.trim().length > 0).length;
+    if (totalNonEmpty > 20) {
+      const ratio = dialogueLines / totalNonEmpty;
+      if (ratio > 0.75) {
+        tips.push({ icon: 'fa-comments', color: 'var(--fuji)', text: `台詞比率${Math.round(ratio*100)}%。ト書き不足の可能性` });
+      } else if (ratio < 0.15) {
+        tips.push({ icon: 'fa-align-left', color: 'var(--kogane)', text: `台詞比率${Math.round(ratio*100)}%。セリフ不足の可能性` });
+      }
+    }
+  }
+
+  if (formatKey === 'hollywood') {
+    const hasIntExt = lines.some(l => /^INT\.|^EXT\./.test(l.trim()));
+    if (!hasIntExt && content.length > 200) {
+      issues.push({ icon: 'fa-clapperboard', color: 'var(--momo)', text: 'INT./EXT. シーン見出しなし' });
+    }
+  }
+
+  // 全フォーマット共通チェック
+  if (content.length < 500 && content.length > 50) {
+    tips.push({ icon: 'fa-pen', color: 'var(--accent)', text: '書き続けましょう。初稿は量が命です' });
+  }
+
+  const okHtml = issues.length === 0
+    ? `<div style="display:flex;align-items:center;gap:6px;padding:5px 6px;background:#f0faf0;border-radius:6px;margin-bottom:6px">
+        <i class="fas fa-circle-check" style="color:var(--matcha);font-size:13px"></i>
+        <span style="font-size:11px;color:var(--matcha);font-weight:600">書式の大きな問題なし</span>
+      </div>` : '';
+
+  const issueHtml = issues.map(i => `
+    <div style="display:flex;align-items:center;gap:6px;padding:4px 6px;background:#fff8f4;border-left:2px solid ${i.color};border-radius:0 4px 4px 0;margin-bottom:4px">
+      <i class="fas ${i.icon}" style="color:${i.color};font-size:10px;flex-shrink:0"></i>
+      <span style="font-size:10.5px;color:var(--text-primary)">${i.text}</span>
+    </div>`).join('');
+
+  const tipsHtml = tips.map(t => `
+    <div style="display:flex;align-items:center;gap:6px;padding:4px 6px;background:var(--bg-subtle);border-radius:4px;margin-bottom:4px">
+      <i class="fas ${t.icon}" style="color:${t.color};font-size:10px;flex-shrink:0"></i>
+      <span style="font-size:10.5px;color:var(--text-secondary)">${t.text}</span>
+    </div>`).join('');
+
+  return `${okHtml}${issueHtml}${tips.length > 0 ? `<div style="font-size:10px;color:var(--text-muted);margin:6px 0 4px;font-weight:600">ヒント</div>${tipsHtml}` : ''}`;
+}
+
+// ── 執筆ヒント ────────────────────────────────────────────────
+function renderWritingHint(proj, content) {
+  const charCount = (content || '').replace(/\n/g, '').length;
+  const HINTS = [
+    { min: 0,    max: 100,   icon: '🖊️', color: '#e87d3e', text: 'まず書き始めましょう。「完璧な初稿」は存在しません。' },
+    { min: 100,  max: 400,   icon: '🔥', color: '#c0392b', text: '好調です！最初のシーンを書き切ることを優先しましょう。' },
+    { min: 400,  max: 800,   icon: '⚡', color: '#d68910', text: '第一幕が見えてきました。主人公の欲求を明確に！' },
+    { min: 800,  max: 2000,  icon: '📖', color: '#2e86ab', text: '第一幕の発端事件を描きましたか？ここで観客を引き込みます。' },
+    { min: 2000, max: 4000,  icon: '⚔️', color: '#8e44ad', text: '第二幕へ突入。主人公に障害を与え、緊張を高めましょう。' },
+    { min: 4000, max: 8000,  icon: '🌊', color: '#16a085', text: '第二幕中盤。ミッドポイントで世界が変わる転換点を！' },
+    { min: 8000, max: 15000, icon: '🎯', color: '#2e5fa0', text: '終盤が見えてきました。クライマックスを意識した構成を。' },
+    { min: 15000, max: Infinity, icon: '🏆', color: '#c0392b', text: '素晴らしい量です！推敲フェーズへ移行する準備ができています。' },
+  ];
+  const hint = HINTS.find(h => charCount >= h.min && charCount < h.max) || HINTS[HINTS.length - 1];
+
+  // 今日の執筆量
+  const todayKey = `today_wc_${new Date().toDateString()}`;
+  const todayWc = DB.get(todayKey, 0);
+
+  return `
+  <div style="background:${hint.color}12;border-left:3px solid ${hint.color};border-radius:0 6px 6px 0;padding:8px 10px;margin-bottom:10px">
+    <div style="font-size:16px;margin-bottom:3px">${hint.icon}</div>
+    <div style="font-size:11px;color:var(--text-primary);line-height:1.7">${hint.text}</div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px">
+    <div style="text-align:center;padding:6px;background:var(--bg-subtle);border-radius:6px">
+      <div style="font-size:9px;color:var(--text-muted)">総文字数</div>
+      <div style="font-size:13px;font-weight:700;color:var(--text-primary)">${charCount.toLocaleString()}</div>
+    </div>
+    <div style="text-align:center;padding:6px;background:var(--bg-subtle);border-radius:6px">
+      <div style="font-size:9px;color:var(--text-muted)">今日の執筆</div>
+      <div style="font-size:13px;font-weight:700;color:var(--accent)">${todayWc.toLocaleString()}字</div>
+    </div>
+  </div>
+  <div style="font-size:10px;color:var(--text-muted);text-align:center">
+    <i class="fas fa-info-circle" style="margin-right:3px"></i>
+    1時間ドラマ≈12,000字 / 映画≈15,000字
+  </div>`;
+}
+
 // ── 執筆タイマー ─────────────────────────────────────────────
 function renderWritingTimer() {
   const saved = DB.get('writing_timer', {elapsed:0, running:false});
@@ -5364,6 +5893,18 @@ function onEditorInput(projId, draftId) {
     const fmtKey = DB.get(`editor_format_${projId}`, 'genko');
     const fmt = EDITOR_FORMATS[fmtKey] || EDITOR_FORMATS['genko'];
     if (proj) footerEl.innerHTML = renderEditorProgressBar(proj, content, fmt);
+  }
+
+  // 書式チェック・執筆ヒント更新
+  const fmtCheckEl2 = document.getElementById('script-format-check');
+  if (fmtCheckEl2) {
+    const fmtKey3 = DB.get(`editor_format_${projId}`, 'genko');
+    fmtCheckEl2.innerHTML = renderScriptFormatCheck(content, fmtKey3);
+  }
+  const hintEl2 = document.getElementById('writing-hint-panel');
+  if (hintEl2) {
+    const proj3 = DB.getProject(projId);
+    if (proj3) hintEl2.innerHTML = renderWritingHint(proj3, content);
   }
 
   // ツールバー文字数更新
@@ -5684,35 +6225,6 @@ function insertElement(type) {
   ta.focus();
   // オートセーブトリガー
   onEditorInput(projId || '', '');
-}
-
-// ── genkoグリッドへのテキスト挿入 ──────────────────────────
-function genkoInsertText(text) {
-  const G = window._GENKO;
-  if (!G) return;
-  let { lines, cursorLine, cursorCol } = G;
-
-  // テキストを分割して行ごとに挿入
-  const insertLines = text.split('\n');
-  const currentLine = lines[cursorLine] || '';
-  const before = currentLine.slice(0, cursorCol);
-  const after = currentLine.slice(cursorCol);
-
-  if (insertLines.length === 1) {
-    G.lines[cursorLine] = before + insertLines[0] + after;
-    G.cursorCol = cursorCol + insertLines[0].length;
-  } else {
-    const newLines = [
-      before + insertLines[0],
-      ...insertLines.slice(1, -1),
-      insertLines[insertLines.length - 1] + after
-    ];
-    G.lines.splice(cursorLine, 1, ...newLines);
-    G.cursorLine = cursorLine + insertLines.length - 1;
-    G.cursorCol = insertLines[insertLines.length - 1].length;
-  }
-  genkoUpdateDisplay();
-  genkoFocusHidden();
 }
 
 function insertCharName(name) {
@@ -11800,16 +12312,26 @@ function renderLearnStaffRoom(hero, subnav) {
           <span style="font-weight:700;font-size:13px">脚本テキスト（添削対象）</span>
           <span style="font-size:11px;color:var(--text-muted);margin-left:auto">PDF・ファイルからも貼り付け可能</span>
         </div>
-        <!-- ファイル添付エリア -->
-        <div id="staffroom-dropzone-${s.id}" style="border:2px dashed var(--border);border-radius:var(--radius-md);padding:12px 16px;text-align:center;background:var(--bg-subtle);cursor:pointer;margin-bottom:10px;transition:all .2s"
-          onclick="document.getElementById('staffroom-file-${s.id}').click()"
-          ondragover="event.preventDefault();this.style.borderColor='var(--fuji)';this.style.background='var(--fuji-bg)'"
-          ondragleave="this.style.borderColor='';this.style.background='var(--bg-subtle)'"
-          ondrop="event.preventDefault();this.style.borderColor='';this.style.background='var(--bg-subtle)';staffRoomHandleFileDrop(event,'${s.id}')">
-          <i class="fas fa-file-arrow-up" style="font-size:20px;color:var(--text-light);margin-bottom:4px;display:block"></i>
-          <div style="font-size:12px;color:var(--text-secondary)">PDFやテキストファイルをドラッグ&ドロップ、またはクリックして選択</div>
-          <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px">.pdf .txt .md .docx 対応</div>
-          <input type="file" id="staffroom-file-${s.id}" style="display:none" accept=".pdf,.txt,.md,.docx,.doc" onchange="staffRoomHandleFileSelect(event,'${s.id}')">
+        <!-- ファイル添付エリア（強化版） -->
+        <div style="border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;margin-bottom:10px">
+          <div style="display:flex;gap:0">
+            <div id="staffroom-dropzone-${s.id}" style="flex:1;border:none;border-right:1px dashed var(--border);padding:10px 14px;text-align:center;background:var(--bg-subtle);cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:10px"
+              onclick="document.getElementById('staffroom-file-${s.id}').click()"
+              ondragover="event.preventDefault();this.style.background='var(--fuji-bg, #f0eeff)';this.style.borderColor='var(--fuji)'"
+              ondragleave="this.style.background='var(--bg-subtle)';this.style.borderColor=''"
+              ondrop="event.preventDefault();this.style.background='var(--bg-subtle)';staffRoomHandleFileDrop(event,'${s.id}')">
+              <i class="fas fa-file-arrow-up" style="font-size:22px;color:var(--fuji);flex-shrink:0"></i>
+              <div style="text-align:left">
+                <div style="font-size:12px;color:var(--text-primary);font-weight:600">ファイルを添付</div>
+                <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px">PDFからテキストを自動抽出 · .pdf .txt .md .docx</div>
+              </div>
+              <input type="file" id="staffroom-file-${s.id}" style="display:none" accept=".pdf,.txt,.md,.docx,.doc,.csv" onchange="staffRoomHandleFileSelect(event,'${s.id}')">
+            </div>
+            <div id="staffroom-file-status-${s.id}" style="display:flex;align-items:center;padding:10px 14px;font-size:11px;color:var(--text-muted);flex-shrink:0;flex-direction:column;justify-content:center;gap:3px;min-width:120px;text-align:center">
+              <i class="fas fa-inbox" style="font-size:16px;opacity:.3;margin-bottom:3px"></i>
+              <span>ファイル未添付</span>
+            </div>
+          </div>
         </div>
         <textarea id="staffroom-script-${s.id}" class="form-textarea" rows="14" style="font-size:13px;line-height:1.9;font-family:'Noto Serif JP',serif;resize:vertical" placeholder="脚本テキストをここに貼り付けてください。&#10;&#10;例：&#10;１○病院・廊下（昼）&#10;&#10;田中、白衣姿で歩く。表情が固い。&#10;&#10;田中「（独り言）今日中に…」" oninput="staffRoomAutoSaveScript('${s.id}')">${esc(s.scriptText||'')}</textarea>
         <div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:right">
@@ -11983,46 +12505,108 @@ function staffRoomSaveAll(sessionId) {
 function staffRoomHandleFileSelect(event, sessionId) {
   const file = event.target.files[0];
   if (!file) return;
+  staffRoomShowFileStatus(sessionId, file);
   staffRoomReadFile(file, sessionId);
 }
 
 function staffRoomHandleFileDrop(event, sessionId) {
   const file = event.dataTransfer.files[0];
   if (!file) return;
+  staffRoomShowFileStatus(sessionId, file);
   staffRoomReadFile(file, sessionId);
 }
 
-function staffRoomReadFile(file, sessionId) {
+function staffRoomShowFileStatus(sessionId, file) {
+  const statusEl = document.getElementById(`staffroom-file-status-${sessionId}`);
+  if (!statusEl) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  const iconMap = { pdf: 'fa-file-pdf', txt: 'fa-file-lines', md: 'fa-file-code', docx: 'fa-file-word', doc: 'fa-file-word', csv: 'fa-file-csv' };
+  const colorMap = { pdf: '#c0392b', txt: '#2980b9', md: '#27ae60', docx: '#2563eb', doc: '#2563eb', csv: '#16a085' };
+  const icon = iconMap[ext] || 'fa-file';
+  const color = colorMap[ext] || '#7f8c8d';
+  const sizeLabel = file.size < 1024*1024 ? (file.size/1024).toFixed(0)+'KB' : (file.size/1024/1024).toFixed(1)+'MB';
+  statusEl.innerHTML = `
+    <i class="fas ${icon}" style="font-size:18px;color:${color};margin-bottom:3px"></i>
+    <span style="font-size:10px;color:var(--text-primary);font-weight:600;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(file.name)}</span>
+    <span style="font-size:9px;color:var(--text-muted)">${sizeLabel}</span>
+    <div id="staffroom-file-progress-${sessionId}" style="font-size:9px;color:${color};margin-top:2px">処理中…</div>
+  `;
+}
+
+async function staffRoomReadFile(file, sessionId) {
   const ext = file.name.split('.').pop().toLowerCase();
   const ta = document.getElementById(`staffroom-script-${sessionId}`);
   if (!ta) return;
 
+  const setTitle = (name) => {
+    const sessions = DB.get('staffroom_sessions', []);
+    const idx = sessions.findIndex(s => s.id === sessionId);
+    if (idx !== -1 && !sessions[idx].title) {
+      sessions[idx].title = name;
+      DB.set('staffroom_sessions', sessions);
+    }
+    const titleEl = document.getElementById('staffroom-title');
+    if (titleEl && !titleEl.value) titleEl.value = name;
+  };
+
   if (ext === 'pdf') {
-    // PDF: FileReader でテキスト読み取りを試みる（簡易版）
-    toast('PDFのテキスト抽出を試みています…', 'info');
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      // PDFはバイナリのため完全なテキスト抽出はブラウザ単体では限界
-      // 代わりにファイル名をタイトルに設定し、メッセージを表示
-      const sessions = DB.get('staffroom_sessions', []);
-      const idx = sessions.findIndex(s => s.id === sessionId);
-      if (idx !== -1) {
-        if (!sessions[idx].title) sessions[idx].title = file.name.replace(/\.pdf$/i, '');
-        DB.set('staffroom_sessions', sessions);
+    toast('PDFからテキストを抽出しています…', 'info');
+    try {
+      let pdfjsLib = window.pdfjsLib;
+      if (!pdfjsLib) {
+        const mod = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs');
+        pdfjsLib = mod;
+        window.pdfjsLib = mod;
       }
-      const titleEl = document.getElementById('staffroom-title');
-      if (titleEl && !titleEl.value) titleEl.value = file.name.replace(/\.pdf$/i, '');
-      toast('PDFを添付しました。テキストを手動でコピー＆ペーストしてください。', 'info');
-    };
-    reader.readAsArrayBuffer(file);
+      pdfjsLib.GlobalWorkerOptions.workerSrc = window.PDFJS_WORKER_URL;
+
+      const arrayBuffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        const pageText = content.items.map(item => item.str).join('');
+        if (pageText.trim()) fullText += pageText + '\n';
+      }
+
+      setTitle(file.name.replace(/\.pdf$/i, ''));
+
+      const progressEl = document.getElementById(`staffroom-file-progress-${sessionId}`);
+      if (fullText.trim()) {
+        ta.value = fullText;
+        staffRoomAutoSaveScript(sessionId);
+        if (progressEl) progressEl.textContent = `✅ ${fullText.length}字抽出完了`;
+        toast(`✅ PDFから${fullText.length}字を抽出しました`, 'success');
+      } else {
+        ta.value = `【${file.name}】\n\nPDFからテキストを自動抽出できませんでした。\nスキャン画像のPDFや保護されたPDFは手動でテキストを貼り付けてください。`;
+        staffRoomAutoSaveScript(sessionId);
+        if (progressEl) progressEl.textContent = '⚠️ 抽出失敗（手動貼付を）';
+        toast('PDFのテキスト抽出ができませんでした（画像PDFの可能性）', 'warning');
+      }
+    } catch(e) {
+      console.error('PDF extraction error:', e);
+      setTitle(file.name.replace(/\.pdf$/i, ''));
+      ta.value = `【${file.name}】\n\nPDF処理中にエラーが発生しました。\nテキストを手動でコピー＆ペーストしてください。\n\nエラー: ${e.message}`;
+      staffRoomAutoSaveScript(sessionId);
+      const progressEl = document.getElementById(`staffroom-file-progress-${sessionId}`);
+      if (progressEl) progressEl.textContent = '❌ エラー発生';
+      toast('PDFの処理に失敗しました', 'error');
+    }
   } else {
     // テキスト系ファイル
     const reader = new FileReader();
     reader.onload = (e) => {
       ta.value = e.target.result;
       staffRoomAutoSaveScript(sessionId);
+      setTitle(file.name.replace(/\.[^.]+$/, ''));
+      const progressEl = document.getElementById(`staffroom-file-progress-${sessionId}`);
+      if (progressEl) progressEl.textContent = `✅ ${e.target.result.length}字読込`;
       toast(`${file.name} を読み込みました`, 'success');
     };
+    reader.onerror = () => toast('ファイルの読み込みに失敗しました', 'error');
     reader.readAsText(file, 'UTF-8');
   }
 }

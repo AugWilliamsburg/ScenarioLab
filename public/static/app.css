@@ -7290,3 +7290,77 @@ body {
   .timer-popup { width: calc(100vw - 24px) !important; right: 12px !important; }
 }
 
+
+/* ================================================================
+   プレビューモーダル
+   ================================================================ */
+#preview-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15,12,8,0.82);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  backdrop-filter: blur(4px);
+}
+#preview-pdf-canvas {
+  max-width: 100%;
+  border-radius: 4px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+/* ================================================================
+   縦書きエディタ タブUI強化
+   ================================================================ */
+.genko-tab-btn {
+  transition: color .12s, font-weight .12s;
+}
+.genko-tab-btn:hover {
+  color: #7a5a30 !important;
+}
+.genko-tb-scene {
+  background: #fff4ee !important;
+  border-color: #c87050 !important;
+  color: #8b3a1a !important;
+}
+.genko-tb-scene:hover {
+  background: #ffe8d8 !important;
+}
+
+/* ================================================================
+   職員室 ファイルドロップゾーン
+   ================================================================ */
+#staffroom-dropzone-container {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+/* ================================================================
+   脚本エディタ サイドバー パネル追加分
+   ================================================================ */
+#script-format-check .check-ok {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 6px;
+  background: #f0faf0;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+#writing-hint-panel {
+  font-size: 11px;
+}
+
+/* ================================================================
+   書式チェックパネル アニメ
+   ================================================================ */
+@keyframes slideInCheck {
+  from { opacity: 0; transform: translateX(-6px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+#script-format-check > div {
+  animation: slideInCheck .15s ease;
+}
