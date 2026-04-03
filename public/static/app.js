@@ -12496,9 +12496,11 @@ function renderLearnStaffRoom(hero, subnav) {
       <div style="display:flex;align-items:flex-start;gap:10px">
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.title||'無題の脚本')}</div>
-          <div style="font-size:10.5px;color:var(--text-muted);margin-bottom:4px;display:flex;align-items:center;gap:6px">
+          <div style="font-size:10.5px;color:var(--text-muted);margin-bottom:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             <span>${dt}</span>
             ${ar && ar.analysisStats ? `<span style="color:var(--text-light)">·</span><span>${ar.analysisStats.sceneCount||0}シーン</span>` : ''}
+            ${s.scoreHistory && s.scoreHistory.length >= 2 ? `<span style="color:var(--text-light)">·</span><span style="color:var(--matcha);font-weight:600">${s.scoreHistory.length}回採点</span>` : ''}
+            ${s.manualOverrides && Object.keys(s.manualOverrides).length > 0 ? `<span style="font-size:9px;background:#eff6ff;color:#3b82f6;border:1px solid #bfdbfe;border-radius:8px;padding:0 5px;font-weight:600">差分あり</span>` : ''}
           </div>
           ${s.scriptText ? `<div style="font-size:11px;color:var(--text-secondary);line-height:1.5;overflow:hidden;max-height:32px">${esc(s.scriptText.slice(0,70))}${s.scriptText.length>70?'…':''}</div>` : '<div style="font-size:10px;color:var(--text-light);font-style:italic">テキスト未入力</div>'}
         </div>
@@ -12526,6 +12528,13 @@ function renderLearnStaffRoom(hero, subnav) {
 
     // ルーブリックスコア入力エリア
     const autoItemDetails = (s.autoScoreResult && s.autoScoreResult.itemDetails) || {};
+    // AI自動採点スコアを保持（差分ハイライト用）
+    const aiItemScores = (s.autoScoreResult && s.autoScoreResult.itemScores) || {};
+    // 手動上書きスコアを保持
+    const manualOverrides = s.manualOverrides || {};
+    // 差分ハイライト表示フラグ（手動採点があれば自動ON）
+    const hasDiffView = Object.keys(manualOverrides).some(k => manualOverrides[k] !== undefined);
+
     const rubricHtml = RUBRIC_CATEGORIES.map(cat => {
       const catScore = cat.items.length > 0 ? Math.round(cat.items.reduce((a, item) => a + (scores[item.id]||0), 0) / cat.items.length * 20) : null;
       const catScoredCount = cat.items.filter(it => (scores[it.id]||0) > 0).length;
@@ -12554,18 +12563,27 @@ function renderLearnStaffRoom(hero, subnav) {
           const autoReasons = itemDetail.reasons || [];
           const autoIssues = itemDetail.issues || [];
           const scoreVal = scores[item.id] || 0;
+          const aiScore = aiItemScores[item.id] || 0;
+          const manualVal = manualOverrides[item.id];
+          // 差分計算: 手動上書きが存在する場合のみ差分を表示
+          const hasDiff = manualVal !== undefined && aiScore > 0 && manualVal !== aiScore;
+          const diffAmt = hasDiff ? manualVal - aiScore : 0;
           const scoreColor2 = scoreVal >= 4 ? 'var(--matcha)' : scoreVal >= 3 ? 'var(--kogane)' : scoreVal >= 2 ? 'var(--momo)' : scoreVal >= 1 ? '#ef4444' : 'var(--text-muted)';
-          const scoreBg2 = scoreVal >= 4 ? 'var(--matcha-bg)' : scoreVal >= 3 ? 'var(--kogane-bg)' : scoreVal >= 1 ? 'var(--momo-bg)' : 'var(--bg-subtle)';
           const isAutoScored = hasAutoScore && scoreVal > 0;
+          // 差分ハイライト: 手動が高い場合は緑、低い場合は赤、同じ場合は無色
+          const diffHighlight = hasDiff ? (diffAmt > 0 ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.06)') : 'transparent';
+          const diffBorder = hasDiff ? (diffAmt > 0 ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(239,68,68,0.2)') : '';
           return `
-        <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light,#f0f0f0)">
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light,#f0f0f0);${hasDiff?`background:${diffHighlight};margin:0 -14px;padding-left:14px;padding-right:14px;border-left:3px solid ${diffAmt>0?'#22c55e':'#ef4444'}`:''}"  >
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;flex-wrap:wrap">
               <div style="font-size:12.5px;font-weight:700;color:var(--text-primary)">${item.label}</div>
-              ${item.id === 'emotional-impact' ? '<span style="font-size:9px;background:linear-gradient(90deg,var(--fuji),#7c3aed);color:#fff;padding:1px 7px;border-radius:10px;font-weight:700;letter-spacing:.04em">×1.5 最重要</span>' : ''}
+              ${item.id === 'emotional-impact' ? '<span style="font-size:9px;background:linear-gradient(90deg,var(--fuji),#7c3aed);color:#fff;padding:1px 7px;border-radius:10px;font-weight:700;letter-spacing:.04em">×1.6 最重要</span>' : ''}
+              ${item.id === 'authorial-voice' ? '<span style="font-size:9px;background:var(--kogane-bg);color:var(--kogane);padding:1px 6px;border-radius:10px;border:1px solid var(--kogane-border);font-weight:600">×1.2</span>' : ''}
               ${['theme-clarity','originality'].includes(item.id) ? '<span style="font-size:9px;background:var(--kogane-bg);color:var(--kogane);padding:1px 6px;border-radius:10px;border:1px solid var(--kogane-border);font-weight:600">×1.2</span>' : ''}
               ${['three-act','protag-want-need','char-arc'].includes(item.id) ? '<span style="font-size:9px;background:#eff6ff;color:#3b82f6;padding:1px 6px;border-radius:10px;border:1px solid #bfdbfe;font-weight:600">×1.1</span>' : ''}
               ${isAutoScored ? `<span style="font-size:9px;background:var(--fuji-bg,#f0eeff);color:var(--fuji);padding:1px 5px;border-radius:8px;font-weight:600;border:1px solid var(--fuji-border,#e0d0ff)"><i class="fas fa-wand-magic-sparkles" style="font-size:7px;margin-right:2px"></i>AI採点</span>` : ''}
+              ${hasDiff ? `<span style="font-size:9px;padding:1px 6px;border-radius:8px;font-weight:700;${diffAmt>0?'background:#dcfce7;color:#15803d;border:1px solid #86efac':'background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5'}"><i class="fas fa-code-compare" style="font-size:7px;margin-right:2px"></i>AI${aiScore}→手動${manualVal} (${diffAmt>0?'+':''}${diffAmt})</span>` : ''}
             </div>
             <div style="font-size:10.5px;color:var(--text-muted);line-height:1.6;margin-bottom:${(autoReasons.length > 0 || autoIssues.length > 0) ? '7px' : '2px'}">${item.desc}</div>
             ${(autoReasons.length > 0 || autoIssues.length > 0) ? `
@@ -12573,11 +12591,18 @@ function renderLearnStaffRoom(hero, subnav) {
               ${autoReasons.map(r => `<div style="display:flex;align-items:flex-start;gap:5px;font-size:10.5px;color:var(--matcha);line-height:1.5"><span style="flex-shrink:0;font-weight:700;margin-top:1px">✓</span><span>${esc(r)}</span></div>`).join('')}
               ${autoIssues.map(i2 => `<div style="display:flex;align-items:flex-start;gap:5px;font-size:10.5px;color:var(--momo);line-height:1.5"><span style="flex-shrink:0;font-weight:700;margin-top:1px">⚠</span><span>${esc(i2)}</span></div>`).join('')}
             </div>` : ''}
+            ${hasDiff ? `
+            <div style="margin-top:5px;font-size:10px;color:${diffAmt>0?'#15803d':'#b91c1c'};font-weight:600">
+              <i class="fas ${diffAmt>0?'fa-arrow-up':'fa-arrow-down'}" style="font-size:9px;margin-right:3px"></i>
+              ${diffAmt>0?`手動採点がAIより${diffAmt}点高い評価`:`手動採点がAIより${Math.abs(diffAmt)}点低い評価`}
+              <span style="font-size:9px;color:var(--text-muted);font-weight:400;margin-left:4px">（現在のスコアは手動値 ${manualVal}/5 を反映）</span>
+            </div>` : ''}
           </div>
           <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:5px">
+            ${aiScore > 0 && !hasDiff ? `<div style="font-size:9px;color:var(--fuji);margin-bottom:1px;text-align:right">AI: ${aiScore}/5</div>` : ''}
             <div style="display:flex;gap:3px">
               ${[1,2,3,4,5].map(v=>`
-              <button onclick="staffRoomSetScore('${s.id}','${item.id}',${v})" style="width:28px;height:28px;border-radius:50%;border:2px solid ${(scores[item.id]||0)>=v?cat.color:'var(--border)'};background:${(scores[item.id]||0)>=v?cat.color+'22':'transparent'};cursor:pointer;font-size:10px;font-weight:700;color:${(scores[item.id]||0)>=v?cat.color:'var(--text-light)'};transition:all .15s;box-shadow:${(scores[item.id]||0)>=v?`0 2px 6px ${cat.color}44`:'none'}" title="${v}点" onmouseover="if(${(scores[item.id]||0)}<${v})this.style.background='${cat.color}11'" onmouseout="if(${(scores[item.id]||0)}<${v})this.style.background='transparent'">${v}</button>`).join('')}
+              <button onclick="staffRoomSetScoreManual('${s.id}','${item.id}',${v})" style="width:28px;height:28px;border-radius:50%;border:2px solid ${(scores[item.id]||0)>=v?cat.color:'var(--border)'};background:${(scores[item.id]||0)>=v?cat.color+'22':'transparent'};cursor:pointer;font-size:10px;font-weight:700;color:${(scores[item.id]||0)>=v?cat.color:'var(--text-light)'};transition:all .15s;box-shadow:${(scores[item.id]||0)>=v?`0 2px 6px ${cat.color}44`:'none'}" title="${v}点${aiScore>0?` (AI採点: ${aiScore}/5)`:''}" onmouseover="if(${(scores[item.id]||0)}<${v})this.style.background='${cat.color}11'" onmouseout="if(${(scores[item.id]||0)}<${v})this.style.background='transparent'">${v}</button>`).join('')}
             </div>
             ${scoreVal > 0 ? `
             <div style="display:flex;align-items:center;gap:4px">
@@ -12586,7 +12611,8 @@ function renderLearnStaffRoom(hero, subnav) {
               <div style="width:32px;height:4px;background:var(--border);border-radius:2px;overflow:hidden">
                 <div style="height:100%;width:${scoreVal*20}%;background:${scoreColor2};border-radius:2px;transition:width .4s"></div>
               </div>
-            </div>` : '<span style="font-size:10px;color:var(--text-light)">未評価</span>'}
+            </div>
+            ${aiScore > 0 && hasDiff ? `<button onclick="staffRoomResetToAI('${s.id}','${item.id}')" style="font-size:9px;background:none;border:1px solid var(--fuji-border,#e0d0ff);color:var(--fuji);border-radius:5px;padding:2px 6px;cursor:pointer" title="AI採点値に戻す"><i class="fas fa-rotate-left" style="font-size:8px;margin-right:2px"></i>AIに戻す</button>` : ''}` : '<span style="font-size:10px;color:var(--text-light)">未評価</span>'}
           </div>
         </div>`;
         }).join('')}
@@ -12760,12 +12786,227 @@ function renderLearnStaffRoom(hero, subnav) {
 
       </div>` : ''}
 
+      <!-- ═══════ 採点履歴グラフ ═══════ -->
+      ${(s.scoreHistory && s.scoreHistory.length >= 2) ? `
+      <div style="margin-bottom:18px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg-white)">
+        <div style="padding:12px 16px;background:var(--bg-subtle);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;cursor:pointer" onclick="const b=document.getElementById('sr-history-body-${s.id}');const ic=document.getElementById('sr-history-ic-${s.id}');const open=b.style.display!=='none';b.style.display=open?'none':'block';ic.style.transform=open?'':'rotate(180deg)'">
+          <i class="fas fa-chart-line" style="color:var(--matcha);font-size:12px"></i>
+          <span style="font-size:12px;font-weight:700;color:var(--text-primary)">採点履歴グラフ</span>
+          <span style="font-size:10px;color:var(--text-muted);background:var(--bg-canvas);border:1px solid var(--border);border-radius:10px;padding:1px 7px">${s.scoreHistory.length}回採点</span>
+          <span style="font-size:10px;margin-left:4px">
+            ${s.scoreHistory.length >= 2 ?
+              (s.scoreHistory[s.scoreHistory.length-1].totalScore > s.scoreHistory[s.scoreHistory.length-2].totalScore
+                ? '<span style=\'color:var(--matcha);font-weight:700\'>↑ +' + (s.scoreHistory[s.scoreHistory.length-1].totalScore - s.scoreHistory[s.scoreHistory.length-2].totalScore) + 'pt 前回比UP</span>'
+                : s.scoreHistory[s.scoreHistory.length-1].totalScore < s.scoreHistory[s.scoreHistory.length-2].totalScore
+                  ? '<span style=\'color:var(--momo);font-weight:700\'>↓ ' + (s.scoreHistory[s.scoreHistory.length-1].totalScore - s.scoreHistory[s.scoreHistory.length-2].totalScore) + 'pt 前回比</span>'
+                  : '<span style=\'color:var(--text-muted)\'>→ 前回と同点</span>')
+              : ''}
+          </span>
+          <i id="sr-history-ic-${s.id}" class="fas fa-chevron-up" style="margin-left:auto;font-size:10px;color:var(--text-muted);transition:transform .2s;transform:rotate(180deg)"></i>
+        </div>
+        <div id="sr-history-body-${s.id}" style="display:block;padding:16px">
+          <!-- スコア折れ線グラフ -->
+          <div style="position:relative;margin-bottom:16px">
+            <canvas id="sr-hist-canvas-${s.id}" style="width:100%;display:block"></canvas>
+          </div>
+          <!-- カテゴリ別進化グリッド -->
+          <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:8px">カテゴリ別スコア推移（最新 vs 前回）</div>
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px">
+            ${(() => {
+              const hist = s.scoreHistory;
+              const latest = hist[hist.length-1];
+              const prev = hist.length >= 2 ? hist[hist.length-2] : null;
+              return (latest.categoryScores||[]).map(cs => {
+                const prevCs = prev ? (prev.categoryScores||[]).find(p => p.label === cs.label) : null;
+                const diff = prevCs ? cs.score - prevCs.score : null;
+                const diffStr = diff !== null ? (diff > 0 ? `<span style="color:var(--matcha);font-size:9px;font-weight:700">▲${diff}</span>` : diff < 0 ? `<span style="color:var(--momo);font-size:9px;font-weight:700">▼${Math.abs(diff)}</span>` : `<span style="color:var(--text-light);font-size:9px">━</span>`) : '';
+                return `<div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:8px;padding:8px 10px">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+                    <span style="font-size:9.5px;color:var(--text-muted);line-height:1.3">${esc(cs.label)}</span>
+                    <div style="display:flex;align-items:center;gap:3px">
+                      <span style="font-size:13px;font-weight:800;color:${cs.score>=80?'var(--matcha)':cs.score>=60?'var(--kogane)':'var(--momo)'}">${cs.score}</span>
+                      ${diffStr}
+                    </div>
+                  </div>
+                  <div style="width:100%;height:3px;background:var(--border);border-radius:2px">
+                    <div style="height:100%;width:${cs.score}%;background:${cs.score>=80?'var(--matcha)':cs.score>=60?'var(--kogane)':'var(--momo)'};border-radius:2px"></div>
+                  </div>
+                </div>`;
+              }).join('');
+            })()}
+          </div>
+          <!-- 採点回一覧テーブル -->
+          <div style="margin-top:14px;border:1px solid var(--border);border-radius:8px;overflow:hidden">
+            <div style="padding:7px 12px;background:var(--bg-subtle);font-size:10.5px;font-weight:700;color:var(--text-secondary);display:grid;grid-template-columns:30px 1fr 60px 50px;gap:10px">
+              <span>#</span><span>採点日時</span><span>スコア</span><span>評価</span>
+            </div>
+            ${s.scoreHistory.slice().reverse().map((h, ri) => {
+              const isLatest = ri === 0;
+              return `<div style="padding:6px 12px;border-top:1px solid var(--border-light,#f0f0f0);font-size:10.5px;display:grid;grid-template-columns:30px 1fr 60px 50px;gap:10px;align-items:center;background:${isLatest?'var(--fuji-bg,#f8f4ff)':'transparent'}">
+                <span style="color:var(--text-muted)">${s.scoreHistory.length - ri}</span>
+                <span style="color:var(--text-secondary)">${new Date(h.scoredAt).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}</span>
+                <span style="font-weight:700;color:${h.totalScore>=78?'var(--matcha)':h.totalScore>=54?'var(--kogane)':'var(--momo)'}">${h.totalScore}pt</span>
+                <span style="font-weight:800;color:${h.totalScore>=78?'var(--matcha)':h.totalScore>=54?'var(--kogane)':'var(--momo)'}">${h.grade}</span>
+              </div>`;
+            }).join('')}
+          </div>
+          <script>
+          (function(){
+            const canvas = document.getElementById('sr-hist-canvas-${s.id}');
+            if (!canvas) return;
+            const hist = ${JSON.stringify(s.scoreHistory)};
+            if (!hist || hist.length < 2) return;
+            const dpr = window.devicePixelRatio || 1;
+            const W = canvas.parentElement ? canvas.parentElement.offsetWidth : 400;
+            const H = 160;
+            canvas.width = W * dpr;
+            canvas.height = H * dpr;
+            canvas.style.width = W + 'px';
+            canvas.style.height = H + 'px';
+            const ctx = canvas.getContext('2d');
+            ctx.scale(dpr, dpr);
+
+            const isDark = document.documentElement.classList.contains('dark') || window.matchMedia('(prefers-color-scheme:dark)').matches;
+            const textColor = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.35)';
+            const gridColor = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)';
+
+            const PAD = { top: 22, right: 24, bottom: 38, left: 40 };
+            const w = W - PAD.left - PAD.right;
+            const h = H - PAD.top - PAD.bottom;
+            const scores = hist.map(x=>x.totalScore);
+            const minS = Math.max(0, Math.min(...scores) - 8);
+            const maxS = Math.min(100, Math.max(...scores) + 8);
+            const range = maxS - minS || 10;
+            const xStep = hist.length > 1 ? w / (hist.length - 1) : w;
+
+            // Y-axis grid
+            const yTicks = [0,20,40,60,80,100].filter(v => v >= minS - 5 && v <= maxS + 5);
+            yTicks.forEach(v => {
+              const y = PAD.top + h - ((v - minS) / range) * h;
+              ctx.strokeStyle = gridColor;
+              ctx.lineWidth = 1;
+              ctx.setLineDash([3,4]);
+              ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + w, y); ctx.stroke();
+              ctx.setLineDash([]);
+              ctx.fillStyle = textColor;
+              ctx.font = '9px sans-serif';
+              ctx.textAlign = 'right';
+              ctx.fillText(v, PAD.left - 5, y + 3.5);
+            });
+
+            // Grade zones
+            const gradeZones = [
+              {min:88,max:100,color:'rgba(168,85,247,0.06)',label:'S'},
+              {min:78,max:88,color:'rgba(34,197,94,0.06)',label:'A'},
+              {min:66,max:78,color:'rgba(59,130,246,0.06)',label:'B'},
+            ];
+            gradeZones.forEach(z => {
+              const ym = PAD.top + h - ((Math.min(z.max,maxS+8) - minS) / range) * h;
+              const yb = PAD.top + h - ((Math.max(z.min,minS-8) - minS) / range) * h;
+              if (ym < PAD.top + h && yb > PAD.top) {
+                ctx.fillStyle = z.color;
+                ctx.fillRect(PAD.left, Math.max(ym, PAD.top), w, Math.min(yb, PAD.top+h) - Math.max(ym, PAD.top));
+                ctx.fillStyle = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.18)';
+                ctx.font = 'bold 9px sans-serif';
+                ctx.textAlign = 'left';
+                ctx.fillText(z.label, PAD.left + 3, Math.max(ym+11, PAD.top+11));
+              }
+            });
+
+            // Area fill
+            const grad = ctx.createLinearGradient(0, PAD.top, 0, PAD.top + h);
+            grad.addColorStop(0, 'rgba(109,40,217,0.22)');
+            grad.addColorStop(1, 'rgba(109,40,217,0.02)');
+            ctx.beginPath();
+            hist.forEach((d, i) => {
+              const x = PAD.left + i * xStep;
+              const y = PAD.top + h - ((d.totalScore - minS) / range) * h;
+              i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            });
+            ctx.lineTo(PAD.left + (hist.length-1)*xStep, PAD.top + h);
+            ctx.lineTo(PAD.left, PAD.top + h);
+            ctx.closePath();
+            ctx.fillStyle = grad;
+            ctx.fill();
+
+            // Line
+            ctx.strokeStyle = '#7c3aed';
+            ctx.lineWidth = 2.5;
+            ctx.lineJoin = 'round';
+            ctx.lineCap = 'round';
+            ctx.setLineDash([]);
+            ctx.beginPath();
+            hist.forEach((d, i) => {
+              const x = PAD.left + i * xStep;
+              const y = PAD.top + h - ((d.totalScore - minS) / range) * h;
+              i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+
+            // Points + labels
+            hist.forEach((d, i) => {
+              const x = PAD.left + i * xStep;
+              const y = PAD.top + h - ((d.totalScore - minS) / range) * h;
+              const isLast = i === hist.length - 1;
+              ctx.beginPath();
+              ctx.arc(x, y, isLast ? 5 : 3.5, 0, Math.PI*2);
+              ctx.fillStyle = isLast ? '#7c3aed' : '#a78bfa';
+              ctx.fill();
+              ctx.strokeStyle = '#fff';
+              ctx.lineWidth = isLast ? 2 : 1.5;
+              ctx.stroke();
+              ctx.fillStyle = isLast ? '#4c1d95' : '#7c3aed';
+              ctx.font = (isLast ? 'bold ' : '') + '10px sans-serif';
+              ctx.textAlign = 'center';
+              ctx.fillText(d.totalScore, x, y - (isLast ? 11 : 9));
+              const dt = new Date(d.scoredAt);
+              ctx.fillStyle = textColor;
+              ctx.font = '8px sans-serif';
+              ctx.fillText((dt.getMonth()+1)+'/'+(dt.getDate()), x, PAD.top + h + 14);
+            });
+
+            // X-axis line
+            ctx.strokeStyle = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(PAD.left, PAD.top + h);
+            ctx.lineTo(PAD.left + w, PAD.top + h);
+            ctx.stroke();
+          })();
+          <\/script>
+        </div>
+      </div>` : ''}
+
+      <!-- ═══════ AIチュータリング（優先課題の書き直し例） ═══════ -->
+      ${autoResult ? `
+      <div id="sr-tutor-panel-${s.id}" style="margin-bottom:18px;border:1px solid var(--fuji-border,#e0d0ff);border-radius:12px;overflow:hidden;background:var(--bg-white)">
+        <div style="padding:12px 16px;background:linear-gradient(90deg,var(--fuji-bg,#f5f0ff),#fff0);border-bottom:1px solid var(--fuji-border,#e0d0ff);display:flex;align-items:center;gap:8px;cursor:pointer" onclick="const b=document.getElementById('sr-tutor-body-${s.id}');const ic=document.getElementById('sr-tutor-ic-${s.id}');const open=b.style.display!=='none';b.style.display=open?'none':'block';ic.style.transform=open?'':'rotate(180deg)'">
+          <i class="fas fa-graduation-cap" style="color:var(--fuji);font-size:13px"></i>
+          <span style="font-size:12px;font-weight:700;color:var(--text-primary)">AIチュータリング</span>
+          <span style="font-size:10px;background:var(--fuji-bg,#f0eeff);color:var(--fuji);border:1px solid var(--fuji-border,#e0d0ff);border-radius:10px;padding:1px 7px;font-weight:600">優先課題の書き直し例</span>
+          <i id="sr-tutor-ic-${s.id}" class="fas fa-chevron-up" style="margin-left:auto;font-size:10px;color:var(--text-muted);transition:transform .2s;transform:rotate(180deg)"></i>
+        </div>
+        <div id="sr-tutor-body-${s.id}" style="display:block;padding:16px">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;line-height:1.7;padding:8px 12px;background:var(--bg-subtle);border-radius:8px">
+            <i class="fas fa-circle-info" style="margin-right:4px;color:var(--fuji)"></i>
+            採点結果の最優先課題に基づき、具体的な書き直し例を提示します。「改善前」パターンを自身の脚本で探し、「改善後」の方向性を参考に次稿を執筆してください。
+          </div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            ${staffRoomGenerateTutoringExamples(s)}
+          </div>
+          <div style="margin-top:14px;padding:10px 14px;background:var(--kogane-bg);border:1px solid var(--kogane-border);border-radius:8px;font-size:10.5px;color:var(--text-primary);line-height:1.7">
+            <i class="fas fa-rotate" style="color:var(--kogane);margin-right:4px"></i>
+            <strong>改稿サイクル：</strong>書き直し → 「提出・自動採点」ボタンで再採点 → 採点履歴グラフで改善を確認
+          </div>
+        </div>
+      </div>` : ''}
+
       <!-- 採点シート -->
       <div style="margin-bottom:20px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
           <div style="font-size:15px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary)">
             <i class="fas fa-clipboard-list" style="color:var(--fuji);margin-right:8px"></i>採点ルーブリック
-            <span style="font-size:11px;font-weight:400;color:var(--text-muted);margin-left:8px">（手動で各項目を採点 / 自動採点で一括入力）</span>
+            <span style="font-size:11px;font-weight:400;color:var(--text-muted);margin-left:8px">（各ボタンをクリックで手動上書き可能 / AI採点と差分をハイライト表示）</span>
           </div>
           ${totalScore !== null ? `
           <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -12773,6 +13014,23 @@ function renderLearnStaffRoom(hero, subnav) {
             <div style="font-size:11px;padding:3px 10px;background:${scoreColor}18;color:${scoreColor};border:1px solid ${scoreColor}44;border-radius:20px;font-weight:600">${scoreLabel}</div>
           </div>` : `<div style="margin-left:auto;font-size:11px;color:var(--text-muted)">各項目を評価すると総合スコアが計算されます</div>`}
         </div>
+        ${(() => {
+          // 差分サマリーバナー
+          const mo = s.manualOverrides || {};
+          const aiScores = (s.autoScoreResult?.itemScores) || {};
+          const diffItems = Object.entries(mo).filter(([k,v]) => aiScores[k] && v !== aiScores[k]);
+          if (diffItems.length === 0) return '';
+          const upItems = diffItems.filter(([k,v]) => v > aiScores[k]);
+          const downItems = diffItems.filter(([k,v]) => v < aiScores[k]);
+          return `<div style="margin-bottom:10px;padding:8px 14px;background:linear-gradient(90deg,#eff6ff,#f0fdf4);border:1px solid #bfdbfe;border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <i class="fas fa-code-compare" style="color:#3b82f6;font-size:11px;flex-shrink:0"></i>
+            <span style="font-size:11px;font-weight:700;color:var(--text-primary)">インタラクティブ差分モード</span>
+            <span style="font-size:10.5px;color:var(--text-muted)">${diffItems.length}項目で手動採点がAI採点と異なります</span>
+            ${upItems.length > 0 ? `<span style="font-size:10px;background:#dcfce7;color:#15803d;border:1px solid #86efac;border-radius:10px;padding:1px 7px;font-weight:600">↑高く評価: ${upItems.length}項目</span>` : ''}
+            ${downItems.length > 0 ? `<span style="font-size:10px;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:10px;padding:1px 7px;font-weight:600">↓低く評価: ${downItems.length}項目</span>` : ''}
+            <button onclick="staffRoomResetAllToAI('${s.id}')" style="margin-left:auto;font-size:9.5px;background:none;border:1px solid var(--border);color:var(--text-muted);border-radius:5px;padding:3px 8px;cursor:pointer"><i class="fas fa-rotate-left" style="font-size:8px;margin-right:2px"></i>全てAI採点に戻す</button>
+          </div>`;
+        })()}
         ${rubricHtml}
       </div>
 
@@ -12966,6 +13224,74 @@ function staffRoomSetScore(sessionId, itemId, score) {
   render(); // スコア変更はリアルタイムで反映
 }
 
+// ── インタラクティブルーブリック：手動上書き採点（差分ハイライト対応）──
+function staffRoomSetScoreManual(sessionId, itemId, score) {
+  const sessions = DB.get('staffroom_sessions', []);
+  const idx = sessions.findIndex(s => s.id === sessionId);
+  if (idx === -1) return;
+  if (!sessions[idx].scores) sessions[idx].scores = {};
+  if (!sessions[idx].manualOverrides) sessions[idx].manualOverrides = {};
+
+  const prevScore = sessions[idx].scores[itemId] || 0;
+  const newScore = (prevScore === score) ? 0 : score;
+
+  sessions[idx].scores[itemId] = newScore;
+  const aiScore = (sessions[idx].autoScoreResult?.itemScores || {})[itemId] || 0;
+
+  // AI採点が存在する場合は差分を記録
+  if (aiScore > 0 && newScore > 0) {
+    sessions[idx].manualOverrides[itemId] = newScore;
+  } else if (newScore === 0) {
+    delete sessions[idx].manualOverrides[itemId];
+  }
+
+  sessions[idx].updatedAt = Date.now();
+  DB.set('staffroom_sessions', sessions);
+  render();
+
+  // 差分がある場合はトースト通知
+  if (aiScore > 0 && newScore > 0 && newScore !== aiScore) {
+    const diff = newScore - aiScore;
+    toast(`手動採点 ${newScore}/5 に設定 (AI採点と差分: ${diff > 0 ? '+' : ''}${diff})`, 'info');
+  }
+}
+
+// ── インタラクティブルーブリック：AI採点値にリセット ──
+function staffRoomResetToAI(sessionId, itemId) {
+  const sessions = DB.get('staffroom_sessions', []);
+  const idx = sessions.findIndex(s => s.id === sessionId);
+  if (idx === -1) return;
+
+  const aiScore = (sessions[idx].autoScoreResult?.itemScores || {})[itemId] || 0;
+  if (aiScore > 0) {
+    sessions[idx].scores[itemId] = aiScore;
+    if (sessions[idx].manualOverrides) {
+      delete sessions[idx].manualOverrides[itemId];
+    }
+    sessions[idx].updatedAt = Date.now();
+    DB.set('staffroom_sessions', sessions);
+    render();
+    toast(`AI採点値 ${aiScore}/5 にリセットしました`, 'success');
+  }
+}
+
+// ── インタラクティブルーブリック：全項目をAI採点値にリセット ──
+function staffRoomResetAllToAI(sessionId) {
+  const sessions = DB.get('staffroom_sessions', []);
+  const idx = sessions.findIndex(s => s.id === sessionId);
+  if (idx === -1) return;
+
+  const aiScores = sessions[idx].autoScoreResult?.itemScores || {};
+  if (Object.keys(aiScores).length === 0) return;
+
+  sessions[idx].scores = { ...aiScores };
+  sessions[idx].manualOverrides = {};
+  sessions[idx].updatedAt = Date.now();
+  DB.set('staffroom_sessions', sessions);
+  render();
+  toast('全項目をAI採点値にリセットしました', 'success');
+}
+
 function staffRoomSaveAll(sessionId) {
   staffRoomAutoSaveTitle(sessionId);
   staffRoomAutoSaveScript(sessionId);
@@ -13012,7 +13338,7 @@ function staffRoomAutoScore(sessionId) {
         suggestions: result.suggestions,
         priority: result.priority,
       };
-      sessions[idx].autoScoreResult = {
+      const newAutoResult = {
         totalScore: result.totalScore,
         grade: result.grade,
         gradeLabel: result.gradeLabel,
@@ -13020,6 +13346,7 @@ function staffRoomAutoScore(sessionId) {
         categoryScores: result.categoryScores,
         detailNotes: result.detailNotes,
         itemDetails: result.itemDetails || {},
+        itemScores: { ...result.itemScores },  // 差分ハイライト用にAIスコアを保持
         analysisStats: result.analysisStats || {},
         strengths: result.strengths || '',
         weaknesses: result.weaknesses || '',
@@ -13027,6 +13354,25 @@ function staffRoomAutoScore(sessionId) {
         priority: result.priority || '',
         scoredAt: Date.now(),
       };
+      sessions[idx].autoScoreResult = newAutoResult;
+      // 自動採点後は手動上書きをリセット
+      sessions[idx].manualOverrides = {};
+
+      // ── 採点履歴を蓄積 ──
+      if (!sessions[idx].scoreHistory) sessions[idx].scoreHistory = [];
+      sessions[idx].scoreHistory.push({
+        scoredAt: newAutoResult.scoredAt,
+        totalScore: newAutoResult.totalScore,
+        grade: newAutoResult.grade,
+        categoryScores: newAutoResult.categoryScores,
+        itemScores: { ...result.itemScores },
+        scriptLength: (s.scriptText || '').length,
+      });
+      // 最大20件まで保存
+      if (sessions[idx].scoreHistory.length > 20) {
+        sessions[idx].scoreHistory = sessions[idx].scoreHistory.slice(-20);
+      }
+
       sessions[idx].updatedAt = Date.now();
       DB.set('staffroom_sessions', sessions);
 
@@ -13050,6 +13396,154 @@ function staffRoomClearAutoScore(sessionId) {
   delete sessions[idx].autoScoreResult;
   DB.set('staffroom_sessions', sessions);
   render();
+}
+
+// ── AIチュータリング：優先課題の書き直し例生成 ──────────────────
+function staffRoomGenerateTutoringExamples(session) {
+  const ar = session.autoScoreResult;
+  if (!ar) return '<div style="font-size:11px;color:var(--text-muted)">自動採点後に表示されます。</div>';
+
+  const scores = ar.itemScores || session.scores || {};
+  const itemDetails = ar.itemDetails || {};
+
+  // 最も低スコアの項目を最大4件抽出
+  const ITEM_DB = {
+    'emotional-impact': {
+      label: '情動的インパクト',
+      tips: [
+        { title: '感情を動かす「決定的瞬間」の挿入', bad: '田中「わかった。もう気にしない」\n（田中は歩き去る）', good: 'しばらく沈黙。\n田中、眼を細め、一歩だけ踏み出す——けれど止まる。\nそのままゆっくりと踵を返す。\n佐藤「……田中」\n田中、振り返らない。', tip: '「感情を語らせず、行動と沈黙で見せる」。台詞で感情を説明するのではなく、キャラクターの身体的反応・間・行動で伝えましょう。' },
+        { title: 'カタルシスのある最終シーンへの改稿', bad: '田中「ありがとう。君のおかげで変われた」\n花子「いつでも来てね」', good: 'ゆっくり、田中の手が花子の手をにぎる。\n花子、驚いて——でも手を離さない。\n雨が止む音。\n（二人、言葉なく）', tip: 'クライマックスは台詞より「動作・音・光」で締める。観客が「涙の理由」を自分で発見できる余白を作りましょう。' },
+      ]
+    },
+    'subtext': {
+      label: 'サブテキスト',
+      tips: [
+        { title: '説明台詞 → サブテキスト台詞への変換', bad: '田中「私はずっと君のことが好きだったけど、怖くて言えなかったんだ」', good: '田中「……傘、持ってきた。念のため」\n花子「晴れてるけど」\n田中「……そうだな」', tip: '「言いたいこと」を直接言わせず、「ちぐはぐな行動・回避・代替物」で表現。台詞の裏に別の感情が透けて見えるようにしましょう。' },
+        { title: '過去の説明 → 現在のアクションで示す', bad: '田中「俺は昔、親父に捨てられて施設で育ったんだ」', good: '食堂の混雑。全員が椅子を取り合う中、田中だけが隅のパイプ椅子を選ぶ。\n迷わず。習慣のように。', tip: 'バックストーリーは「説明」ではなく「行動パターンに埋め込む」。セリフの代わりに習慣・反射・空間の取り方で過去を示しましょう。' },
+      ]
+    },
+    'three-act': {
+      label: '三幕構成',
+      tips: [
+        { title: '発端事件（インサイティング・インシデント）の強化', bad: 'シーン1: 主人公の普通の朝。\nシーン2: 会社に着く。\nシーン3: 上司に呼ばれる。', good: 'シーン1（発端事件）:\n電話が鳴る。真夜中。田中、出ると——電話口の声は10年前に失踪した兄だった。\n「会いに来い。でも誰にも言うな」', tip: '第一幕の発端事件は「主人公の日常を壊す一撃」。観客が「これからどうなる？」と前のめりになる出来事を最初の15%に置きましょう。' },
+        { title: '第二幕中盤の「中央の危機」を挿入', bad: 'シーン12: 捜索を続ける田中。\nシーン13: ヒントを見つける。\nシーン14: さらに追う。', good: 'シーン12（中央の危機）:\n田中、ついに手がかりを掴む——しかし同時に、自分がずっと探していたものが「存在しない」かもしれないと悟る。\n立ちすくむ田中。これまでの行動が全て崩れ落ちる瞬間。', tip: '第二幕中盤（全体の50%地点）に「最悪の瞬間・最大の誤解・信念の崩壊」を置くと構成が引き締まります。' },
+      ]
+    },
+    'char-arc': {
+      label: 'キャラクターアーク',
+      tips: [
+        { title: '変化前/変化後の「対比シーン」を設計', bad: '（主人公が変化したという説明台詞）\n田中「昔の俺とは違う。変われた気がする」', good: '【第一幕・冒頭】田中、困っている老人を無視して通り過ぎる。\n（中略）\n【第三幕・終盤】田中、今度は立ち止まる——でも、何も言わずに老人の荷物を持ちあげる。', tip: '「変化は語るな、見せろ」。同じ状況を2回書き、行動の違いで変化を示す。これをブックエンド構造と言います。' },
+      ]
+    },
+    'visual': {
+      label: 'ビジュアルストーリーテリング',
+      tips: [
+        { title: '説明的ト書き → 映像的ト書きへの変換', bad: '田中は悲しんでいる。彼は友達を亡くしたことを後悔している。', good: '田中の机に、飲みかけのコーヒーカップが二つ。\n片方はずっと冷めたまま。', tip: '感情・状況・バックストーリーを「具体的な物・光・空間」で表現。「キャラが何を感じているか」ではなく「カメラが何を映すか」を書きましょう。' },
+        { title: '音と光でシーンを締める', bad: '二人は別れた。田中は一人になった。', good: 'ドアが閉まる。\n部屋に残るのは、花子の香水の残り香と、止まった時計。', tip: '「聴覚・嗅覚・触覚」の感覚的ディテールを加えると読者の脳内で映像が動き出します。感情に「音・匂い・質感」を対応させましょう。' },
+      ]
+    },
+    'dialogue-dynamics': {
+      label: '対話のダイナミクス',
+      tips: [
+        { title: '目的のない会話 → 目的衝突のある会話へ', bad: '田中「最近どう？」\n花子「まあまあかな。仕事が忙しくて」\n田中「そうか。大変だね」\n花子「田中は？」\n田中「俺も忙しいよ」', good: '田中「……例の件、返事はまだ？」（田中の目標: 答えを得たい）\n花子「コーヒー飲む？（花子の目標: 話題を避けたい）\n田中「いらない。聞かせてくれ」\n花子「……砂糖は？」\n田中「花子」', tip: '台詞は「キャラクターAの欲求」と「キャラクターBの欲求」が衝突するところに生まれます。会話の目的を設定してから台詞を書きましょう。' },
+      ]
+    },
+    'voice': {
+      label: 'キャラクターの声の固有性',
+      tips: [
+        { title: '同じ声のキャラクターを個性化する', bad: '田中「今日の打ち合わせはどうだった？」\n花子「まあまあだったよ。うまくいったと思う」\n上司「そうか。よかった」', good: '田中（早口・省略型）「打ち合わせ、どうだ」\n花子（丁寧・間が長い）「……えーと、先方が、少し難しいとおっしゃって、いたんですが」\n上司（直球・結論先行）「通ったか、通らなかったか」', tip: 'キャラごとに「話すスピード・語彙レベル・文末の癖・省略の有無・間の長さ」を設計する。声の設計書を作ってから台詞を書くと統一感が生まれます。' },
+      ]
+    },
+    'originality': {
+      label: 'オリジナリティ',
+      tips: [
+        { title: '「よくある設定」に独自の反転を加える', bad: '（刑事が事件を解決するありきたりな話）', good: '（記憶を「売買」できる世界で、刑事が自分の記憶が犯人によって「書き換えられていた」と気づく話）', tip: '既存ジャンルに「一つだけ独自のルール」を加えると世界観が生まれます。「もし○○だったら？」の問いを起点に設定を反転させましょう。' },
+      ]
+    },
+    'protag-want-need': {
+      label: 'Want/Need設計',
+      tips: [
+        { title: 'Want（外的目標）とNeed（内的必要性）を分離して設計する', bad: '（主人公は事件を解決したいだけで、内面的な成長がない）', good: 'Want（外的目標）: 失踪した娘を探し出す\nNeed（内的必要性）: 娘に謝れなかった過去を受け入れる\n→ 物語の終わりに、Wantを達成しても、Needを満たさなければ真の解決にならないことが明らかになる', tip: 'WantとNeedは「表の物語」と「裏の物語」を作ります。Wantが叶う/叶わないに関わらず、Needに向き合う瞬間がクライマックスになるよう設計しましょう。' },
+      ]
+    },
+    'authorial-voice': {
+      label: '作家性・文体の独自性',
+      tips: [
+        { title: '抽象的な描写 → 固有の感覚的ディテールへ', bad: '夕暮れの街。田中は哀しそうに歩く。', good: '夕暮れ。アスファルトがじわじわと白くなる時間。\n田中の靴底に、ガムの跡。\n（踏んでしまったのは、三歩前だった）', tip: '「哀しい」は書かず、「哀しさを感じさせる具体的なもの」を書く。固有名詞・身体感覚・時間の感じ方——これがあなただけの文体になります。' },
+      ]
+    },
+    'theme-clarity': {
+      label: 'テーマの一貫性',
+      tips: [
+        { title: 'テーマを台詞で語らせず、対立・構造に埋め込む', bad: '（クライマックスで主人公が「大切なのは仲間だ」と演説する）', good: '（主人公は一人で問題を解決しようとして何度も失敗する。ラストシーンで初めて仲間に助けを求める——そこで初めて成功する。テーマは行動と結果で示される）', tip: 'テーマは「台詞で言わせない」。構造・反復・対比・キャラクターの失敗と成功のパターンに埋め込むと、観客が自分でテーマを発見します。' },
+      ]
+    },
+    'direction-clarity': {
+      label: 'ト書きの簡潔さ',
+      tips: [
+        { title: '過剰なト書きを削ぎ落とす', bad: '田中は非常に怒った表情で、両手を強く握りしめながら、ゆっくりと立ち上がり、窓の外を長い時間見つめた後、深い溜め息をついた。', good: '田中、立つ。\n窓。長い沈黙。', tip: '「演出しすぎない」。ト書きは「何が起きているか」だけを書き、「どう感じているか」は役者に委ねましょう。1ト書きは1〜2文が理想です。' },
+      ]
+    },
+  };
+
+  // 低スコア順に並べる
+  const itemScoreList = Object.entries(scores)
+    .filter(([k, v]) => v > 0 && ITEM_DB[k])
+    .sort((a, b) => a[1] - b[1]);
+
+  if (itemScoreList.length === 0) {
+    return `<div style="font-size:11.5px;color:var(--text-muted);padding:12px;text-align:center">
+      採点後に弱点項目の書き直し例が表示されます
+    </div>`;
+  }
+
+  // 上位4項目（スコア1〜3）をチュータリング対象に
+  const targets = itemScoreList.filter(([,v]) => v <= 3).slice(0, 4);
+  if (targets.length === 0) {
+    // スコアが全て高い場合は上位2項目
+    targets.push(...itemScoreList.slice(0, 2));
+  }
+
+  return targets.map(([itemId, score]) => {
+    const db = ITEM_DB[itemId];
+    if (!db) return '';
+    const tip = db.tips[Math.floor(Math.random() * db.tips.length)];
+    const scoreColor = score <= 1 ? '#ef4444' : score <= 2 ? '#f97316' : '#eab308';
+    const urgency = score <= 1 ? '最優先' : score <= 2 ? '高優先' : '要改善';
+    const issues = (itemDetails[itemId]?.issues || []).slice(0, 2);
+
+    return `<div style="border:1px solid ${scoreColor}33;border-radius:10px;overflow:hidden;border-left:3px solid ${scoreColor}">
+      <div style="padding:10px 14px;background:${scoreColor}08;display:flex;align-items:center;gap:8px">
+        <span style="font-size:11px;background:${scoreColor};color:#fff;padding:1px 7px;border-radius:10px;font-weight:700;flex-shrink:0">${urgency}</span>
+        <span style="font-size:12.5px;font-weight:700;color:var(--text-primary)">${esc(db.label)}</span>
+        <span style="font-size:10px;color:${scoreColor};font-weight:700;margin-left:auto">${score}/5</span>
+      </div>
+      ${issues.length > 0 ? `
+      <div style="padding:8px 14px;background:${scoreColor}06;border-bottom:1px dashed ${scoreColor}22">
+        ${issues.map(i2 => `<div style="font-size:10.5px;color:var(--momo);display:flex;gap:5px;margin-bottom:2px"><span>⚠</span><span>${esc(i2)}</span></div>`).join('')}
+      </div>` : ''}
+      <div style="padding:12px 14px">
+        <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:8px;display:flex;align-items:center;gap:5px">
+          <i class="fas fa-pen-ruler" style="color:var(--fuji);font-size:10px"></i>
+          ${esc(tip.title)}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:9px 11px">
+            <div style="font-size:9.5px;font-weight:700;color:#b91c1c;margin-bottom:5px;display:flex;align-items:center;gap:3px"><i class="fas fa-times-circle" style="font-size:9px"></i> 改善前（典型的パターン）</div>
+            <pre style="font-size:10.5px;color:#7f1d1d;line-height:1.7;white-space:pre-wrap;margin:0;font-family:'Noto Serif JP',serif">${esc(tip.bad)}</pre>
+          </div>
+          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:9px 11px">
+            <div style="font-size:9.5px;font-weight:700;color:#15803d;margin-bottom:5px;display:flex;align-items:center;gap:3px"><i class="fas fa-check-circle" style="font-size:9px"></i> 改善後（推奨例）</div>
+            <pre style="font-size:10.5px;color:#14532d;line-height:1.7;white-space:pre-wrap;margin:0;font-family:'Noto Serif JP',serif">${esc(tip.good)}</pre>
+          </div>
+        </div>
+        <div style="background:var(--fuji-bg,#f5f0ff);border:1px solid var(--fuji-border,#e0d0ff);border-radius:7px;padding:8px 11px">
+          <div style="font-size:10px;color:var(--fuji);font-weight:700;margin-bottom:3px"><i class="fas fa-lightbulb" style="margin-right:3px"></i>ポイント</div>
+          <div style="font-size:10.5px;color:var(--text-primary);line-height:1.7">${esc(tip.tip)}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 // ── AI採点フィードバックをメモエリアに再反映 ──────────────────
@@ -13468,31 +13962,46 @@ function staffRoomRunAnalysis(text) {
   const scores = {};
   const itemDetails = {};
 
-  // ── C-1: 三幕構成の明確さ（客観重視）
+  // ── C-1: 三幕構成の明確さ（客観重視）v4.1チューニング
   {
     let pts = 1;
     const reasons = [], issues = [];
-    if (hasIncitingIncident) {
-      pts++;
-      reasons.push(incitingInFirstHalf ? '発端事件が前半に配置（適切）' : '発端事件あり（位置が遅め）');
+    // 短すぎるスクリプトは構成評価できない
+    if (totalChars < 200) {
+      pts = 1;
+      issues.push('テキスト量不足で構成評価が困難（目安: 400字以上）');
+      scores['three-act'] = 1;
+      itemDetails['three-act'] = { reasons, issues };
     } else {
-      issues.push('発端事件が読み取れない');
+      if (hasIncitingIncident) {
+        pts++;
+        reasons.push(incitingInFirstHalf ? '発端事件が前半に配置（適切）' : '発端事件あり（位置が遅め）');
+      } else {
+        issues.push('発端事件が読み取れない');
+      }
+      if (hasConflict) {
+        const conflictStr = conflictIntensity >= 5 ? '強度高' : conflictIntensity >= 2 ? '確認' : '薄め';
+        pts++;
+        reasons.push(`対立・葛藤が描かれている（${conflictStr}: ${conflictIntensity}要素）`);
+      } else issues.push('対立・コンフリクトが薄い');
+      if (hasClimax) {
+        pts++;
+        reasons.push(climaxInLastHalf ? 'クライマックスが後半に配置（理想的）' : 'クライマックスあり（位置が早め）');
+      } else {
+        issues.push('クライマックスが不明確');
+      }
+      // 三幕揃い + シーン数でボーナス（シーン数閾値を5に引き上げ）
+      if (hasIncitingIncident && hasConflict && hasClimax && sceneCount >= 5) {
+        pts = Math.min(5, pts + 1);
+        reasons.push('三幕が有機的に連鎖している（コンクール合格ライン）');
+      } else if (hasIncitingIncident && hasConflict && hasClimax && sceneCount >= 3) {
+        reasons.push('三幕の要素は揃っているが展開が浅め（シーン数増加推奨）');
+      }
+      if (sceneCount === 0) { pts = Math.max(1, pts - 1); issues.push('シーン区切りが検出されない'); }
+      else if (sceneCount < 3) { issues.push('シーン数が少ない（3シーン未満）。起・承・転・結を別シーンで表現を'); }
+      scores['three-act'] = Math.min(5, Math.max(1, pts));
+      itemDetails['three-act'] = { reasons, issues };
     }
-    if (hasConflict) { pts++; reasons.push('対立・葛藤が描かれている（強度: ' + conflictIntensity + '要素）'); }
-    else issues.push('対立・コンフリクトが薄い');
-    if (hasClimax) {
-      pts++;
-      reasons.push(climaxInLastHalf ? 'クライマックスが後半に配置（理想的）' : 'クライマックスあり（位置が早め）');
-    } else {
-      issues.push('クライマックスが不明確');
-    }
-    if (hasIncitingIncident && hasConflict && hasClimax && sceneCount >= 3) {
-      pts = Math.min(5, pts + 1);
-      reasons.push('三幕が有機的に連鎖している（コンクール合格ライン）');
-    }
-    if (sceneCount === 0) { pts = Math.max(1, pts - 1); issues.push('シーン区切りが検出されない'); }
-    scores['three-act'] = Math.min(5, Math.max(1, pts));
-    itemDetails['three-act'] = { reasons, issues };
   }
 
   // ── C-2: プロットの論理的一貫性（客観・主観混合）
@@ -13596,57 +14105,84 @@ function staffRoomRunAnalysis(text) {
     itemDetails['char-unique'] = { reasons, issues };
   }
 
-  // ── C-7: サブテキストの活用（主観重視）
+  // ── C-7: サブテキストの活用（主観重視）v4.1チューニング
   {
     let pts = 1;
     const reasons = [], issues = [];
-    if (onTheNoseRatio < 0.08) {
+    // onTheNoseRatioの閾値を厳密化（短いスクリプトはセリフが少ないためバイアス補正）
+    const effectiveOnTheNoseRatio = totalDialogueLines < 5 ? 0 : onTheNoseRatio;
+    if (effectiveOnTheNoseRatio < 0.05) {
       pts += 2;
-      reasons.push('説明台詞がほぼなく、行間で語っている（優秀）');
-    } else if (onTheNoseRatio < 0.2) {
+      reasons.push('説明台詞がほぼなく、行間で語っている（優秀 / 上位10%）');
+    } else if (effectiveOnTheNoseRatio < 0.15) {
       pts++;
-      reasons.push('説明台詞は' + Math.round(onTheNoseRatio * 100) + '%（やや改善余地あり）');
+      reasons.push('説明台詞は' + Math.round(effectiveOnTheNoseRatio * 100) + '%（許容範囲）');
+    } else if (effectiveOnTheNoseRatio < 0.3) {
+      // 中程度はペナルティなし、理由のみ
+      reasons.push('説明台詞が' + Math.round(effectiveOnTheNoseRatio * 100) + '%（やや改善余地あり）');
     } else {
-      issues.push('説明台詞が' + Math.round(onTheNoseRatio * 100) + '%（「言わせずに見せる」が必要）');
+      issues.push('説明台詞が' + Math.round(effectiveOnTheNoseRatio * 100) + '%（「言わせずに見せる」が必要）');
+      pts = Math.max(1, pts - 0); // 重大ペナルティはC-15で吸収
     }
-    if (subtextHardCount >= 2) { pts++; reasons.push('沈黙・間・省略（ハードサブテキスト）が' + subtextHardCount + '箇所'); }
-    else if (subtextSoftCount >= 3) { pts++; reasons.push('動作・表情によるサブテキスト表現が' + subtextSoftCount + '箇所'); }
-    if (subtextScore_raw >= 8) { pts = Math.min(5, pts + 1); reasons.push('サブテキスト表現が豊富（プロレベル）'); }
-    if (subtextHardCount === 0 && subtextSoftCount < 2) issues.push('沈黙・間・省略を活用したサブテキストが少ない');
+    // サブテキスト要素（閾値を現実的に調整）
+    if (subtextHardCount >= 3) { pts++; reasons.push('沈黙・間・省略（ハードサブテキスト）が' + subtextHardCount + '箇所（プロ水準）'); }
+    else if (subtextHardCount >= 1) { pts++; reasons.push('沈黙・間・省略（サブテキスト）が' + subtextHardCount + '箇所'); }
+    if (subtextSoftCount >= 4) { pts++; reasons.push('動作・表情によるサブテキスト表現が' + subtextSoftCount + '箇所（豊富）'); }
+    else if (subtextSoftCount >= 2) { reasons.push('動作・表情によるサブテキスト表現が' + subtextSoftCount + '箇所'); }
+    if (subtextScore_raw >= 10) { pts = Math.min(5, pts + 1); reasons.push('サブテキスト表現が非常に豊富（コンクールレベル）'); }
+    if (subtextHardCount === 0 && subtextSoftCount < 2) {
+      issues.push('沈黙・間・省略を活用したサブテキストが少ない（「…」「（間）」等を活用）');
+    }
     scores['subtext'] = Math.min(5, Math.max(1, pts));
     itemDetails['subtext'] = { reasons, issues };
   }
 
-  // ── C-8: キャラクターの声の固有性（主観分析）
+  // ── C-8: キャラクターの声の固有性（主観分析）v4.1チューニング
   {
-    let pts = 2;
+    let pts = uniqueChars >= 2 ? 2 : 1; // 1人しかいない場合は開始を1に
     const reasons = [], issues = [];
-    if (charVocabUniqueness > 0.4) { pts++; reasons.push('キャラ間の語彙差が大きい（声の個性あり）'); }
-    if (dialogueLenStdDev > 15) { pts++; reasons.push('セリフ長の多様性（σ=' + Math.round(dialogueLenStdDev) + '）あり'); }
-    if (uniqueChars >= 2 && totalDialogueLines >= 4) { pts++; reasons.push('複数キャラのセリフを比較・検証可能'); }
-    if (maxConsecSameChar <= 2) { reasons.push('同一キャラ連続は' + maxConsecSameChar + '回以内（自然な会話）'); }
-    else { issues.push('同一キャラが' + maxConsecSameChar + '回連続発言（モノローグ化）'); pts = Math.max(1, pts - 1); }
-    if (charVocabUniqueness < 0.15 && uniqueChars >= 2) issues.push('キャラ間のセリフが似すぎている（声の差別化が必要）');
+    if (uniqueChars < 2) {
+      issues.push('識別可能なキャラクターが1人以下（対話の比較不可）');
+    } else {
+      if (charVocabUniqueness > 0.5) { pts++; reasons.push('キャラ間の語彙差が非常に大きい（声の強い個性あり）'); }
+      else if (charVocabUniqueness > 0.3) { pts++; reasons.push('キャラ間の語彙差あり（声の個性が感じられる）'); }
+      else if (charVocabUniqueness > 0.15) { reasons.push('キャラ間の語彙差はやや少ない'); }
+      else { issues.push('キャラ間のセリフが似すぎている（声の差別化が必要）'); }
+      if (dialogueLenStdDev > 20) { pts++; reasons.push('セリフ長の多様性（σ=' + Math.round(dialogueLenStdDev) + '）が豊富'); }
+      else if (dialogueLenStdDev > 10) { pts++; reasons.push('セリフ長の変化あり（σ=' + Math.round(dialogueLenStdDev) + '）'); }
+      if (totalDialogueLines >= 6) { pts = Math.min(5, pts + 0); reasons.push('十分なセリフ数（' + totalDialogueLines + '行）で比較・検証可能'); }
+    }
+    if (maxConsecSameChar <= 2 && uniqueChars >= 2) { reasons.push('同一キャラ連続は' + maxConsecSameChar + '回以内（自然な会話交換）'); }
+    else if (maxConsecSameChar >= 4) { issues.push('同一キャラが' + maxConsecSameChar + '回連続発言（独白化）'); pts = Math.max(1, pts - 1); }
     scores['voice'] = Math.min(5, Math.max(1, pts));
     itemDetails['voice'] = { reasons, issues };
   }
 
-  // ── C-9: セリフの自然さ・リズム（客観・主観混合）
+  // ── C-9: セリフの自然さ・リズム（客観・主観混合）v4.1チューニング
   {
     let pts = 2;
     const reasons = [], issues = [];
-    if (avgDialogueLen > 5 && avgDialogueLen < 45) {
-      pts++;
-      reasons.push('セリフ平均' + Math.round(avgDialogueLen) + '字（読み上げやすい長さ）');
+    if (totalDialogueLines < 3) {
+      pts = 1;
+      issues.push('セリフ行数が少なく評価困難（最低3行以上）');
+    } else {
+      // 平均セリフ長の閾値を現実的に（日本語は英語より長いため調整）
+      if (avgDialogueLen > 3 && avgDialogueLen < 55) {
+        pts++;
+        reasons.push('セリフ平均' + Math.round(avgDialogueLen) + '字（読み上げやすい長さ）');
+      } else if (avgDialogueLen >= 55 && avgDialogueLen < 80) {
+        reasons.push('セリフやや長め（平均' + Math.round(avgDialogueLen) + '字）');
+      }
+      if (avgDialogueLen > 90) {
+        pts = Math.max(1, pts - 1);
+        issues.push('セリフが長すぎる（平均' + Math.round(avgDialogueLen) + '字）。実際の会話は短め');
+      }
+      if (onTheNoseCount < 3) { pts++; reasons.push('説明台詞が少ない（' + onTheNoseCount + '行）'); }
+      else if (onTheNoseCount < 6) reasons.push('説明台詞が' + onTheNoseCount + '行（適度な範囲）');
+      if (maxConsecSameChar <= 2 && totalDialogueLines > 4) { pts++; reasons.push('会話のテンポが自然（往復が成立）'); }
+      if (dialogueLenStdDev > 15) reasons.push('セリフ長に変化あり（単調でない）');
+      if (avgDialogueLen > 70) issues.push('1セリフが長い（60字以内を目安に分割を検討）');
     }
-    if (avgDialogueLen > 80) {
-      pts = Math.max(1, pts - 1);
-      issues.push('セリフが長すぎる（平均' + Math.round(avgDialogueLen) + '字）。実際の会話は短い');
-    }
-    if (onTheNoseCount < 2) { pts++; reasons.push('説明台詞がほぼなし'); }
-    if (maxConsecSameChar <= 2 && totalDialogueLines > 3) { pts++; reasons.push('会話のテンポが自然'); }
-    if (dialogueLenStdDev > 10) reasons.push('セリフ長に変化あり（単調でない）');
-    if (avgDialogueLen > 60) issues.push('1セリフが長い（分割を検討）');
     scores['naturalness'] = Math.min(5, Math.max(1, pts));
     itemDetails['naturalness'] = { reasons, issues };
   }
@@ -14345,7 +14881,32 @@ function staffRoomExport(sessionId) {
   if (s.feedback?.suggestions) text += `\n📋 具体的な改稿提案:\n${s.feedback.suggestions}\n`;
   if (s.feedback?.priority) text += `\n🎯 次稿に向けた最重要課題:\n${s.feedback.priority}\n`;
 
-  text += `\n${bar}\n  Generated by シナリオラボ 職員室 自動採点システム v3.0\n${bar}\n`;
+  // 採点履歴サマリー
+  if (s.scoreHistory && s.scoreHistory.length >= 2) {
+    text += `\n${line}\n採点履歴（${s.scoreHistory.length}回）\n${line}\n`;
+    s.scoreHistory.forEach((h, i) => {
+      text += `  ${i + 1}回目: ${new Date(h.scoredAt).toLocaleString('ja-JP')} — ${h.totalScore}点 [${h.grade}]\n`;
+    });
+    const first = s.scoreHistory[0];
+    const last = s.scoreHistory[s.scoreHistory.length - 1];
+    const totalDiff = last.totalScore - first.totalScore;
+    text += `  推移: ${first.totalScore}点 → ${last.totalScore}点（${totalDiff >= 0 ? '+' : ''}${totalDiff}点）\n`;
+  }
+
+  // インタラクティブ差分サマリー
+  const mo = s.manualOverrides || {};
+  const aiScores2 = ar ? (ar.itemScores || {}) : {};
+  const diffItems2 = Object.entries(mo).filter(([k, v]) => aiScores2[k] && v !== aiScores2[k]);
+  if (diffItems2.length > 0) {
+    text += `\n${line}\n手動採点 vs AI採点 差分レポート\n${line}\n`;
+    diffItems2.forEach(([k, v]) => {
+      const aiVal = aiScores2[k];
+      const diff = v - aiVal;
+      text += `  ${k}: AI=${aiVal}/5 → 手動=${v}/5 (${diff > 0 ? '+' : ''}${diff})\n`;
+    });
+  }
+
+  text += `\n${bar}\n  Generated by シナリオラボ 職員室 自動採点システム v4.1\n  18項目・7軸コンクール審査員評価エンジン\n${bar}\n`;
 
   const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
   const a = document.createElement('a');
