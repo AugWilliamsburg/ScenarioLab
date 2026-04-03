@@ -1581,6 +1581,34 @@ body {
 .genko-cell-size-ctrl button:hover {
   background: #f0d8a0;
 }
+/* ── 入力補助ツールバーボタン ── */
+.genko-input-toolbar {
+  writing-mode: horizontal-tb;
+}
+.genko-tb-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px;
+  border: 1px solid #c8a870;
+  background: #fdf8f0;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 11px;
+  color: #7a5a30;
+  font-family: 'Noto Serif JP', serif;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+  line-height: 1.4;
+}
+.genko-tb-btn:hover {
+  background: #f0d8a0;
+  border-color: #a07840;
+}
+.genko-tb-btn:active {
+  background: #e8c870;
+}
+
 /* ── 場面ジャンプ時のハイライト ── */
 .genko-scene-highlight {
   position: absolute;

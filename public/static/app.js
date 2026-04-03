@@ -204,7 +204,7 @@ function render() {
   const p = State.currentPage;
 
   // 学習センター
-  if (p === 'learn' || p === 'learn-guide' || p === 'learn-articles' || p === 'learn-exercises' || p === 'learn-glossary' || p === 'learn-notes' || p === 'learn-habits' || p === 'learn-stats' || (p && (p.startsWith('article-') || p.startsWith('exercise-') || p.startsWith('glossary-cat-') || p.startsWith('glossary-term-') || p.startsWith('articles-cat-')))) {
+  if (p === 'learn' || p === 'learn-guide' || p === 'learn-articles' || p === 'learn-exercises' || p === 'learn-glossary' || p === 'learn-notes' || p === 'learn-staffroom' || (p && (p.startsWith('article-') || p.startsWith('exercise-') || p.startsWith('glossary-cat-') || p.startsWith('glossary-term-') || p.startsWith('articles-cat-')))) {
     app.innerHTML = renderLayout(renderLearnPage());
     return;
   }
@@ -319,7 +319,7 @@ function render() {
 // ── Layout Shell ───────────────────────────────────────────────
 function renderLayout(content, proj = null) {
   const cp = State.currentPage;
-  const isLearnPage = cp === 'learn' || cp === 'learn-guide' || cp === 'learn-articles' || cp === 'learn-exercises' || cp === 'learn-glossary' || cp === 'learn-notes' || cp === 'learn-habits' || cp === 'learn-stats' || (cp && (cp.startsWith('article-') || cp.startsWith('exercise-')));
+  const isLearnPage = cp === 'learn' || cp === 'learn-guide' || cp === 'learn-articles' || cp === 'learn-exercises' || cp === 'learn-glossary' || cp === 'learn-notes' || cp === 'learn-staffroom' || (cp && (cp.startsWith('article-') || cp.startsWith('exercise-')));
   const isToolsPage = cp === 'tools' || cp === 'tool-logline' || cp === 'tool-char-diag' || cp === 'tool-scene' || cp === 'tool-timer' || cp === 'tool-pitch' || cp === 'tool-tension' || cp === 'tool-name-gen' || cp === 'tool-structure' || cp === 'tool-emotion-arc' || cp === 'tool-world-notes' || cp === 'tool-dialogue-check' || cp === 'tool-plot-holes' || cp === 'tool-beat-counter';
   const isTemplatesPage = cp === 'templates' || (cp && cp.startsWith('template-'));
   const isSettingsPage = cp === 'settings';
@@ -2350,18 +2350,30 @@ function renderResearch(proj) {
     <div style="font-size:13px">リサーチノートを追加しましょう</div>
   </div>`;
 
-  const linkItems = links.map(l => `
-    <div class="research-source-card">
-      <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:var(--kon-bg);color:var(--kon-lt);display:flex;align-items:center;justify-content:center;flex-shrink:0">
-        <i class="fas fa-link" style="font-size:12px"></i>
+  const linkItems = links.map(l => {
+    const isFile = l.type === 'file';
+    const icon = isFile ? (l.icon||'fa-file') : 'fa-link';
+    const iconColor = isFile ? (l.color||'#7f8c8d') : 'var(--kon-lt)';
+    const iconBg = isFile ? (l.color||'#7f8c8d')+'18' : 'var(--kon-bg)';
+    const sizeLabel = isFile && l.size ? (l.size < 1024*1024 ? (l.size/1024).toFixed(0)+'KB' : (l.size/1024/1024).toFixed(1)+'MB') : '';
+    const subtitle = isFile ? `<span style="font-size:10px;color:var(--text-muted);background:var(--bg-subtle);padding:1px 6px;border-radius:4px;text-transform:uppercase">${l.ext||'FILE'}</span>${sizeLabel?`<span style="font-size:10px;color:var(--text-muted);margin-left:4px">${sizeLabel}</span>`:''}` : `<div style="font-size:11px;color:var(--kon-lt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.url||'')}</div>`;
+    return `
+    <div class="research-source-card" style="cursor:pointer" onclick="openResearchFile(${JSON.stringify(l).replace(/"/g,'&quot;')})">
+      <div style="width:34px;height:34px;border-radius:var(--radius-sm);background:${iconBg};color:${iconColor};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <i class="fas ${icon}" style="font-size:14px"></i>
       </div>
       <div style="flex:1;overflow:hidden">
-        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:2px">${esc(l.title||l.url)}</div>
-        <div style="font-size:11px;color:var(--kon-lt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.url)}</div>
-        ${l.memo ? '<div style="font-size:11px;color:var(--text-muted);margin-top:3px">' + esc(l.memo) + '</div>' : ''}
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.title||l.url||'')}</div>
+        <div style="display:flex;align-items:center;gap:6px">${subtitle}</div>
+        ${l.memo ? `<div style="font-size:11px;color:var(--text-muted);margin-top:3px">${esc(l.memo)}</div>` : ''}
       </div>
-      <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteResearchLink('${proj.id}','${l.id}')"><i class="fas fa-xmark" style="color:var(--accent);font-size:10px"></i></button>
-    </div>`).join('') || `<div style="font-size:12px;color:var(--text-muted);text-align:center;padding:16px;font-style:italic">参考リンクがありません</div>`;
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();deleteResearchLink('${proj.id}','${l.id}')"><i class="fas fa-xmark" style="color:var(--accent);font-size:10px"></i></button>
+    </div>`;
+  }).join('') || `
+  <div style="text-align:center;padding:24px 16px;color:var(--text-muted)">
+    <i class="fas fa-paperclip" style="font-size:28px;opacity:0.25;margin-bottom:8px;display:block"></i>
+    <div style="font-size:12px">URLやPDFを追加しましょう</div>
+  </div>`;
 
   // カテゴリ別ノート数の集計
   const catSummary = Object.entries(NOTE_CAT_COLORS).map(([cat, c]) => {
@@ -2526,13 +2538,113 @@ function deleteResearchNote(projId, id) {
 }
 
 function openAddResearchLink(projId) {
-  openModal(
-    `<i class="fas fa-link" style="color:var(--accent)"></i> 参考リンク追加`,
-    `<div class="form-group"><label class="form-label">URL</label><input class="form-input" id="rl-url" placeholder="https://..."></div>
-     <div class="form-group"><label class="form-label">タイトル</label><input class="form-input" id="rl-title" placeholder="参考タイトル（任意）"></div>`,
-    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     <button class="btn btn-primary" onclick="addResearchLink('${projId}')"><i class="fas fa-plus"></i> 追加</button>`
+  openModal(`<div style="display:flex;align-items:center;gap:8px"><i class="fas fa-paperclip" style="color:var(--accent)"></i><span>参考資料を追加</span></div>`,
+  `<div style="display:flex;gap:8px;margin-bottom:14px">
+     <button class="btn btn-secondary btn-sm" id="rl-tab-url" onclick="researchLinkTab('url')" style="flex:1;font-weight:700;background:var(--accent);color:white"><i class="fas fa-link"></i> URL</button>
+     <button class="btn btn-secondary btn-sm" id="rl-tab-file" onclick="researchLinkTab('file')" style="flex:1"><i class="fas fa-file-arrow-up"></i> ファイル</button>
+   </div>
+   <!-- URL タブ -->
+   <div id="rl-panel-url">
+     <div class="form-group"><label class="form-label">URL</label><input class="form-input" id="rl-url" placeholder="https://..."></div>
+     <div class="form-group"><label class="form-label">タイトル <span style="color:var(--text-muted);font-weight:400">（任意）</span></label><input class="form-input" id="rl-title" placeholder="参考タイトル"></div>
+     <div class="form-group"><label class="form-label">メモ <span style="color:var(--text-muted);font-weight:400">（任意）</span></label><input class="form-input" id="rl-memo" placeholder="参照ポイントなど"></div>
+   </div>
+   <!-- ファイル タブ -->
+   <div id="rl-panel-file" style="display:none">
+     <div class="form-group">
+       <label class="form-label">ファイル <span style="color:var(--text-muted);font-weight:400">（PDF・Word・テキストなど）</span></label>
+       <div id="rl-drop-zone" style="border:2px dashed var(--border);border-radius:10px;padding:28px 16px;text-align:center;cursor:pointer;background:var(--bg-subtle);transition:all .2s"
+         onclick="document.getElementById('rl-file-input').click()"
+         ondragover="event.preventDefault();this.style.borderColor='var(--accent)';this.style.background='var(--accent-bg)'"
+         ondragleave="this.style.borderColor='';this.style.background='var(--bg-subtle)'"
+         ondrop="event.preventDefault();this.style.borderColor='';this.style.background='var(--bg-subtle)';handleResearchFileDrop(event,'${projId}')">
+         <i class="fas fa-file-circle-plus" style="font-size:32px;color:var(--text-light);margin-bottom:10px"></i>
+         <div style="font-size:13px;font-weight:600;color:var(--text-secondary)">クリックまたはドラッグ&ドロップ</div>
+         <div style="font-size:11px;color:var(--text-muted);margin-top:4px">PDF・Word・Excel・テキスト・画像 ⁠— 最大50MB</div>
+         <input type="file" id="rl-file-input" style="display:none" multiple accept=".pdf,.doc,.docx,.txt,.md,.csv,.xlsx,.xls,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.zip"
+           onchange="handleResearchFileSelect(event,'${projId}')">
+       </div>
+       <div id="rl-file-preview" style="margin-top:10px;display:flex;flex-direction:column;gap:6px"></div>
+     </div>
+     <div class="form-group"><label class="form-label">メモ <span style="color:var(--text-muted);font-weight:400">（任意）</span></label><input class="form-input" id="rl-file-memo" placeholder="このファイルについてのメモ"></div>
+   </div>`,
+  `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+   <button class="btn btn-primary" id="rl-add-btn" onclick="addResearchLinkOrFile('${projId}')"><i class="fas fa-plus"></i> 追加</button>`
   );
+  window._researchLinkTab = 'url';
+}
+
+function researchLinkTab(tab) {
+  window._researchLinkTab = tab;
+  const urlPanel = document.getElementById('rl-panel-url');
+  const filePanel = document.getElementById('rl-panel-file');
+  const tabUrl = document.getElementById('rl-tab-url');
+  const tabFile = document.getElementById('rl-tab-file');
+  if (!urlPanel) return;
+  if (tab === 'url') {
+    urlPanel.style.display = '';
+    filePanel.style.display = 'none';
+    tabUrl.style.background = 'var(--accent)'; tabUrl.style.color = 'white';
+    tabFile.style.background = ''; tabFile.style.color = '';
+  } else {
+    urlPanel.style.display = 'none';
+    filePanel.style.display = '';
+    tabUrl.style.background = ''; tabUrl.style.color = '';
+    tabFile.style.background = 'var(--accent)'; tabFile.style.color = 'white';
+  }
+}
+
+// ファイルをBase64に変換してresearch.linksに保存
+function handleResearchFileSelect(event, projId) {
+  const files = Array.from(event.target.files);
+  processResearchFiles(files, projId);
+}
+function handleResearchFileDrop(event, projId) {
+  const files = Array.from(event.dataTransfer.files);
+  processResearchFiles(files, projId);
+}
+function processResearchFiles(files, projId) {
+  const preview = document.getElementById('rl-file-preview');
+  if (!preview) return;
+  window._pendingResearchFiles = window._pendingResearchFiles || [];
+  files.forEach(file => {
+    const sizeLabel = file.size < 1024*1024 ? (file.size/1024).toFixed(0)+'KB' : (file.size/1024/1024).toFixed(1)+'MB';
+    const fileId = uid();
+    const ext = file.name.split('.').pop().toLowerCase();
+    const iconMap = { pdf:'fa-file-pdf', doc:'fa-file-word', docx:'fa-file-word', txt:'fa-file-lines', md:'fa-file-code', xlsx:'fa-file-excel', xls:'fa-file-excel', ppt:'fa-file-powerpoint', pptx:'fa-file-powerpoint', png:'fa-file-image', jpg:'fa-file-image', jpeg:'fa-file-image', gif:'fa-file-image', zip:'fa-file-zipper', csv:'fa-file-csv' };
+    const icon = iconMap[ext] || 'fa-file';
+    const colorMap = { pdf:'#e74c3c', doc:'#2980b9', docx:'#2980b9', txt:'#7f8c8d', xlsx:'#27ae60', xls:'#27ae60', ppt:'#e67e22', pptx:'#e67e22', png:'#9b59b6', jpg:'#9b59b6', jpeg:'#9b59b6' };
+    const color = colorMap[ext] || '#7f8c8d';
+    const row = document.createElement('div');
+    row.id = `rfile-${fileId}`;
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-white);border:1px solid var(--border);border-radius:8px';
+    row.innerHTML = `<i class="fas ${icon}" style="color:${color};font-size:18px;flex-shrink:0"></i>
+      <div style="flex:1;min-width:0"><div style="font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(file.name)}</div><div style="font-size:10px;color:var(--text-muted)">${sizeLabel}</div></div>
+      <div id="rfile-status-${fileId}" style="font-size:10px;color:var(--text-muted)">読み込み中…</div>`;
+    preview.appendChild(row);
+
+    // Base64変換（50MB制限）
+    if (file.size > 50*1024*1024) {
+      document.getElementById(`rfile-status-${fileId}`).textContent = '⚠ サイズ超過';
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = e => {
+      window._pendingResearchFiles = window._pendingResearchFiles || [];
+      window._pendingResearchFiles.push({ fileId, name: file.name, size: file.size, ext, icon, color, dataUrl: e.target.result, projId });
+      document.getElementById(`rfile-status-${fileId}`).innerHTML = '<i class="fas fa-check" style="color:var(--matcha)"></i> 準備完了';
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function addResearchLinkOrFile(projId) {
+  const tab = window._researchLinkTab || 'url';
+  if (tab === 'url') {
+    addResearchLink(projId);
+  } else {
+    addResearchFiles(projId);
+  }
 }
 
 function addResearchLink(projId) {
@@ -2542,10 +2654,44 @@ function addResearchLink(projId) {
   if (!proj) return;
   proj.research = proj.research || {};
   proj.research.links = proj.research.links || [];
-  proj.research.links.unshift({ id: uid(), url, title: $('#rl-title')?.value?.trim()||url, createdAt: now() });
+  proj.research.links.unshift({ id: uid(), type:'url', url, title: $('#rl-title')?.value?.trim()||url, memo: $('#rl-memo')?.value?.trim()||'', createdAt: now() });
   proj.updatedAt = now();
   DB.saveProject(proj);
-  closeModal(); toast('追加しました','success'); render();
+  closeModal(); toast('リンクを追加しました','success'); render();
+}
+
+function addResearchFiles(projId) {
+  const pending = window._pendingResearchFiles || [];
+  if (pending.length === 0) { toast('ファイルを選択してください','error'); return; }
+  const memo = $('#rl-file-memo')?.value?.trim() || '';
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  proj.research = proj.research || {};
+  proj.research.links = proj.research.links || [];
+  pending.filter(f => f.projId === projId).forEach(f => {
+    proj.research.links.unshift({
+      id: uid(), type:'file', title: f.name, ext: f.ext,
+      icon: f.icon, color: f.color, size: f.size,
+      dataUrl: f.dataUrl, memo, createdAt: now()
+    });
+  });
+  window._pendingResearchFiles = [];
+  proj.updatedAt = now();
+  DB.saveProject(proj);
+  closeModal(); toast(`${pending.length}件のファイルを追加しました`,'success'); render();
+}
+
+function openResearchFile(link) {
+  if (link.type === 'file' && link.dataUrl) {
+    // Base64 DataURLを新タブで開く
+    const w = window.open();
+    if (w) {
+      w.document.write(`<html><body style="margin:0;background:#222"><iframe src="${link.dataUrl}" style="width:100%;height:100vh;border:none"></iframe></body></html>`);
+      w.document.title = link.title;
+    }
+  } else if (link.url) {
+    window.open(link.url, '_blank');
+  }
 }
 
 function deleteResearchLink(projId, id) {
@@ -3994,8 +4140,16 @@ function renderGenkoVerticalEditor(proj, scriptContent, activeDraft, cellSize) {
   const charCount = (scriptContent||'').replace(/\n/g,'').length;
   const pageEstimate = Math.max(1, Math.ceil(charCount / (ROWS * COLS)));
 
+  const lineCount = (scriptContent||'').split('\n').length;
+  const colCount = G.lines.reduce((acc, ln) => {
+    // 各行が何列占めるか計算
+    if (ln.length === 0) return acc + 1;
+    return acc + Math.ceil(ln.length / ROWS);
+  }, 0);
+
   return `
   <div class="genko-outer" id="genko-outer" style="--genko-cell:${cell}px">
+    <!-- タイトルブロック -->
     <div class="genko-title-block" style="display:flex;align-items:center;justify-content:space-between;width:100%;max-width:${Math.max(paperW + 80, 720)}px;flex-wrap:wrap;gap:8px;">
       <div style="text-align:center;flex:1;min-width:0">
         <div class="genko-title">${esc(proj.title)}</div>
@@ -4012,19 +4166,66 @@ function renderGenkoVerticalEditor(proj, scriptContent, activeDraft, cellSize) {
         <div style="font-size:10px;color:#9a7050;writing-mode:horizontal-tb;text-align:right">
           <span id="genko-char-count" style="font-weight:700;color:#7a5030">${charCount.toLocaleString()}字</span>
           <span style="margin:0 4px">·</span>
-          <span>約${pageEstimate}ページ</span>
+          <span id="genko-page-count">約${pageEstimate}ページ</span>
           <span style="margin:0 4px">·</span>
           <span>1ページ=400字</span>
         </div>
       </div>
     </div>
 
-    <div style="writing-mode:horizontal-tb;width:100%;max-width:${Math.max(paperW+80,720)}px;margin-bottom:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-      <div style="display:flex;align-items:center;gap:4px;font-size:10px;color:#9a7a60;background:#fdf8f0;border:1px solid #d4c5a8;border-radius:6px;padding:4px 10px">
-        <i class="fas fa-arrow-right" style="font-size:9px"></i>
-        <span>右→書き始め・上↓下の順に縦20字</span>
-        <i class="fas fa-arrows-left-right" style="font-size:9px;margin-left:6px"></i>
-        <span>横スクロールで次列</span>
+    <!-- 入力補助ツールバー -->
+    <div class="genko-input-toolbar" style="writing-mode:horizontal-tb;width:100%;max-width:${Math.max(paperW+80,720)}px;margin-bottom:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;background:#fdf8f0;border:1px solid #d4c5a8;border-radius:8px;padding:6px 10px">
+      <span style="font-size:10px;color:#9a7a60;margin-right:2px">挿入：</span>
+      <button class="genko-tb-btn" onclick="genkoInsertText('１\\n○\\n場所名\\n')" title="シーン見出し（数字＋○＋場所名）">
+        <i class="fas fa-clapperboard"></i> シーン
+      </button>
+      <button class="genko-tb-btn" onclick="genkoInsertText('　')" title="全角スペース（インデント）">
+        <i class="fas fa-indent"></i> 全角SP
+      </button>
+      <button class="genko-tb-btn" onclick="genkoInsertText('「」')" title="台詞かぎかっこ">
+        「」
+      </button>
+      <button class="genko-tb-btn" onclick="genkoInsertText('（）')" title="丸かっこ（ト書き補足）">
+        （）
+      </button>
+      <button class="genko-tb-btn" onclick="genkoInsertText('……')" title="三点リーダー">
+        ……
+      </button>
+      <button class="genko-tb-btn" onclick="genkoInsertText('――')" title="ダッシュ">
+        ――
+      </button>
+      <button class="genko-tb-btn" onclick="genkoInsertText('　　')" title="字下げ（全角スペース2つ）">
+        <i class="fas fa-arrow-right-to-bracket" style="font-size:9px"></i> 字下げ
+      </button>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:4px">
+        <button class="genko-tb-btn" onclick="genkoUndo()" title="元に戻す（Ctrl+Z）">
+          <i class="fas fa-rotate-left"></i>
+        </button>
+        <button class="genko-tb-btn" onclick="genkoSelectAll()" title="全選択">
+          <i class="fas fa-object-group"></i>
+        </button>
+        <button class="genko-tb-btn genko-tb-help-btn" onclick="genkoToggleHelp()" title="操作ガイド">
+          <i class="fas fa-circle-question"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- ヘルプパネル（折りたたみ） -->
+    <div id="genko-help-panel" style="display:none;writing-mode:horizontal-tb;width:100%;max-width:${Math.max(paperW+80,720)}px;margin-bottom:6px;background:#fff8f0;border:1px solid #d4c5a8;border-radius:8px;padding:10px 14px;font-size:11px;color:#7a6050;line-height:1.8">
+      <div style="font-weight:700;margin-bottom:6px;font-size:12px"><i class="fas fa-keyboard" style="color:#b89060;margin-right:4px"></i>縦書き原稿用紙 — 操作ガイド</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 20px">
+        <div>↑↓ : セル内を移動（行）</div>
+        <div>←→ : 前後の列（行）へ</div>
+        <div>Enter : 次の列の先頭へ改行</div>
+        <div>Tab : 全角スペース2つ挿入</div>
+        <div>Backspace : 前の文字を削除</div>
+        <div>Ctrl+Z : 元に戻す</div>
+        <div>クリック : カーソル移動</div>
+        <div>ドラッグ&スクロール : ページ移動</div>
+      </div>
+      <div style="margin-top:6px;padding-top:6px;border-top:1px solid #e4d8c0;font-size:10.5px;color:#9a7860">
+        <i class="fas fa-lightbulb" style="color:#c8a040;margin-right:4px"></i>
+        <strong>書き方ヒント：</strong> 縦書きは右から始まり、左へ進みます。改行すると次の列の先頭へ。シーン番号は「１」→改行→「○」→改行→「場所名」の順で入力。
       </div>
     </div>
 
@@ -4075,9 +4276,9 @@ function genkoBuildPages() {
   for (let li = 0; li < lines.length; li++) {
     const lineText = lines[li];
     if (lineText.length === 0) {
-      // 空行（改行のみ） → 現在位置に改行マーカーを置き次の列へ
+      // 空行（改行のみ） → 現在列の残りをスキップして次の列へ（原稿用紙慣習）
       chars.push({ ch: '\n', line: li, charInLine: 0, page, col, row, isNewline: true });
-      // 次の列へ
+      // 次の列へ（rowが0でも列を進める＝段落区切り）
       col++;
       row = 0;
       if (col >= COLS) { col = 0; page++; }
@@ -4091,16 +4292,14 @@ function genkoBuildPages() {
           if (col >= COLS) { col = 0; page++; }
         }
       }
-      // 行末の改行処理：次の文字は新しい列の先頭に
+      // 行末の改行処理：次の行は必ず次の列の先頭から（原稿用紙方式）
       if (li < lines.length - 1) {
         // 改行マーカーを現在位置に記録（セルには表示しない）
         chars.push({ ch: '\n', line: li, charInLine: lineText.length, page, col, row, isNewline: true, afterLine: true });
-        // rowが0でない場合は次の列へ移動
-        if (row > 0) {
-          col++;
-          row = 0;
-          if (col >= COLS) { col = 0; page++; }
-        }
+        // rowが0かどうかにかかわらず、常に次の列へ移動
+        col++;
+        row = 0;
+        if (col >= COLS) { col = 0; page++; }
       }
     }
   }
@@ -4237,8 +4436,8 @@ function genkoCursorToCell(cursorLine, cursorCol) {
         col++;
         if (col >= COLS) { col = 0; page++; }
       }
-      // 行末改行で次列先頭へ（rowが0でない場合）
-      if (row > 0 && li < lines.length - 1) {
+      // 行末改行で常に次列先頭へ（genkoBuildPagesと同じロジック）
+      if (li < lines.length - 1) {
         col++;
         row = 0;
         if (col >= COLS) { col = 0; page++; }
@@ -4282,8 +4481,8 @@ function genkoClickCell(p, c, r) {
           if (row >= ROWS) { row = 0; col++; if (col >= COLS) { col = 0; page++; } }
         }
       }
-      // 行末改行
-      if (row > 0) {
+      // 行末改行: 常に次の列へ（genkoBuildPagesと同じロジック）
+      if (li < lines.length - 1) {
         col++; row = 0;
         if (col >= COLS) { col = 0; page++; }
       }
@@ -4404,6 +4603,7 @@ function genkoHandleKeydown(e) {
       break;
     }
     case 'Backspace': {
+      genkoPushHistory();
       if (ci > 0) {
         G.lines[li] = lines[li].slice(0, ci - 1) + lines[li].slice(ci);
         G.cursorCol--;
@@ -4420,6 +4620,7 @@ function genkoHandleKeydown(e) {
       break;
     }
     case 'Delete': {
+      genkoPushHistory();
       if (ci < lines[li].length) {
         G.lines[li] = lines[li].slice(0, ci) + lines[li].slice(ci + 1);
       } else if (li < lines.length - 1) {
@@ -4432,6 +4633,7 @@ function genkoHandleKeydown(e) {
       break;
     }
     case 'Enter': {
+      genkoPushHistory();
       const before = lines[li].slice(0, ci);
       const after = lines[li].slice(ci);
       G.lines[li] = before;
@@ -4451,7 +4653,89 @@ function genkoHandleKeydown(e) {
       genkoUpdateDisplay();
       break;
     }
+    case 'z':
+    case 'Z': {
+      if (e.ctrlKey || e.metaKey) {
+        genkoUndo();
+        e.preventDefault();
+      }
+      break;
+    }
   }
+}
+
+// ── Undo機能 ────────────────────────────────────────────────
+window._GENKO_HISTORY = [];
+window._GENKO_HISTORY_MAX = 50;
+
+function genkoPushHistory() {
+  const G = window._GENKO;
+  const snapshot = {
+    lines: G.lines.map(l => l),
+    cursorLine: G.cursorLine,
+    cursorCol: G.cursorCol
+  };
+  window._GENKO_HISTORY.push(snapshot);
+  if (window._GENKO_HISTORY.length > window._GENKO_HISTORY_MAX) {
+    window._GENKO_HISTORY.shift();
+  }
+}
+
+function genkoUndo() {
+  if (window._GENKO_HISTORY.length === 0) { toast('元に戻す履歴がありません', 'info'); return; }
+  const G = window._GENKO;
+  const snap = window._GENKO_HISTORY.pop();
+  G.lines = snap.lines;
+  G.cursorLine = snap.cursorLine;
+  G.cursorCol = snap.cursorCol;
+  // hidden textareaも同期
+  const ta = document.getElementById('script-editor');
+  if (ta) ta.value = genkoLinesToText(G.lines);
+  genkoUpdateDisplay();
+  toast('元に戻しました', 'info');
+}
+
+// ── テキスト挿入 ─────────────────────────────────────────────
+function genkoInsertText(text) {
+  const G = window._GENKO;
+  genkoPushHistory();
+  const li = G.cursorLine;
+  const ci = G.cursorCol;
+  // テキストに改行が含まれる場合は複数行に分割
+  const parts = text.split('\n');
+  if (parts.length === 1) {
+    G.lines[li] = G.lines[li].slice(0, ci) + text + G.lines[li].slice(ci);
+    G.cursorCol += text.length;
+  } else {
+    const before = G.lines[li].slice(0, ci);
+    const after = G.lines[li].slice(ci);
+    G.lines[li] = before + parts[0];
+    for (let i = 1; i < parts.length; i++) {
+      G.lines.splice(li + i, 0, parts[i]);
+    }
+    G.cursorLine += parts.length - 1;
+    G.cursorCol = parts[parts.length - 1].length;
+    // 最後の行の後ろに元の残りを結合
+    G.lines[G.cursorLine] += after;
+  }
+  // hidden textareaも同期
+  const ta = document.getElementById('script-editor');
+  if (ta) ta.value = genkoLinesToText(G.lines);
+  genkoUpdateDisplay();
+  genkoFocusHidden();
+}
+
+// ── 全選択 ───────────────────────────────────────────────────
+function genkoSelectAll() {
+  const ta = document.getElementById('script-editor');
+  if (ta) { ta.focus(); ta.select(); }
+}
+
+// ── ヘルプパネルトグル ───────────────────────────────────────
+function genkoToggleHelp() {
+  const panel = document.getElementById('genko-help-panel');
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? '' : 'none';
 }
 
 // ── 通常文字入力処理 ────────────────────────────────────────
@@ -7217,8 +7501,7 @@ function renderLearnPage() {
     : page === 'learn-exercises' ? 'dojo'
     : page === 'learn-glossary' ? 'glossary'
     : page === 'learn-notes' ? 'notes'
-    : page === 'learn-habits' ? 'habits'
-    : page === 'learn-stats' ? 'stats'
+    : page === 'learn-staffroom' ? 'staffroom'
     : 'guide';
 
   const tabBadge = (count, color='var(--fuji)') =>
@@ -7243,11 +7526,8 @@ function renderLearnPage() {
     <div class="learn-subnav-item ${activeTab==='notes'?'active':''}" onclick="navigate('learn-notes')">
       <i class="fas fa-note-sticky"></i> 学習ノート
     </div>
-    <div class="learn-subnav-item ${activeTab==='habits'?'active':''}" onclick="navigate('learn-habits')">
-      <i class="fas fa-check-double"></i> 習慣チェック
-    </div>
-    <div class="learn-subnav-item ${activeTab==='stats'?'active':''}" onclick="navigate('learn-stats')">
-      <i class="fas fa-chart-bar"></i> 学習統計
+    <div class="learn-subnav-item ${activeTab==='staffroom'?'active':''}" onclick="navigate('learn-staffroom')" style="${activeTab==='staffroom'?'':''}">
+      <i class="fas fa-chalkboard-teacher"></i> 職員室
     </div>
   </div>`;
 
@@ -7508,10 +7788,8 @@ function renderLearnPage() {
     return renderLearnGlossary(hero, subnav);
   } else if (activeTab === 'notes') {
     return renderLearnNotes(hero, subnav);
-  } else if (activeTab === 'habits') {
-    return renderLearnHabits(hero, subnav);
-  } else if (activeTab === 'stats') {
-    return renderLearnStats(hero, subnav);
+  } else if (activeTab === 'staffroom') {
+    return renderLearnStaffRoom(hero, subnav);
   } else {
     // ガイド一覧（進捗トラッキング付き）
     const readGuides = DB.get('read_guides', []);
@@ -11386,6 +11664,422 @@ function setNoteFilter(key, val) {
 function clearNoteFilter() {
   DB.set('learn_note_filter', { search: '', tag: '', sortBy: 'updated' });
   render();
+}
+
+// ================================================================
+//  職員室 — プロ品質の脚本評価・添削機能
+// ================================================================
+function renderLearnStaffRoom(hero, subnav) {
+  const sessions = DB.get('staffroom_sessions', []);
+  const activeSessionId = DB.get('staffroom_active_session', null);
+  const activeSession = activeSessionId ? sessions.find(s => s.id === activeSessionId) : null;
+
+  // ── 採点ルーブリック定義 ──
+  const RUBRIC_CATEGORIES = [
+    { id: 'structure', label: '構成・ストーリー構造', icon: 'fa-sitemap', color: '#2e5fa0',
+      items: [
+        { id: 'three-act', label: '三幕構成の明確さ', desc: '起・承・転・結が機能しているか。第一幕の発端事件、第二幕の対立、第三幕のクライマックスが読み取れるか。' },
+        { id: 'plot-logic', label: 'プロットの論理的一貫性', desc: '因果関係が成立しているか。ご都合主義的な展開がないか。' },
+        { id: 'pacing', label: 'ペーシング（緩急）', desc: 'テンポが適切か。単調すぎず、詰め込みすぎていないか。' },
+      ]
+    },
+    { id: 'character', label: 'キャラクター造形', icon: 'fa-user-pen', color: '#c0392b',
+      items: [
+        { id: 'protag-want-need', label: '主人公のWant/Need', desc: '外的欲求（Want）と内的必要（Need）が明確に設定されているか。' },
+        { id: 'char-arc', label: 'キャラクターアーク', desc: '主人公が物語を通じてどう変化するか（成長/堕落/不変）が明確か。' },
+        { id: 'char-unique', label: 'キャラクターの固有性', desc: '登場人物それぞれの声・行動様式・世界観が固有か。記号的でないか。' },
+      ]
+    },
+    { id: 'dialogue', label: 'セリフ・台詞', icon: 'fa-comments', color: '#8e44ad',
+      items: [
+        { id: 'subtext', label: 'サブテキストの活用', desc: '言葉の裏に意図や感情があるか。「説明台詞」に頼りすぎていないか。' },
+        { id: 'voice', label: 'キャラクターの声の固有性', desc: '誰が話しているかわかるくらい、話し方に個性があるか。' },
+        { id: 'naturalness', label: '自然さ・リズム', desc: 'セリフが実際の会話として違和感がないか。読み上げたとき流れるか。' },
+      ]
+    },
+    { id: 'direction', label: 'ト書き・演出', icon: 'fa-film', color: '#16a085',
+      items: [
+        { id: 'visual', label: 'ビジュアルストーリーテリング', desc: '画で語っているか。セリフに頼らず映像で情感が伝わるか。' },
+        { id: 'direction-clarity', label: 'ト書きの簡潔さ・明瞭さ', desc: '演出過多でなく、必要な情報が明確に書かれているか。' },
+      ]
+    },
+    { id: 'theme', label: 'テーマ・メッセージ', icon: 'fa-quote-left', color: '#d68910',
+      items: [
+        { id: 'theme-clarity', label: 'テーマの一貫性', desc: '物語を通じてテーマが一貫しているか。バラバラな印象を与えないか。' },
+        { id: 'originality', label: 'オリジナリティ', desc: '類似作品と差別化できる独自の視点・声があるか。' },
+      ]
+    },
+    { id: 'format', label: 'フォーマット・体裁', icon: 'fa-file-lines', color: '#7f8c8d',
+      items: [
+        { id: 'format-correctness', label: '脚本フォーマットの正確さ', desc: '柱書き・ト書き・台詞・転換の書き方が正確か。' },
+        { id: 'readability', label: '読みやすさ', desc: '白い余白が十分か。ページをめくるテンポが適切か。' },
+      ]
+    },
+  ];
+
+  // ── セッションカード ──
+  const renderSessionCard = (s) => {
+    const dt = s.updatedAt ? new Date(s.updatedAt).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+    const score = s.scores ? Math.round(Object.values(s.scores).reduce((a,b)=>a+b,0) / Object.values(s.scores).length * 20) : null;
+    return `
+    <div class="card" style="cursor:pointer;padding:14px 16px;border-left:3px solid var(--fuji);position:relative;${s.id===activeSessionId?'box-shadow:0 0 0 2px var(--fuji)':''}" onclick="staffRoomOpenSession('${s.id}')">
+      <div style="display:flex;align-items:flex-start;gap:10px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.title||'無題の脚本')}</div>
+          <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:6px">${dt}</div>
+          ${s.scriptText ? `<div style="font-size:11px;color:var(--text-secondary);line-height:1.6;overflow:hidden;max-height:36px">${esc(s.scriptText.slice(0,80))}${s.scriptText.length>80?'…':''}</div>` : ''}
+        </div>
+        <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:2px">
+          ${score !== null ? `
+          <div style="width:44px;height:44px;border-radius:50%;background:${score>=80?'var(--matcha-bg)':score>=60?'var(--kogane-bg)':'var(--momo-bg)'};border:2px solid ${score>=80?'var(--matcha)':score>=60?'var(--kogane)':'var(--momo)'};display:flex;align-items:center;justify-content:center">
+            <span style="font-size:13px;font-weight:700;color:${score>=80?'var(--matcha)':score>=60?'var(--kogane)':'var(--momo)'}">${score}</span>
+          </div>
+          <div style="font-size:9px;color:var(--text-muted)">スコア</div>` : `<div style="font-size:9px;color:var(--text-light)">評価前</div>`}
+        </div>
+      </div>
+      <button onclick="event.stopPropagation();staffRoomDeleteSession('${s.id}')" style="position:absolute;top:10px;right:10px;background:none;border:none;cursor:pointer;color:var(--text-light);font-size:11px;padding:3px" title="削除"><i class="fas fa-times"></i></button>
+    </div>`;
+  };
+
+  // ── アクティブセッションエディタ ──
+  const renderActiveSession = (s) => {
+    const scores = s.scores || {};
+    const feedback = s.feedback || {};
+
+    // ルーブリックスコア入力エリア
+    const rubricHtml = RUBRIC_CATEGORIES.map(cat => `
+    <div style="margin-bottom:20px;border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden">
+      <div style="padding:10px 14px;background:${cat.color}12;border-bottom:1px solid ${cat.color}30;display:flex;align-items:center;gap:8px">
+        <i class="fas ${cat.icon}" style="color:${cat.color};width:16px"></i>
+        <span style="font-weight:700;font-size:13px;color:var(--text-primary)">${cat.label}</span>
+      </div>
+      <div style="padding:12px 14px;display:flex;flex-direction:column;gap:10px">
+        ${cat.items.map(item => `
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12.5px;font-weight:600;color:var(--text-primary);margin-bottom:2px">${item.label}</div>
+            <div style="font-size:11px;color:var(--text-muted);line-height:1.6">${item.desc}</div>
+          </div>
+          <div style="flex-shrink:0;display:flex;align-items:center;gap:6px">
+            <span style="font-size:10px;color:var(--text-muted)">評価:</span>
+            <div style="display:flex;gap:3px">
+              ${[1,2,3,4,5].map(v=>`
+              <button onclick="staffRoomSetScore('${s.id}','${item.id}',${v})" style="width:26px;height:26px;border-radius:50%;border:2px solid ${(scores[item.id]||0)>=v?cat.color:'var(--border)'};background:${(scores[item.id]||0)>=v?cat.color+'22':'transparent'};cursor:pointer;font-size:10px;font-weight:700;color:${(scores[item.id]||0)>=v?cat.color:'var(--text-light)'};transition:all .15s" title="${v}点">${v}</button>`).join('')}
+            </div>
+            <span style="font-size:11px;font-weight:700;color:${cat.color};min-width:20px;text-align:right">${scores[item.id]||0}/5</span>
+          </div>
+        </div>`).join('')}
+      </div>
+    </div>`).join('');
+
+    // 総合スコア計算
+    const allItems = RUBRIC_CATEGORIES.flatMap(c => c.items);
+    const scoredItems = allItems.filter(item => scores[item.id] !== undefined);
+    const totalScore = scoredItems.length > 0
+      ? Math.round(scoredItems.reduce((a, item) => a + (scores[item.id]||0), 0) / scoredItems.length * 20)
+      : null;
+    const scoreColor = totalScore !== null ? (totalScore >= 80 ? 'var(--matcha)' : totalScore >= 60 ? 'var(--kogane)' : 'var(--momo)') : 'var(--text-muted)';
+    const scoreLabel = totalScore !== null ? (totalScore >= 80 ? 'A（優秀）' : totalScore >= 70 ? 'B（良好）' : totalScore >= 60 ? 'C（標準）' : totalScore >= 50 ? 'D（要改善）' : 'E（大幅改訂必要）') : '未評価';
+
+    return `
+    <div>
+      <!-- セッションヘッダー -->
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="staffRoomCloseSession()" style="flex-shrink:0"><i class="fas fa-arrow-left"></i></button>
+        <input class="form-input" id="staffroom-title" style="flex:1;min-width:200px;font-size:14px;font-weight:600" placeholder="脚本タイトル" value="${esc(s.title||'')}" oninput="staffRoomAutoSaveTitle('${s.id}')">
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-primary btn-sm" onclick="staffRoomSaveAll('${s.id}')"><i class="fas fa-save"></i> 保存</button>
+          <button class="btn btn-secondary btn-sm" onclick="staffRoomExport('${s.id}')"><i class="fas fa-file-export"></i> レポート</button>
+        </div>
+      </div>
+
+      <!-- 脚本入力エリア -->
+      <div class="card" style="margin-bottom:20px;border-top:3px solid var(--fuji)">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <i class="fas fa-scroll" style="color:var(--fuji)"></i>
+          <span style="font-weight:700;font-size:13px">脚本テキスト（添削対象）</span>
+          <span style="font-size:11px;color:var(--text-muted);margin-left:auto">PDF・ファイルからも貼り付け可能</span>
+        </div>
+        <!-- ファイル添付エリア -->
+        <div id="staffroom-dropzone-${s.id}" style="border:2px dashed var(--border);border-radius:var(--radius-md);padding:12px 16px;text-align:center;background:var(--bg-subtle);cursor:pointer;margin-bottom:10px;transition:all .2s"
+          onclick="document.getElementById('staffroom-file-${s.id}').click()"
+          ondragover="event.preventDefault();this.style.borderColor='var(--fuji)';this.style.background='var(--fuji-bg)'"
+          ondragleave="this.style.borderColor='';this.style.background='var(--bg-subtle)'"
+          ondrop="event.preventDefault();this.style.borderColor='';this.style.background='var(--bg-subtle)';staffRoomHandleFileDrop(event,'${s.id}')">
+          <i class="fas fa-file-arrow-up" style="font-size:20px;color:var(--text-light);margin-bottom:4px;display:block"></i>
+          <div style="font-size:12px;color:var(--text-secondary)">PDFやテキストファイルをドラッグ&ドロップ、またはクリックして選択</div>
+          <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px">.pdf .txt .md .docx 対応</div>
+          <input type="file" id="staffroom-file-${s.id}" style="display:none" accept=".pdf,.txt,.md,.docx,.doc" onchange="staffRoomHandleFileSelect(event,'${s.id}')">
+        </div>
+        <textarea id="staffroom-script-${s.id}" class="form-textarea" rows="14" style="font-size:13px;line-height:1.9;font-family:'Noto Serif JP',serif;resize:vertical" placeholder="脚本テキストをここに貼り付けてください。&#10;&#10;例：&#10;１○病院・廊下（昼）&#10;&#10;田中、白衣姿で歩く。表情が固い。&#10;&#10;田中「（独り言）今日中に…」" oninput="staffRoomAutoSaveScript('${s.id}')">${esc(s.scriptText||'')}</textarea>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:right">
+          <span id="staffroom-char-${s.id}">${(s.scriptText||'').replace(/\\n/g,'').length}字</span>
+        </div>
+      </div>
+
+      <!-- 採点シート -->
+      <div style="margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+          <div style="font-size:15px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary)">
+            <i class="fas fa-clipboard-list" style="color:var(--fuji);margin-right:8px"></i>採点ルーブリック
+          </div>
+          ${totalScore !== null ? `
+          <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <div style="font-size:13px;font-weight:700;color:${scoreColor}">総合スコア: ${totalScore}/100点</div>
+            <div style="font-size:11px;padding:3px 10px;background:${scoreColor}18;color:${scoreColor};border:1px solid ${scoreColor}44;border-radius:20px;font-weight:600">${scoreLabel}</div>
+          </div>` : `<div style="margin-left:auto;font-size:11px;color:var(--text-muted)">各項目を評価すると総合スコアが計算されます</div>`}
+        </div>
+        ${rubricHtml}
+      </div>
+
+      <!-- 総合コメント -->
+      <div class="card" style="margin-bottom:20px;border-top:3px solid var(--kogane)">
+        <div style="font-weight:700;font-size:13px;color:var(--text-primary);margin-bottom:10px">
+          <i class="fas fa-comment-dots" style="color:var(--kogane);margin-right:6px"></i>総合評価・フィードバック
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+          <div>
+            <label class="form-label" style="color:var(--matcha)">✅ 優れている点</label>
+            <textarea id="staffroom-strengths-${s.id}" class="form-textarea" rows="4" style="font-size:12.5px;line-height:1.8;resize:vertical" placeholder="・台詞のリズムが良い&#10;・主人公の動機が明確&#10;・ビジュアルシーンが秀逸" oninput="staffRoomAutoSaveFeedback('${s.id}')">${esc((s.feedback||{}).strengths||'')}</textarea>
+          </div>
+          <div>
+            <label class="form-label" style="color:var(--momo)">🔧 改善が必要な点</label>
+            <textarea id="staffroom-weaknesses-${s.id}" class="form-textarea" rows="4" style="font-size:12.5px;line-height:1.8;resize:vertical" placeholder="・第二幕の中盤がたるい&#10;・説明台詞が多い&#10;・対立がもっと明確に" oninput="staffRoomAutoSaveFeedback('${s.id}')">${esc((s.feedback||{}).weaknesses||'')}</textarea>
+          </div>
+        </div>
+        <div style="margin-bottom:12px">
+          <label class="form-label">📋 具体的な改稿提案</label>
+          <textarea id="staffroom-suggestions-${s.id}" class="form-textarea" rows="5" style="font-size:12.5px;line-height:1.8;resize:vertical" placeholder="・p.30のシーンで田中の感情を行動で示す（台詞を削り、小道具を使う）&#10;・第二幕の対立をより明確にするため、〇〇を障害として追加する&#10;・セリフ「〇〇」を「△△」に変更してサブテキストを加える" oninput="staffRoomAutoSaveFeedback('${s.id}')">${esc((s.feedback||{}).suggestions||'')}</textarea>
+        </div>
+        <div>
+          <label class="form-label">🎯 次稿に向けた最重要課題（1〜3点）</label>
+          <textarea id="staffroom-priority-${s.id}" class="form-textarea" rows="3" style="font-size:12.5px;line-height:1.8;resize:vertical" placeholder="1. 〇〇を解決することが第一優先&#10;2. セリフ全般の説明台詞を削る改稿&#10;3. 第三幕のクライマックスをより明確に" oninput="staffRoomAutoSaveFeedback('${s.id}')">${esc((s.feedback||{}).priority||'')}</textarea>
+        </div>
+        <div style="margin-top:12px;text-align:right">
+          <button class="btn btn-primary" onclick="staffRoomSaveAll('${s.id}')"><i class="fas fa-save"></i> 全て保存</button>
+        </div>
+      </div>
+    </div>`;
+  };
+
+  return `${hero}${subnav}
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+    <div>
+      <div style="font-size:16px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary)">
+        <i class="fas fa-chalkboard-teacher" style="color:var(--fuji);margin-right:8px"></i>職員室
+      </div>
+      <div style="font-size:12px;color:var(--text-muted);margin-top:3px">プロ以上のクオリティで脚本を評価・添削。ルーブリック採点と具体的なフィードバックで作品を磨き上げる。</div>
+    </div>
+    <button class="btn btn-primary" onclick="staffRoomNewSession()"><i class="fas fa-plus"></i> 新規評価セッション</button>
+  </div>
+
+  ${activeSession ? renderActiveSession(activeSession) : `
+  <!-- セッション一覧 -->
+  ${sessions.length === 0 ? `
+  <div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
+    <div style="font-size:48px;margin-bottom:16px;opacity:.2">📝</div>
+    <div style="font-size:15px;font-weight:600;margin-bottom:8px">まだ評価セッションがありません</div>
+    <div style="font-size:12.5px;margin-bottom:20px">脚本を入力してプロ水準で評価・添削を行いましょう</div>
+    <button class="btn btn-primary" onclick="staffRoomNewSession()"><i class="fas fa-plus"></i> 最初の評価セッションを作成</button>
+  </div>` : `
+  <div style="display:grid;gap:10px">
+    ${sessions.sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0)).map(renderSessionCard).join('')}
+  </div>`}
+  `}`;
+}
+
+// ── 職員室：操作関数 ────────────────────────────────────────
+function staffRoomNewSession() {
+  const sessions = DB.get('staffroom_sessions', []);
+  const id = 'sr-' + Date.now();
+  const newSession = { id, title: '', scriptText: '', scores: {}, feedback: {}, createdAt: Date.now(), updatedAt: Date.now() };
+  sessions.unshift(newSession);
+  DB.set('staffroom_sessions', sessions);
+  DB.set('staffroom_active_session', id);
+  render();
+  setTimeout(() => document.getElementById('staffroom-title')?.focus(), 100);
+}
+
+function staffRoomOpenSession(sessionId) {
+  DB.set('staffroom_active_session', sessionId);
+  render();
+}
+
+function staffRoomCloseSession() {
+  DB.set('staffroom_active_session', null);
+  render();
+}
+
+function staffRoomDeleteSession(sessionId) {
+  if (!confirm('このセッションを削除しますか？')) return;
+  const sessions = DB.get('staffroom_sessions', []).filter(s => s.id !== sessionId);
+  DB.set('staffroom_sessions', sessions);
+  if (DB.get('staffroom_active_session') === sessionId) DB.set('staffroom_active_session', null);
+  toast('削除しました', 'info');
+  render();
+}
+
+function staffRoomAutoSaveTitle(sessionId) {
+  const el = document.getElementById('staffroom-title');
+  if (!el) return;
+  const sessions = DB.get('staffroom_sessions', []);
+  const idx = sessions.findIndex(s => s.id === sessionId);
+  if (idx === -1) return;
+  sessions[idx].title = el.value;
+  sessions[idx].updatedAt = Date.now();
+  DB.set('staffroom_sessions', sessions);
+}
+
+function staffRoomAutoSaveScript(sessionId) {
+  const el = document.getElementById(`staffroom-script-${sessionId}`);
+  const countEl = document.getElementById(`staffroom-char-${sessionId}`);
+  if (!el) return;
+  const sessions = DB.get('staffroom_sessions', []);
+  const idx = sessions.findIndex(s => s.id === sessionId);
+  if (idx === -1) return;
+  sessions[idx].scriptText = el.value;
+  sessions[idx].updatedAt = Date.now();
+  DB.set('staffroom_sessions', sessions);
+  if (countEl) countEl.textContent = el.value.replace(/\n/g,'').length + '字';
+}
+
+function staffRoomAutoSaveFeedback(sessionId) {
+  const sessions = DB.get('staffroom_sessions', []);
+  const idx = sessions.findIndex(s => s.id === sessionId);
+  if (idx === -1) return;
+  const feedback = {
+    strengths: document.getElementById(`staffroom-strengths-${sessionId}`)?.value || '',
+    weaknesses: document.getElementById(`staffroom-weaknesses-${sessionId}`)?.value || '',
+    suggestions: document.getElementById(`staffroom-suggestions-${sessionId}`)?.value || '',
+    priority: document.getElementById(`staffroom-priority-${sessionId}`)?.value || '',
+  };
+  sessions[idx].feedback = feedback;
+  sessions[idx].updatedAt = Date.now();
+  DB.set('staffroom_sessions', sessions);
+}
+
+function staffRoomSetScore(sessionId, itemId, score) {
+  const sessions = DB.get('staffroom_sessions', []);
+  const idx = sessions.findIndex(s => s.id === sessionId);
+  if (idx === -1) return;
+  if (!sessions[idx].scores) sessions[idx].scores = {};
+  // トグル: 同じスコアをクリックしたら0に戻す
+  sessions[idx].scores[itemId] = (sessions[idx].scores[itemId] === score) ? 0 : score;
+  sessions[idx].updatedAt = Date.now();
+  DB.set('staffroom_sessions', sessions);
+  render(); // スコア変更はリアルタイムで反映
+}
+
+function staffRoomSaveAll(sessionId) {
+  staffRoomAutoSaveTitle(sessionId);
+  staffRoomAutoSaveScript(sessionId);
+  staffRoomAutoSaveFeedback(sessionId);
+  const sessions = DB.get('staffroom_sessions', []);
+  const idx = sessions.findIndex(s => s.id === sessionId);
+  if (idx !== -1) { sessions[idx].updatedAt = Date.now(); DB.set('staffroom_sessions', sessions); }
+  toast('保存しました', 'success');
+}
+
+function staffRoomHandleFileSelect(event, sessionId) {
+  const file = event.target.files[0];
+  if (!file) return;
+  staffRoomReadFile(file, sessionId);
+}
+
+function staffRoomHandleFileDrop(event, sessionId) {
+  const file = event.dataTransfer.files[0];
+  if (!file) return;
+  staffRoomReadFile(file, sessionId);
+}
+
+function staffRoomReadFile(file, sessionId) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  const ta = document.getElementById(`staffroom-script-${sessionId}`);
+  if (!ta) return;
+
+  if (ext === 'pdf') {
+    // PDF: FileReader でテキスト読み取りを試みる（簡易版）
+    toast('PDFのテキスト抽出を試みています…', 'info');
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      // PDFはバイナリのため完全なテキスト抽出はブラウザ単体では限界
+      // 代わりにファイル名をタイトルに設定し、メッセージを表示
+      const sessions = DB.get('staffroom_sessions', []);
+      const idx = sessions.findIndex(s => s.id === sessionId);
+      if (idx !== -1) {
+        if (!sessions[idx].title) sessions[idx].title = file.name.replace(/\.pdf$/i, '');
+        DB.set('staffroom_sessions', sessions);
+      }
+      const titleEl = document.getElementById('staffroom-title');
+      if (titleEl && !titleEl.value) titleEl.value = file.name.replace(/\.pdf$/i, '');
+      toast('PDFを添付しました。テキストを手動でコピー＆ペーストしてください。', 'info');
+    };
+    reader.readAsArrayBuffer(file);
+  } else {
+    // テキスト系ファイル
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      ta.value = e.target.result;
+      staffRoomAutoSaveScript(sessionId);
+      toast(`${file.name} を読み込みました`, 'success');
+    };
+    reader.readAsText(file, 'UTF-8');
+  }
+}
+
+function staffRoomExport(sessionId) {
+  const sessions = DB.get('staffroom_sessions', []);
+  const s = sessions.find(x => x.id === sessionId);
+  if (!s) return;
+
+  const RUBRIC_CATEGORIES = [
+    { id: 'structure', label: '構成・ストーリー構造', items: [
+      {id:'three-act',label:'三幕構成の明確さ'},{id:'plot-logic',label:'プロットの論理的一貫性'},{id:'pacing',label:'ペーシング（緩急）'}]},
+    { id: 'character', label: 'キャラクター造形', items: [
+      {id:'protag-want-need',label:'主人公のWant/Need'},{id:'char-arc',label:'キャラクターアーク'},{id:'char-unique',label:'キャラクターの固有性'}]},
+    { id: 'dialogue', label: 'セリフ・台詞', items: [
+      {id:'subtext',label:'サブテキストの活用'},{id:'voice',label:'キャラクターの声の固有性'},{id:'naturalness',label:'自然さ・リズム'}]},
+    { id: 'direction', label: 'ト書き・演出', items: [
+      {id:'visual',label:'ビジュアルストーリーテリング'},{id:'direction-clarity',label:'ト書きの簡潔さ・明瞭さ'}]},
+    { id: 'theme', label: 'テーマ・メッセージ', items: [
+      {id:'theme-clarity',label:'テーマの一貫性'},{id:'originality',label:'オリジナリティ'}]},
+    { id: 'format', label: 'フォーマット・体裁', items: [
+      {id:'format-correctness',label:'脚本フォーマットの正確さ'},{id:'readability',label:'読みやすさ'}]},
+  ];
+
+  const scores = s.scores || {};
+  const allItems = RUBRIC_CATEGORIES.flatMap(c => c.items);
+  const scoredItems = allItems.filter(item => scores[item.id] !== undefined && scores[item.id] > 0);
+  const totalScore = scoredItems.length > 0
+    ? Math.round(scoredItems.reduce((a, item) => a + (scores[item.id]||0), 0) / scoredItems.length * 20)
+    : null;
+
+  let text = `脚本評価レポート\n${'='.repeat(40)}\n`;
+  text += `タイトル: ${s.title || '無題'}\n`;
+  text += `評価日: ${new Date(s.updatedAt||Date.now()).toLocaleString('ja-JP')}\n`;
+  if (totalScore !== null) text += `総合スコア: ${totalScore}/100点\n`;
+  text += '\n';
+
+  text += `【採点ルーブリック】\n${'─'.repeat(40)}\n`;
+  RUBRIC_CATEGORIES.forEach(cat => {
+    text += `\n▶ ${cat.label}\n`;
+    cat.items.forEach(item => {
+      text += `  ${item.label}: ${scores[item.id]||0}/5\n`;
+    });
+  });
+
+  text += `\n【総合評価・フィードバック】\n${'─'.repeat(40)}\n`;
+  if (s.feedback?.strengths) text += `\n✅ 優れている点:\n${s.feedback.strengths}\n`;
+  if (s.feedback?.weaknesses) text += `\n🔧 改善が必要な点:\n${s.feedback.weaknesses}\n`;
+  if (s.feedback?.suggestions) text += `\n📋 具体的な改稿提案:\n${s.feedback.suggestions}\n`;
+  if (s.feedback?.priority) text += `\n🎯 次稿に向けた最重要課題:\n${s.feedback.priority}\n`;
+
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `evaluation_${(s.title||'report').slice(0,20).replace(/[\s\/\\]/g,'_')}.txt`;
+  a.click();
+  toast('評価レポートをエクスポートしました', 'success');
 }
 
 function renderArticlePage(articleId) {
@@ -21627,36 +22321,41 @@ function renderTaskItem(task) {
   const repeatLabel = task.repeat && task.repeat !== 'none'
     ? (task.repeat==='daily'?'毎日':task.repeat==='weekly'?'毎週':'毎月') : '';
 
+  // 優先度カラーバー
+  const priBarColor = isUrgent ? '#d01050' : isOverdue ? 'var(--momo)' : isToday ? 'var(--accent)' : pri.color;
+
   return `
-  <div class="task-item ${task.done?'done':''} ${isOverdue?'overdue':''} ${isUrgent?'urgent':''} ${isExpanded?'expanded':''}" id="task-${task.id}">
+  <div class="task-item ${task.done?'done':''} ${isOverdue?'overdue':''} ${isUrgent?'urgent':''} ${isExpanded?'expanded':''}" id="task-${task.id}" style="border-left:3px solid ${priBarColor}">
     <!-- チェックボックス -->
     <div class="task-check-area" onclick="toggleTaskDone('${task.id}')" title="${task.done?'未完了に戻す':'完了にする'}">
       <div class="task-checkbox ${task.done?'checked':''} ${isUrgent?'urgent':''}">${task.done?'<i class="fas fa-check" style="font-size:9px;color:white"></i>':''}</div>
     </div>
     <!-- メインコンテンツ -->
-    <div class="task-content" onclick="expandTask('${task.id}')">
+    <div class="task-content" onclick="expandTask('${task.id}')" style="cursor:pointer">
       <div class="task-title-row">
         <span class="task-title ${task.done?'done':''}">${isUrgent ? '<i class="fas fa-fire" style="color:#d01050;font-size:10px;margin-right:3px"></i>' : ''}${esc(task.title)}</span>
-        <div class="task-meta-chips">
-          <span class="task-cat-chip" style="background:${cat.color}18;color:${cat.color};border:1px solid ${cat.color}30"><i class="fas ${cat.icon}" style="font-size:8px"></i> ${cat.label}</span>
-          <span class="task-pri-chip" style="color:${pri.color};background:${pri.bg}"><i class="fas ${pri.icon}" style="font-size:8px"></i> ${pri.label}</span>
-          ${dueDateStr}
-          ${proj ? `<span class="task-proj-chip"><i class="fas fa-film" style="font-size:8px"></i> ${esc(proj.title.slice(0,10))}</span>` : ''}
-          ${subtaskTotal > 0 ? `<span class="task-sub-chip" style="color:${subtaskDone===subtaskTotal?'var(--matcha)':'var(--text-muted)'}"><i class="fas fa-list-check" style="font-size:8px"></i> ${subtaskDone}/${subtaskTotal}</span>` : ''}
-          ${repeatLabel ? `<span class="task-sub-chip" style="color:var(--fuji)"><i class="fas fa-rotate" style="font-size:8px"></i> ${repeatLabel}</span>` : ''}
-          ${(task.tags||[]).slice(0,2).map(tg=>`<span class="task-tag-chip">#${esc(tg)}</span>`).join('')}
-        </div>
       </div>
-      ${!isExpanded && task.body ? `<div class="task-body" style="font-size:11.5px;color:var(--text-secondary);margin-top:3px;line-height:1.5">${esc(task.body.slice(0,100))}${task.body.length>100?'…':''}</div>` : ''}
+      <!-- メタ情報チップ行（タイトルの下に整列） -->
+      <div class="task-meta-chips" style="margin-top:4px">
+        <span class="task-cat-chip" style="background:${cat.color}18;color:${cat.color};border:1px solid ${cat.color}30"><i class="fas ${cat.icon}" style="font-size:8px"></i> ${cat.label}</span>
+        <span class="task-pri-chip" style="color:${pri.color};background:${pri.bg}"><i class="fas ${pri.icon}" style="font-size:8px"></i> ${pri.label}</span>
+        ${dueDateStr}
+        ${proj ? `<span class="task-proj-chip"><i class="fas fa-film" style="font-size:8px"></i> ${esc(proj.title.slice(0,10))}</span>` : ''}
+        ${subtaskTotal > 0 ? `<span class="task-sub-chip" style="color:${subtaskDone===subtaskTotal?'var(--matcha)':'var(--text-muted)'}"><i class="fas fa-list-check" style="font-size:8px"></i> ${subtaskDone}/${subtaskTotal}</span>` : ''}
+        ${task.estimatedMin > 0 ? `<span class="task-sub-chip" style="color:var(--text-muted)"><i class="fas fa-clock" style="font-size:8px"></i> ${task.estimatedMin}分</span>` : ''}
+        ${repeatLabel ? `<span class="task-sub-chip" style="color:var(--fuji)"><i class="fas fa-rotate" style="font-size:8px"></i> ${repeatLabel}</span>` : ''}
+        ${(task.tags||[]).slice(0,2).map(tg=>`<span class="task-tag-chip">#${esc(tg)}</span>`).join('')}
+      </div>
+      ${!isExpanded && task.body ? `<div class="task-body" style="font-size:11.5px;color:var(--text-secondary);margin-top:4px;line-height:1.6;padding:4px 8px;background:var(--bg-subtle);border-radius:4px;border-left:2px solid var(--border)">${esc(task.body.slice(0,120))}${task.body.length>120?'…':''}</div>` : ''}
       ${bodyExpanded}
       ${subtasksExpanded}
       ${timeExpanded}
       ${subtaskTotal > 0 && !isExpanded ? `
-      <div class="task-subtask-progress">
+      <div class="task-subtask-progress" style="margin-top:5px">
         <div style="height:3px;flex:1;background:var(--bg-hover);border-radius:2px;overflow:hidden">
           <div style="height:100%;width:${Math.round(subtaskDone/subtaskTotal*100)}%;background:${subtaskDone===subtaskTotal?'var(--matcha)':'var(--fuji)'};transition:width .3s"></div>
         </div>
-        <span style="font-size:10px;color:var(--text-muted)">${subtaskDone}/${subtaskTotal}</span>
+        <span style="font-size:10px;color:var(--text-muted);margin-left:4px">${subtaskDone}/${subtaskTotal}</span>
       </div>` : ''}
     </div>
     <!-- アクションボタン -->
