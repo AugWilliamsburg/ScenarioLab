@@ -2572,6 +2572,7 @@ function openAddResearchLink(projId) {
    <button class="btn btn-primary" id="rl-add-btn" onclick="addResearchLinkOrFile('${projId}')"><i class="fas fa-plus"></i> 追加</button>`
   );
   window._researchLinkTab = 'url';
+  window._pendingResearchFiles = []; // モーダルを開くたびにリセット
 }
 
 function researchLinkTab(tab) {
@@ -2662,13 +2663,20 @@ function addResearchLink(projId) {
 
 function addResearchFiles(projId) {
   const pending = window._pendingResearchFiles || [];
-  if (pending.length === 0) { toast('ファイルを選択してください','error'); return; }
+  // projIdフィルタを削除（タイミングによってprojIdが一致しないバグを修正）
+  const readyFiles = pending.filter(f => f.dataUrl); // dataUrlが確定しているもののみ
+  if (readyFiles.length === 0 && pending.length === 0) {
+    toast('ファイルを選択してください','error'); return;
+  }
+  if (readyFiles.length === 0 && pending.length > 0) {
+    toast('ファイルの読み込み中です。少し待ってから再試行してください','warning'); return;
+  }
   const memo = $('#rl-file-memo')?.value?.trim() || '';
   const proj = DB.getProject(projId);
   if (!proj) return;
   proj.research = proj.research || {};
   proj.research.links = proj.research.links || [];
-  pending.filter(f => f.projId === projId).forEach(f => {
+  readyFiles.forEach(f => {
     proj.research.links.unshift({
       id: uid(), type:'file', title: f.name, ext: f.ext,
       icon: f.icon, color: f.color, size: f.size,
@@ -2678,7 +2686,7 @@ function addResearchFiles(projId) {
   window._pendingResearchFiles = [];
   proj.updatedAt = now();
   DB.saveProject(proj);
-  closeModal(); toast(`${pending.length}件のファイルを追加しました`,'success'); render();
+  closeModal(); toast(`${readyFiles.length}件のファイルを追加しました`,'success'); render();
 }
 
 // ================================================================
@@ -4203,12 +4211,12 @@ function renderEditor(proj) {
       <div class="editor-toolbar editor-toolbar-insert">
         <div class="editor-toolbar-group" style="flex-wrap:wrap;gap:4px">
           <span style="font-size:10px;color:var(--text-muted);padding:0 4px;align-self:center">挿入：</span>
-          <button class="btn btn-secondary btn-sm" onclick="insertElement('scene-heading')" title="シーン見出し【○○】"><i class="fas fa-clapperboard"></i> シーン</button>
-          <button class="btn btn-secondary btn-sm" onclick="insertElement('action')" title="ト書き（情景・動作）"><i class="fas fa-align-left"></i> ト書き</button>
-          <button class="btn btn-secondary btn-sm" onclick="insertElement('character')" title="キャラクター名"><i class="fas fa-user"></i> キャラ</button>
-          <button class="btn btn-secondary btn-sm" onclick="insertElement('dialogue')" title="セリフ「」"><i class="fas fa-comment"></i> セリフ</button>
+          <button class="btn btn-secondary btn-sm" onclick="insertElement('scene-heading')" title="シーン見出し【○○】 (Ctrl+1)"><i class="fas fa-clapperboard"></i> シーン<span style="font-size:9px;opacity:.5;margin-left:2px">⌘1</span></button>
+          <button class="btn btn-secondary btn-sm" onclick="insertElement('action')" title="ト書き（情景・動作）(Ctrl+4)"><i class="fas fa-align-left"></i> ト書き<span style="font-size:9px;opacity:.5;margin-left:2px">⌘4</span></button>
+          <button class="btn btn-secondary btn-sm" onclick="insertElement('character')" title="キャラクター名 (Ctrl+2)"><i class="fas fa-user"></i> キャラ<span style="font-size:9px;opacity:.5;margin-left:2px">⌘2</span></button>
+          <button class="btn btn-secondary btn-sm" onclick="insertElement('dialogue')" title="セリフ「」 (Ctrl+3)"><i class="fas fa-comment"></i> セリフ<span style="font-size:9px;opacity:.5;margin-left:2px">⌘3</span></button>
           <button class="btn btn-secondary btn-sm" onclick="insertElement('parenthetical')" title="演技指定（）"><i class="fas fa-brackets-round"></i> 指定</button>
-          <button class="btn btn-secondary btn-sm" onclick="insertElement('transition')" title="転換OP/カット"><i class="fas fa-right-long"></i> 転換</button>
+          <button class="btn btn-secondary btn-sm" onclick="insertElement('transition')" title="転換OP/カット (Ctrl+5)"><i class="fas fa-right-long"></i> 転換<span style="font-size:9px;opacity:.5;margin-left:2px">⌘5</span></button>
           <button class="btn btn-secondary btn-sm" onclick="insertElement('se')" title="SE（効果音）"><i class="fas fa-music"></i> SE</button>
           <button class="btn btn-secondary btn-sm" onclick="insertElement('note')" title="執筆メモ（後で削除）"><i class="fas fa-note-sticky"></i> メモ</button>
         </div>
@@ -12293,6 +12301,9 @@ function renderLearnStaffRoom(hero, subnav) {
     const scoreColor = totalScore !== null ? (totalScore >= 80 ? 'var(--matcha)' : totalScore >= 60 ? 'var(--kogane)' : 'var(--momo)') : 'var(--text-muted)';
     const scoreLabel = totalScore !== null ? (totalScore >= 80 ? 'A（優秀）' : totalScore >= 70 ? 'B（良好）' : totalScore >= 60 ? 'C（標準）' : totalScore >= 50 ? 'D（要改善）' : 'E（大幅改訂必要）') : '未評価';
 
+    // 自動採点結果表示
+    const autoResult = s.autoScoreResult || null;
+
     return `
     <div>
       <!-- セッションヘッダー -->
@@ -12334,16 +12345,51 @@ function renderLearnStaffRoom(hero, subnav) {
           </div>
         </div>
         <textarea id="staffroom-script-${s.id}" class="form-textarea" rows="14" style="font-size:13px;line-height:1.9;font-family:'Noto Serif JP',serif;resize:vertical" placeholder="脚本テキストをここに貼り付けてください。&#10;&#10;例：&#10;１○病院・廊下（昼）&#10;&#10;田中、白衣姿で歩く。表情が固い。&#10;&#10;田中「（独り言）今日中に…」" oninput="staffRoomAutoSaveScript('${s.id}')">${esc(s.scriptText||'')}</textarea>
-        <div style="font-size:11px;color:var(--text-muted);margin-top:6px;text-align:right">
-          <span id="staffroom-char-${s.id}">${(s.scriptText||'').replace(/\\n/g,'').length}字</span>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;flex-wrap:wrap;gap:8px">
+          <span style="font-size:11px;color:var(--text-muted)"><span id="staffroom-char-${s.id}">${(s.scriptText||'').replace(/\\n/g,'').length}字</span></span>
+          <button class="btn btn-primary" id="staffroom-submit-btn-${s.id}" onclick="staffRoomAutoScore('${s.id}')" style="background:linear-gradient(135deg,var(--fuji),#7c3aed);border-color:transparent;font-size:13px;padding:8px 18px;border-radius:8px;font-weight:700;letter-spacing:.05em;box-shadow:0 2px 8px rgba(107,70,193,.35)">
+            <i class="fas fa-wand-magic-sparkles" style="margin-right:6px"></i>提出・自動採点
+          </button>
         </div>
       </div>
+
+      <!-- 自動採点結果バナー -->
+      ${autoResult ? `
+      <div style="background:linear-gradient(135deg,#1a1060 0%,#2d1b69 50%,#1e3a5f 100%);border-radius:12px;padding:20px 22px;margin-bottom:20px;color:#fff;position:relative;overflow:hidden">
+        <div style="position:absolute;inset:0;background:url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 100 100\"><circle cx=\"20\" cy=\"20\" r=\"40\" fill=\"%23ffffff04\"/><circle cx=\"80\" cy=\"80\" r=\"60\" fill=\"%23ffffff03\"/></svg>');pointer-events:none"></div>
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;position:relative">
+          <div style="width:72px;height:72px;border-radius:50%;background:${autoResult.totalScore>=80?'linear-gradient(135deg,#22c55e,#16a34a)':autoResult.totalScore>=65?'linear-gradient(135deg,#eab308,#ca8a04)':autoResult.totalScore>=50?'linear-gradient(135deg,#f97316,#ea580c)':'linear-gradient(135deg,#ef4444,#dc2626)'};display:flex;align-items:center;justify-content:center;flex-direction:column;box-shadow:0 4px 16px rgba(0,0,0,.4);flex-shrink:0">
+            <span style="font-size:22px;font-weight:800;line-height:1">${autoResult.totalScore}</span>
+            <span style="font-size:9px;opacity:.85">/ 100</span>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:18px;font-weight:800;margin-bottom:3px;font-family:'Noto Serif JP',serif">${autoResult.grade} — ${autoResult.gradeLabel}</div>
+            <div style="font-size:12px;opacity:.75;line-height:1.6">${esc(autoResult.summary)}</div>
+          </div>
+          <button onclick="staffRoomClearAutoScore('${s.id}')" style="position:absolute;top:-8px;right:-8px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:50%;width:22px;height:22px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center" title="結果をクリア"><i class="fas fa-times"></i></button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px;position:relative">
+          ${autoResult.categoryScores.map(cs=>`
+          <div style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);border-radius:8px;padding:8px 10px;text-align:center">
+            <div style="font-size:16px;font-weight:700;color:${cs.score>=80?'#4ade80':cs.score>=60?'#fbbf24':'#f87171'}">${cs.score}</div>
+            <div style="font-size:9.5px;opacity:.7;margin-top:2px;line-height:1.3">${esc(cs.label)}</div>
+          </div>`).join('')}
+        </div>
+        <div style="position:relative">
+          <div style="font-size:11.5px;font-weight:700;margin-bottom:8px;opacity:.9;letter-spacing:.05em">📋 詳細診断メモ</div>
+          <div style="display:flex;flex-direction:column;gap:6px">
+            ${(autoResult.detailNotes||[]).map(n=>`
+            <div style="background:rgba(255,255,255,.07);border-left:3px solid ${n.type==='good'?'#4ade80':n.type==='warn'?'#fbbf24':'#f87171'};border-radius:0 6px 6px 0;padding:6px 10px;font-size:11.5px;line-height:1.7;opacity:.95">${esc(n.text)}</div>`).join('')}
+          </div>
+        </div>
+      </div>` : ''}
 
       <!-- 採点シート -->
       <div style="margin-bottom:20px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
           <div style="font-size:15px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary)">
             <i class="fas fa-clipboard-list" style="color:var(--fuji);margin-right:8px"></i>採点ルーブリック
+            <span style="font-size:11px;font-weight:400;color:var(--text-muted);margin-left:8px">（手動で各項目を採点 / 自動採点で一括入力）</span>
           </div>
           ${totalScore !== null ? `
           <div style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -12358,6 +12404,7 @@ function renderLearnStaffRoom(hero, subnav) {
       <div class="card" style="margin-bottom:20px;border-top:3px solid var(--kogane)">
         <div style="font-weight:700;font-size:13px;color:var(--text-primary);margin-bottom:10px">
           <i class="fas fa-comment-dots" style="color:var(--kogane);margin-right:6px"></i>総合評価・フィードバック
+          <span style="font-size:11px;font-weight:400;color:var(--text-muted);margin-left:6px">（自動採点後に自動生成されます）</span>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
           <div>
@@ -12500,6 +12547,438 @@ function staffRoomSaveAll(sessionId) {
   const idx = sessions.findIndex(s => s.id === sessionId);
   if (idx !== -1) { sessions[idx].updatedAt = Date.now(); DB.set('staffroom_sessions', sessions); }
   toast('保存しました', 'success');
+}
+
+// ── 自動採点エンジン ──────────────────────────────────────────
+function staffRoomAutoScore(sessionId) {
+  // まずスクリプトを保存
+  staffRoomAutoSaveScript(sessionId);
+
+  const sessions = DB.get('staffroom_sessions', []);
+  const idx = sessions.findIndex(s => s.id === sessionId);
+  if (idx === -1) return;
+  const s = sessions[idx];
+  const text = s.scriptText || '';
+
+  if (text.trim().length < 50) {
+    toast('脚本テキストを入力してから提出してください（50字以上）', 'error');
+    return;
+  }
+
+  // ボタンをローディング状態に
+  const btn = document.getElementById(`staffroom-submit-btn-${sessionId}`);
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin" style="margin-right:6px"></i>採点中…';
+  }
+
+  // 非同期で採点（UIをブロックしないようsetTimeout）
+  setTimeout(() => {
+    try {
+      const result = staffRoomRunAnalysis(text);
+
+      // スコアをセッションに保存
+      sessions[idx].scores = result.itemScores;
+      sessions[idx].feedback = {
+        strengths: result.strengths,
+        weaknesses: result.weaknesses,
+        suggestions: result.suggestions,
+        priority: result.priority,
+      };
+      sessions[idx].autoScoreResult = {
+        totalScore: result.totalScore,
+        grade: result.grade,
+        gradeLabel: result.gradeLabel,
+        summary: result.summary,
+        categoryScores: result.categoryScores,
+        detailNotes: result.detailNotes,
+        scoredAt: Date.now(),
+      };
+      sessions[idx].updatedAt = Date.now();
+      DB.set('staffroom_sessions', sessions);
+
+      render();
+      toast(`✅ 自動採点完了！総合スコア ${result.totalScore}/100点 (${result.grade})`, 'success');
+    } catch(e) {
+      console.error('AutoScore error:', e);
+      toast('採点中にエラーが発生しました', 'error');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-wand-magic-sparkles" style="margin-right:6px"></i>提出・自動採点';
+      }
+    }
+  }, 80);
+}
+
+function staffRoomClearAutoScore(sessionId) {
+  const sessions = DB.get('staffroom_sessions', []);
+  const idx = sessions.findIndex(s => s.id === sessionId);
+  if (idx === -1) return;
+  delete sessions[idx].autoScoreResult;
+  DB.set('staffroom_sessions', sessions);
+  render();
+}
+
+// ── 脚本テキスト解析エンジン（ルールベース高精度） ──────────────
+function staffRoomRunAnalysis(text) {
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  const totalChars = text.replace(/\s/g, '').length;
+  const totalLines = lines.length;
+
+  // ===== ヘルパー関数 =====
+  // 柱書き（シーン行）検出
+  const sceneLines = lines.filter(l =>
+    /^[０-９\d]+[○◎●]/.test(l) ||
+    /^[○◎●]/.test(l) ||
+    /^【.+】/.test(l) ||
+    /^\d+\s*[．.]\s*[○◎]/.test(l) ||
+    /^[一二三四五六七八九十百]+[○◎●]/.test(l) ||
+    (/^[１-９]/.test(l) && /（|）|\(|\)/.test(l))
+  );
+
+  // セリフ行（キャラ名＋台詞パターン）
+  const dialogueLines = lines.filter(l =>
+    /^[ぁ-んァ-ヶー一-龯Ａ-Ｚａ-ｚA-Za-z\s　]+「/.test(l) ||
+    /「.+」/.test(l) ||
+    /^（[^）]+）$/.test(l) // ナレーション
+  );
+
+  // ト書き行
+  const actionLines = lines.filter(l =>
+    l.length > 0 &&
+    !sceneLines.includes(l) &&
+    !dialogueLines.includes(l) &&
+    !/^[○◎●]/.test(l)
+  );
+
+  // キャラクター名抽出
+  const charPattern = /^([ぁ-んァ-ヶー一-龯Ａ-Ｚａ-ｚA-Za-z\s　]{1,15})「/;
+  const charNames = {};
+  lines.forEach(l => {
+    const m = l.match(charPattern);
+    if (m) {
+      const name = m[1].trim();
+      if (name.length >= 1 && name.length <= 10) {
+        charNames[name] = (charNames[name] || 0) + 1;
+      }
+    }
+  });
+  const uniqueChars = Object.keys(charNames).length;
+  const mainCharName = Object.entries(charNames).sort((a,b)=>b[1]-a[1])[0]?.[0] || null;
+  const mainCharLines = mainCharName ? (charNames[mainCharName] || 0) : 0;
+
+  // セリフ比率
+  const dialogueRatio = totalLines > 0 ? dialogueLines.length / totalLines : 0;
+
+  // シーン数
+  const sceneCount = sceneLines.length;
+
+  // ページ推定（400字/ページ）
+  const estimatedPages = Math.max(1, Math.round(totalChars / 400));
+
+  // 長すぎるト書き検出
+  const longActionLines = actionLines.filter(l => l.length > 100);
+
+  // 説明的セリフ検出（〜んです/〜ですよね/〜というのは など）
+  const expositoryKeywords = ['なんですよ', 'ということは', 'というのは', 'でしょ', 'ですよね', 'んですよ', 'なのよ', 'なのよね', 'じゃないですか'];
+  const expositoryDialogue = dialogueLines.filter(l =>
+    expositoryKeywords.some(kw => l.includes(kw)) ||
+    (l.length > 60 && l.includes('「') && l.includes('」'))
+  );
+
+  // 同キャラ連続セリフ
+  let consecutiveSameChar = 0;
+  let prevChar = null;
+  lines.forEach(l => {
+    const m = l.match(charPattern);
+    const cur = m ? m[1].trim() : null;
+    if (cur && cur === prevChar) consecutiveSameChar++;
+    if (cur) prevChar = cur;
+  });
+
+  // キーワード検索
+  const hasWant = /目的|夢|望み|望む|願い|欲し|狙い|目標/.test(text);
+  const hasNeed = /本当は|心の傷|気づ[くき]|成長|変わ[るり]|乗り越|葛藤|内面/.test(text);
+  const hasArc = /変わ[るり]|成長|気づ[くき]|乗り越|決意|覚悟|諦め|変化/.test(text);
+  const hasTheme = /テーマ|メッセージ|想い|伝えたい/.test(text);
+  const hasVisual = /ゆっくり|立ち止ま|見つめ|目を|顔を|手を|涙|微笑|こぼれ|流れ|光|影|風|雨|沈黙|間/.test(text);
+  const hasConflict = /対立|葛藤|衝突|争い|抵抗|阻む|邪魔|困難|問題|危機/.test(text);
+  const hasClimax = /クライマックス|決断|決意|逆転|解決|真実|明かす|暴く|告白/.test(text);
+
+  // フォーマット正確さ
+  const hasSceneNumbers = sceneLines.some(l => /^[０-９\d]+/.test(l));
+  const hasProperFormat = sceneCount > 0 && dialogueLines.length > 0;
+
+  // ===== ルーブリックスコア計算（各1〜5点） =====
+  const scores = {};
+
+  // 1. 三幕構成の明確さ (three-act)
+  {
+    let pts = 1;
+    if (sceneCount >= 3) pts++;
+    if (hasConflict) pts++;
+    if (hasClimax) pts++;
+    if (estimatedPages >= 5 && sceneCount >= 5) pts++;
+    scores['three-act'] = Math.min(5, pts);
+  }
+
+  // 2. プロットの論理的一貫性 (plot-logic)
+  {
+    let pts = 2;
+    if (sceneCount >= 3) pts++;
+    if (!hasConflict) pts = Math.max(1, pts - 1);
+    if (totalChars < 200) pts = Math.max(1, pts - 1);
+    if (hasConflict && hasClimax) pts++;
+    scores['plot-logic'] = Math.min(5, pts);
+  }
+
+  // 3. ペーシング (pacing)
+  {
+    let pts = 2;
+    const avgSceneLen = totalLines / Math.max(1, sceneCount);
+    if (avgSceneLen > 3 && avgSceneLen < 40) pts++;
+    if (sceneCount >= 4) pts++;
+    if (dialogueRatio > 0.15 && dialogueRatio < 0.75) pts++;
+    scores['pacing'] = Math.min(5, pts);
+  }
+
+  // 4. 主人公のWant/Need (protag-want-need)
+  {
+    let pts = 1;
+    if (hasWant) pts += 2;
+    if (hasNeed) pts += 2;
+    scores['protag-want-need'] = Math.min(5, pts);
+  }
+
+  // 5. キャラクターアーク (char-arc)
+  {
+    let pts = 1;
+    if (hasArc) pts += 2;
+    if (mainCharLines >= 5) pts++;
+    if (hasConflict && hasArc) pts++;
+    scores['char-arc'] = Math.min(5, pts);
+  }
+
+  // 6. キャラクターの固有性 (char-unique)
+  {
+    let pts = 1;
+    if (uniqueChars >= 2) pts++;
+    if (uniqueChars >= 3) pts++;
+    // 各キャラのセリフ比率の分散を簡易計算
+    const vals = Object.values(charNames);
+    if (vals.length >= 2) {
+      const max = Math.max(...vals);
+      const min = Math.min(...vals);
+      if (max / Math.max(1, min) < 10) pts++; // バランスが取れている
+    }
+    if (uniqueChars >= 2 && !expositoryDialogue.length) pts++;
+    scores['char-unique'] = Math.min(5, pts);
+  }
+
+  // 7. サブテキストの活用 (subtext)
+  {
+    let pts = 1;
+    if (hasVisual) pts++;
+    if (expositoryDialogue.length === 0) pts++;
+    if (expositoryDialogue.length < dialogueLines.length * 0.1) pts++;
+    if (dialogueLines.some(l => /沈黙|…|——|──|…　|　…/.test(l))) pts++;
+    scores['subtext'] = Math.min(5, pts);
+  }
+
+  // 8. キャラクターの声の固有性 (voice)
+  {
+    let pts = 2;
+    if (uniqueChars >= 2) pts++;
+    // セリフの長さのばらつき（簡易）
+    const dlens = dialogueLines.map(l => l.length);
+    if (dlens.length >= 3) {
+      const avg = dlens.reduce((a,b)=>a+b,0)/dlens.length;
+      const variance = dlens.reduce((a,b)=>a+(b-avg)**2,0)/dlens.length;
+      if (variance > 200) pts++; // バラエティがある
+    }
+    if (expositoryDialogue.length < 3) pts++;
+    scores['voice'] = Math.min(5, Math.max(1, pts));
+  }
+
+  // 9. 自然さ・リズム (naturalness)
+  {
+    let pts = 2;
+    if (expositoryDialogue.length === 0) pts++;
+    if (dialogueLines.length > 0 && dialogueLines.some(l => l.length < 30)) pts++;
+    if (consecutiveSameChar < 3) pts++;
+    scores['naturalness'] = Math.min(5, pts);
+  }
+
+  // 10. ビジュアルストーリーテリング (visual)
+  {
+    let pts = 1;
+    if (hasVisual) pts += 2;
+    if (longActionLines.length === 0 && actionLines.length > 0) pts++;
+    if (actionLines.length > 0) pts++;
+    scores['visual'] = Math.min(5, pts);
+  }
+
+  // 11. ト書きの簡潔さ・明瞭さ (direction-clarity)
+  {
+    let pts = 3;
+    if (longActionLines.length > actionLines.length * 0.3) pts -= 2;
+    else if (longActionLines.length > actionLines.length * 0.1) pts -= 1;
+    if (actionLines.length > 0 && longActionLines.length === 0) pts++;
+    scores['direction-clarity'] = Math.min(5, Math.max(1, pts));
+  }
+
+  // 12. テーマの一貫性 (theme-clarity)
+  {
+    let pts = 1;
+    if (hasTheme || (hasConflict && hasClimax)) pts += 2;
+    if (hasArc) pts++;
+    if (hasNeed) pts++;
+    scores['theme-clarity'] = Math.min(5, pts);
+  }
+
+  // 13. オリジナリティ (originality)
+  {
+    // テキスト内容だけでは判断困難なので、設定の豊かさで推定
+    let pts = 2;
+    if (uniqueChars >= 4) pts++;
+    if (sceneCount >= 6) pts++;
+    if (hasVisual && hasConflict && hasArc) pts++;
+    scores['originality'] = Math.min(5, pts);
+  }
+
+  // 14. 脚本フォーマットの正確さ (format-correctness)
+  {
+    let pts = 1;
+    if (hasProperFormat) pts += 2;
+    if (hasSceneNumbers) pts++;
+    if (sceneCount > 0 && dialogueLines.length > 0 && actionLines.length > 0) pts++;
+    scores['format-correctness'] = Math.min(5, pts);
+  }
+
+  // 15. 読みやすさ (readability)
+  {
+    let pts = 2;
+    if (dialogueRatio < 0.8) pts++;
+    if (longActionLines.length < actionLines.length * 0.2) pts++;
+    if (totalLines > 5) pts++;
+    scores['readability'] = Math.min(5, pts);
+  }
+
+  // ===== カテゴリスコア計算 =====
+  const CATS = [
+    { id: 'structure', label: '構成', items: ['three-act','plot-logic','pacing'] },
+    { id: 'character', label: 'キャラ', items: ['protag-want-need','char-arc','char-unique'] },
+    { id: 'dialogue', label: 'セリフ', items: ['subtext','voice','naturalness'] },
+    { id: 'direction', label: 'ト書き', items: ['visual','direction-clarity'] },
+    { id: 'theme', label: 'テーマ', items: ['theme-clarity','originality'] },
+    { id: 'format', label: 'フォーマット', items: ['format-correctness','readability'] },
+  ];
+
+  const categoryScores = CATS.map(cat => {
+    const avg = cat.items.reduce((a,id)=>a+(scores[id]||1),0) / cat.items.length;
+    return { id: cat.id, label: cat.label, score: Math.round(avg * 20) };
+  });
+
+  const allItemIds = CATS.flatMap(c=>c.items);
+  const totalScore = Math.round(allItemIds.reduce((a,id)=>a+(scores[id]||1),0) / allItemIds.length * 20);
+
+  const grade = totalScore >= 85 ? 'S' : totalScore >= 75 ? 'A' : totalScore >= 65 ? 'B' : totalScore >= 55 ? 'C' : totalScore >= 45 ? 'D' : 'E';
+  const gradeLabel = { S:'最優秀', A:'優秀', B:'良好', C:'標準', D:'要改善', E:'大幅改訂必要' }[grade];
+
+  // ===== 詳細診断ノート生成 =====
+  const notes = [];
+
+  // 構成
+  if (scores['three-act'] >= 4) notes.push({ type:'good', text:`✅ 構成：${sceneCount}シーンを通じて三幕構成が機能しており、物語の流れが読み取れます。` });
+  else if (scores['three-act'] <= 2) notes.push({ type:'bad', text:`⚠️ 構成：三幕の区切りが不明瞭です。発端事件・対立激化・クライマックスを明確に配置してください（現在${sceneCount}シーン）。` });
+
+  if (scores['pacing'] <= 2) notes.push({ type:'warn', text:`⚠️ ペーシング：シーン平均が${Math.round(totalLines/Math.max(1,sceneCount))}行と${Math.round(totalLines/Math.max(1,sceneCount))>25?'長め。シーンを分割するかカットを増やしましょう':'短め。もう少し展開を膨らませましょう'}。` });
+
+  // キャラクター
+  if (scores['protag-want-need'] <= 2) notes.push({ type:'bad', text:`⚠️ キャラクター：主人公の外的欲求（Want）と内的必要（Need）が明確に描かれていません。主人公が何を求め、何が必要なのかをシーンで見せてください。` });
+  else if (scores['protag-want-need'] >= 4) notes.push({ type:'good', text:`✅ キャラクター：主人公の動機（Want/Need）が明確で、読者が感情移入しやすい構成になっています。` });
+
+  if (scores['char-arc'] <= 2) notes.push({ type:'warn', text:`⚠️ キャラクターアーク：主人公の変化・成長が描かれていません。物語を通じてどう変容するかを設計してください。` });
+  if (uniqueChars < 2) notes.push({ type:'warn', text:`⚠️ キャラクター数が少ない（${uniqueChars}人検出）。登場人物を増やすか、対立・補完関係を加えると物語が豊かになります。` });
+  if (uniqueChars >= 3) notes.push({ type:'good', text:`✅ ${uniqueChars}人のキャラクターが登場しており、関係性の多様性が期待できます。` });
+
+  // セリフ
+  if (expositoryDialogue.length > 3) notes.push({ type:'bad', text:`⚠️ セリフ：説明的な台詞が${expositoryDialogue.length}箇所検出されました。「〜んですよ」「〜ということは」等の説明台詞を削り、行動や映像で見せてください。` });
+  else if (expositoryDialogue.length === 0 && dialogueLines.length > 0) notes.push({ type:'good', text:`✅ セリフ：説明的な台詞が少なく、サブテキストを意識した書き方ができています。` });
+
+  if (consecutiveSameChar >= 3) notes.push({ type:'warn', text:`⚠️ セリフ：同一キャラクターのセリフが${consecutiveSameChar}回連続している箇所があります。他キャラの反応やト書きを挟んでリズムを作りましょう。` });
+
+  if (dialogueRatio > 0.75) notes.push({ type:'warn', text:`⚠️ セリフ比率が高すぎます（${Math.round(dialogueRatio*100)}%）。ト書きや映像的な描写を増やしてください。` });
+
+  // ト書き
+  if (longActionLines.length > 5) notes.push({ type:'bad', text:`⚠️ ト書き：100字超えの長いト書きが${longActionLines.length}箇所あります。ト書きは1〜3文で簡潔に、映像として想像できる描写にしてください。` });
+  else if (actionLines.length > 0 && longActionLines.length === 0) notes.push({ type:'good', text:`✅ ト書き：簡潔で読みやすいト書きが書けています。演出過多になっていません。` });
+
+  if (!hasVisual && actionLines.length > 0) notes.push({ type:'warn', text:`⚠️ ビジュアル：映像的な描写（表情・動き・光・沈黙など）が少ない印象です。「見せる」脚本を意識してください。` });
+
+  // テーマ・フォーマット
+  if (!hasProperFormat) notes.push({ type:'bad', text:`⚠️ フォーマット：柱書き（シーン番号・場所）や台詞の書き方が脚本フォーマットと異なる可能性があります。` });
+  else if (hasSceneNumbers) notes.push({ type:'good', text:`✅ フォーマット：シーン番号付きの柱書きが使われており、脚本フォーマットが正しく使われています。` });
+
+  if (totalChars < 400) notes.push({ type:'warn', text:`📝 分量：現在約${estimatedPages}ページ相当（${totalChars}字）です。評価精度を上げるためにより多くのテキストを入力してください。` });
+  else notes.push({ type:'good', text:`📝 分量：約${estimatedPages}ページ相当のテキストを分析しました（${totalChars}字）。` });
+
+  // ===== フィードバックテキスト生成 =====
+  const strongItems = allItemIds.filter(id => scores[id] >= 4).map(id => {
+    const nameMap = { 'three-act':'三幕構成の明確さ', 'plot-logic':'プロットの一貫性', 'pacing':'ペーシング', 'protag-want-need':'主人公のWant/Need', 'char-arc':'キャラクターアーク', 'char-unique':'キャラクターの固有性', 'subtext':'サブテキストの活用', 'voice':'セリフの固有性', 'naturalness':'セリフの自然さ', 'visual':'ビジュアルストーリーテリング', 'direction-clarity':'ト書きの簡潔さ', 'theme-clarity':'テーマの一貫性', 'originality':'オリジナリティ', 'format-correctness':'フォーマットの正確さ', 'readability':'読みやすさ' };
+    return '・' + (nameMap[id] || id);
+  });
+
+  const weakItems = allItemIds.filter(id => scores[id] <= 2).map(id => {
+    const nameMap = { 'three-act':'三幕構成の明確さ', 'plot-logic':'プロットの一貫性', 'pacing':'ペーシング', 'protag-want-need':'主人公のWant/Need', 'char-arc':'キャラクターアーク', 'char-unique':'キャラクターの固有性', 'subtext':'サブテキストの活用', 'voice':'セリフの固有性', 'naturalness':'セリフの自然さ', 'visual':'ビジュアルストーリーテリング', 'direction-clarity':'ト書きの簡潔さ', 'theme-clarity':'テーマの一貫性', 'originality':'オリジナリティ', 'format-correctness':'フォーマットの正確さ', 'readability':'読みやすさ' };
+    return '・' + (nameMap[id] || id);
+  });
+
+  const strengths = strongItems.length > 0
+    ? strongItems.join('\n')
+    : '・脚本として基本的な構成要素が揃っています\n' + (sceneCount > 0 ? `・${sceneCount}シーンの構成が確認できます` : '');
+
+  const weaknesses = weakItems.length > 0
+    ? weakItems.join('\n')
+    : '・全体的にバランスの取れた脚本です\n・各項目でさらなる磨き上げを目指してください';
+
+  const suggestionParts = [];
+  if (scores['protag-want-need'] <= 2) suggestionParts.push('・主人公のWant/Needを1シーン目から明確に描く（例：主人公が何かを強く求め、それが叶わない状況を冒頭で示す）');
+  if (scores['char-arc'] <= 2) suggestionParts.push('・主人公の変化を「ビフォー→転機→アフター」で設計し、各幕に配置する');
+  if (expositoryDialogue.length > 2) suggestionParts.push(`・説明台詞を削除し、行動・映像・小道具で代替する（検出${expositoryDialogue.length}箇所）`);
+  if (longActionLines.length > 3) suggestionParts.push(`・長いト書き（${longActionLines.length}箇所）を2〜3文に分割し、視覚的な描写にする`);
+  if (scores['three-act'] <= 2) suggestionParts.push('・第一幕の発端事件、第二幕の対立、第三幕のクライマックスを明確に設定する');
+  if (scores['subtext'] <= 2) suggestionParts.push('・沈黙・間・行動でサブテキストを表現する（台詞を言わせない場面を意図的に作る）');
+  if (scores['visual'] <= 2) suggestionParts.push('・感情を映像で表現する（例：「悲しい」と言わせず、雨の中で傘を手放させる）');
+
+  const suggestions = suggestionParts.length > 0
+    ? suggestionParts.join('\n')
+    : '・現状の強みを活かしながら、各ルーブリック項目で4点以上を目指してください\n・完成度を高めるために通し読みを繰り返してください';
+
+  const priorityItems = weakItems.slice(0, 3);
+  const priority = priorityItems.length > 0
+    ? priorityItems.map((item, i) => `${i+1}. ${item.replace('・','')}の強化`).join('\n')
+    : '1. 現在の完成度をさらに磨き上げる\n2. 声に出して読み上げテストを行う\n3. 第三者に読んでもらいフィードバックを得る';
+
+  // 総評サマリー
+  const summary = `${totalChars}字（約${estimatedPages}p）/ ${sceneCount}シーン / 登場キャラ${uniqueChars}人を分析。`
+    + (totalScore >= 75 ? `完成度が高く、${grade}評価レベルの脚本です。細部の磨き上げで更なる向上が期待できます。`
+    : totalScore >= 55 ? `基礎が整っており、重点的に改善することで大きく向上できる段階です。`
+    : `抜本的な見直しが必要な状態です。構成・キャラクター・セリフの基本要素から再設計を推奨します。`);
+
+  return {
+    itemScores: scores,
+    totalScore,
+    grade,
+    gradeLabel,
+    summary,
+    categoryScores,
+    detailNotes: notes.slice(0, 8), // 最大8件
+    strengths,
+    weaknesses,
+    suggestions,
+    priority,
+  };
 }
 
 function staffRoomHandleFileSelect(event, sessionId) {
@@ -26364,9 +26843,10 @@ document.addEventListener('keydown', (e) => {
     if (State.currentProjectId) quickSaveProject(State.currentProjectId);
   }
   // Ctrl+F: 検索バー トグル（エディタページのみ）
-  if ((e.ctrlKey || e.metaKey) && e.code === 'KeyF') {
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.code === 'KeyF') {
     const ta = document.getElementById('script-editor');
-    if (ta) {
+    const genko = document.getElementById('genko-pages-container');
+    if (ta || genko) {
       e.preventDefault();
       toggleEditorFind();
     }
@@ -26375,7 +26855,46 @@ document.addEventListener('keydown', (e) => {
   if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyF') {
     e.preventDefault();
     const ta = document.getElementById('script-editor');
-    if (ta) toggleFocusMode();
+    const genko = document.getElementById('genko-pages-container');
+    if (ta || genko) toggleFocusMode();
+  }
+  // エディタ固有ショートカット
+  const ta = document.getElementById('script-editor');
+  const genko = document.getElementById('genko-pages-container');
+  if (ta || genko) {
+    // Ctrl+1: シーン見出し挿入
+    if ((e.ctrlKey || e.metaKey) && e.code === 'Digit1') {
+      e.preventDefault();
+      insertElement('scene-heading');
+    }
+    // Ctrl+2: キャラクター名挿入
+    if ((e.ctrlKey || e.metaKey) && e.code === 'Digit2') {
+      e.preventDefault();
+      insertElement('character');
+    }
+    // Ctrl+3: セリフ挿入
+    if ((e.ctrlKey || e.metaKey) && e.code === 'Digit3') {
+      e.preventDefault();
+      insertElement('dialogue');
+    }
+    // Ctrl+4: ト書き挿入
+    if ((e.ctrlKey || e.metaKey) && e.code === 'Digit4') {
+      e.preventDefault();
+      insertElement('action');
+    }
+    // Ctrl+5: 転換挿入
+    if ((e.ctrlKey || e.metaKey) && e.code === 'Digit5') {
+      e.preventDefault();
+      insertElement('transition');
+    }
+    // Ctrl+Shift+Z / Ctrl+Y: Redo（縦書きgenko専用）
+    if (((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyZ') ||
+        ((e.ctrlKey || e.metaKey) && e.code === 'KeyY')) {
+      if (genko && typeof genkoRedo === 'function') {
+        e.preventDefault();
+        genkoRedo();
+      }
+    }
   }
 });
 
