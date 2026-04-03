@@ -2787,38 +2787,37 @@ function openPreviewModal(link) {
         <a href="${link.dataUrl}" download="${esc(title)}" style="padding:4px 10px;background:#3a5030;border:1px solid #5a8040;color:#b8e8a8;border-radius:6px;cursor:pointer;font-size:12px;text-decoration:none">⬇ DL</a>
       </div>`;
   } else if (isFile && isImage) {
-    contentHtml = `<img src="${link.dataUrl}" alt="${esc(title)}" style="max-width:90vw;max-height:75vh;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.5);object-fit:contain">`;
-    toolbarExtra = `<a href="${link.dataUrl}" download="${esc(title)}" style="margin-left:auto;padding:4px 10px;background:#3a5030;border:1px solid #5a8040;color:#b8e8a8;border-radius:6px;cursor:pointer;font-size:12px;text-decoration:none">⬇ ダウンロード</a>`;
+    contentHtml = `
+      <div style="display:flex;flex-direction:column;align-items:center;gap:12px;padding:12px">
+        <img src="${link.dataUrl}" alt="${esc(title)}" style="max-width:min(88vw,900px);max-height:72vh;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.6);object-fit:contain;image-rendering:high-quality;cursor:zoom-in" onclick="this.style.maxWidth=this.style.maxWidth==='none'?'min(88vw,900px)':'none';this.style.maxHeight=this.style.maxHeight==='none'?'72vh':'none'" title="クリックで拡大">
+        <div style="font-size:10px;color:#6a5a48">クリックで原寸表示</div>
+      </div>`;
+    toolbarExtra = `<div style="margin-left:auto;display:flex;gap:6px"><a href="${link.dataUrl}" download="${esc(title)}" style="padding:4px 10px;background:#3a5030;border:1px solid #5a8040;color:#b8e8a8;border-radius:6px;cursor:pointer;font-size:12px;text-decoration:none">⬇ DL</a></div>`;
   } else if (isFile && isText && link.dataUrl) {
     // テキストファイル: Base64デコード
     contentHtml = `<div id="preview-text-body" style="background:#1a1510;border-radius:8px;padding:20px 24px;color:#e8dcc8;font-family:'Noto Serif JP',serif;font-size:13px;line-height:1.9;white-space:pre-wrap;max-height:65vh;overflow-y:auto;min-width:320px;max-width:80vw;border:1px solid #3a3020">読み込み中…</div>`;
     toolbarExtra = `<a href="${link.dataUrl}" download="${esc(title)}" style="margin-left:auto;padding:4px 10px;background:#3a5030;border:1px solid #5a8040;color:#b8e8a8;border-radius:6px;cursor:pointer;font-size:12px;text-decoration:none">⬇ DL</a>`;
   } else if (isUrl) {
-    // URLプレビュー: iframeで表示試行 + フォールバック情報カード
+    // URLプレビュー: iframe埋め込み（ツールバーに情報集約、重複カード除去）
     const urlObj = (() => { try { return new URL(link.url); } catch { return null; } })();
     const domain = urlObj ? urlObj.hostname : link.url;
+    // faviconを取得試行
+    const faviconUrl = urlObj ? `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=32` : '';
     contentHtml = `
       <div style="width:min(900px,88vw);display:flex;flex-direction:column;gap:0">
-        <!-- 情報カード（常時表示） -->
-        <div style="padding:16px 20px;background:#1e1a14;border:1px solid #3a3020;border-radius:8px 8px 0 0;display:flex;align-items:center;gap:12px">
-          <div style="width:40px;height:40px;border-radius:8px;background:#2a3a5a;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">🌐</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:700;color:#e8d8c0;margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(link.title || domain)}</div>
-            <div style="font-size:11px;color:#7a8aa0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(link.url)}</div>
-            ${link.memo ? `<div style="font-size:11px;color:#9a8a70;margin-top:4px">${esc(link.memo)}</div>` : ''}
-          </div>
-          <a href="${esc(link.url)}" target="_blank" rel="noopener" style="padding:7px 14px;background:#2a3a5a;border:1px solid #3a5a8a;color:#a8c8f8;border-radius:6px;cursor:pointer;font-size:12px;text-decoration:none;flex-shrink:0;font-weight:600">🔗 開く</a>
-        </div>
+        ${link.memo ? `<div style="padding:8px 16px;background:#1a1814;border:1px solid #3a3020;border-radius:8px 8px 0 0;font-size:11px;color:#9a8a70"><i class="fas fa-sticky-note" style="margin-right:5px;opacity:.6"></i>${esc(link.memo)}</div>` : ''}
         <!-- iframe埋め込みプレビュー -->
-        <div style="position:relative;height:60vh;border:1px solid #3a3020;border-top:none;border-radius:0 0 8px 8px;overflow:hidden">
-          <div id="preview-url-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#1a1510;color:#a09080;font-size:13px;flex-direction:column;gap:8px;z-index:1">
-            <div style="font-size:24px">⏳</div>
-            <div>ページを読み込み中… (一部サイトは埋め込み不可)</div>
-            <a href="${esc(link.url)}" target="_blank" rel="noopener" style="padding:6px 14px;background:#2a3a5a;border:1px solid #3a5a8a;color:#a8c8f8;border-radius:6px;font-size:11px;text-decoration:none;margin-top:4px">新タブで開く →</a>
+        <div style="position:relative;height:65vh;border:1px solid #3a3020;${link.memo?'border-top:none;border-radius:0 0 8px 8px':'border-radius:8px'};overflow:hidden">
+          <div id="preview-url-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#1a1510;color:#a09080;font-size:13px;flex-direction:column;gap:10px;z-index:1">
+            ${faviconUrl ? `<img src="${faviconUrl}" style="width:24px;height:24px;border-radius:4px;opacity:.7" onerror="this.style.display='none'">` : '<div style="font-size:28px;opacity:.4">🌐</div>'}
+            <div style="font-weight:600;color:#c8b898">${esc(link.title||domain)}</div>
+            <div style="font-size:11px;color:#6a5a48;max-width:300px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(link.url)}</div>
+            <div style="font-size:11px;color:#a09080">ページを読み込み中…（X-Frame-Optionsで埋め込み不可の場合あり）</div>
+            <a href="${esc(link.url)}" target="_blank" rel="noopener" style="padding:7px 18px;background:#2a3a5a;border:1px solid #3a5a8a;color:#a8c8f8;border-radius:8px;font-size:12px;text-decoration:none;font-weight:600;transition:all .15s" onmouseover="this.style.background='#3a4a7a'" onmouseout="this.style.background='#2a3a5a'">🔗 新タブで開く</a>
           </div>
           <iframe src="${esc(link.url)}" style="width:100%;height:100%;border:none;background:#fff;position:relative;z-index:2" 
             onload="const l=document.getElementById('preview-url-loading');if(l)l.style.display='none';"
-            onerror="const l=document.getElementById('preview-url-loading');if(l){l.innerHTML='<div style=\\'font-size:20px\\'>🚫</div><div>このサイトは埋め込み表示できません</div><a href=\\'${esc(link.url)}\\' target=\\'_blank\\' rel=\\'noopener\\' style=\\'margin-top:8px;padding:7px 16px;background:#2a3a5a;border:1px solid #3a5a8a;color:#a8c8f8;border-radius:6px;font-size:12px;text-decoration:none;font-weight:600\\'>新タブで開く →</a>';}"
+            onerror="const l=document.getElementById('preview-url-loading');if(l){l.innerHTML='<div style=\\'font-size:28px;opacity:.5\\'>🚫</div><div style=\\'font-weight:600;color:#e8b898\\'>埋め込み表示できません</div><div style=\\'font-size:11px;color:#a09080;text-align:center\\'>このサイトはX-Frame-Optionsによりブロックされています</div><a href=\\'${esc(link.url)}\\' target=\\'_blank\\' rel=\\'noopener\\' style=\\'margin-top:10px;padding:8px 20px;background:#2a3a5a;border:1px solid #3a5a8a;color:#a8c8f8;border-radius:8px;font-size:13px;text-decoration:none;font-weight:600\\'>🔗 新タブで開く →</a>';}"
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
         </div>
       </div>`;
@@ -4369,19 +4368,23 @@ function renderEditor(proj) {
           <div style="background:linear-gradient(135deg,var(--fuji-bg,#f0eeff),#fff);border:1px solid var(--fuji-border,#e0d0ff);border-radius:10px;padding:12px;margin-bottom:10px">
             <div style="font-size:11px;color:var(--text-secondary);line-height:1.7;margin-bottom:8px">
               <i class="fas fa-info-circle" style="color:var(--fuji);margin-right:4px"></i>
-              脚本を職員室に送って、<strong>15項目の多軸評価</strong>（構成・キャラ・セリフ・演出・テーマ・作品力）を受けましょう。
+              脚本を職員室に送って、<strong>18項目・7軸コンクール審査員評価 v4</strong>を受けましょう。
             </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;font-size:9.5px;color:var(--text-muted)">
-              <div><i class="fas fa-check" style="color:var(--matcha);margin-right:3px"></i>三幕構成チェック</div>
-              <div><i class="fas fa-check" style="color:var(--matcha);margin-right:3px"></i>説明台詞検出</div>
-              <div><i class="fas fa-check" style="color:var(--matcha);margin-right:3px"></i>Want/Need分析</div>
-              <div><i class="fas fa-check" style="color:var(--matcha);margin-right:3px"></i>感情密度計測</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:8px;font-size:9.5px;color:var(--text-muted)">
+              <div><i class="fas fa-check" style="color:var(--matcha);margin-right:3px"></i>三幕構成・ペーシング</div>
+              <div><i class="fas fa-check" style="color:var(--matcha);margin-right:3px"></i>説明台詞・サブテキスト</div>
+              <div><i class="fas fa-check" style="color:var(--matcha);margin-right:3px"></i>Want/Need・キャラアーク</div>
+              <div><i class="fas fa-check" style="color:var(--matcha);margin-right:3px"></i>感情密度・ツイスト</div>
+              <div><i class="fas fa-check" style="color:var(--fuji);margin-right:3px"></i>対話のダイナミクス</div>
+              <div><i class="fas fa-check" style="color:var(--fuji);margin-right:3px"></i>作家性・文体の個性</div>
+              <div><i class="fas fa-check" style="color:var(--asagi,#0e7490);margin-right:3px"></i>映像化実現可能性</div>
+              <div><i class="fas fa-check" style="color:var(--asagi,#0e7490);margin-right:3px"></i>カタルシス・読後感</div>
             </div>
           </div>
           <button class="btn btn-primary btn-sm" style="width:100%;font-size:12px;background:linear-gradient(135deg,var(--fuji),#7c3aed);border-color:transparent;padding:9px;border-radius:8px;font-weight:700;letter-spacing:.03em" onclick="editorSendToStaffRoom('${proj.id}')">
-            <i class="fas fa-wand-magic-sparkles" style="margin-right:6px"></i>提出して審査員採点を受ける
+            <i class="fas fa-wand-magic-sparkles" style="margin-right:6px"></i>提出して審査員採点を受ける（v4）
           </button>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:5px;text-align:center;line-height:1.5">現在のドラフトが職員室に送られ、<br>自動でコンクール基準採点が始まります</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:5px;text-align:center;line-height:1.5">現在のドラフトが職員室に送られ、<br>18項目コンクール基準採点が自動で始まります</div>
         </div>
       </div>
     </div>
@@ -5995,12 +5998,12 @@ function renderWritingHint(proj, content) {
   const HINTS = [
     { min: 0,    max: 100,   icon: '🖊️', color: '#e87d3e', text: 'まず書き始めましょう。「完璧な初稿」は存在しません。' },
     { min: 100,  max: 400,   icon: '🔥', color: '#c0392b', text: '好調です！最初のシーンを書き切ることを優先しましょう。' },
-    { min: 400,  max: 800,   icon: '⚡', color: '#d68910', text: '第一幕が見えてきました。主人公の欲求を明確に！' },
-    { min: 800,  max: 2000,  icon: '📖', color: '#2e86ab', text: '第一幕の発端事件を描きましたか？ここで観客を引き込みます。' },
-    { min: 2000, max: 4000,  icon: '⚔️', color: '#8e44ad', text: '第二幕へ突入。主人公に障害を与え、緊張を高めましょう。' },
-    { min: 4000, max: 8000,  icon: '🌊', color: '#16a085', text: '第二幕中盤。ミッドポイントで世界が変わる転換点を！' },
-    { min: 8000, max: 15000, icon: '🎯', color: '#2e5fa0', text: '終盤が見えてきました。クライマックスを意識した構成を。' },
-    { min: 15000, max: Infinity, icon: '🏆', color: '#c0392b', text: '素晴らしい量です！推敲フェーズへ移行する準備ができています。' },
+    { min: 400,  max: 800,   icon: '⚡', color: '#d68910', text: '第一幕が見えてきました。主人公の外的欲求（Want）を明確に！' },
+    { min: 800,  max: 2000,  icon: '📖', color: '#2e86ab', text: '第一幕の発端事件を描きましたか？ここで観客を引き込みます。発端事件は前半に！' },
+    { min: 2000, max: 4000,  icon: '⚔️', color: '#8e44ad', text: '第二幕へ突入。主人公に障害を与え、緊張を高めましょう。説明台詞を減らして行動で見せて。' },
+    { min: 4000, max: 8000,  icon: '🌊', color: '#16a085', text: '第二幕中盤。ミッドポイントで世界が変わる転換点を！サブテキストを活用して。' },
+    { min: 8000, max: 15000, icon: '🎯', color: '#2e5fa0', text: '終盤が見えてきました。クライマックスを意識した構成を。主人公の変容（アーク）を描いて。' },
+    { min: 15000, max: Infinity, icon: '🏆', color: '#c0392b', text: '素晴らしい量です！推敲フェーズへ移行する準備ができています。職員室で採点を。' },
   ];
   const hint = HINTS.find(h => charCount >= h.min && charCount < h.max) || HINTS[HINTS.length - 1];
 
@@ -6008,11 +6011,29 @@ function renderWritingHint(proj, content) {
   const todayKey = `today_wc_${new Date().toDateString()}`;
   const todayWc = DB.get(todayKey, 0);
 
+  // 最新の職員室スコアを取得（エディタ連携）
+  const sessions = DB.get('staffroom_sessions', []);
+  const projSessions = sessions.filter(s => s.projectId === (proj ? proj.id : null) || (s.scriptText && content && s.scriptText.slice(0,50) === content.slice(0,50)));
+  const latestScored = projSessions.filter(s => s.autoScoreResult).sort((a,b) => (b.autoScoreResult.scoredAt||0)-(a.autoScoreResult.scoredAt||0))[0];
+  const lastScore = latestScored?.autoScoreResult;
+
+  // クイック自己採点ヒント（現在のテキストから主要指標を即座に計算）
+  const quickLines = (content||'').split('\n').map(l=>l.trim()).filter(l=>l.length>0);
+  const quickSceneCount = quickLines.filter(l => /^[○◎●]|^INT\.|^EXT\.|^【/.test(l)).length;
+  const quickDialogueLines = quickLines.filter(l => /^[ぁ-んァ-ヶ一-龯A-Za-z]{1,12}「/.test(l)).length;
+  const quickDialogueRatio = quickLines.length > 0 ? Math.round(quickDialogueLines / quickLines.length * 100) : 0;
+  const quickOnTheNose = (content||'').split('\n').filter(l => /なんですよ|ということは|つまり|実は私|説明しておくと|要するに/.test(l)).length;
+
+  // 説明台詞警告レベル
+  const onTheNoseWarnLevel = quickOnTheNose >= 5 ? 'var(--momo)' : quickOnTheNose >= 2 ? 'var(--kogane)' : 'var(--matcha)';
+  const onTheNoseMsg = quickOnTheNose >= 5 ? '⚠️ 多い' : quickOnTheNose >= 2 ? '△ あり' : '✅ 少ない';
+
   return `
   <div style="background:${hint.color}12;border-left:3px solid ${hint.color};border-radius:0 6px 6px 0;padding:8px 10px;margin-bottom:10px">
-    <div style="font-size:16px;margin-bottom:3px">${hint.icon}</div>
+    <div style="font-size:15px;margin-bottom:3px">${hint.icon}</div>
     <div style="font-size:11px;color:var(--text-primary);line-height:1.7">${hint.text}</div>
   </div>
+  <!-- 執筆量サマリー -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px">
     <div style="text-align:center;padding:6px;background:var(--bg-subtle);border-radius:6px">
       <div style="font-size:9px;color:var(--text-muted)">総文字数</div>
@@ -6023,6 +6044,40 @@ function renderWritingHint(proj, content) {
       <div style="font-size:13px;font-weight:700;color:var(--accent)">${todayWc.toLocaleString()}字</div>
     </div>
   </div>
+  <!-- クイック診断（ライブ） -->
+  ${quickLines.length >= 5 ? `
+  <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:8px">
+    <div style="font-size:10px;font-weight:700;color:var(--text-secondary);margin-bottom:6px;display:flex;align-items:center;gap:4px"><i class="fas fa-bolt" style="color:var(--kogane)"></i> リアルタイム診断</div>
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px">
+        <span style="color:var(--text-muted)"><i class="fas fa-clapperboard" style="margin-right:3px;font-size:8px"></i>シーン数</span>
+        <span style="font-weight:600;color:${quickSceneCount>=3?'var(--matcha)':quickSceneCount>=1?'var(--kogane)':'var(--momo)'}">${quickSceneCount}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px">
+        <span style="color:var(--text-muted)"><i class="fas fa-comment" style="margin-right:3px;font-size:8px"></i>セリフ比率</span>
+        <span style="font-weight:600;color:${quickDialogueRatio>=15&&quickDialogueRatio<=70?'var(--matcha)':quickDialogueRatio>70?'var(--kogane)':'var(--momo)'}">${quickDialogueRatio}%</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px">
+        <span style="color:var(--text-muted)"><i class="fas fa-exclamation-triangle" style="margin-right:3px;font-size:8px"></i>説明台詞</span>
+        <span style="font-weight:600;color:${onTheNoseWarnLevel}">${onTheNoseMsg}（${quickOnTheNose}行）</span>
+      </div>
+    </div>
+  </div>` : ''}
+  <!-- 最新スコア（職員室連携） -->
+  ${lastScore ? `
+  <div style="background:linear-gradient(135deg,var(--fuji-bg,#f0eeff),#fff);border:1px solid var(--fuji-border,#e0d0ff);border-radius:8px;padding:8px 10px;margin-bottom:8px">
+    <div style="font-size:9px;color:var(--text-muted);margin-bottom:5px"><i class="fas fa-gavel" style="color:var(--fuji);margin-right:3px"></i>最新採点</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="width:36px;height:36px;border-radius:8px;background:${lastScore.totalScore>=88?'linear-gradient(135deg,#a855f7,#7c3aed)':lastScore.totalScore>=78?'linear-gradient(135deg,#22c55e,#16a34a)':lastScore.totalScore>=66?'linear-gradient(135deg,#3b82f6,#2563eb)':lastScore.totalScore>=54?'linear-gradient(135deg,#eab308,#ca8a04)':'linear-gradient(135deg,#ef4444,#dc2626)'};display:flex;align-items:center;justify-content:center;flex-direction:column;flex-shrink:0">
+        <span style="font-size:11px;font-weight:900;color:#fff;line-height:1">${lastScore.grade}</span>
+        <span style="font-size:8px;color:rgba(255,255,255,.7)">${lastScore.totalScore}</span>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:10px;font-weight:700;color:var(--text-primary)">${esc(lastScore.gradeLabel||'')}</div>
+        <div style="font-size:9px;color:var(--text-muted);line-height:1.4;margin-top:1px">${esc((lastScore.priority||'').split('\n')[0]||'')}</div>
+      </div>
+    </div>
+  </div>` : ''}
   <div style="font-size:10px;color:var(--text-muted);text-align:center">
     <i class="fas fa-info-circle" style="margin-right:3px"></i>
     1時間ドラマ≈12,000字 / 映画≈15,000字
@@ -12389,6 +12444,7 @@ function renderLearnStaffRoom(hero, subnav) {
         { id: 'subtext', label: 'サブテキストの活用', desc: '言葉の裏に意図や感情があるか。「説明台詞」に頼りすぎていないか。' },
         { id: 'voice', label: 'キャラクターの声の固有性', desc: '誰が話しているかわかるくらい、話し方に個性があるか。' },
         { id: 'naturalness', label: '自然さ・リズム', desc: 'セリフが実際の会話として違和感がないか。読み上げたとき流れるか。' },
+        { id: 'dialogue-dynamics', label: '対話のダイナミクス・引力', desc: 'キャラクター同士の目的・欲求・秘密が衝突しているか。各会話シーンに緊張感・サスペンス・引力があるか。' },
       ]
     },
     { id: 'direction', label: 'ト書き・演出', icon: 'fa-film', color: '#16a085',
@@ -12397,16 +12453,22 @@ function renderLearnStaffRoom(hero, subnav) {
         { id: 'direction-clarity', label: 'ト書きの簡潔さ・明瞭さ', desc: '演出過多でなく、必要な情報が明確に書かれているか。' },
       ]
     },
-    { id: 'theme', label: 'テーマ・メッセージ', icon: 'fa-quote-left', color: '#d68910',
+    { id: 'theme', label: 'テーマ・作家性', icon: 'fa-quote-left', color: '#d68910',
       items: [
         { id: 'theme-clarity', label: 'テーマの一貫性', desc: '物語を通じてテーマが一貫しているか。作品が「何を言いたいか」が伝わるか。' },
         { id: 'originality', label: 'オリジナリティ・独自視点', desc: '類似作品と差別化できる独自の視点・声があるか。この作家にしか書けない物語か。' },
+        { id: 'authorial-voice', label: '作家性・文体の独自性', desc: '書き手の「声」が感じられるか。詩的表現・反復モチーフ・具体的ディテールで独自の文体が確立されているか。コンクールで勝つのはうまい脚本より独自の声のある脚本。（×1.2加重）' },
       ]
     },
     { id: 'impact', label: '作品力・感情的インパクト', icon: 'fa-heart-pulse', color: '#c0392b',
       items: [
-        { id: 'emotional-impact', label: '「いいホン」か——情動的インパクト', desc: 'コンクール審査員・プロデューサーが「続きを読みたい」と思うか。感情を動かす瞬間があるか。意外性・転換点・忘れられないシーンがあるか。これが最重要項目（1.5倍加重）。' },
+        { id: 'emotional-impact', label: '「いいホン」か——情動的インパクト', desc: 'コンクール審査員・プロデューサーが「続きを読みたい」と思うか。感情を動かす瞬間があるか。意外性・転換点・忘れられないシーンがあるか。読後カタルシスがあるか。最重要項目（×1.6加重）。' },
         { id: 'format-correctness', label: '脚本フォーマット・体裁', desc: '柱書き・ト書き・台詞の書き方が正確か。プロの読み手が違和感なく読めるか。' },
+      ]
+    },
+    { id: 'production', label: '映像化実現可能性', icon: 'fa-clapperboard', color: '#0e7490',
+      items: [
+        { id: 'production-viability', label: '映像化コスト効率・実現性', desc: 'プロデューサー目線で企画が通るか。ロケーション多様性・シーン数・VFX依存度・制作予算規模。日常的舞台設定はドラマ通過率を上げる。（×1.0）' },
       ]
     },
   ];
@@ -12608,7 +12670,8 @@ function renderLearnStaffRoom(hero, subnav) {
           <!-- ヘッダーバー -->
           <div style="padding:14px 20px 10px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:10px;position:relative">
             <i class="fas fa-gavel" style="color:rgba(255,255,255,.5);font-size:12px"></i>
-            <span style="font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.45);font-weight:600;text-transform:uppercase">SCENARIO LAB ─ 審査員採点レポート</span>
+            <span style="font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.45);font-weight:600;text-transform:uppercase">SCENARIO LAB ─ 審査員採点レポート v4</span>
+            <span style="font-size:9px;background:rgba(168,85,247,.25);color:rgba(200,160,255,.9);border:1px solid rgba(168,85,247,.4);border-radius:4px;padding:1px 6px;font-weight:700;letter-spacing:.05em">18項目・7軸</span>
             <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
               ${autoResult.analysisStats ? `<span style="font-size:10px;color:rgba(255,255,255,.3)">${new Date(autoResult.scoredAt||Date.now()).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}採点</span>` : ''}
               <button onclick="staffRoomClearAutoScore('${s.id}')" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);border-radius:6px;width:22px;height:22px;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s" title="結果をクリア" onmouseover="this.style.background='rgba(255,68,68,.3)'" onmouseout="this.style.background='rgba(255,255,255,.08)'"><i class="fas fa-times"></i></button>
@@ -12629,7 +12692,7 @@ function renderLearnStaffRoom(hero, subnav) {
                 <span style="font-size:28px;font-weight:900;font-family:'Noto Serif JP',serif;line-height:1;text-shadow:0 2px 12px rgba(0,0,0,.5)">${autoResult.grade}</span>
                 <div style="display:flex;flex-direction:column;gap:2px">
                   <span style="font-size:13px;font-weight:800;background:${autoResult.totalScore>=88?'linear-gradient(90deg,#a855f7,#c084fc)':autoResult.totalScore>=78?'linear-gradient(90deg,#22c55e,#4ade80)':autoResult.totalScore>=66?'linear-gradient(90deg,#3b82f6,#60a5fa)':autoResult.totalScore>=54?'linear-gradient(90deg,#eab308,#fbbf24)':'linear-gradient(90deg,#ef4444,#f87171)'};-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">${esc(autoResult.gradeLabel)}</span>
-                  ${autoResult.analysisStats ? `<span style="font-size:10px;color:rgba(255,255,255,.4)">${autoResult.analysisStats.sceneCount||0}シーン · 登場人物${autoResult.analysisStats.uniqueChars||0}人 · セリフ${autoResult.analysisStats.dialogueRatio||0}% · 感情密度${autoResult.analysisStats.emotionDensity||0}%</span>` : ''}
+                  ${autoResult.analysisStats ? `<span style="font-size:10px;color:rgba(255,255,255,.4)">${autoResult.analysisStats.sceneCount||0}シーン · 人物${autoResult.analysisStats.uniqueChars||0}人 · セリフ${autoResult.analysisStats.dialogueRatio||0}% · 感情${autoResult.analysisStats.emotionDensity||0}% · 緊張${autoResult.analysisStats.tensionCount||0}</span>` : ''}
                 </div>
               </div>
               <div style="font-size:12px;line-height:1.75;color:rgba(255,255,255,.7)">${esc(autoResult.summary)}</div>
@@ -13027,9 +13090,10 @@ function staffRoomFbTab(sessionId, tab) {
 // ── 脚本テキスト解析エンジン（ルールベース高精度） ──────────────
 function staffRoomRunAnalysis(text) {
   // ══════════════════════════════════════════════════════════════════
-  //  シナリオラボ 職員室 — 競技審査員エンジン v3.0
-  //  コンクール選考委員・プロデューサー・バイヤー多角的視点
-  //  客観（構造・形式）× 主観（情動・独自性・完成度）ハイブリッド
+  //  シナリオラボ 職員室 — コンクール審査員エンジン v4.0
+  //  7カテゴリ・18項目・多軸評価モデル
+  //  客観（構造・形式）× 主観（情動・映像性・作家性）× 映像化実現性
+  //  判定ロジック: NHK・城戸賞・テレビ大賞 審査基準を参考に設計
   // ══════════════════════════════════════════════════════════════════
 
   const rawLines = text.split('\n');
@@ -13037,7 +13101,6 @@ function staffRoomRunAnalysis(text) {
   const nonEmpty = lines.filter(l => l.length > 0);
   const totalChars = text.replace(/[\s\n\r]/g, '').length;
   const totalLines = nonEmpty.length;
-  const rawLineCount = rawLines.length;
 
   if (totalChars < 30) {
     return {
@@ -13052,7 +13115,7 @@ function staffRoomRunAnalysis(text) {
   //  [A] テキスト構造解析（精密版）
   // ────────────────────────────────────────────────────────────────
 
-  // 柱書き（シーン行）検出 — 日本・ハリウッド両対応・拡張版
+  // 柱書き（シーン行）検出 — 日本・ハリウッド両対応
   const isSceneLine = l =>
     /^[０-９0-9]+[○◎●]/.test(l) ||
     /^[○◎●]/.test(l) ||
@@ -13067,14 +13130,11 @@ function staffRoomRunAnalysis(text) {
   const sceneLines = nonEmpty.filter(isSceneLine);
   const sceneCount = sceneLines.length;
 
-  // シーン位置を記録（ペーシング・構造分析用）
   const scenePositions = [];
-  let lineIdx = 0;
   lines.forEach((l, i) => {
     if (isSceneLine(l)) scenePositions.push({ line: i, pct: i / Math.max(1, lines.length) });
   });
 
-  // シーン毎の行数（ペーシング分析）
   const sceneLengths = [];
   if (sceneCount > 0) {
     let cur = 0;
@@ -13085,10 +13145,15 @@ function staffRoomRunAnalysis(text) {
     if (cur > 0) sceneLengths.push(cur);
   }
 
+  // シーンの多様性（屋内/屋外/時間帯）
+  const indoorScenes = sceneLines.filter(l => /屋内|室内|INT|店|家|部屋|事務所|病院|学校|駅構内|電車内|車内/.test(l)).length;
+  const outdoorScenes = sceneLines.filter(l => /屋外|室外|EXT|公園|街|道|空|海|山|野外|屋上/.test(l)).length;
+  const nightScenes = sceneLines.filter(l => /夜|深夜|夜中|夜景|月/.test(l)).length;
+  const dayScenes = sceneLines.filter(l => /昼|朝|午前|午後|夕方|夕暮れ|夕陽/.test(l)).length;
+  const sceneLocationVariety = new Set(sceneLines.map(l => l.slice(0, 20))).size;
+
   // ── セリフ検出（精密版）
-  // 形式A: キャラ名「セリフ」
   const charDialoguePatternA = /^([ぁ-んァ-ヶーｱ-ﾝﾞﾟ一-龯Ａ-Ｚａ-ｚA-Za-z\s　ーＡ-Ｚ]{1,16})「(.*)」?\s*$/;
-  // 形式B: キャラ名（行）→ 次行がセリフ（ハリウッド形式の日本語版）
   const charNameOnlyPattern = /^([ぁ-んァ-ヶーｱ-ﾝﾞﾟ一-龯Ａ-Ｚａ-ｚA-Za-z　ー]{1,16})\s*$/;
 
   const narrPattern = /^（[^）]{1,60}）$|^（[^）]{1,60}）「|^N[・.]「|^M[・.]「|^\[N\]|^\[M\]|^ナレーション[「：]|^ＮＡＲ[「：]|^OFF「/;
@@ -13130,7 +13195,6 @@ function staffRoomRunAnalysis(text) {
       }
     }
 
-    // ハリウッド形式（キャラ名単独行 → 次行がセリフ）
     const mB = l.match(charNameOnlyPattern);
     if (mB && l === l.toUpperCase() && l.length <= 16) {
       prevWasCharName = true;
@@ -13140,7 +13204,6 @@ function staffRoomRunAnalysis(text) {
     }
 
     if (prevWasCharName && prevCharName2) {
-      // 前行がキャラ名 → この行をそのキャラのセリフとして扱う
       const name = prevCharName2;
       charCounts[name] = (charCounts[name] || 0) + 1;
       if (!charFirstAppear[name]) charFirstAppear[name] = idx;
@@ -13159,16 +13222,14 @@ function staffRoomRunAnalysis(text) {
   const mainChar = sortedChars[0];
   const mainCharName = mainChar ? mainChar[0] : null;
   const mainCharLineCount = mainChar ? mainChar[1] : 0;
-  const secondChar = sortedChars[1];
   const totalDialogueLines = Object.values(charCounts).reduce((a, b) => a + b, 0);
   const dialogueRatio = totalLines > 0 ? totalDialogueLines / totalLines : 0;
   const actionRatio = totalLines > 0 ? actionLines.length / totalLines : 0;
 
-  // ページ推定（日本標準: 400字/p）
   const estimatedPages = Math.max(1, Math.round(totalChars / 400));
 
   // ────────────────────────────────────────────────────────────────
-  //  [B] 深層テキスト分析（拡張版）
+  //  [B] 深層テキスト分析（v4: 映像化実現性・作家性軸追加）
   // ────────────────────────────────────────────────────────────────
 
   // ▼ セリフ品質精密分析
@@ -13177,7 +13238,7 @@ function staffRoomRunAnalysis(text) {
   const avgDialogueLen = dialogueLengths.length > 0
     ? dialogueLengths.reduce((a, b) => a + b, 0) / dialogueLengths.length : 0;
 
-  // 説明台詞（オン・ザ・ノーズ）検出 — 精密版
+  // 説明台詞（オン・ザ・ノーズ）検出
   const onTheNosePatterns = [
     'なんですよ', 'ということは', 'というのは', 'ですよね', 'んですよ',
     'じゃないですか', 'わかってます', 'つまり', 'と言いたいのは', '要するに',
@@ -13192,20 +13253,20 @@ function staffRoomRunAnalysis(text) {
   const onTheNoseCount = onTheNoseLines.length;
   const onTheNoseRatio = totalDialogueLines > 0 ? onTheNoseCount / totalDialogueLines : 0;
 
-  // サブテキスト・行間の演技検出（精密版）
-  const subtextIndicators_hard = ['…', '——', '──', '沈黙', '（間）', '（長い沈黙）', '（ためらう）', '（目をそらす）'];
+  // サブテキスト・行間演技検出
+  const subtextIndicators_hard = ['…', '——', '──', '沈黙', '（間）', '（長い沈黙）', '（ためらう）', '（目をそらす）', '（言いかけて）', '（立ち止まる）'];
   const subtextIndicators_soft = ['笑う', '泣く', '立ち上がる', '立ち止まる', 'うなずく', '振り返る',
-    '見つめる', '視線を外す', '黙', '口をつぐむ', '息をのむ', '唇を噛む', '手が震える', '目が潤む'];
+    '見つめる', '視線を外す', '黙', '口をつぐむ', '息をのむ', '唇を噛む', '手が震える', '目が潤む', 'そっぽを向く'];
   const subtextHardCount = nonEmpty.filter(l => subtextIndicators_hard.some(s => l.includes(s))).length;
   const subtextSoftCount = nonEmpty.filter(l => subtextIndicators_soft.some(s => l.includes(s))).length;
   const subtextScore_raw = subtextHardCount * 2 + subtextSoftCount;
 
-  // キャラ固有語彙（声の固有性指標）
+  // キャラ固有語彙
   const charVocabUniqueness = (() => {
     if (Object.keys(dialogueByChar).length < 2) return 0;
     const charWords = {};
-    Object.entries(dialogueByChar).forEach(([name, lines]) => {
-      const words = new Set(lines.join('').split(/[、。！？\s「」『』（）]/g).filter(w => w.length >= 2));
+    Object.entries(dialogueByChar).forEach(([name, ls]) => {
+      const words = new Set(ls.join('').split(/[、。！？\s「」『』（）]/g).filter(w => w.length >= 2));
       charWords[name] = words;
     });
     const allChars = Object.keys(charWords);
@@ -13251,80 +13312,95 @@ function staffRoomRunAnalysis(text) {
   const shortActionCount = actionLines.filter(l => l.length > 0 && l.length <= 40).length;
   const avgActionLen = actionLines.length > 0 ? actionLines.reduce((a, l) => a + l.length, 0) / actionLines.length : 0;
 
-  // 映像的描写キーワード（拡張版）
+  // 映像的描写キーワード
   const visualKeywords_strong = ['見つめ', '目を細め', '唇を震わせ', '涙がこぼれ', '笑みをこぼし',
-    '眉をひそめ', '口をつぐむ', '息をのむ', '手が震え', '視線が交わる', '目が合う'];
+    '眉をひそめ', '口をつぐむ', '息をのむ', '手が震え', '視線が交わる', '目が合う', '遠くを見る', '歩み寄る'];
   const visualKeywords_basic = ['目を', '見る', '顔を', '手を', '歩く', '走る', '立ち止ま',
     '振り返', '座る', '立つ', '涙', '光', '影', '暗い', '明るい', '風', '雨', '雪', '夕暮れ',
     '夜明け', '笑み', '微笑', 'こぼれ', '滲む', '消える', '現れる', '揺れる', '静かに',
-    'ゆっくり', 'そっと', '激しく', '鋭く', '柔らかく', '白い', '赤い', '黒い'];
+    'ゆっくり', 'そっと', '激しく', '鋭く', '柔らかく', '白い', '赤い', '黒い', '青い', '橙色', '霧', '煙'];
   const visualStrongCount = actionLines.filter(l => visualKeywords_strong.some(kw => l.includes(kw))).length;
   const visualBasicCount = actionLines.filter(l => visualKeywords_basic.some(kw => l.includes(kw))).length;
   const visualScore_raw = visualStrongCount * 2 + visualBasicCount;
   const visualRatio = actionLines.length > 0 ? (visualStrongCount * 2 + visualBasicCount) / (actionLines.length * 2) : 0;
 
   // 感覚・環境描写
-  const sensoryKeywords = ['音', '声', '匂い', '香り', '温かい', '冷たい', '重い', '軽い', '柔らかい', '硬い', '甘い', '苦い'];
+  const sensoryKeywords = ['音', '声', '匂い', '香り', '温かい', '冷たい', '重い', '軽い', '柔らかい', '硬い', '甘い', '苦い', '騒音', '静寂', '熱い'];
   const sensoryCount = actionLines.filter(l => sensoryKeywords.some(kw => l.includes(kw))).length;
+
+  // ── 新軸: 映像化実現性（予算・撮影技術的実現可能性）
+  const vfxKws = ['爆発', '宇宙', '空を飛ぶ', '変身', '魔法', '大群衆', '戦闘機', '巨大', 'モンスター', '海底', '未来都市'];
+  const practicalKws = ['部屋', '会話', '歩く', '電話', '食事', '会議', '喫茶店', '職場', '学校', '病院', '家族'];
+  const vfxCount = vfxKws.filter(kw => text.includes(kw)).length;
+  const practicalCount = practicalKws.filter(kw => text.includes(kw)).length;
+  const productionScalePractical = practicalCount >= 3;
+  const productionScaleHeavy = vfxCount >= 3;
+  // ロケーション多様性（映像的豊かさ）
+  const locationVariety = Math.min(5, sceneLocationVariety);
+
+  // ── 新軸: 作家性・独自の文体
+  // リズム感のある短文（映像的な文体の特徴）
+  const shortActionRatio = actionLines.length > 0 ? shortActionCount / actionLines.length : 0;
+  // 詩的・比喩的表現
+  const poeticKws = ['まるで', 'ように', 'かのように', 'みたいに', '象徴', '比喩', '皮肉にも', 'どこか', 'なぜか', 'ふと'];
+  const poeticCount = actionLines.filter(l => poeticKws.some(kw => l.includes(kw))).length;
+  // 固有名詞・具体的ディテール（リアリティの指標）
+  const specificDetailKws = ['○○', '××', '△△', '某', '＊＊', '（仮）'];
+  const hasVaguePlaceholders = specificDetailKws.some(kw => text.includes(kw));
+  // 反復・モチーフ使用（作品の統一感）
+  const allWords = text.split(/[\s、。！？「」『』（）\n]/g).filter(w => w.length >= 3);
+  const wordFreq = {};
+  allWords.forEach(w => { wordFreq[w] = (wordFreq[w] || 0) + 1; });
+  const repeatedMotifs = Object.values(wordFreq).filter(v => v >= 3).length;
 
   // ▼ 物語構造精密分析
   const hasKeywords = (kwList) => kwList.some(kw => text.includes(kw));
   const countKeywords = (kwList) => kwList.filter(kw => text.includes(kw)).length;
 
-  // テキストの位置別分析（前半・中盤・後半）
   const textLen = text.length;
   const firstThird = text.slice(0, textLen / 3);
   const midThird = text.slice(textLen / 3, textLen * 2 / 3);
   const lastThird = text.slice(textLen * 2 / 3);
 
-  // 発端・外的事件（前半に来るべき）
   const incitingKws = ['事件', '知らせ', '連絡', '報告', '依頼', '頼まれ', '命令', '死亡', '失踪', '発見',
     '衝撃', '突然', '意外', '告白', '宣言', '決断', 'すべてが変わ', '転機', '訃報', '招待', '遭遇'];
   const hasIncitingIncident = hasKeywords(incitingKws);
   const incitingInFirstHalf = incitingKws.some(kw => firstThird.includes(kw) || midThird.slice(0, midThird.length/2).includes(kw));
 
-  // 対立・コンフリクト
   const conflictKws = ['対立', '葛藤', '衝突', '争い', '抵抗', '阻む', '邪魔', '困難', '問題', '危機',
     '反対', '対抗', '拒否', '怒り', '憎しみ', '恐れ', '焦り', '不信', '疑い',
     '裏切', '嘘', '秘密', '隠す', '追い詰め', '窮地', '諦め', 'もう無理', '限界'];
   const hasConflict = hasKeywords(conflictKws);
   const conflictIntensity = countKeywords(conflictKws);
 
-  // クライマックス・解決（後半に来るべき）
   const climaxKws = ['決断', '決意', '逆転', '解決', '真実', '明かす', '暴く', '告白',
     '勝利', '敗北', '和解', '別れ', '死', '生き残', '変わる', '気づく', '覚悟',
     '最後の', '終わり', '始まり', '新たな', 'これで最後', '終わった'];
   const hasClimax = hasKeywords(climaxKws);
   const climaxInLastHalf = climaxKws.some(kw => lastThird.includes(kw) || midThird.slice(midThird.length/2).includes(kw));
 
-  // Want（外的欲求）
   const wantKws = ['目的', '夢', '望み', '望む', '願い', '欲し', '狙い', '目標', '達成', '成し遂げ',
     '手に入れ', '獲得', '勝ち取', '取り戻', '見つけ', '探し', '証明', 'やり遂げ',
     'したい', 'なりたい', '変えたい', '守りたい', '救いたい'];
   const hasWant = hasKeywords(wantKws);
   const wantIntensity = countKeywords(wantKws);
 
-  // Need（内的必要性）
   const needKws = ['本当は', '心の傷', '気づく', '成長', '変わる', '乗り越え', '葛藤', '内面',
     '自分', '本音', '向き合', '受け入れ', '許す', '赦し', '癒し', '解放', '自由',
     '孤独', '寂しさ', 'つながり', '愛される', '認められ', '居場所', '本当の自分'];
   const hasNeed = hasKeywords(needKws);
   const needIntensity = countKeywords(needKws);
 
-  // キャラクターアーク
   const arcKws = ['変わる', '成長', '気づく', '乗り越え', '決意', '覚悟', '諦め', '変化', '前へ',
     '新しい', '生まれ変わ', '目覚め', '悟る', '受け入れ', '克服', '立ち直', '再生'];
   const hasArc = hasKeywords(arcKws);
 
-  // テーマ・メッセージ性（多様性チェック）
   const thematicKws = ['家族', '愛', '友情', '裏切り', '正義', '復讐', '贖罪', '赦し', '孤独', '絆',
     '夢', '希望', '絶望', '生と死', '記憶', '過去', '未来', '運命', '選択', '自由',
     '社会', '差別', '戦争', '平和', '生きること', '人間', '真実', '嘘と本音'];
   const hasThematicDepth = hasKeywords(thematicKws);
   const thematicDiversity = countKeywords(thematicKws);
 
-  // ▼ 独自性・オリジナリティ分析
-  // 珍しい設定・視点の試み
   const uniqueStructureKws = ['回想', '現在', '過去', '未来', 'フラッシュバック', '二重', '交互',
     '複数の視点', '語り', 'ナレーション', '独白', 'モノローグ', '手紙', '日記', '夢'];
   const hasUniqueStructure = hasKeywords(uniqueStructureKws);
@@ -13332,56 +13408,65 @@ function staffRoomRunAnalysis(text) {
   const paradoxKws = ['矛盾', '皮肉', '逆説', 'アイロニー', '皮肉にも', '逆に', '意外にも'];
   const hasParadox = hasKeywords(paradoxKws);
 
-  // ▼ 脚本形式チェック（精密版）
   const hasSceneNumbers = sceneLines.some(l => /^[０-９0-9]+/.test(l));
   const hasProperJapFormat = sceneCount > 0 && totalDialogueLines > 0;
   const hasActBreak = hasKeywords(['第一幕', '第二幕', '第三幕', 'ACT ONE', 'ACT TWO', 'ACT THREE', 'ACT I', 'ACT II', 'ACT III']);
   const hasParentheticalsProper = parentheticalLines.length > 0;
 
-  // ▼ 感情密度・情動分析（精密版）
-  const emotionKws_strong = ['涙', '叫ぶ', '泣く', '震える', '絶望', '切ない', '胸が痛', '心が折れ', '崩れ落ちる'];
-  const emotionKws_medium = ['笑う', '怒る', '恐れ', '愛する', '憎む', '迷う', '苦しむ', '喜ぶ', '希望', '孤独'];
-  const emotionKws_light = ['嬉しい', '悲しい', '楽しい', '寂しい', '焦る', 'ドキドキ', 'ワクワク'];
+  const emotionKws_strong = ['涙', '叫ぶ', '泣く', '震える', '絶望', '切ない', '胸が痛', '心が折れ', '崩れ落ちる', '号泣', '嗚咽'];
+  const emotionKws_medium = ['笑う', '怒る', '恐れ', '愛する', '憎む', '迷う', '苦しむ', '喜ぶ', '希望', '孤独', '憤る', '焦る'];
+  const emotionKws_light = ['嬉しい', '悲しい', '楽しい', '寂しい', '焦る', 'ドキドキ', 'ワクワク', '不安', 'うれしい'];
   const emotionStrongCount = nonEmpty.filter(l => emotionKws_strong.some(kw => l.includes(kw))).length;
   const emotionMediumCount = nonEmpty.filter(l => emotionKws_medium.some(kw => l.includes(kw))).length;
   const emotionLightCount = nonEmpty.filter(l => emotionKws_light.some(kw => l.includes(kw))).length;
   const emotionTotalScore = emotionStrongCount * 3 + emotionMediumCount * 1.5 + emotionLightCount;
   const emotionDensity = totalLines > 0 ? emotionTotalScore / totalLines : 0;
 
-  // 驚き・転換点
   const twistKws = ['実は', 'まさか', 'そんな', '嘘', '信じられない', '予想外', '逆転',
     '真相', '裏に', '隠されていた', '知らなかった', 'ずっと', '本当のことを',
     '違う', 'そうじゃない', '実際は', '本当は違'];
   const twistCount = twistKws.filter(kw => text.includes(kw)).length;
   const hasTwist = twistCount >= 2;
 
-  // 忘れられないシーン指標（視覚的・感情的ピーク）
   const memorableSceneKws = ['静まりかえる', 'ゆっくりと振り返る', '目が合った', '息をのむ',
-    '長い沈黙', '二人の間に', '時が止まったように', '世界が変わった', '何も言えなかった'];
+    '長い沈黙', '二人の間に', '時が止まったように', '世界が変わった', '何も言えなかった', 'ただ立ち尽くす'];
   const memorableCount = nonEmpty.filter(l => memorableSceneKws.some(kw => l.includes(kw))).length;
 
-  // ▼ ジャンル推定
+  // ── 新: 対話の引力（コンフリクトの濃度）
+  // 2人のキャラが同じシーンで直接ぶつかる頻度を推定
+  const highTensionKws = ['違う！', 'なんで', 'どうして', 'ふざけるな', '許さない', 'やめて', '離して',
+    '信じない', '嘘つき', 'お前のせい', '謝れ', '帰れ', '来るな', '関係ない', '消えろ'];
+  const tensionCount = nonEmpty.filter(l => highTensionKws.some(kw => l.includes(kw))).length;
+  const dialogueTension = totalDialogueLines > 0 ? tensionCount / totalDialogueLines : 0;
+
+  // ── 新: 読後感・カタルシス指標
+  const catharticKws = ['ありがとう', '許す', '抱きしめ', '涙がこぼれ', '笑顔', '微笑む', '前に進む', 
+    '大丈夫', '一緒に', '終わった', 'これでいい', 'よかった', '解放', '自由'];
+  const catharticCount = catharticKws.filter(kw => text.includes(kw)).length;
+  const hasCatharsis = catharticCount >= 2 || (hasClimax && hasArc);
+
+  // ジャンル推定
   const genreHints = {
-    mystery: ['謎', '事件', '犯人', '推理', '探偵', '捜査', '証拠', '殺人', '目撃者', 'アリバイ'],
-    romance: ['恋', '愛', '好き', 'キス', '告白', 'デート', '恋人', '彼氏', '彼女', '好意', 'ときめく'],
-    thriller: ['逃げる', '追う', '危険', '脅迫', '命', '爆弾', '銃', '暗殺', '組織', 'テロ'],
-    family: ['家族', '父', '母', '子供', '兄弟', '姉妹', '親子', '夫婦', '祖父', '祖母'],
-    comedy: ['笑い', '笑う', 'おかしい', 'ユーモア', '滑稽', 'コメディ', '冗談', 'ギャグ'],
-    drama: ['涙', '悲しみ', '苦しみ', '感動', '涙する', '泣く', '哀しい'],
-    sf: ['宇宙', '未来', 'AI', 'ロボット', 'テクノロジー', '異星', 'サイボーグ'],
-    horror: ['怖い', '恐ろしい', '幽霊', '怪物', '闇', '血', '叫び声', '悪夢'],
+    'ミステリー': ['謎', '事件', '犯人', '推理', '探偵', '捜査', '証拠', '殺人', '目撃者', 'アリバイ'],
+    'ロマンス': ['恋', '愛', '好き', 'キス', '告白', 'デート', '恋人', '彼氏', '彼女', '好意', 'ときめく'],
+    'スリラー': ['逃げる', '追う', '危険', '脅迫', '命', '爆弾', '銃', '暗殺', '組織', 'テロ'],
+    '家族': ['家族', '父', '母', '子供', '兄弟', '姉妹', '親子', '夫婦', '祖父', '祖母'],
+    'コメディ': ['笑い', '笑う', 'おかしい', 'ユーモア', '滑稽', 'コメディ', '冗談', 'ギャグ'],
+    'ヒューマンドラマ': ['涙', '悲しみ', '苦しみ', '感動', '涙する', '泣く', '哀しい'],
+    'SF': ['宇宙', '未来', 'AI', 'ロボット', 'テクノロジー', '異星', 'サイボーグ'],
+    'ホラー': ['怖い', '恐ろしい', '幽霊', '怪物', '闇', '血', '叫び声', '悪夢'],
   };
   const detectedGenres = Object.entries(genreHints)
     .filter(([, kws]) => kws.filter(kw => text.includes(kw)).length >= 2)
     .map(([genre]) => genre);
 
   // ────────────────────────────────────────────────────────────────
-  //  [C] 15項目精密採点（各1〜5点）
-  //  評価基準: 1=重大な問題 2=基礎不足 3=標準 4=良好 5=優秀
-  //  ★客観スコア × 主観補正係数のハイブリッド採点
+  //  [C] 18項目精密採点（各1〜5点）
+  //  7カテゴリ体系: 構成・キャラ・台詞・演出・テーマ・作品力・映像化適性
+  //  評価基準: 1=重大問題 2=基礎不足 3=標準 4=良好 5=優秀(コンクール基準)
   // ────────────────────────────────────────────────────────────────
   const scores = {};
-  const itemDetails = {}; // 項目別の詳細理由
+  const itemDetails = {};
 
   // ── C-1: 三幕構成の明確さ（客観重視）
   {
@@ -13393,7 +13478,7 @@ function staffRoomRunAnalysis(text) {
     } else {
       issues.push('発端事件が読み取れない');
     }
-    if (hasConflict) { pts++; reasons.push('対立・葛藤が描かれている'); }
+    if (hasConflict) { pts++; reasons.push('対立・葛藤が描かれている（強度: ' + conflictIntensity + '要素）'); }
     else issues.push('対立・コンフリクトが薄い');
     if (hasClimax) {
       pts++;
@@ -13403,7 +13488,7 @@ function staffRoomRunAnalysis(text) {
     }
     if (hasIncitingIncident && hasConflict && hasClimax && sceneCount >= 3) {
       pts = Math.min(5, pts + 1);
-      reasons.push('三幕が有機的に連鎖している');
+      reasons.push('三幕が有機的に連鎖している（コンクール合格ライン）');
     }
     if (sceneCount === 0) { pts = Math.max(1, pts - 1); issues.push('シーン区切りが検出されない'); }
     scores['three-act'] = Math.min(5, Math.max(1, pts));
@@ -13415,14 +13500,17 @@ function staffRoomRunAnalysis(text) {
     let pts = 2;
     const reasons = [], issues = [];
     if (hasConflict && hasIncitingIncident) { pts++; reasons.push('因果関係の連鎖（原因→対立）が確認できる'); }
-    if (sceneCount >= 4) { pts++; reasons.push('シーン数十分（' + sceneCount + 'シーン）'); }
+    if (sceneCount >= 4) { pts++; reasons.push('シーン数十分（' + sceneCount + 'シーン）で展開に広がりあり'); }
     if (hasClimax && hasConflict) { pts = Math.min(5, pts + 1); reasons.push('対立→解決の流れが機能している'); }
     if (totalChars < 300) { pts = Math.max(1, pts - 1); issues.push('テキスト量不足（分析精度に限界）'); }
-    // ご都合主義チェック（転換が早すぎる場合）
     if (hasConflict && hasClimax && sceneCount < 3) {
       pts = Math.max(1, pts - 1);
       issues.push('対立からの解決が急すぎる可能性（シーン数が少ない）');
     }
+    // ご都合主義チェック
+    const convenientKws = ['たまたま', 'ちょうど', '偶然', '都合よく', '奇跡的に'];
+    const convenientCount = convenientKws.filter(kw => text.includes(kw)).length;
+    if (convenientCount >= 2) { pts = Math.max(1, pts - 1); issues.push('ご都合主義的展開（偶然・奇跡）が' + convenientCount + '箇所'); }
     scores['plot-logic'] = Math.min(5, Math.max(1, pts));
     itemDetails['plot-logic'] = { reasons, issues };
   }
@@ -13436,7 +13524,6 @@ function staffRoomRunAnalysis(text) {
       const minLen = Math.min(...sceneLengths);
       const avgLen = sceneLengths.reduce((a, b) => a + b, 0) / sceneLengths.length;
       const stdDev = Math.sqrt(sceneLengths.reduce((a, v) => a + (v - avgLen) ** 2, 0) / sceneLengths.length);
-
       if (maxLen / Math.max(1, minLen) > 2) { pts++; reasons.push('シーン長のコントラスト大（緩急あり）'); }
       if (stdDev > avgLen * 0.4) reasons.push('シーン長の多様性あり（σ=' + Math.round(stdDev) + '行）');
       if (avgLen > 3 && avgLen < 50) { pts++; reasons.push('シーン平均行数' + Math.round(avgLen) + '行（適切）'); }
@@ -13444,8 +13531,9 @@ function staffRoomRunAnalysis(text) {
       if (avgLen < 2) issues.push('シーンが短すぎる（平均' + Math.round(avgLen) + '行）');
     }
     if (dialogueRatio > 0.2 && dialogueRatio < 0.65) { pts++; reasons.push('セリフ比率' + Math.round(dialogueRatio * 100) + '%（バランス良好）'); }
-    if (dialogueRatio > 0.8) { pts = Math.max(1, pts - 1); issues.push('セリフ過多（' + Math.round(dialogueRatio * 100) + '%）'); }
-    if (dialogueRatio < 0.1 && totalLines > 10) { issues.push('セリフが少なすぎる（' + Math.round(dialogueRatio * 100) + '%）'); }
+    if (dialogueRatio > 0.8) { pts = Math.max(1, pts - 1); issues.push('セリフ過多（' + Math.round(dialogueRatio * 100) + '%）ト書き・映像シーンを'); }
+    if (dialogueRatio < 0.1 && totalLines > 10) issues.push('セリフが少なすぎる（' + Math.round(dialogueRatio * 100) + '%）');
+    if (tensionCount > 0) { reasons.push('緊張感のある掛け合い' + tensionCount + '箇所（ドラマの引力）'); }
     scores['pacing'] = Math.min(5, Math.max(1, pts));
     itemDetails['pacing'] = { reasons, issues };
   }
@@ -13456,21 +13544,18 @@ function staffRoomRunAnalysis(text) {
     const reasons = [], issues = [];
     if (hasWant) {
       pts += 2;
-      reasons.push('Want（外的欲求）: ' + (wantIntensity >= 3 ? '明確・強度高' : '確認できる'));
+      reasons.push('Want（外的欲求）: ' + (wantIntensity >= 3 ? '明確・強度高（' + wantIntensity + '要素）' : '確認できる'));
     } else {
       issues.push('主人公の外的目標（Want）が不明瞭');
     }
     if (hasNeed) {
       pts += 2;
-      reasons.push('Need（内的必要性）: ' + (needIntensity >= 3 ? '明確・深い' : '確認できる'));
+      reasons.push('Need（内的必要性）: ' + (needIntensity >= 3 ? '明確・深い（' + needIntensity + '要素）' : '確認できる'));
     } else {
       issues.push('主人公の内的課題・傷（Need）が見えない');
     }
-    if (hasWant && hasNeed) {
-      // WantとNeedが対立している（最も優れた設計）
-      if (wantIntensity >= 2 && needIntensity >= 2) {
-        reasons.push('Want/Needが拮抗している可能性（最良の設計）');
-      }
+    if (hasWant && hasNeed && wantIntensity >= 2 && needIntensity >= 2) {
+      reasons.push('Want/Needが拮抗している（最良の設計。このレベルに達するのは上位20%）');
     }
     scores['protag-want-need'] = Math.min(5, Math.max(1, pts));
     itemDetails['protag-want-need'] = { reasons, issues };
@@ -13480,12 +13565,11 @@ function staffRoomRunAnalysis(text) {
   {
     let pts = 1;
     const reasons = [], issues = [];
-    if (hasArc) { pts += 2; reasons.push('変化・成長のキーワードを確認'); }
+    if (hasArc) { pts += 2; reasons.push('変化・成長のキーワードを確認（弧を描く主人公）'); }
     if (mainCharLineCount >= 5) { pts++; reasons.push('主人公の出番十分（' + mainCharLineCount + '行）'); }
     if (hasConflict && hasArc) { pts++; reasons.push('葛藤→変化のアーク構造が機能している'); }
-    if (hasWant && hasNeed && hasArc) {
-      reasons.push('Want/Need/Arcが三位一体（理想的なキャラ設計）');
-    }
+    if (hasWant && hasNeed && hasArc) reasons.push('Want/Need/Arcが三位一体（理想的キャラ設計）');
+    if (hasCatharsis) { pts = Math.min(5, pts + 1); reasons.push('カタルシス要素あり（読後感が良い）'); }
     if (!hasArc) {
       issues.push('主人公の変容が描かれていない（静的なキャラクター）');
       issues.push('「ビフォー→転機→アフター」の三段階を設計してください');
@@ -13500,13 +13584,11 @@ function staffRoomRunAnalysis(text) {
     const reasons = [], issues = [];
     if (uniqueChars >= 2) { pts++; reasons.push(uniqueChars + '人のキャラクターを識別'); }
     if (uniqueChars >= 3) { pts++; reasons.push('複数キャラが立体的に機能'); }
-    // セリフ量バランス
     if (uniqueChars >= 2) {
       const mainRatio = mainCharLineCount / Math.max(1, totalDialogueLines);
       if (mainRatio < 0.75) { pts++; reasons.push('複数キャラが均等に発言（バランス良好）'); }
       else { issues.push('主人公偏重（全セリフの' + Math.round(mainRatio * 100) + '%）'); }
     }
-    // セリフ固有性
     if (charVocabUniqueness > 0.4) { pts++; reasons.push('キャラ別セリフの語彙差異が大きい（声の個性あり）'); }
     else if (charVocabUniqueness > 0.2) reasons.push('キャラ別の語彙に一定の差異あり');
     if (uniqueChars < 2) issues.push('識別可能な登場人物が少ない（対立・補完キャラを追加）');
@@ -13587,6 +13669,7 @@ function staffRoomRunAnalysis(text) {
     if (seLines.length > 0) { reasons.push('SE・音響指定あり（聴覚的演出）'); }
     if (memorableCount > 0) { pts = Math.min(5, pts + 1); reasons.push('忘れられないシーンの予兆（' + memorableCount + '箇所）'); }
     if (actionLines.length === 0) issues.push('ト書きがほぼない（ラジオドラマ的な構成）');
+    if (poeticCount >= 2) reasons.push('比喩・詩的な表現あり（文体に奥行き）');
     scores['visual'] = Math.min(5, Math.max(1, pts));
     itemDetails['visual'] = { reasons, issues };
   }
@@ -13604,6 +13687,7 @@ function staffRoomRunAnalysis(text) {
     if (actionLines.length > 0 && longActionCount === 0) { pts++; reasons.push('全ト書きが90字以内（簡潔）'); }
     if (shortActionCount > actionLines.length * 0.5) reasons.push('短いト書きが多くテンポ良好');
     if (avgActionLen > 0 && avgActionLen < 50) reasons.push('ト書き平均' + Math.round(avgActionLen) + '字（適切）');
+    if (shortActionRatio >= 0.5) reasons.push('簡潔なト書きスタイル（映像的な文体）');
     scores['direction-clarity'] = Math.min(5, Math.max(1, pts));
     itemDetails['direction-clarity'] = { reasons, issues };
   }
@@ -13618,7 +13702,8 @@ function staffRoomRunAnalysis(text) {
     }
     if (hasNeed && hasArc) { pts++; reasons.push('キャラのNeedとアークがテーマを体現している'); }
     if (hasConflict && hasClimax && hasThematicDepth) { pts++; reasons.push('テーマが物語全体を貫く構造'); }
-    if (thematicDiversity >= 4) { reasons.push('テーマの多面性あり（' + thematicDiversity + '要素）'); }
+    if (thematicDiversity >= 4) reasons.push('テーマの多面性あり（' + thematicDiversity + '要素）');
+    if (repeatedMotifs >= 3) reasons.push('繰り返しのモチーフ・キーワード（作品の統一感）が' + repeatedMotifs + '語');
     if (!hasThematicDepth) {
       issues.push('テーマ・メッセージが薄い');
       issues.push('「この作品が言いたいこと」を一言で言えるか確認してください');
@@ -13634,9 +13719,11 @@ function staffRoomRunAnalysis(text) {
     if (detectedGenres.length >= 2) { pts++; reasons.push('ジャンル交差（' + detectedGenres.join('×') + '）による独自性'); }
     if (uniqueChars >= 4 && hasThematicDepth) { pts++; reasons.push('複雑な人物配置とテーマの多様性'); }
     if (totalChars >= 800 && sceneCount >= 5) { pts++; reasons.push('構成の密度と複雑さ（' + sceneCount + 'シーン/' + totalChars.toLocaleString() + '字）'); }
-    if (hasUniqueStructure) { reasons.push('独自の構造・視点技法（回想・複線等）の使用'); }
-    if (hasParadox) { reasons.push('逆説・皮肉の活用（テーマ的奥行き）'); }
+    if (hasUniqueStructure) reasons.push('独自の構造・視点技法（回想・複線等）の使用');
+    if (hasParadox) reasons.push('逆説・皮肉の活用（テーマ的奥行き）');
     if (narrLines.length > 0) reasons.push('ナレーション技法の使用');
+    if (poeticCount >= 2) { pts = Math.min(5, pts + 1); reasons.push('詩的・文学的表現（作家性の発露）'); }
+    if (!hasVaguePlaceholders && totalChars > 200) reasons.push('固有名詞・具体的描写で世界を構築');
     if (detectedGenres.length === 0 && uniqueChars < 3) {
       pts = Math.max(1, pts - 1);
       issues.push('ジャンル・キャラの際立った独自性が見えない');
@@ -13663,13 +13750,10 @@ function staffRoomRunAnalysis(text) {
     itemDetails['format-correctness'] = { reasons, issues };
   }
 
-  // ── C-15: 「いいホン」か——情動的インパクト（審査員の直感を数値化）
-  // ★この項目は1.5倍加重の最重要項目
+  // ── C-15: 「いいホン」か——情動的インパクト（審査員の直感を数値化・×1.5加重）
   {
     let pts = 1;
     const reasons = [], issues = [];
-
-    // 感情密度スコア
     if (emotionDensity >= 0.15) {
       pts++;
       reasons.push('感情的な瞬間の密度が高い（' + Math.round(emotionDensity * 100) + '%）');
@@ -13677,58 +13761,152 @@ function staffRoomRunAnalysis(text) {
       reasons.push('感情表現あり（密度' + Math.round(emotionDensity * 100) + '%）');
     }
     if (emotionStrongCount >= 3) { pts++; reasons.push('強い感情的ピーク' + emotionStrongCount + '箇所'); }
-
-    // 驚き・転換点
     if (hasTwist) { pts++; reasons.push('意外性・逆転・どんでん返しの要素（' + twistCount + '要素）'); }
     else if (twistCount >= 1) reasons.push('転換の要素が一部あり');
-
-    // 物語完成度（審査員が「続きを読みたい」と思う構造）
     if (hasIncitingIncident && hasConflict && hasClimax && hasArc) {
       pts++;
       reasons.push('物語が完結した構造を持っている（審査員評価の最低条件）');
     }
-
-    // 記憶に残るシーン
     if (memorableCount >= 1) {
       pts = Math.min(5, pts + 1);
       reasons.push('記憶に残るシーンの要素（' + memorableCount + '箇所）');
     }
-
-    // ネガティブ要因（審査員が「読むのをやめる」要因）
+    if (hasCatharsis) reasons.push('カタルシス・読後感の設計あり');
     if (onTheNoseRatio > 0.3) { pts = Math.max(1, pts - 1); issues.push('説明台詞が多く感情移入を妨げている'); }
     if (!hasConflict && !hasClimax) { pts = 1; issues.push('物語が動いていない（コンフリクトと解決が必須）'); }
     if (emotionStrongCount === 0 && totalDialogueLines > 5) issues.push('感情的な瞬間・ピークシーンが見当たらない');
-
     scores['emotional-impact'] = Math.min(5, Math.max(1, pts));
     itemDetails['emotional-impact'] = { reasons, issues };
   }
 
+  // ── C-16: [NEW] 映像化コスト効率・実現可能性（プロデューサー目線・×1.1加重）
+  {
+    let pts = 2;
+    const reasons = [], issues = [];
+    if (productionScalePractical) {
+      pts++;
+      reasons.push('低コスト・実現可能な舞台設定（撮影しやすい）');
+    }
+    if (locationVariety >= 3) {
+      pts++;
+      reasons.push('多様なロケーション（' + sceneLocationVariety + '場所）で映像的豊かさがある');
+    } else if (locationVariety >= 1) {
+      reasons.push('基本的なロケーション設定あり');
+    }
+    if (sceneCount >= 3 && sceneCount <= 30) reasons.push('適切なシーン数（' + sceneCount + 'シーン）で撮影スケジュールに現実性');
+    if (indoorScenes > 0 && outdoorScenes > 0) { pts = Math.min(5, pts + 1); reasons.push('屋内外のバランスあり（映像の多様性）'); }
+    if (productionScaleHeavy && !productionScalePractical) {
+      pts = Math.max(1, pts - 1);
+      issues.push('VFX・大規模セット要素が多く制作コスト増大の懸念');
+    }
+    if (sceneCount > 40) { issues.push('シーン数過多（' + sceneCount + '）で撮影スケジュールが過密になる可能性'); }
+    if (nightScenes >= 3) reasons.push('夜景・夜間シーン' + nightScenes + '箇所（照明演出あり）');
+    scores['production-viability'] = Math.min(5, Math.max(1, pts));
+    itemDetails['production-viability'] = { reasons, issues };
+  }
+
+  // ── C-17: [NEW] セリフの対話ダイナミクス・引力（競合・緊張・欲求の交差）
+  {
+    let pts = 1;
+    const reasons = [], issues = [];
+    // 2者間の直接対立（シーン内コンフリクト密度）
+    if (tensionCount >= 2) {
+      pts += 2;
+      reasons.push('会話内の緊張・対立' + tensionCount + '箇所（ドラマの引力高い）');
+    } else if (tensionCount >= 1) {
+      pts++;
+      reasons.push('対立的な会話要素あり（' + tensionCount + '箇所）');
+    }
+    // 情報不均衡（観客が知っている/キャラが知らない）
+    const infoAsymmetryKws = ['知らない', '秘密', '隠している', 'まだ言っていない', 'バレる', '気づいていない'];
+    const infoAsymmetryCount = infoAsymmetryKws.filter(kw => text.includes(kw)).length;
+    if (infoAsymmetryCount >= 1) {
+      pts++;
+      reasons.push('情報の非対称性・サスペンス構造（' + infoAsymmetryCount + '要素）');
+    }
+    // ウィットと間
+    const witKws = ['（笑）', '（苦笑）', '（あきれて）', '（皮肉に）', '（呆れながら）'];
+    const witCount = witKws.filter(kw => text.includes(kw)).length;
+    if (witCount >= 1) { pts = Math.min(5, pts + 1); reasons.push('ウィット・ユーモアの演技指定あり（会話の軽妙さ）'); }
+    if (uniqueChars >= 2 && totalDialogueLines >= 6) { pts++; reasons.push('2人以上の会話が成立（ダイナミクスの基盤あり）'); }
+    if (totalDialogueLines < 3) issues.push('会話シーンが少なくキャラ間の引力が見えない');
+    if (tensionCount === 0 && totalDialogueLines >= 5) issues.push('会話に緊張感がない（目的・欲求の衝突を作る）');
+    scores['dialogue-dynamics'] = Math.min(5, Math.max(1, pts));
+    itemDetails['dialogue-dynamics'] = { reasons, issues };
+  }
+
+  // ── C-18: [NEW] 作家性・文体の独自性（主観最重視・審査員の「また読みたい」感）
+  {
+    let pts = 1;
+    const reasons = [], issues = [];
+    // 文体の一貫性（ジャンル・トーンの統一感）
+    if (detectedGenres.length >= 1) {
+      pts++;
+      reasons.push('ジャンルトーンが確立されている（' + detectedGenres[0] + '）');
+    }
+    // 詩的・比喩的表現（作家の個性）
+    if (poeticCount >= 3) {
+      pts++;
+      reasons.push('詩的・比喩的表現（' + poeticCount + '箇所）で文体に個性あり');
+    } else if (poeticCount >= 1) {
+      reasons.push('比喩的表現（' + poeticCount + '箇所）あり');
+    }
+    // モチーフの反復（作品の統一感）
+    if (repeatedMotifs >= 4) {
+      pts++;
+      reasons.push('反復モチーフ' + repeatedMotifs + '語（テーマと文体の統一感）');
+    }
+    // 具体的描写・固有名詞の密度
+    if (!hasVaguePlaceholders && totalChars > 200) {
+      pts++;
+      reasons.push('固有名詞・具体的ディテールでリアリティを構築');
+    } else if (hasVaguePlaceholders) {
+      issues.push('「○○」「××」等の未定プレースホルダーあり（完成度を下げる）');
+    }
+    // 独自の構造実験
+    if (hasUniqueStructure) reasons.push('非線形構造・視点技法（作家的実験）の使用');
+    if (repeatedMotifs < 2 && poeticCount === 0 && detectedGenres.length === 0) {
+      issues.push('文体の個性・一貫性が感じられない（書き手の声を出して）');
+    }
+    scores['authorial-voice'] = Math.min(5, Math.max(1, pts));
+    itemDetails['authorial-voice'] = { reasons, issues };
+  }
+
   // ────────────────────────────────────────────────────────────────
-  //  [D] カテゴリスコア計算（6カテゴリ）+ 重み付け総合スコア
+  //  [D] カテゴリスコア計算（7カテゴリ）+ 重み付け総合スコア
   // ────────────────────────────────────────────────────────────────
-  const RUBRIC_MAP = {
+  const RUBRIC_MAP_ANALYSIS = {
     'structure': ['three-act', 'plot-logic', 'pacing'],
     'character': ['protag-want-need', 'char-arc', 'char-unique'],
-    'dialogue':  ['subtext', 'voice', 'naturalness'],
+    'dialogue':  ['subtext', 'voice', 'naturalness', 'dialogue-dynamics'],
     'direction': ['visual', 'direction-clarity'],
-    'theme':     ['theme-clarity', 'originality'],
+    'theme':     ['theme-clarity', 'originality', 'authorial-voice'],
     'impact':    ['emotional-impact', 'format-correctness'],
+    'production': ['production-viability'],
   };
-  const CAT_LABELS = {
+  const CAT_LABELS_ANALYSIS = {
     structure: '構成力', character: 'キャラクター', dialogue: 'セリフ・台詞',
-    direction: 'ト書き・演出', theme: 'テーマ', impact: '作品力・衝撃',
+    direction: 'ト書き・演出', theme: 'テーマ・作家性', impact: '作品力・衝撃', production: '映像化適性',
   };
 
-  const categoryScores = Object.entries(RUBRIC_MAP).map(([id, items]) => {
+  const categoryScores = Object.entries(RUBRIC_MAP_ANALYSIS).map(([id, items]) => {
     const avg = items.reduce((a, itemId) => a + (scores[itemId] || 1), 0) / items.length;
-    return { id, label: CAT_LABELS[id], score: Math.round(avg * 20) };
+    return { id, label: CAT_LABELS_ANALYSIS[id], score: Math.round(avg * 20) };
   });
 
-  const allItemIds = Object.values(RUBRIC_MAP).flat();
-  // 重み付きスコア（emotional-impact=1.5倍, theme=1.2倍, structure=1.1倍, 他=1.0倍）
+  const allItemIds = Object.values(RUBRIC_MAP_ANALYSIS).flat();
+  // 重み付きスコア（competition-grade）
   const weightMap = {
-    'emotional-impact': 1.5, 'theme-clarity': 1.2, 'originality': 1.2,
-    'three-act': 1.1, 'protag-want-need': 1.1, 'char-arc': 1.1,
+    'emotional-impact': 1.6,   // 最重要：審査員が最も重視
+    'theme-clarity': 1.3,       // 作品の核心
+    'authorial-voice': 1.2,     // 作家性（コンクールでの差別化）
+    'three-act': 1.15,           // 構成の土台
+    'protag-want-need': 1.15,   // キャラの動機
+    'char-arc': 1.1,            // 変化・成長
+    'subtext': 1.1,             // 説明台詞vs行間
+    'originality': 1.1,         // 独自性
+    'production-viability': 1.0, // 映像化適性（新軸）
+    'dialogue-dynamics': 1.0,   // 対話ダイナミクス（新軸）
   };
   const weightedTotal = allItemIds.reduce((acc, id) => {
     const w = weightMap[id] || 1.0;
@@ -13748,13 +13926,13 @@ function staffRoomRunAnalysis(text) {
   }[grade];
 
   // ────────────────────────────────────────────────────────────────
-  //  [E] 詳細診断ノート生成（審査員視点・具体的・最大10件）
+  //  [E] 詳細診断ノート生成（審査員視点・具体的・最大12件）
   // ────────────────────────────────────────────────────────────────
   const notes = [];
 
   // ── 構成診断（最重要）
   if (scores['three-act'] >= 4) {
-    notes.push({ type: 'good', text: '✅ 構成：発端事件→対立→クライマックスの三幕構造が機能しています。' + (incitingInFirstHalf ? '前半での発端事件の配置も適切です。' : '') + '読み手を最後まで引き付ける骨格があります。' });
+    notes.push({ type: 'good', text: '✅ 構成：発端事件→対立→クライマックスの三幕構造が機能しています。' + (incitingInFirstHalf ? '前半での発端事件の配置も適切。' : '') + '読み手を最後まで引き付ける骨格があります。' });
   } else if (scores['three-act'] <= 2) {
     const missing = [];
     if (!hasIncitingIncident) missing.push('発端事件');
@@ -13780,12 +13958,12 @@ function staffRoomRunAnalysis(text) {
   }
 
   if (scores['char-arc'] <= 2) {
-    notes.push({ type: 'bad', text: '❌ キャラクターアーク：物語を通じた主人公の変容が描かれていません。脚本の最終目標は「主人公が変わること」です。第1幕で欠点/傷を見せ→第2幕で葛藤で壊れ→第3幕で変容する、の三段階で設計してください。変化のない主人公は読者の共感を得られません。' });
+    notes.push({ type: 'bad', text: '❌ キャラクターアーク：物語を通じた主人公の変容が描かれていません。脚本の最終目標は「主人公が変わること」です。第1幕で欠点/傷を見せ→第2幕で葛藤で壊れ→第3幕で変容する、の三段階で設計してください。' });
   }
 
-  // ── セリフ診断
+  // ── セリフ・台詞診断
   if (scores['subtext'] <= 2 && onTheNoseCount >= 3) {
-    notes.push({ type: 'bad', text: '❌ 説明台詞：解説的・説明的なセリフが' + onTheNoseCount + '箇所検出されました。「なんですよ」「つまり」「ということは」で説明するセリフを削り、行動・映像・沈黙で感情を表現してください。「言わせずに見せる」がプロ脚本の鉄則です。コンクール審査員は第1ページから説明台詞があると減点します。' });
+    notes.push({ type: 'bad', text: '❌ 説明台詞：解説的・説明的なセリフが' + onTheNoseCount + '箇所検出されました。「なんですよ」「つまり」「実は私」で説明するセリフを削り、行動・映像・沈黙で感情を表現してください。コンクール審査員は第1ページから説明台詞があると減点します。' });
   } else if (scores['subtext'] >= 4) {
     notes.push({ type: 'good', text: '✅ サブテキスト：説明台詞を排し、行間で感情・意図を表現できています。プロの書き方ができています。' + (subtextHardCount >= 2 ? '特に沈黙・間の使い方が効果的です。' : '') });
   }
@@ -13793,24 +13971,38 @@ function staffRoomRunAnalysis(text) {
   if (avgDialogueLen > 70 && totalDialogueLines >= 3) {
     notes.push({ type: 'warn', text: '⚠️ セリフ長：平均' + Math.round(avgDialogueLen) + '字と長すぎます。実際の会話は10〜30字程度が自然です。長いセリフは「演説」に見えます。1セリフ60字超えたら分割か削除を検討してください。' });
   }
-  if (maxConsecSameChar >= 4) {
-    notes.push({ type: 'warn', text: '⚠️ セリフのリズム：同一キャラクターが' + maxConsecSameChar + '回連続発言しています。相手の反応・表情・ト書きを挟むか、セリフを分割してリズムを生んでください。' });
+
+  // ── 新: 対話ダイナミクス診断
+  if (scores['dialogue-dynamics'] >= 4) {
+    const _iakws = ['知らない', '秘密', '隠している', 'まだ言っていない', 'バレる', '気づいていない'];
+    const _iaNote = _iakws.some(kw => text.includes(kw)) ? '情報の非対称性によるサスペンスも効果的。' : '';
+    notes.push({ type: 'good', text: '✅ 対話の引力：キャラ間の緊張・欲求の衝突が会話に宿っています（緊張要素' + tensionCount + '箇所）。' + _iaNote });
+  } else if (scores['dialogue-dynamics'] <= 2 && totalDialogueLines >= 4) {
+    notes.push({ type: 'warn', text: '⚠️ 対話の引力：キャラクター間の会話に緊張感・目的の衝突が不足しています。各キャラが「異なる目的・情報・感情」を持って同じシーンに入場する設計にしてください。' });
   }
 
   // ── ト書き診断
   if (scores['direction-clarity'] <= 2) {
     notes.push({ type: 'bad', text: '❌ ト書き：90字超の長いト書きが' + longActionCount + '箇所あります。ト書きに書くべきは「映像として見える最小限の情報」のみです。感情状態（「悲しみに暮れる」）を書かず、行動（「窓の外を見つめる」）で表してください。理想は1〜3文、30〜50字。' });
-  } else if (actionLines.length > 0 && longActionCount === 0 && scores['direction-clarity'] >= 4) {
-    notes.push({ type: 'good', text: '✅ ト書き：簡潔で映像的なト書きが書けています。演出過多になっていない点が優秀です。' });
   }
 
-  if (scores['visual'] <= 2 && actionLines.length >= 3) {
-    notes.push({ type: 'warn', text: '⚠️ ビジュアル表現：ト書きに映像的描写が不足しています（映像度' + Math.round(visualRatio * 100) + '%）。「感情を画で語る」意識で、表情・動き・光・物・空間を使って感情を映像化してください。セリフで言わせなくてもシーンが伝わるか確認してください。' });
+  // ── 新: 映像化実現性診断
+  if (scores['production-viability'] >= 4) {
+    notes.push({ type: 'good', text: '✅ 映像化適性：低コスト・高効率に撮影できる設定で、プロデューサーが企画を通しやすい構成です。' + (indoorScenes > 0 && outdoorScenes > 0 ? '屋内外のバランスも良好。' : '') });
+  } else if (productionScaleHeavy) {
+    notes.push({ type: 'warn', text: '⚠️ 映像化コスト：VFX・大規模セット要素（' + vfxKws.filter(kw => text.includes(kw)).join('、') + '）が含まれています。これらをドラマ・映画の予算規模で実現できるか確認してください。ドラマの場合は日常的な舞台設定の方が通過率が上がります。' });
+  }
+
+  // ── 新: 作家性診断
+  if (scores['authorial-voice'] >= 4) {
+    notes.push({ type: 'good', text: '✅ 作家性：文体・トーン・モチーフに一貫した「書き手の声」があります。コンクール審査員が「もう一度読みたい」と感じる個性の萌芽があります。' + (poeticCount >= 2 ? '詩的表現が特に効果的。' : '') });
+  } else if (scores['authorial-voice'] <= 2) {
+    notes.push({ type: 'warn', text: '⚠️ 作家性：文体・トーンの個性がまだ薄いです。「自分にしか書けない作品」を意識し、比喩・反復・固有名詞・独自の視点を積極的に使ってください。コンクールで勝つのは「うまい脚本」より「独自の声のある脚本」です。' });
   }
 
   // ── 作品力診断
   if (scores['emotional-impact'] >= 4) {
-    notes.push({ type: 'good', text: '✅ 作品力：感情的な瞬間と意外性があり、読み手を引き込む力があります。' + (memorableCount > 0 ? '記憶に残るシーンの要素もあります。' : '') + (hasTwist ? '転換点・逆転要素も機能しています。' : '') + 'コンクール審査員・プロデューサーの目に留まる可能性があります。' });
+    notes.push({ type: 'good', text: '✅ 作品力：感情的な瞬間と意外性があり、読み手を引き込む力があります。' + (memorableCount > 0 ? '記憶に残るシーンの要素もあります。' : '') + (hasTwist ? '転換点・逆転要素も機能しています。' : '') + (hasCatharsis ? 'カタルシス・読後感の設計も良好。' : '') });
   } else if (scores['emotional-impact'] <= 2) {
     notes.push({ type: 'bad', text: '❌ 作品力：「続きを読みたい」と思わせる引きが現時点では弱い。感情的クライマックス・予想外の展開・忘れられないシーンの設計が必要です。読後に何が残るか（感情・問い・映像）を意識してください。' });
   }
@@ -13829,9 +14021,10 @@ function staffRoomRunAnalysis(text) {
     'three-act': '三幕構成の明確さ', 'plot-logic': 'プロットの一貫性', 'pacing': 'ペーシング（緩急）',
     'protag-want-need': '主人公のWant/Need', 'char-arc': 'キャラクターアーク', 'char-unique': 'キャラクターの固有性',
     'subtext': 'サブテキストの活用', 'voice': 'セリフの声の固有性', 'naturalness': 'セリフの自然さ',
-    'visual': 'ビジュアルストーリーテリング', 'direction-clarity': 'ト書きの簡潔さ',
-    'theme-clarity': 'テーマの一貫性', 'originality': 'オリジナリティ',
+    'dialogue-dynamics': '対話のダイナミクス', 'visual': 'ビジュアルストーリーテリング', 'direction-clarity': 'ト書きの簡潔さ',
+    'theme-clarity': 'テーマの一貫性', 'originality': 'オリジナリティ', 'authorial-voice': '作家性・文体',
     'format-correctness': '脚本フォーマット', 'emotional-impact': '作品力・感情的インパクト',
+    'production-viability': '映像化実現可能性',
   };
 
   const strongItems = allItemIds.filter(id => (scores[id] || 0) >= 4);
@@ -13873,6 +14066,12 @@ function staffRoomRunAnalysis(text) {
   if (scores['subtext'] <= 2) {
     suggestions_parts.push('・「感情を言葉にさせない」練習：怒りを「怒る」と書かず、コップを叩きつけさせる。悲しみを「悲しむ」と書かず、黙って雨を見つめさせる。沈黙・間・物・空間が最強の感情表現。');
   }
+  if (scores['dialogue-dynamics'] <= 2 && totalDialogueLines >= 3) {
+    suggestions_parts.push('・各シーンのキャラクターに「異なる目的・秘密・感情」を持たせる。例：Aは謝罪を求めているが、Bは逃げたい——この「目的の衝突」が会話の引力を生む。全会話シーンで「各キャラが何を望んでいるか」を書き出してみてください。');
+  }
+  if (scores['authorial-voice'] <= 2) {
+    suggestions_parts.push('・「自分にしか書けないシーン」を1つ作る。実体験・記憶・独自の観察から来る具体的なディテールを1シーンに注ぎ込む。比喩・反復・固有名詞を積極的に使い、文体に「あなたの声」を刻む。');
+  }
   if (scores['emotional-impact'] <= 2) {
     suggestions_parts.push('・意外性・逆転の要素を1つ追加する。「実は○○だった」「まさか○○が」などの転換点を中盤〜後半に設け、読者の予想を裏切る展開を設計してください。');
   }
@@ -13893,9 +14092,17 @@ function staffRoomRunAnalysis(text) {
     'visual': '各シーンを「画（え）になるか？」で見直し、映像的な描写を追加する',
     'emotional-impact': '感情的クライマックスシーン1つと、予想外の転換点1つを追加設計する',
     'pacing': 'シーン一覧を作り、目的・変化のないシーンをカットしてテンポを上げる',
-    'char-arc': '主人公の「欠点→成長→変容」の三段階を三幕に対応させて書き直す',
     'theme-clarity': 'テーマを一言（「○○であっても、△△できる」）で表現し、すべての場面がそれを語るか確認する',
     'direction-clarity': '全ト書きを90字以内に圧縮し、感情状態の描写を行動描写に置き換える',
+    'dialogue-dynamics': '各シーンのキャラクターに「異なる目的・秘密」を持たせ、会話に緊張・引力を生む',
+    'authorial-voice': '「自分にしか書けないシーン」を作り、具体的ディテール・比喩・文体の個性を出す',
+    'production-viability': 'ロケーション・セット要素を整理し、撮影実現可能な規模に再設計する',
+    'originality': 'ジャンルを1つ選び、そのジャンルの「定番」を一つ裏切る要素を追加する',
+    'plot-logic': '各シーンの「なぜ→だから→しかし」の因果連鎖を確認し、ご都合主義を修正する',
+    'char-unique': '各登場人物の「口癖・独特の言い回し・禁句（絶対言わない言葉）」を設定する',
+    'voice': '各キャラに「語彙レベル・話題・リズム」のプロフィールを作り、声を差別化する',
+    'naturalness': 'セリフを声に出して読み、60字超えたら必ず分割する',
+    'format-correctness': '柱書き・ト書き・台詞の基本フォーマットを整え、シーン番号を付ける',
   };
   const priority = topWeakItems.length > 0
     ? topWeakItems.map((id, i) => (i + 1) + '. 【' + nameMap[id] + '】（現在' + scores[id] + '/5）— ' + (priorityActions[id] || '評価根拠を参考に改稿を')).join('\n')
@@ -13905,7 +14112,7 @@ function staffRoomRunAnalysis(text) {
   const summary =
     (genreStr ? 'ジャンル推定：' + genreStr + '。' : '') +
     totalChars.toLocaleString() + '字（約' + estimatedPages + 'ページ）・' +
-    sceneCount + 'シーン・登場人物' + uniqueChars + '人を多角的に分析。' +
+    sceneCount + 'シーン・登場人物' + uniqueChars + '人を18項目・7カテゴリで多角的に分析。' +
     (totalScore >= 88 ? '最高レベルの完成度。コンクール受賞圏の実力です。細部の磨き上げでさらに強くなります。' :
      totalScore >= 78 ? 'プロレベルの完成度です。細部の改稿でコンクール受賞圏が見えます。' :
      totalScore >= 66 ? '良好な基礎があります。弱点項目の集中改稿で大きく化けます。' :
@@ -13923,6 +14130,9 @@ function staffRoomRunAnalysis(text) {
     visualRatio: Math.round(visualRatio * 100),
     emotionDensity: Math.round(emotionDensity * 100),
     twistCount, mainCharName, genreStr,
+    tensionCount, poeticCount, repeatedMotifs,
+    productionScalePractical, locationVariety,
+    hasCatharsis,
   };
 
   return {
@@ -13932,7 +14142,7 @@ function staffRoomRunAnalysis(text) {
     gradeLabel,
     summary,
     categoryScores,
-    detailNotes: notes.slice(0, 10),
+    detailNotes: notes.slice(0, 12),
     strengths,
     weaknesses,
     suggestions,
