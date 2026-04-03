@@ -12539,14 +12539,14 @@ function renderLearnStaffRoom(hero, subnav) {
       const catScore = cat.items.length > 0 ? Math.round(cat.items.reduce((a, item) => a + (scores[item.id]||0), 0) / cat.items.length * 20) : null;
       const catScoredCount = cat.items.filter(it => (scores[it.id]||0) > 0).length;
       return `
-    <div style="margin-bottom:14px;border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.04)">
-      <div style="padding:10px 14px;background:${cat.color}10;border-bottom:1px solid ${cat.color}25;display:flex;align-items:center;gap:8px">
-        <div style="width:30px;height:30px;border-radius:8px;background:${cat.color}20;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          <i class="fas ${cat.icon}" style="color:${cat.color};font-size:12px"></i>
+    <div style="margin-bottom:14px;border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.05);transition:box-shadow .2s">
+      <div style="padding:10px 14px;background:linear-gradient(90deg,${cat.color}12,${cat.color}05);border-bottom:1px solid ${cat.color}22;display:flex;align-items:center;gap:8px">
+        <div style="width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,${cat.color}28,${cat.color}10);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid ${cat.color}20">
+          <i class="fas ${cat.icon}" style="color:${cat.color};font-size:13px"></i>
         </div>
         <div style="flex:1;min-width:0">
-          <div style="font-weight:700;font-size:13px;color:var(--text-primary)">${cat.label}</div>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:1px">${catScoredCount}/${cat.items.length}項目採点済み</div>
+          <div style="font-weight:700;font-size:13px;color:var(--text-primary);letter-spacing:.01em">${cat.label}</div>
+          <div style="font-size:9.5px;color:var(--text-muted);margin-top:1px"><i class="fas fa-check-circle" style="font-size:8px;margin-right:2px;color:${catScoredCount>0?cat.color:'var(--border)'}"></i>${catScoredCount}/${cat.items.length}項目採点済み</div>
         </div>
         ${catScore !== null && catScoredCount > 0 ? `
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0">
@@ -12593,12 +12593,9 @@ function renderLearnStaffRoom(hero, subnav) {
               ${autoIssues.map(i2 => `<div style="display:flex;align-items:flex-start;gap:6px;font-size:10.5px;line-height:1.55"><span style="flex-shrink:0;margin-top:2px;width:14px;height:14px;border-radius:50%;background:var(--momo);display:inline-flex;align-items:center;justify-content:center;min-width:14px;box-shadow:0 1px 3px rgba(239,68,68,.2)"><i class="fas fa-times" style="font-size:6px;color:#fff"></i></span><span style="color:var(--momo);font-weight:500">${esc(i2)}</span></div>`).join('')}
             </div>` : ''}
             ${autoQuote ? `
-            <div style="margin-top:8px;border-radius:7px;overflow:hidden;border:1px solid ${scoreVal<=2?'rgba(239,68,68,.2)':scoreVal>=4?'rgba(34,197,94,.2)':'rgba(234,179,8,.2)'}">
-              <div style="padding:3px 9px;background:${scoreVal<=2?'rgba(239,68,68,.06)':scoreVal>=4?'rgba(34,197,94,.06)':'rgba(234,179,8,.06)'};display:flex;align-items:center;gap:4px;border-bottom:1px solid ${scoreVal<=2?'rgba(239,68,68,.12)':scoreVal>=4?'rgba(34,197,94,.12)':'rgba(234,179,8,.12)'}">
-                <i class="fas ${scoreVal<=2?'fa-highlighter':scoreVal>=4?'fa-quote-left':'fa-minus'}" style="font-size:7px;color:${scoreVal<=2?'var(--momo)':scoreVal>=4?'var(--matcha)':'var(--kogane)'}"></i>
-                <span style="font-size:8px;font-weight:700;color:${scoreVal<=2?'var(--momo)':scoreVal>=4?'var(--matcha)':'var(--kogane)'};letter-spacing:.04em">${scoreVal<=2?'問題箇所（脚本より）':scoreVal>=4?'好例（脚本より）':'参照箇所（脚本より）'}</span>
-              </div>
-              <div style="padding:6px 9px;background:rgba(0,0,0,.018);font-family:'Noto Serif JP',serif;font-size:10.5px;color:var(--text-secondary);line-height:1.85;word-break:break-all;white-space:pre-wrap">${esc(autoQuote)}</div>
+            <div class="sr-cite-block ${scoreVal<=2?'cite-bad':scoreVal>=4?'cite-good':'cite-warn'}" style="margin-top:8px">
+              <div class="sr-cite-label"><i class="fas ${scoreVal<=2?'fa-highlighter':scoreVal>=4?'fa-quote-left':'fa-search'}" style="font-size:7px"></i>${scoreVal<=2?'問題箇所 — 脚本引用':scoreVal>=4?'好例 — 脚本引用':'参照 — 脚本引用'}</div>
+              <div class="sr-cite-text" style="color:${scoreVal<=2?'#7f1d1d':scoreVal>=4?'#14532d':'#78350f'}">${esc(autoQuote)}</div>
             </div>` : ''}
             ${hasDiff ? `
             <div style="margin-top:5px;font-size:10px;color:${diffAmt>0?'#15803d':'#b91c1c'};font-weight:600">
@@ -12705,8 +12702,9 @@ function renderLearnStaffRoom(hero, subnav) {
           <!-- ヘッダーバー -->
           <div style="padding:14px 20px 10px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:10px;position:relative">
             <i class="fas fa-gavel" style="color:rgba(255,255,255,.5);font-size:12px"></i>
-            <span style="font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.45);font-weight:600;text-transform:uppercase">SCENARIO LAB ─ 審査員採点レポート v7</span>
-            <span style="font-size:9px;background:rgba(168,85,247,.25);color:rgba(200,160,255,.9);border:1px solid rgba(168,85,247,.4);border-radius:4px;padding:1px 6px;font-weight:700;letter-spacing:.05em">18項目・7軸・実脚本引用 v7</span>
+            <span style="font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.45);font-weight:600;text-transform:uppercase">SCENARIO LAB ─ 審査員採点レポート v9</span>
+            <span style="font-size:9px;background:rgba(168,85,247,.25);color:rgba(200,160,255,.9);border:1px solid rgba(168,85,247,.4);border-radius:4px;padding:1px 6px;font-weight:700;letter-spacing:.05em">18項目・7軸・実脚本引用 v9</span>
+            <span class="sr-engine-badge"><i class="fas fa-microchip" style="font-size:7px"></i>精密解析エンジン</span>
             <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
               ${autoResult.analysisStats ? `<span style="font-size:10px;color:rgba(255,255,255,.3)">${new Date(autoResult.scoredAt||Date.now()).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}採点</span>` : ''}
               <button onclick="staffRoomClearAutoScore('${s.id}')" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);border-radius:6px;width:22px;height:22px;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s" title="結果をクリア" onmouseover="this.style.background='rgba(255,68,68,.3)'" onmouseout="this.style.background='rgba(255,255,255,.08)'"><i class="fas fa-times"></i></button>
@@ -12727,26 +12725,33 @@ function renderLearnStaffRoom(hero, subnav) {
                 <span style="font-size:28px;font-weight:900;font-family:'Noto Serif JP',serif;line-height:1;text-shadow:0 2px 12px rgba(0,0,0,.5)">${autoResult.grade}</span>
                 <div style="display:flex;flex-direction:column;gap:2px">
                   <span style="font-size:13px;font-weight:800;background:${autoResult.totalScore>=88?'linear-gradient(90deg,#a855f7,#c084fc)':autoResult.totalScore>=78?'linear-gradient(90deg,#22c55e,#4ade80)':autoResult.totalScore>=66?'linear-gradient(90deg,#3b82f6,#60a5fa)':autoResult.totalScore>=54?'linear-gradient(90deg,#eab308,#fbbf24)':'linear-gradient(90deg,#ef4444,#f87171)'};-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">${esc(autoResult.gradeLabel)}</span>
-                  ${autoResult.analysisStats ? `<span style="font-size:9.5px;color:rgba(255,255,255,.45);line-height:1.6">${autoResult.analysisStats.sceneCount||0}シーン · ${autoResult.analysisStats.uniqueChars||0}人 · セリフ${autoResult.analysisStats.dialogueRatio||0}% · 感情${autoResult.analysisStats.emotionDensity||0}% · 緊張${autoResult.analysisStats.tensionCount||0}${autoResult.analysisStats.onTheNoseCount > 0 ? ' · 説明台詞'+autoResult.analysisStats.onTheNoseCount+'件' : ''}${autoResult.analysisStats.hasCatharsis ? ' · カタルシスあり' : ''}</span>` : ''}
+                  ${autoResult.analysisStats ? `<span style="font-size:9px;color:rgba(255,255,255,.4);line-height:1.7;display:flex;flex-wrap:wrap;gap:6px;margin-top:2px">
+                    <span><i class="fas fa-film" style="font-size:7px;opacity:.6;margin-right:2px"></i>${autoResult.analysisStats.sceneCount||0}シーン</span>
+                    <span><i class="fas fa-users" style="font-size:7px;opacity:.6;margin-right:2px"></i>${autoResult.analysisStats.uniqueChars||0}人</span>
+                    <span><i class="fas fa-comment" style="font-size:7px;opacity:.6;margin-right:2px"></i>セリフ${autoResult.analysisStats.dialogueRatio||0}%</span>
+                    <span><i class="fas fa-heart" style="font-size:7px;opacity:.6;margin-right:2px"></i>感情${autoResult.analysisStats.emotionDensity||0}%</span>
+                    ${autoResult.analysisStats.onTheNoseCount > 0 ? `<span style="color:rgba(248,113,113,.7)"><i class="fas fa-exclamation-circle" style="font-size:7px;margin-right:2px"></i>説明台詞${autoResult.analysisStats.onTheNoseCount}件</span>` : ''}
+                    ${autoResult.analysisStats.hasCatharsis ? '<span style="color:rgba(74,222,128,.7)"><i class="fas fa-check-circle" style="font-size:7px;margin-right:2px"></i>カタルシス</span>' : ''}
+                  </span>` : ''}
                 </div>
               </div>
               <div style="font-size:12px;line-height:1.75;color:rgba(255,255,255,.7)">${esc(autoResult.summary)}</div>
             </div>
           </div>
           <!-- カテゴリスコアグリッド -->
-          <div style="padding:0 20px 18px;display:grid;grid-template-columns:repeat(3,1fr);gap:7px;position:relative">
+          <div class="sr-cat-grid" style="padding:0 20px 18px;position:relative">
             ${(autoResult.categoryScores||[]).map((cs,ci,arr)=>{
               const isLowest = cs.score === Math.min(...arr.map(x=>x.score));
               const isHighest = cs.score === Math.max(...arr.map(x=>x.score));
               return `
-            <div style="background:rgba(255,255,255,.05);border:1px solid ${isLowest?'rgba(239,68,68,.4)':isHighest?'rgba(34,197,94,.3)':'rgba(255,255,255,.09)'};border-radius:10px;padding:9px 11px;position:relative${isLowest?' box-shadow:0 0 0 1px rgba(239,68,68,.2)':''}">
-              ${isLowest?`<span style="position:absolute;top:-5px;right:6px;font-size:7.5px;background:#ef4444;color:#fff;border-radius:3px;padding:0px 4px;font-weight:800;letter-spacing:.04em">要強化</span>`:''}
-              ${isHighest?`<span style="position:absolute;top:-5px;right:6px;font-size:7.5px;background:#22c55e;color:#fff;border-radius:3px;padding:0px 4px;font-weight:800;letter-spacing:.04em">最良</span>`:''}
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
-                <span style="font-size:8.5px;color:rgba(255,255,255,.5);line-height:1.3;font-weight:600">${esc(cs.label)}</span>
-                <span style="font-size:14px;font-weight:800;color:${cs.score>=80?'#4ade80':cs.score>=65?'#60a5fa':cs.score>=50?'#fbbf24':'#f87171'};line-height:1">${cs.score}</span>
+            <div class="sr-cat-cell${isLowest?' cell-lowest':isHighest?' cell-highest':''}">
+              ${isLowest?`<span style="position:absolute;top:-6px;right:7px;font-size:7px;background:#ef4444;color:#fff;border-radius:3px;padding:1px 5px;font-weight:800;letter-spacing:.04em">要強化</span>`:''}
+              ${isHighest?`<span style="position:absolute;top:-6px;right:7px;font-size:7px;background:#22c55e;color:#fff;border-radius:3px;padding:1px 5px;font-weight:800;letter-spacing:.04em">最良</span>`:''}
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+                <span style="font-size:8.5px;color:rgba(255,255,255,.5);line-height:1.3;font-weight:600;flex:1;min-width:0;padding-right:4px">${esc(cs.label)}</span>
+                <span style="font-size:15px;font-weight:900;color:${cs.score>=80?'#4ade80':cs.score>=65?'#60a5fa':cs.score>=50?'#fbbf24':'#f87171'};line-height:1;flex-shrink:0">${cs.score}</span>
               </div>
-              <div style="width:100%;height:4px;background:rgba(255,255,255,.08);border-radius:2px">
+              <div style="width:100%;height:3.5px;background:rgba(255,255,255,.08);border-radius:2px">
                 <div style="height:100%;width:${cs.score}%;background:${cs.score>=80?'linear-gradient(90deg,#4ade80,#22c55e)':cs.score>=65?'linear-gradient(90deg,#60a5fa,#3b82f6)':cs.score>=50?'linear-gradient(90deg,#fbbf24,#eab308)':'linear-gradient(90deg,#f87171,#ef4444)'};border-radius:2px;transition:width .8s ease"></div>
               </div>
             </div>`;}).join('')}
@@ -12766,36 +12771,36 @@ function renderLearnStaffRoom(hero, subnav) {
             <i id="sr-diag-ic-${s.id}" class="fas fa-chevron-up" style="margin-left:auto;font-size:10px;color:var(--text-muted);transition:transform .2s;transform:rotate(180deg)"></i>
           </div>
           <div id="sr-diag-${s.id}" style="display:block">
-            <div style="padding:12px 16px;display:flex;flex-direction:column;gap:6px">
-              ${(autoResult.detailNotes||[]).map(n=>`
-              <div style="border:1px solid ${n.type==='good'?'var(--matcha-border)':n.type==='warn'?'var(--kogane-border)':'var(--momo-border)'};border-radius:9px;overflow:hidden;border-left:3px solid ${n.type==='good'?'var(--matcha)':n.type==='warn'?'var(--kogane)':'var(--momo)'}">
-                <div style="padding:8px 12px 8px 11px;background:${n.type==='good'?'var(--matcha-bg)':n.type==='warn'?'var(--kogane-bg)':'var(--momo-bg)'};display:flex;gap:8px;align-items:flex-start">
-                  <span style="flex-shrink:0;margin-top:2px;width:17px;height:17px;border-radius:50%;background:${n.type==='good'?'var(--matcha)':n.type==='warn'?'var(--kogane)':'var(--momo)'};display:inline-flex;align-items:center;justify-content:center;min-width:17px;box-shadow:0 1px 4px ${n.type==='good'?'rgba(34,197,94,.25)':n.type==='warn'?'rgba(234,179,8,.25)':'rgba(239,68,68,.25)'}">
-                    <i class="fas ${n.type==='good'?'fa-check':n.type==='warn'?'fa-exclamation':'fa-times'}" style="font-size:8px;color:#fff"></i>
-                  </span>
-                  <div style="flex:1;min-width:0">
-                    <div style="font-size:11.5px;line-height:1.8;color:var(--text-primary);font-weight:500">${esc(n.text)}</div>
-                    ${n.quote ? `<div style="margin-top:9px;border-radius:7px;overflow:hidden;border:1px solid ${n.type==='good'?'rgba(34,197,94,.25)':n.type==='warn'?'rgba(234,179,8,.25)':'rgba(239,68,68,.25)'}">
-                      <div style="padding:4px 10px;background:${n.type==='good'?'rgba(34,197,94,.08)':n.type==='warn'?'rgba(234,179,8,.08)':'rgba(239,68,68,.08)'};display:flex;align-items:center;gap:5px;border-bottom:1px solid ${n.type==='good'?'rgba(34,197,94,.15)':n.type==='warn'?'rgba(234,179,8,.15)':'rgba(239,68,68,.15)'}">
-                        <i class="fas ${n.type==='good'?'fa-quote-left':'fa-highlighter'}" style="font-size:8px;color:${n.type==='good'?'var(--matcha)':n.type==='warn'?'var(--kogane)':'var(--momo)'}"></i>
-                        <span style="font-size:8.5px;font-weight:700;color:${n.type==='good'?'var(--matcha)':n.type==='warn'?'var(--kogane)':'var(--momo)'};letter-spacing:.04em">${n.type==='good'?'好例（脚本より）':n.type==='warn'?'注意（脚本より）':'問題箇所（脚本より）'}</span>
-                      </div>
-                      <div style="padding:7px 11px;background:rgba(0,0,0,.018);font-size:10.5px;color:var(--text-secondary);line-height:1.9;white-space:pre-wrap;word-break:break-all;font-family:'Noto Serif JP',serif">${esc(n.quote)}</div>
-                    </div>` : ''}
-                  </div>
+            <div class="sr-notes-container">
+              ${(autoResult.detailNotes||[]).map(n=>{
+                const typeClass = n.type==='good'?'good':n.type==='warn'?'warn':'bad';
+                const iconName = n.type==='good'?'fa-check':n.type==='warn'?'fa-exclamation':'fa-times';
+                const citeClass = n.type==='good'?'cite-good':n.type==='warn'?'cite-warn':'cite-bad';
+                const citeLabel = n.type==='good'?'好例 — 脚本より':n.type==='warn'?'参照 — 脚本より':'問題箇所 — 脚本より';
+                const citeIcon = n.type==='good'?'fa-quote-left':'fa-highlighter';
+                const citeColor = n.type==='good'?'#16a34a':n.type==='warn'?'#d97706':'#dc2626';
+                return `
+              <div class="sr-diag-note note-${typeClass}">
+                <div class="sr-diag-note-icon"><i class="fas ${iconName}"></i></div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:11.5px;line-height:1.75;color:var(--text-primary);font-weight:500">${esc(n.text)}</div>
+                  ${n.quote ? `<div class="sr-cite-block ${citeClass}" style="margin-top:6px">
+                    <div class="sr-cite-label"><i class="fas ${citeIcon}" style="font-size:7px"></i>${citeLabel}</div>
+                    <div class="sr-cite-text">${esc(n.quote)}</div>
+                  </div>` : ''}
                 </div>
-              </div>`).join('')}
+              </div>`;}).join('')}
             </div>
           </div>
         </div>
 
         <!-- ③ 強み・弱み・改稿提案（タブ形式） -->
         <div style="margin-top:10px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg-white)">
-          <div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg-subtle)">
-            <button id="sr-fb-tab-str-${s.id}" onclick="staffRoomFbTab('${s.id}','strengths')" style="flex:1;padding:9px 4px;font-size:10.5px;font-weight:700;border:none;cursor:pointer;border-bottom:2px solid var(--matcha);background:var(--bg-white);color:var(--matcha);display:flex;align-items:center;justify-content:center;gap:4px"><i class="fas fa-circle-check" style="font-size:9px"></i>強み</button>
-            <button id="sr-fb-tab-wk-${s.id}" onclick="staffRoomFbTab('${s.id}','weaknesses')" style="flex:1;padding:9px 4px;font-size:10.5px;font-weight:700;border:none;cursor:pointer;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted);display:flex;align-items:center;justify-content:center;gap:4px"><i class="fas fa-circle-xmark" style="font-size:9px"></i>弱点</button>
-            <button id="sr-fb-tab-sg-${s.id}" onclick="staffRoomFbTab('${s.id}','suggestions')" style="flex:1;padding:9px 4px;font-size:10.5px;font-weight:700;border:none;cursor:pointer;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted);display:flex;align-items:center;justify-content:center;gap:4px"><i class="fas fa-pencil" style="font-size:9px"></i>改稿提案</button>
-            <button id="sr-fb-tab-pr-${s.id}" onclick="staffRoomFbTab('${s.id}','priority')" style="flex:1;padding:9px 4px;font-size:10.5px;font-weight:700;border:none;cursor:pointer;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted);display:flex;align-items:center;justify-content:center;gap:4px"><i class="fas fa-flag" style="font-size:9px"></i>最優先</button>
+          <div class="sr-fb-tabs">
+            <button id="sr-fb-tab-str-${s.id}" class="sr-fb-tab active" onclick="staffRoomFbTab('${s.id}','strengths')"><i class="fas fa-circle-check" style="font-size:9px;color:var(--matcha)"></i>強み</button>
+            <button id="sr-fb-tab-wk-${s.id}" class="sr-fb-tab" onclick="staffRoomFbTab('${s.id}','weaknesses')"><i class="fas fa-circle-xmark" style="font-size:9px;color:var(--momo)"></i>弱点</button>
+            <button id="sr-fb-tab-sg-${s.id}" class="sr-fb-tab" onclick="staffRoomFbTab('${s.id}','suggestions')"><i class="fas fa-pen-nib" style="font-size:9px;color:var(--kogane)"></i>改稿提案</button>
+            <button id="sr-fb-tab-pr-${s.id}" class="sr-fb-tab" onclick="staffRoomFbTab('${s.id}','priority')"><i class="fas fa-flag" style="font-size:9px;color:var(--fuji)"></i>最優先</button>
           </div>
           <div id="sr-fb-strengths-${s.id}" style="padding:12px 14px">
             ${(autoResult.strengths||'').split('\n').filter(l=>l.trim()).map((line, lineIdx) => {
@@ -12847,12 +12852,9 @@ function renderLearnStaffRoom(hero, subnav) {
                   </div>
                   ${scoreVal !== null ? `<span style="flex-shrink:0;font-size:12px;font-weight:800;color:${isCritical ? '#dc2626' : 'var(--momo)'};line-height:1;white-space:nowrap">${scoreVal}<span style="font-size:8px;opacity:.6">/5</span></span>` : ''}
                 </div>
-                ${weakQuote2 ? `<div style="border-top:1px solid rgba(239,68,68,.15);padding:5px 10px;background:rgba(239,68,68,.025)">
-                  <div style="display:flex;align-items:center;gap:4px;margin-bottom:3px">
-                    <i class="fas fa-highlighter" style="font-size:7.5px;color:var(--momo)"></i>
-                    <span style="font-size:7.5px;font-weight:700;color:var(--momo);letter-spacing:.04em">脚本該当箇所</span>
-                  </div>
-                  <div style="font-family:'Noto Serif JP',serif;font-size:10px;color:#7f1d1d;line-height:1.75;white-space:pre-wrap;word-break:break-all">${esc(weakQuote2)}</div>
+                ${weakQuote2 ? `<div class="sr-cite-block cite-bad" style="border-radius:0 0 6px 6px;margin:0 10px 8px;margin-top:0">
+                  <div class="sr-cite-label"><i class="fas fa-highlighter" style="font-size:7px"></i>問題箇所 — 脚本より</div>
+                  <div class="sr-cite-text">${esc(weakQuote2)}</div>
                 </div>` : ''}
               </div>`;
             }).join('') || `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:16px">自動採点後に生成されます</div>`}
@@ -12892,9 +12894,9 @@ function renderLearnStaffRoom(hero, subnav) {
                     '<span style="font-size:12px;line-height:1.65;color:var(--text-primary);font-weight:700">' + esc(currentItem) + '</span></div>';
                   if (nText) html += '<div style="padding:7px 13px 0;font-size:10.5px;color:var(--text-secondary);line-height:1.7">' + esc(nText) + '</div>';
                   if (bText || aText) {
-                    html += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:8px 13px 10px">';
-                    if (bText) html += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:7px 9px"><div style="font-size:8.5px;font-weight:800;color:#b91c1c;margin-bottom:4px;letter-spacing:.05em;display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;border-radius:50%;background:#b91c1c;flex-shrink:0;display:inline-block"></span>改善前</div><pre style="font-size:10px;color:#7f1d1d;line-height:1.7;white-space:pre-wrap;margin:0;font-family:serif">' + esc(bText) + '</pre></div>';
-                    if (aText) html += '<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:7px 9px"><div style="font-size:8.5px;font-weight:800;color:#15803d;margin-bottom:4px;letter-spacing:.05em;display:flex;align-items:center;gap:3px"><span style="width:7px;height:7px;border-radius:50%;background:#15803d;flex-shrink:0;display:inline-block"></span>改善後</div><pre style="font-size:10px;color:#14532d;line-height:1.7;white-space:pre-wrap;margin:0;font-family:serif">' + esc(aText) + '</pre></div>';
+                    html += '<div class="sr-ba-grid">';
+                    if (bText) html += '<div class="sr-ba-before"><div class="sr-ba-label"><i class="fas fa-times-circle" style="font-size:9px;margin-right:3px"></i>改善前 — 問題のあるパターン</div><pre class="sr-ba-text">' + esc(bText) + '</pre></div>';
+                    if (aText) html += '<div class="sr-ba-after"><div class="sr-ba-label"><i class="fas fa-check-circle" style="font-size:9px;margin-right:3px"></i>改善後 — 書き直し例</div><pre class="sr-ba-text">' + esc(aText) + '</pre></div>';
                     html += '</div>';
                   } else if (subLines.length) {
                     html += '<div style="padding:7px 13px 10px">' + subLines.map(l => '<div style="font-size:10.5px;color:var(--text-secondary);line-height:1.7;padding:1px 0 1px 6px;font-family:serif">' + esc(l.replace(/^（改善[前後]）\s*/,'').replace(/^（[BA][ea][f]fore[r]?）\s*/,'')) + '</div>').join('') + '</div>';
@@ -12929,9 +12931,9 @@ function renderLearnStaffRoom(hero, subnav) {
                 const rank = parseInt(numMatch[1]);
                 const rankBg = rank === 1 ? 'linear-gradient(135deg,#ef4444,#b91c1c)' : rank === 2 ? 'linear-gradient(135deg,#f97316,#c2410c)' : 'linear-gradient(135deg,#eab308,#a16207)';
                 const rankLabel = rank === 1 ? '最優先' : rank === 2 ? '高優先' : '優先';
-                return `<div style="display:flex;gap:10px;align-items:flex-start;padding:10px 12px;margin-bottom:6px;border:1px solid ${rank===1?'rgba(239,68,68,.25)':rank===2?'rgba(249,115,22,.2)':'rgba(234,179,8,.2)'};border-radius:10px;background:${rank===1?'rgba(239,68,68,.04)':rank===2?'rgba(249,115,22,.03)':'rgba(234,179,8,.03)'};border-left:3px solid ${rank===1?'#ef4444':rank===2?'#f97316':'#eab308'}">
+                return `<div class="sr-priority-card rank-${Math.min(rank,3)}">
                   <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:2px">
-                    <span style="width:22px;height:22px;border-radius:50%;background:${rankBg};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;min-width:22px;box-shadow:0 2px 6px rgba(0,0,0,.15)">${numMatch[1]}</span>
+                    <span style="width:24px;height:24px;border-radius:50%;background:${rankBg};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;min-width:24px;box-shadow:0 2px 8px rgba(0,0,0,.2)">${numMatch[1]}</span>
                     <span style="font-size:7.5px;font-weight:700;color:${rank===1?'#b91c1c':rank===2?'#c2410c':'#a16207'};letter-spacing:.03em;white-space:nowrap">${rankLabel}</span>
                   </div>
                   <div style="flex:1;min-width:0">
@@ -13143,14 +13145,14 @@ function renderLearnStaffRoom(hero, subnav) {
         <div style="padding:12px 16px;background:linear-gradient(90deg,var(--fuji-bg,#f5f0ff),#fff0);border-bottom:1px solid var(--fuji-border,#e0d0ff);display:flex;align-items:center;gap:8px;cursor:pointer" onclick="const b=document.getElementById('sr-tutor-body-${s.id}');const ic=document.getElementById('sr-tutor-ic-${s.id}');const open=b.style.display!=='none';b.style.display=open?'none':'block';ic.style.transform=open?'':'rotate(180deg)'">
           <i class="fas fa-pen-ruler" style="color:var(--fuji);font-size:12px"></i>
           <span style="font-size:12px;font-weight:700;color:var(--text-primary)">改稿テクニック</span>
-          <span style="font-size:9.5px;background:var(--fuji-bg,#f0eeff);color:var(--fuji);border:1px solid var(--fuji-border,#e0d0ff);border-radius:10px;padding:2px 8px;font-weight:700;letter-spacing:.02em">弱点項目の書き直し例</span>
-          <span style="font-size:9.5px;color:var(--text-muted);margin-left:2px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:8px;padding:1px 6px">脚本引用つき</span>
+          <span style="font-size:9px;background:var(--fuji-bg,#f0eeff);color:var(--fuji);border:1px solid var(--fuji-border,#e0d0ff);border-radius:10px;padding:2px 8px;font-weight:700;letter-spacing:.02em"><i class="fas fa-bullseye" style="font-size:7px;margin-right:3px"></i>弱点集中トレーニング</span>
+          <span style="font-size:9px;color:var(--text-muted);background:var(--bg-subtle);border:1px solid var(--border);border-radius:8px;padding:2px 7px"><i class="fas fa-code-compare" style="font-size:7px;margin-right:3px"></i>Before→After付き</span>
           <i id="sr-tutor-ic-${s.id}" class="fas fa-chevron-up" style="margin-left:auto;font-size:10px;color:var(--text-muted);transition:transform .2s;transform:rotate(180deg)"></i>
         </div>
         <div id="sr-tutor-body-${s.id}" style="display:block;padding:16px">
-          <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;line-height:1.7;padding:8px 12px;background:var(--bg-subtle);border-radius:8px">
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:12px;line-height:1.7;padding:9px 12px;background:var(--bg-subtle);border-radius:8px;border-left:3px solid var(--fuji)">
             <i class="fas fa-circle-info" style="margin-right:4px;color:var(--fuji)"></i>
-            採点結果の最優先課題に基づき、具体的な書き直し例を提示します。「改善前」パターンを自身の脚本で探し、「改善後」の方向性を参考に次稿を執筆してください。
+            最低スコア項目を自動選択し、<strong style="color:var(--text-primary)">脚本中の実際の問題パターン（Before）</strong>と<strong style="color:var(--text-primary)">プロ水準の書き直し例（After）</strong>を提示します。<strong>1回の改稿で1項目だけ集中</strong>して改稿し、再採点してください。
           </div>
           <div style="display:flex;flex-direction:column;gap:12px">
             ${staffRoomGenerateTutoringExamples(s)}
@@ -13590,15 +13592,15 @@ function staffRoomGenerateTutoringExamples(session) {
     'subtext': {
       label: 'サブテキスト',
       tips: [
-        { title: '説明台詞 → サブテキスト台詞への変換', bad: '田中「私はずっと君のことが好きだったけど、怖くて言えなかったんだ」', good: '田中「……傘、持ってきた。念のため」\n花子「晴れてるけど」\n田中「……そうだな」', tip: '「言いたいこと」を直接言わせず、「ちぐはぐな行動・回避・代替物」で表現。台詞の裏に別の感情が透けて見えるようにしましょう。' },
-        { title: '過去の説明 → 現在のアクションで示す', bad: '田中「俺は昔、親父に捨てられて施設で育ったんだ」', good: '食堂の混雑。全員が椅子を取り合う中、田中だけが隅のパイプ椅子を選ぶ。\n迷わず。習慣のように。', tip: 'バックストーリーは「説明」ではなく「行動パターンに埋め込む」。セリフの代わりに習慣・反射・空間の取り方で過去を示しましょう。' },
+        { title: '「言いたいこと」を行動・物・沈黙に変換せよ', bad: '田中「私はずっと君のことが好きだったけど、怖くて言えなかったんだ」\n（感情を直接宣言——サブテキストゼロ）', good: '田中「……傘、持ってきた。念のため」\n花子「晴れてるけど」\n田中「……そうだな」\n（傘という物が「好き」を代弁する——観客が自分で気づく）', tip: 'テスト：台詞を消してト書きだけで感情が伝わるか。伝わるなら台詞は不要。伝わらなければト書きを強化。「言いたいこと」≠「言うこと」が感情をつくる。' },
+        { title: '「実は〜なんだ」台詞を全て行動に置き換えよ', bad: '田中「俺は昔、親父に捨てられて施設で育ったんだ」\n（過去を台詞で説明——映像的でない）', good: '食堂の混雑。全員が椅子を取り合う中、田中だけが隅のパイプ椅子を選ぶ。\n迷わず。習慣のように。\n（過去が行動パターンに宿っている）', tip: '「実は」「ずっと」「本当は」で始まる台詞は全て説明台詞の候補。その感情・過去を「習慣・反射・物との関係」に変換できるか試せ。' },
       ]
     },
     'three-act': {
       label: '三幕構成',
       tips: [
-        { title: '発端事件（インサイティング・インシデント）の強化', bad: 'シーン1: 主人公の普通の朝。\nシーン2: 会社に着く。\nシーン3: 上司に呼ばれる。', good: 'シーン1（発端事件）:\n電話が鳴る。真夜中。田中、出ると——電話口の声は10年前に失踪した兄だった。\n「会いに来い。でも誰にも言うな」', tip: '第一幕の発端事件は「主人公の日常を壊す一撃」。観客が「これからどうなる？」と前のめりになる出来事を最初の15%に置きましょう。' },
-        { title: '第二幕中盤の「中央の危機」を挿入', bad: 'シーン12: 捜索を続ける田中。\nシーン13: ヒントを見つける。\nシーン14: さらに追う。', good: 'シーン12（中央の危機）:\n田中、ついに手がかりを掴む——しかし同時に、自分がずっと探していたものが「存在しない」かもしれないと悟る。\n立ちすくむ田中。これまでの行動が全て崩れ落ちる瞬間。', tip: '第二幕中盤（全体の50%地点）に「最悪の瞬間・最大の誤解・信念の崩壊」を置くと構成が引き締まります。' },
+        { title: '発端事件を最初の15%以内に配置せよ', bad: 'シーン1: 主人公の普通の朝。\nシーン2: 会社に着く。\nシーン3: 上司に呼ばれる。\n（15ページ経っても何も起きない——読者が離脱）', good: 'シーン1（発端事件: 冒頭2分）:\n電話が鳴る。真夜中。田中、出ると——電話口の声は10年前に失踪した兄だった。\n「会いに来い。でも誰にも言うな」\n→ 日常が壊れる一撃', tip: '発端事件のチェック：①主人公の日常が壊れるか ②「これからどうなる？」と読者が前のめりになるか ③主人公が「行動せざるを得ない状態」に追い込まれるか。全てYesなら合格。' },
+        { title: '中間点（Midpoint）で物語を折り返せ', bad: '第1幕と第3幕の間が漠然と続く——主人公が動いているだけでドラマがない。', good: '中間点（全体の50%）:\n田中がようやく目標を達成したと思った瞬間——\n実は自分が最大の原因だったと知る。\n（偽りの勝利→崩壊→再起が構成の軸になる）', tip: '中間点がないと第2幕が「中だるみ」になる。主人公の「方向転換」を引き起こす決定的発見や崩壊をここに配置する。' },
       ]
     },
     'char-arc': {
@@ -13611,9 +13613,8 @@ function staffRoomGenerateTutoringExamples(session) {
     'visual': {
       label: 'ビジュアルストーリーテリング',
       tips: [
-        { title: '説明的ト書き → 映像的ト書きへの変換', bad: '田中は悲しんでいる。彼は友達を亡くしたことを後悔している。', good: '田中の机に、飲みかけのコーヒーカップが二つ。\n片方はずっと冷めたまま。', tip: '感情・状況・バックストーリーを「具体的な物・光・空間」で表現。「キャラが何を感じているか」ではなく「カメラが何を映すか」を書きましょう。' },
-        { title: '音と光でシーンを締める', bad: '二人は別れた。田中は一人になった。', good: 'ドアが閉まる。\n部屋に残るのは、花子の香水の残り香と、止まった時計。', tip: '「聴覚・嗅覚・触覚」の感覚的ディテールを加えると読者の脳内で映像が動き出します。感情に「音・匂い・質感」を対応させましょう。' },
-        { title: '冒頭の「つかみ」を映像で設計する', bad: '1 ○オフィス・昼\n田中、デスクで仕事をしている。電話が鳴る。田中、出る。', good: '1 ○オフィス・昼（退社時刻）\n全員が帰り支度をする中——田中（32）の机だけ、電気がついている。\n積み上げられた書類の山。\n電話が鳴る。\n田中、三コール待って——出る。「……はい」', tip: '最初の1シーンで「キャラの状況と問題」を映像で示す。見る人が「なぜ？」と思う画を冒頭に置く。説明セリフは不要——画が全てを語る。' },
+        { title: '感情語を全て削除して映像だけで書き直せ', bad: '田中は悲しんでいる。彼は友達を亡くしたことを後悔している。\n（感情語に依存——映像にならない）', good: '田中の机に、飲みかけのコーヒーカップが二つ。\n片方はずっと冷めたまま。田中、それを手に取る——置けない。\n（物が悲しみを語る）', tip: '練習：「悲しい・嬉しい・怒る・辛い」を全削除して書き直す。書き直せるなら元の版は映像的でなかった証拠。' },
+        { title: '五感（特に聴覚・嗅覚）でシーンを締めよ', bad: '二人は別れた。田中は一人になった。\n（状況の説明——感覚情報がない）', good: 'ドアが閉まる。\n部屋に残るのは、花子の香水の残り香——と、止まった時計の音が、しない。\n（聴覚×嗅覚×視覚の融合で喪失を表現）', tip: '映像だけでなく「音・匂い・温度・質感」を1シーンに1つ加えると、読者の脳内でシーンが立体的になります。' },
       ]
     },
     'dialogue-dynamics': {
@@ -13641,8 +13642,8 @@ function staffRoomGenerateTutoringExamples(session) {
     'protag-want-need': {
       label: 'Want/Need設計',
       tips: [
-        { title: 'Want（外的目標）とNeed（内的必要性）を分離して設計する', bad: '（主人公は事件を解決したいだけで、内面的な成長がない）', good: 'Want（外的目標）: 失踪した娘を探し出す\nNeed（内的必要性）: 娘に謝れなかった過去を受け入れる\n→ 物語の終わりに、Wantを達成しても、Needを満たさなければ真の解決にならないことが明らかになる', tip: 'WantとNeedは「表の物語」と「裏の物語」を作ります。Wantが叶う/叶わないに関わらず、Needに向き合う瞬間がクライマックスになるよう設計しましょう。' },
-        { title: 'WantとNeedを「対立」させてドラマを深める', bad: '田中「証拠を見つけたい（Want）」——証拠を見つけることで成長もする。矛盾がない。', good: 'Want（外的目標）: 犯人を暴いて正義を実現したい\nNeed（内的必要性）: 復讐心ではなく真実のために戦う自分になること\n→ WantとNeedが対立している——犯人を暴こうとするほど、「正義」ではなく「復讐」になっていく。\nクライマックスで「WantよりNeedを選ぶ」かどうかが問われる。', tip: 'WantとNeedが同じ方向を向いていると物語に葛藤が生まれません。WantとNeedを「対立する方向」に設計し、どちらを選ぶかがクライマックスになるよう作りましょう。' },
+        { title: 'Want（外的目標）をシーン1で行動で見せよ', bad: '（冒頭で主人公が独白）「私の夢は作家になることだ。ずっとそれだけを目指してきた。」\n（Wantを言葉で説明——説明台詞の典型）', good: '（深夜: シーン1）\n主人公はカーテンを閉め、原稿用紙に向かう。\n廊下から「もう寝なさい」——構わず書き続ける。\n→ Wantが行動で伝わる', tip: 'Want設計3点確認：①行動で表現されているか ②Needと対立しているか ③クライマックスでWant vs Needの選択が問われるか。全てYesなら強い設計。' },
+        { title: 'WantとNeedを「衝突」させよ——葛藤がドラマをつくる', bad: 'Want: 出世したい、Need: 家族を大切にしたい——両方が自然に達成される。\n→ 葛藤なし、ドラマなし', good: 'Want: 単身赴任で出世（今しかないチャンス）\nNeed: 娘との時間（今しかできない）\n→ クライマックス: 赴任辞令の夜、娘「パパ、行かないで」\n→ WantかNeedか——この選択が物語の核心', tip: 'WantとNeedが「同じ方向」を向いていると葛藤が生まれない。「WantとNeedが対立し、クライマックスでどちらを選ぶか問われる」設計が理想形。' },
       ]
     },
     'authorial-voice': {
@@ -13686,14 +13687,8 @@ function staffRoomGenerateTutoringExamples(session) {
     'plot-logic': {
       label: 'プロットの論理的一貫性',
       tips: [
-        { title: '「偶然」を「必然」に変換する', bad: 'たまたま田中がそこを通りかかり、ちょうど事件を目撃した。', good: '田中が帰宅ルートを変えたのには理由があった。昨夜の花子の一言——「東口から来て」。
-その一言が、田中をあの路地に向かわせた。', tip: '「たまたま・ちょうど・偶然」を脚本から全て削除する。その代わり「なぜ主人公がそこにいるか」を前のシーンに仕込む。偶然を必然に変えることが脚本の技術です。' },
-        { title: '因果連鎖の強化：「なぜ→だから→しかし」', bad: 'シーン1: 田中が走る。
-シーン2: 花子が泣く。
-シーン3: 二人が話す。
-（シーンの繋がりに因果関係がない）', good: '（なぜ）田中が秘密を暴こうとした
-（だから）花子は隠し通そうとして嘘をついた
-（しかし）その嘘がさらに深い真実を示唆していた', tip: '各シーンの繋がりを「なぜ→だから→しかし」で説明できるか確認する。説明できなければシーン順序か内容に問題があります。' },
+        { title: '「偶然」を「必然」に変換する', bad: 'たまたま田中がそこを通りかかり、ちょうど事件を目撃した。', good: '田中が帰宅ルートを変えたのには理由があった。昨夜の花子の一言——「東口から来て」。\nその一言が、田中をあの路地に向かわせた。', tip: '「たまたま・ちょうど・偶然」を脚本から全て削除する。その代わり「なぜ主人公がそこにいるか」を前のシーンに仕込む。偶然を必然に変えることが脚本の技術です。' },
+        { title: '因果連鎖の強化：「なぜ→だから→しかし」', bad: 'シーン1: 田中が走る。\nシーン2: 花子が泣く。\nシーン3: 二人が話す。\n（シーンの繋がりに因果関係がない）', good: '（なぜ）田中が秘密を暴こうとした\n（だから）花子は隠し通そうとして嘘をついた\n（しかし）その嘘がさらに深い真実を示唆していた', tip: '各シーンの繋がりを「なぜ→だから→しかし」で説明できるか確認する。説明できなければシーン順序か内容に問題があります。' },
       ]
     },
     'production-viability': {
@@ -13752,46 +13747,35 @@ function staffRoomGenerateTutoringExamples(session) {
     const issues = (itemDetails[itemId]?.issues || []).slice(0, 2);
 
     const scriptQuote = itemDetails[itemId] ? itemDetails[itemId].quote : null;
-    return `<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;border-left:3px solid ${scoreColor};box-shadow:0 1px 4px rgba(0,0,0,.05)">
-      <div style="padding:9px 13px;background:${scoreColor}08;display:flex;align-items:center;gap:8px;border-bottom:1px solid ${scoreColor}18">
-        <span style="font-size:10px;background:${scoreColor};color:#fff;padding:1px 7px;border-radius:6px;font-weight:700;flex-shrink:0;letter-spacing:.04em">${urgency}</span>
-        <span style="font-size:12.5px;font-weight:700;color:var(--text-primary)">${esc(db.label)}</span>
-        <span style="font-size:11px;color:${scoreColor};font-weight:800;margin-left:auto">${score}<span style="font-size:9px;opacity:.6">/5</span></span>
+    const urgencyClass = score <= 1 ? 'urgent' : score <= 2 ? 'warning' : 'info';
+    return `<div class="sr-tutor-card" style="border-left:3px solid ${scoreColor}">
+      <div class="sr-tutor-card-header" style="background:${scoreColor}08;border-bottom-color:${scoreColor}18">
+        <span class="sr-tutor-urgency-badge ${urgencyClass}">${urgency}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:700;color:var(--text-primary);line-height:1.4">${esc(db.label)}</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:1px">${esc(tip.title)}</div>
+        </div>
+        <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:0">
+          <span style="font-size:18px;font-weight:900;color:${scoreColor};line-height:1">${score}</span>
+          <span style="font-size:8px;color:var(--text-muted)">/5点</span>
+        </div>
       </div>
       ${(issues.length > 0 || scriptQuote) ? `
-      <div style="padding:9px 13px;background:var(--bg-subtle);border-bottom:1px solid var(--border-light,#f0f0f0)">
+      <div style="padding:8px 14px;background:var(--bg-subtle);border-bottom:1px solid var(--border-light,#f0f0f0)">
         ${issues.map(i2 => `<div style="font-size:10.5px;color:var(--momo);display:flex;gap:6px;margin-bottom:3px;align-items:flex-start"><span style="flex-shrink:0;margin-top:2px;width:13px;height:13px;border-radius:50%;background:var(--momo);display:inline-flex;align-items:center;justify-content:center;min-width:13px"><i class="fas fa-exclamation" style="font-size:7px;color:#fff"></i></span><span>${esc(i2)}</span></div>`).join('')}
-        ${scriptQuote ? `<div style="margin-top:${issues.length>0?'7px':'2px'};border-radius:7px;overflow:hidden;border:1px solid rgba(239,68,68,.25)">
-          <div style="padding:4px 10px;background:rgba(239,68,68,.07);display:flex;align-items:center;gap:5px;border-bottom:1px solid rgba(239,68,68,.15)">
-            <i class="fas fa-highlighter" style="font-size:8px;color:var(--momo)"></i>
-            <span style="font-size:8.5px;font-weight:700;color:var(--momo);letter-spacing:.04em">あなたの脚本の該当箇所</span>
-            <span style="font-size:7.5px;color:var(--text-muted);margin-left:auto">← この部分を改稿してください</span>
-          </div>
-          <div style="padding:7px 10px;background:#fff8f8;font-family:'Noto Serif JP',serif;font-size:11px;color:#7f1d1d;line-height:1.8;word-break:break-all;white-space:pre-wrap">${esc(scriptQuote)}</div>
+        ${scriptQuote ? `<div class="sr-cite-block cite-bad" style="margin-top:${issues.length>0?'7px':'2px'}">
+          <div class="sr-cite-label"><i class="fas fa-highlighter" style="font-size:7px"></i>あなたの脚本の該当箇所 — 改稿対象</div>
+          <div class="sr-cite-text" style="color:#7f1d1d">${esc(scriptQuote)}</div>
         </div>` : ''}
       </div>` : ''}
-      <div style="padding:12px 13px">
-        <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:9px;display:flex;align-items:center;gap:5px">
-          <i class="fas fa-pen-nib" style="color:var(--fuji);font-size:10px"></i>
-          <span style="color:var(--text-muted);font-weight:500">改稿テクニック </span>${esc(tip.title)}
+      <div style="padding:12px 14px">
+        <div class="sr-ba-grid" style="margin-bottom:10px">
+          <div class="sr-ba-before"><div class="sr-ba-label"><i class="fas fa-times-circle" style="font-size:8px;margin-right:3px"></i>Before — 問題パターン</div><pre class="sr-ba-text">${esc(tip.bad)}</pre></div>
+          <div class="sr-ba-after"><div class="sr-ba-label"><i class="fas fa-check-circle" style="font-size:8px;margin-right:3px"></i>After — 書き直し例</div><pre class="sr-ba-text">${esc(tip.good)}</pre></div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:10px">
-          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:8px 10px">
-            <div style="font-size:9px;font-weight:700;color:#b91c1c;margin-bottom:5px;display:flex;align-items:center;gap:3px;letter-spacing:.04em">
-              <span style="width:8px;height:8px;border-radius:50%;background:#b91c1c;flex-shrink:0;display:inline-block"></span> Before（問題のあるパターン）
-            </div>
-            <pre style="font-size:10.5px;color:#7f1d1d;line-height:1.75;white-space:pre-wrap;margin:0;font-family:'Noto Serif JP',serif">${esc(tip.bad)}</pre>
-          </div>
-          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:8px 10px">
-            <div style="font-size:9px;font-weight:700;color:#15803d;margin-bottom:5px;display:flex;align-items:center;gap:3px;letter-spacing:.04em">
-              <span style="width:8px;height:8px;border-radius:50%;background:#15803d;flex-shrink:0;display:inline-block"></span> After（推奨する書き方）
-            </div>
-            <pre style="font-size:10.5px;color:#14532d;line-height:1.75;white-space:pre-wrap;margin:0;font-family:'Noto Serif JP',serif">${esc(tip.good)}</pre>
-          </div>
-        </div>
-        <div style="background:var(--fuji-bg,#f5f0ff);border:1px solid var(--fuji-border,#e0d0ff);border-radius:7px;padding:8px 11px;display:flex;gap:8px;align-items:flex-start">
+        <div style="background:var(--fuji-bg,#f5f0ff);border:1px solid var(--fuji-border,#e0d0ff);border-radius:8px;padding:9px 12px;display:flex;gap:8px;align-items:flex-start">
           <i class="fas fa-lightbulb" style="color:var(--fuji);font-size:11px;margin-top:2px;flex-shrink:0"></i>
-          <div style="font-size:10.5px;color:var(--text-primary);line-height:1.75">${esc(tip.tip)}</div>
+          <div style="font-size:10.5px;color:var(--text-primary);line-height:1.75"><strong style="color:var(--fuji)">コツ:</strong> ${esc(tip.tip)}</div>
         </div>
       </div>
     </div>`;
@@ -13820,15 +13804,19 @@ function staffRoomRefillFeedback(sessionId) {
 function staffRoomFbTab(sessionId, tab) {
   const tabs = ['strengths','weaknesses','suggestions','priority'];
   const tabIds = { strengths: 'str', weaknesses: 'wk', suggestions: 'sg', priority: 'pr' };
-  const colors = { strengths: 'var(--matcha)', weaknesses: 'var(--momo)', suggestions: 'var(--kogane)', priority: 'var(--fuji)' };
   tabs.forEach(t => {
     const panel = document.getElementById(`sr-fb-${t}-${sessionId}`);
     const btn = document.getElementById(`sr-fb-tab-${tabIds[t]}-${sessionId}`);
     if (panel) panel.style.display = t === tab ? '' : 'none';
     if (btn) {
-      btn.style.borderBottom = t === tab ? `2px solid ${colors[t]}` : '2px solid transparent';
-      btn.style.background = t === tab ? 'var(--bg-white)' : 'transparent';
-      btn.style.color = t === tab ? colors[t] : 'var(--text-muted)';
+      if (t === tab) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+        btn.style.borderBottom = '';
+        btn.style.background = '';
+        btn.style.color = '';
+      }
     }
   });
 }
@@ -13836,7 +13824,7 @@ function staffRoomFbTab(sessionId, tab) {
 // ── 脚本テキスト解析エンジン（ルールベース高精度） ──────────────
 function staffRoomRunAnalysis(text) {
   // ══════════════════════════════════════════════════════════════════
-  //  シナリオラボ 職員室 — コンクール審査員エンジン v7.0
+  //  シナリオラボ 職員室 — コンクール審査員エンジン v9.0
   //  7カテゴリ・18項目・多軸評価モデル
   //  客観（構造・形式）× 主観（情動・映像性・作家性）× 映像化実現性
   //  判定ロジック: NHK・城戸賞・テレビ大賞 審査基準を参考に設計
@@ -14320,9 +14308,7 @@ function staffRoomRunAnalysis(text) {
             const m = l.match(charDialoguePatternA);
             return m && m[1].length >= 1;
           });
-          if (nextDlg) return sceneLine + '
-' + nextDlg.slice(0, 60) + (nextDlg.length > 60 ? '…' : '') + '
-[最長シーン: ' + maxLen2 + '行 — 要圧縮/分割]';
+          if (nextDlg) return sceneLine + '\n' + nextDlg.slice(0, 60) + (nextDlg.length > 60 ? '…' : '') + '\n[最長シーン: ' + maxLen2 + '行 — 要圧縮/分割]';
         }
         return sceneLine + ' [最長シーン: ' + maxLen2 + '行 — 要圧縮/分割]';
       }
@@ -14415,17 +14401,14 @@ function staffRoomRunAnalysis(text) {
         const dlgA = (dialogueByChar[charA] || [])[0];
         const dlgB = (dialogueByChar[charB] || [])[0];
         if (dlgA && dlgB) {
-          return charA + '「' + (dlgA.length > 30 ? dlgA.slice(0,30)+'…' : dlgA) + '」
-' +
-                 charB + '「' + (dlgB.length > 30 ? dlgB.slice(0,30)+'…' : dlgB) + '」
-[語彙差スコア: ' + Math.round(charVocabUniqueness*100) + '% — 声の差別化が必要]';
+          return charA + '「' + (dlgA.length > 30 ? dlgA.slice(0,30)+'…' : dlgA) + '」\n' +
+                 charB + '「' + (dlgB.length > 30 ? dlgB.slice(0,30)+'…' : dlgB) + '」\n[語彙差スコア: ' + Math.round(charVocabUniqueness*100) + '% — 声の差別化が必要]';
         }
       }
       // 主人公偏重の場合: 主人公の台詞占有率を示す
       if (mainCharLineCount / Math.max(1, totalDialogueLines) > 0.75 && mainCharName) {
         const mainDlgEx = (dialogueByChar[mainCharName] || [])[0];
-        return mainCharName + '（全台詞の' + Math.round(mainCharLineCount/Math.max(1,totalDialogueLines)*100) + '%を占める）
-' +
+        return mainCharName + '（全台詞の' + Math.round(mainCharLineCount/Math.max(1,totalDialogueLines)*100) + '%を占める）\n' +
                (mainDlgEx ? '例: 「' + (mainDlgEx.length > 40 ? mainDlgEx.slice(0,40)+'…' : mainDlgEx) + '」' : '');
       }
       // 最少発言キャラの台詞
@@ -14967,7 +14950,20 @@ function staffRoomRunAnalysis(text) {
       if (maxLen > 30 && sceneLines.length > 0) {
         const longSceneIdx = sceneLengths.indexOf(maxLen);
         if (longSceneIdx >= 0 && longSceneIdx < sceneLines.length) {
-          pacingNote.quote = sceneLines[longSceneIdx] + ' [' + maxLen + '行のシーン — 要圧縮]';
+          // Show scene heading + first action line of that scene for context
+          const sceneHeading = sceneLines[longSceneIdx];
+          const headingLineIdx = lines.findIndex(l => l.trim() === sceneHeading.trim());
+          let nextActionLine = '';
+          if (headingLineIdx >= 0) {
+            for (let li = headingLineIdx + 1; li < Math.min(headingLineIdx + 8, lines.length); li++) {
+              const tl = lines[li].trim();
+              if (tl && !tl.match(/^[ぁ-んァ-ン一-鿿\w]{1,12}[　\s]*$/) && tl.length > 5) {
+                nextActionLine = '\n' + tl;
+                break;
+              }
+            }
+          }
+          pacingNote.quote = sceneHeading + nextActionLine + '\n（このシーン: ' + maxLen + '行 — 目標: 20行以下に圧縮）';
         }
       }
       notes.push(pacingNote);
@@ -14998,13 +14994,13 @@ function staffRoomRunAnalysis(text) {
   }
 
   if (scores['char-arc'] <= 2) {
-    const arcBadNote = { type: 'bad', text: 'キャラクターアーク：物語を通じた主人公の変容が描かれていません。脚本の最終目標は「主人公が変わること」です。第1幕で欠点/傷を見せ→第2幕で葛藤で壊れ→第3幕で変容する、の三段階で設計してください。' };
+    const arcBadNote = { type: 'bad', text: 'キャラクターアーク：主人公の内的変化が見えません。設計テンプレート→「①変化前の誤信（例: 一人でいい）→②転機（信頼した人が去る）→③変化後の行動（初めて助けを求める）」。変化は台詞宣言ではなく行動で見せてください。' };
     // 変化の欠如を示す台詞を引用
     if (mainCharName && dialogueByChar[mainCharName] && dialogueByChar[mainCharName].length >= 2) {
       const first = dialogueByChar[mainCharName][0];
       const last = dialogueByChar[mainCharName][dialogueByChar[mainCharName].length - 1];
       if (first !== last && first.length > 3 && last.length > 3) {
-        arcBadNote.quote = '冒頭: ' + mainCharName + '「' + (first.length > 40 ? first.slice(0,40)+'…' : first) + '」\n終盤: ' + mainCharName + '「' + (last.length > 40 ? last.slice(0,40)+'…' : last) + '」\n→ 両者に変化・成長の差があるか確認を';
+        arcBadNote.quote = '冒頭: ' + mainCharName + '「' + (first.length > 40 ? first.slice(0,40)+'…' : first) + '」\n終盤: ' + mainCharName + '「' + (last.length > 40 ? last.slice(0,40)+'…' : last) + '」\n→ この2台詞の間に「行動・態度の変化」は見えますか？ なければアークを設計し直してください。';
       }
     }
     notes.push(arcBadNote);
@@ -15023,8 +15019,8 @@ function staffRoomRunAnalysis(text) {
     return null;
   })();
   if (scores['subtext'] <= 2 && onTheNoseCount >= 3) {
-    const noteObjSubtext = { type: 'bad', text: '説明台詞：解説的・説明的なセリフが' + onTheNoseCount + '箇所検出されました。感情や意図を直接言葉で説明するセリフを削り、行動・映像・沈黙で表現してください。コンクール審査員は最初のページから説明台詞があると減点します。' };
-    if (onTheNoseSample) noteObjSubtext.quote = '「' + onTheNoseSample + '」';
+    const noteObjSubtext = { type: 'bad', text: '説明台詞：解説的セリフが' + onTheNoseCount + '箇所。「感情/意図を言葉で語る」のがNG。代わりに行動・沈黙・物・視線で表現してください。コンクール審査員は1ページ目の説明台詞で手が止まります。' };
+    if (onTheNoseSample) noteObjSubtext.quote = '「' + onTheNoseSample + '」\n→ この台詞を「行動・沈黙・物」に置き換えてください';
     notes.push(noteObjSubtext);
   } else if (scores['subtext'] >= 4) {
     notes.push({ type: 'good', text: 'サブテキスト：説明台詞を排し、行間で感情・意図を表現できています。プロの書き方ができています。' + (subtextHardCount >= 2 ? '特に沈黙・間の使い方が効果的です。' : '') });
@@ -15037,7 +15033,7 @@ function staffRoomRunAnalysis(text) {
       const s = long.reduce((a, b) => a.length > b.length ? a : b);
       return s.length > 90 ? s.slice(0, 90) + '…' : s;
     })();
-    const noteObjDlgLen = { type: 'warn', text: 'セリフ長：平均' + Math.round(avgDialogueLen) + '字と長めです。実際の会話は10〜30字程度が自然です。長いセリフは「演説」に見えます。1セリフ60字超えたら分割か削除を検討してください。' };
+    const noteObjDlgLen = { type: 'warn', text: 'セリフ長：平均' + Math.round(avgDialogueLen) + '字（長め）。自然な会話は10〜35字。長いセリフは「演説・説明」に見えます。ぜひこ：60字超のセリフを半分に切ってみる。小さくできるほど原文が冗長だった証拠です。' };
     if (longDlgSample) noteObjDlgLen.quote = '「' + longDlgSample + '」';
     notes.push(noteObjDlgLen);
   }
@@ -15048,7 +15044,11 @@ function staffRoomRunAnalysis(text) {
     const _iaNote = _iakws.some(kw => text.includes(kw)) ? '情報の非対称性によるサスペンスも効果的。' : '';
     notes.push({ type: 'good', text: '対話の引力：キャラ間の緊張・欲求の衝突が会話に宿っています（緊張要素' + tensionCount + '箇所）。' + _iaNote });
   } else if (scores['dialogue-dynamics'] <= 2 && totalDialogueLines >= 4) {
-    notes.push({ type: 'warn', text: '対話の引力：キャラクター間の会話に緊張感・目的の衝突が不足しています。各キャラが「異なる目的・情報・感情」を持って同じシーンに入場する設計にしてください。' });
+    const blandKws2 = ['なるほど', 'そうですね', 'わかりました', 'そうか', 'お疲れさま', 'はい', 'うん'];
+    const blandDlg2 = dialogueTexts.find(d => blandKws2.some(k => d.includes(k)) && d.length < 30);
+    const dynWarnNote2 = { type: 'warn', text: '対話の引力：会話に緊張感・欲求の衝突が不足しています。設計問い：「Aは何を得たがっているか」「Bは何を隠したがっているか」——両方答えられない会話はインフォ交換です。各キャラに「相手との関係の中で追いかける欲求」を設計してください。' };
+    if (blandDlg2) dynWarnNote2.quote = '「' + blandDlg2 + '」\n→ この交換に「追う欲求」を追加してください';
+    notes.push(dynWarnNote2);
   }
 
   // ── ト書き診断
@@ -15059,7 +15059,7 @@ function staffRoomRunAnalysis(text) {
       const s = longs.reduce((a, b) => a.length > b.length ? a : b);
       return s.length > 100 ? s.slice(0, 100) + '…' : s;
     })();
-    const noteObjDir = { type: 'bad', text: 'ト書き：90字超の長いト書きが' + longActionCount + '箇所あります。ト書きに書くべきは「映像として見える最小限の情報」のみです。感情描写・内面説明は役者に委ねてください。理想：1〜2文・30〜50字。' };
+    const noteObjDir = { type: 'bad', text: 'ト書き：90字超が' + longActionCount + '箇所。鉄則①「見えるもの・聞こえるもの」のみ書く ②1行=1カット ③感情・内面・副詞は全削除。例: 「田中は悲しそうにゆっくりと歩き出した」→「田中、立つ。窓。（沈黙）」に圧縮。' };
     if (longActSample) noteObjDir.quote = longActSample;
     notes.push(noteObjDir);
   } else if (scores['direction-clarity'] >= 4 && actionLines.length >= 3) {
@@ -15070,7 +15070,7 @@ function staffRoomRunAnalysis(text) {
   if (scores['emotional-impact'] >= 4) {
     notes.push({ type: 'good', text: '作品力：読者の感情を動かす力があります。' + (memorableCount > 0 ? '忘れられないシーンの予兆（' + memorableCount + '箇所）があり、' : '') + (hasCatharsis ? 'カタルシスの設計も確認できます。' : '') + (hasTwist ? '転換点・逆転要素も機能しています。' : '') + '審査員の心に残る作品になっています。' });
   } else if (scores['emotional-impact'] <= 2) {
-    const noEmotionNote = { type: 'bad', text: '作品力：感情的なピークシーンが弱い。「この場面で涙が出るか・鳥肌が立つか」を基準にクライマックスを再設計してください。感情表現密度' + Math.round(emotionDensity * 100) + '%・強い感情瞬間' + emotionStrongCount + '箇所。' };
+    const noEmotionNote = { type: 'bad', text: '作品力：感情密度' + Math.round(emotionDensity * 100) + '%（低め）・強い感情瞬間' + emotionStrongCount + '箇所。クライマックス近くで「主人公が最も傷つく／最も勇気を出す」シーンを行動・沈黙・物で表現してください。感情を語らせず、「観客自身が気づく」空間を設計するのが鍵です。' };
     if (dialogueTexts.length >= 2) {
       const flatLines = dialogueTexts.filter(d => d.length > 3 && d.length < 35);
       if (flatLines.length >= 2) noEmotionNote.quote = '「' + flatLines[0] + '」「' + flatLines[1] + '」（感情的変化のない平板な交換）';
@@ -15216,15 +15216,9 @@ function staffRoomRunAnalysis(text) {
     const arcFirst = arcMainDlgs.length > 0 ? arcMainDlgs[0] : null;
     const arcLast = arcMainDlgs.length > 1 ? arcMainDlgs[arcMainDlgs.length - 1] : null;
     const arcCompare = arcFirst && arcLast && arcFirst !== arcLast
-      ? '  冒頭: ' + arcCharName + '「' + (arcFirst.length > 40 ? arcFirst.slice(0,40)+'…' : arcFirst) + '」
-  終盤: ' + arcCharName + '「' + (arcLast.length > 40 ? arcLast.slice(0,40)+'…' : arcLast) + '」
-  ↑ この2台詞に明確な感情・姿勢の変化がありますか？'
+      ? '  冒頭: ' + arcCharName + '「' + (arcFirst.length > 40 ? arcFirst.slice(0,40)+'…' : arcFirst) + '」\n  終盤: ' + arcCharName + '「' + (arcLast.length > 40 ? arcLast.slice(0,40)+'…' : arcLast) + '」\n  ↑ この2台詞に明確な感情・姿勢の変化がありますか？'
       : '  （主人公の冒頭と終盤の台詞を比較して変化を確認してください）';
-    suggestions_parts.push('・主人公の変化を「ビフォー → 転機 → アフター」で設計し直す。
-' + arcCompare + '
-  第1幕：' + arcCharName + 'の欠点・傷を見せる（行動で）
-  第2幕：その欠点が原因で最悪の状況に追い込まれる
-  第3幕：変容する瞬間を映像で見せる（台詞で語らない）');
+    suggestions_parts.push('・主人公の変化を「ビフォー → 転機 → アフター」で設計し直す。\n' + arcCompare + '\n  第1幕：' + arcCharName + 'の欠点・傷を見せる（行動で）\n  第2幕：その欠点が原因で最悪の状況に追い込まれる\n  第3幕：変容する瞬間を映像で見せる（台詞で語らない）');
   }
   if (longActionCount >= 3) {
     const longestActionLine = actionLines.filter(l => l.length > 90).sort((a,b) => b.length-a.length)[0] || null;
@@ -15269,14 +15263,12 @@ function staffRoomRunAnalysis(text) {
       for (let i = 0; i < dialogueTexts.length - 1; i++) {
         const a = dialogueTexts[i], b = dialogueTexts[i+1];
         if (flatPats.some(p => a.includes(p) || b.includes(p)) && a.length < 30 && b.length < 30 && a.length > 1 && b.length > 1) {
-          return '「' + a + '」
-  「' + b + '」';
+          return '「' + a + '」\n  「' + b + '」';
         }
       }
       if (dialogueTexts.length >= 2) {
         const a = dialogueTexts[0], b = dialogueTexts[1];
-        if (a.length < 35 && b.length < 35) return '「' + a + '」
-  「' + b + '」';
+        if (a.length < 35 && b.length < 35) return '「' + a + '」\n  「' + b + '」';
       }
       return null;
     })();
@@ -15307,15 +15299,10 @@ function staffRoomRunAnalysis(text) {
       : '（脚本内の感情的な台詞を引用）';
     const emoCharName = mainCharName || '田中';
     const emoFoundKw = emotionDirectLine ? (emotionVerbPats.find(k => emotionDirectLine.includes(k)) || '感情') : '悔しさ';
-    const emotionAfter = emoFoundKw.includes('悔') ? emoCharName + '、机を一度だけ叩く——静かに。
-  そのまま立ち上がり、電気を消す。
-  暗闇の中、キーボードを打つ音だけが続く。' :
-                        emoFoundKw.includes('悲') || emoFoundKw.includes('寂') ? emoCharName + '、窓に額をつける。
-  ガラスが少しだけ曇る。
-  （長い沈黙）' :
+    const emotionAfter = emoFoundKw.includes('悔') ? emoCharName + '、机を一度だけ叩く——静かに。\n  そのまま立ち上がり、電気を消す。\n  暗闇の中、キーボードを打つ音だけが続く。' :
+                        emoFoundKw.includes('悲') || emoFoundKw.includes('寂') ? emoCharName + '、窓に額をつける。\n  ガラスが少しだけ曇る。\n  （長い沈黙）' :
                         emoFoundKw.includes('怖') ? emoCharName + '、後ずさり——ドアノブを探す手が震える。' :
-                        emoCharName + '、机を一度だけ叩く——静かに。
-  そのまま立ち上がり、電気を消す。';
+                        emoCharName + '、机を一度だけ叩く——静かに。\n  そのまま立ち上がり、電気を消す。';
     suggestions_parts.push('・感情のピークを「行動と沈黙」で設計する（感情を言葉にさせない）。\n  （改善前）\n  ' + emotionBefore + '\n  （改善後）\n  ' + emotionAfter + '\n  → 観客に感情を「発見させる」余白を作る。感情が言語化された瞬間、観客は引く');
   }
   if (scores['theme-clarity'] <= 2) {
@@ -15336,9 +15323,7 @@ function staffRoomRunAnalysis(text) {
       const d = dlgs[0];
       return cname + '「' + (d.length > 30 ? d.slice(0,30)+'…' : d) + '」';
     }).filter(Boolean);
-    const voiceBeforeStr = voiceCharSamples.length > 1 ? voiceCharSamples.join('
-  ') + '
-  ← 各キャラのセリフが似ている（語彙・文体の差がない）' : '（複数キャラのセリフを比較）';
+    const voiceBeforeStr = voiceCharSamples.length > 1 ? voiceCharSamples.join('\n  ') + '\n  ← 各キャラのセリフが似ている（語彙・文体の差がない）' : '（複数キャラのセリフを比較）';
     const voiceCharA = sortedChars[0] ? sortedChars[0][0] : '田中';
     const voiceCharB = sortedChars[1] ? sortedChars[1][0] : '花子';
     suggestions_parts.push('・各キャラの「声の設計書」を作り、全セリフを書き直す。\n  （現在の問題）\n  ' + voiceBeforeStr + '\n  （改善後のイメージ — 同じ質問への回答が全員違う）\n  ' + voiceCharA + '（省略型）「会議——どうだった」\n  ' + voiceCharB + '（回避型）「……先方が、少し、難しいと」\n  設計書：キャラ名・語彙レベル・口癖・禁句（絶対言わない言葉）を書いてから台詞を書く');
