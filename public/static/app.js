@@ -2538,18 +2538,19 @@ function deleteResearchNote(projId, id) {
 }
 
 function openAddResearchLink(projId) {
-  // リセット（モーダルを開くたびに状態をクリア）
+  // 完全リセット（モーダルを開くたびに状態をクリア）
   window._researchLinkTab = 'url';
   window._pendingResearchFiles = [];
 
-  openModal(`<div style="display:flex;align-items:center;gap:8px"><i class="fas fa-paperclip" style="color:var(--accent)"></i><span>参考資料を追加</span></div>`,
-  `<!-- タブ切替 -->
-   <div style="display:flex;gap:0;margin-bottom:16px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden">
-     <button id="rl-tab-url" onclick="researchLinkTab('url')" style="flex:1;padding:8px 0;font-size:13px;font-weight:700;border:none;cursor:pointer;background:var(--accent);color:white;transition:all .15s">
-       <i class="fas fa-link" style="margin-right:5px"></i>URL リンク
+  openModal(
+  `<div style="display:flex;align-items:center;gap:8px"><i class="fas fa-paperclip" style="color:var(--accent)"></i><span>参考資料を追加</span></div>`,
+  `<!-- タブ切替（視認性強化版） -->
+   <div style="display:flex;gap:6px;margin-bottom:16px;padding:4px;background:var(--bg-subtle);border-radius:10px;border:1px solid var(--border)">
+     <button id="rl-tab-url" onclick="researchLinkTab('url')" style="flex:1;padding:9px 8px;font-size:12px;font-weight:700;border:1px solid var(--accent);cursor:pointer;background:var(--accent);color:white;border-radius:7px;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:5px">
+       <i class="fas fa-link"></i>URL リンク
      </button>
-     <button id="rl-tab-file" onclick="researchLinkTab('file')" style="flex:1;padding:8px 0;font-size:13px;font-weight:600;border:none;cursor:pointer;background:var(--bg-subtle);color:var(--text-secondary);transition:all .15s">
-       <i class="fas fa-file-arrow-up" style="margin-right:5px"></i>ファイル
+     <button id="rl-tab-file" onclick="researchLinkTab('file')" style="flex:1;padding:9px 8px;font-size:12px;font-weight:600;border:1px solid transparent;cursor:pointer;background:transparent;color:var(--text-secondary);border-radius:7px;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:5px">
+       <i class="fas fa-file-arrow-up"></i>ファイル
      </button>
    </div>
    <!-- URL タブ -->
@@ -2567,29 +2568,30 @@ function openAddResearchLink(projId) {
        <input class="form-input" id="rl-memo" placeholder="参照ポイント・重要箇所など">
      </div>
    </div>
-   <!-- ファイル タブ -->
+   <!-- ファイル タブ（重複表示問題修正済み） -->
    <div id="rl-panel-file" style="display:none">
-     <div class="form-group">
-       <label class="form-label">ファイル <span style="color:var(--text-muted);font-weight:400">PDF・Word・テキスト・画像など（最大50MB）</span></label>
+     <div class="form-group" style="margin-bottom:10px">
+       <label class="form-label" style="margin-bottom:8px">ファイルを選択 <span style="color:var(--text-muted);font-weight:400;font-size:11px">（PDF・Word・テキスト・画像など · 最大50MB）</span></label>
        <div id="rl-drop-zone"
-         style="border:2px dashed var(--border);border-radius:10px;padding:28px 16px;text-align:center;cursor:pointer;background:var(--bg-subtle);transition:all .2s"
+         style="border:2px dashed var(--border);border-radius:12px;padding:24px 16px;text-align:center;cursor:pointer;background:var(--bg-subtle);transition:all .25s;position:relative"
          onclick="document.getElementById('rl-file-input').click()"
-         ondragover="event.preventDefault();this.style.borderColor='var(--accent)';this.style.background='var(--accent-bg, #f0eeff)'"
-         ondragleave="this.style.borderColor='var(--border)';this.style.background='var(--bg-subtle)'"
-         ondrop="event.preventDefault();this.style.borderColor='var(--border)';this.style.background='var(--bg-subtle)';handleResearchFileDrop(event,'${projId}')">
-         <i class="fas fa-file-circle-plus" style="font-size:36px;color:var(--accent);opacity:.6;margin-bottom:10px;display:block"></i>
-         <div style="font-size:13px;font-weight:700;color:var(--text-primary)">クリックまたはドラッグ＆ドロップ</div>
-         <div style="font-size:11px;color:var(--text-muted);margin-top:5px">対応形式: PDF · Word · Excel · テキスト · 画像 · ZIP</div>
+         ondragover="event.preventDefault();this.style.borderColor='var(--accent)';this.style.background='#f5f0ff';this.style.transform='scale(1.01)'"
+         ondragleave="this.style.borderColor='var(--border)';this.style.background='var(--bg-subtle)';this.style.transform=''"
+         ondrop="event.preventDefault();this.style.borderColor='var(--border)';this.style.background='var(--bg-subtle)';this.style.transform='';handleResearchFileDrop(event,'${projId}')">
+         <i class="fas fa-cloud-arrow-up" style="font-size:32px;color:var(--accent);opacity:.5;margin-bottom:8px;display:block"></i>
+         <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:4px">クリックしてファイル選択</div>
+         <div style="font-size:10.5px;color:var(--text-muted)">または、ここにドラッグ＆ドロップ</div>
+         <div style="font-size:10px;color:var(--text-light);margin-top:5px">PDF · Word · Excel · PowerPoint · テキスト · 画像 · ZIP</div>
          <input type="file" id="rl-file-input" style="display:none" multiple
            accept=".pdf,.doc,.docx,.txt,.md,.csv,.xlsx,.xls,.ppt,.pptx,.png,.jpg,.jpeg,.gif,.zip"
            onchange="handleResearchFileSelect(event,'${projId}')">
        </div>
-       <!-- ファイルプレビュー（単一エリア・重複なし） -->
-       <div id="rl-file-preview" style="margin-top:10px;display:flex;flex-direction:column;gap:4px"></div>
      </div>
+     <!-- ファイルプレビュー（完全リセット保証・重複なし） -->
+     <div id="rl-file-preview" style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px"></div>
      <div class="form-group">
        <label class="form-label">メモ <span style="color:var(--text-muted);font-weight:400">（任意）</span></label>
-       <input class="form-input" id="rl-file-memo" placeholder="このファイルについてのメモ・利用目的">
+       <input class="form-input" id="rl-file-memo" placeholder="このファイルの利用目的・参照箇所など">
      </div>
    </div>`,
   `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
@@ -2609,13 +2611,13 @@ function researchLinkTab(tab) {
   if (tab === 'url') {
     urlPanel.style.display = '';
     filePanel.style.display = 'none';
-    if (tabUrl) { tabUrl.style.background = 'var(--accent)'; tabUrl.style.color = 'white'; tabUrl.style.fontWeight = '700'; }
-    if (tabFile) { tabFile.style.background = 'var(--bg-subtle)'; tabFile.style.color = 'var(--text-secondary)'; tabFile.style.fontWeight = '600'; }
+    if (tabUrl) { tabUrl.style.background = 'var(--accent)'; tabUrl.style.color = 'white'; tabUrl.style.fontWeight = '700'; tabUrl.style.border = '1px solid var(--accent)'; }
+    if (tabFile) { tabFile.style.background = 'transparent'; tabFile.style.color = 'var(--text-secondary)'; tabFile.style.fontWeight = '600'; tabFile.style.border = '1px solid transparent'; }
   } else {
     urlPanel.style.display = 'none';
     filePanel.style.display = '';
-    if (tabUrl) { tabUrl.style.background = 'var(--bg-subtle)'; tabUrl.style.color = 'var(--text-secondary)'; tabUrl.style.fontWeight = '600'; }
-    if (tabFile) { tabFile.style.background = 'var(--accent)'; tabFile.style.color = 'white'; tabFile.style.fontWeight = '700'; }
+    if (tabUrl) { tabUrl.style.background = 'transparent'; tabUrl.style.color = 'var(--text-secondary)'; tabUrl.style.fontWeight = '600'; tabUrl.style.border = '1px solid transparent'; }
+    if (tabFile) { tabFile.style.background = 'var(--accent)'; tabFile.style.color = 'white'; tabFile.style.fontWeight = '700'; tabFile.style.border = '1px solid var(--accent)'; }
   }
 }
 
@@ -4362,13 +4364,24 @@ function renderEditor(proj) {
         </div>
       </div>
       <div class="editor-panel">
-        <div class="editor-panel-header"><i class="fas fa-chalkboard-teacher" style="color:var(--fuji)"></i> 職員室連携</div>
+        <div class="editor-panel-header"><i class="fas fa-chalkboard-teacher" style="color:var(--fuji)"></i> 職員室・採点連携</div>
         <div class="editor-panel-body">
-          <div style="font-size:11px;color:var(--text-muted);line-height:1.6;margin-bottom:10px">現在の脚本を職員室に送り、自動採点・添削を受けましょう。</div>
-          <button class="btn btn-primary btn-sm" style="width:100%;font-size:12px;background:linear-gradient(135deg,var(--fuji),#7c3aed);border-color:transparent" onclick="editorSendToStaffRoom('${proj.id}')">
-            <i class="fas fa-wand-magic-sparkles" style="margin-right:5px"></i>職員室で採点する
+          <div style="background:linear-gradient(135deg,var(--fuji-bg,#f0eeff),#fff);border:1px solid var(--fuji-border,#e0d0ff);border-radius:10px;padding:12px;margin-bottom:10px">
+            <div style="font-size:11px;color:var(--text-secondary);line-height:1.7;margin-bottom:8px">
+              <i class="fas fa-info-circle" style="color:var(--fuji);margin-right:4px"></i>
+              脚本を職員室に送って、<strong>15項目の多軸評価</strong>（構成・キャラ・セリフ・演出・テーマ・作品力）を受けましょう。
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;font-size:9.5px;color:var(--text-muted)">
+              <div><i class="fas fa-check" style="color:var(--matcha);margin-right:3px"></i>三幕構成チェック</div>
+              <div><i class="fas fa-check" style="color:var(--matcha);margin-right:3px"></i>説明台詞検出</div>
+              <div><i class="fas fa-check" style="color:var(--matcha);margin-right:3px"></i>Want/Need分析</div>
+              <div><i class="fas fa-check" style="color:var(--matcha);margin-right:3px"></i>感情密度計測</div>
+            </div>
+          </div>
+          <button class="btn btn-primary btn-sm" style="width:100%;font-size:12px;background:linear-gradient(135deg,var(--fuji),#7c3aed);border-color:transparent;padding:9px;border-radius:8px;font-weight:700;letter-spacing:.03em" onclick="editorSendToStaffRoom('${proj.id}')">
+            <i class="fas fa-wand-magic-sparkles" style="margin-right:6px"></i>提出して審査員採点を受ける
           </button>
-          <div style="font-size:10px;color:var(--text-muted);margin-top:6px;text-align:center">現在のドラフトが自動で送られます</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:5px;text-align:center;line-height:1.5">現在のドラフトが職員室に送られ、<br>自動でコンクール基準採点が始まります</div>
         </div>
       </div>
     </div>
@@ -5786,7 +5799,7 @@ function renderFormatGuide(formatKey) {
 // ── 書式チェック ──────────────────────────────────────────────
 function renderScriptFormatCheck(content, formatKey) {
   if (!content || content.length < 20) {
-    return `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:12px 0"><i class="fas fa-pen" style="opacity:.3;display:block;font-size:20px;margin-bottom:6px"></i>書き始めると書式チェックが表示されます</div>`;
+    return `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:16px 0"><i class="fas fa-spell-check" style="opacity:.2;display:block;font-size:22px;margin-bottom:8px"></i>書き始めると<br>リアルタイム書式チェックが始まります</div>`;
   }
   const lines = content.split('\n');
   const nonEmpty = lines.filter(l => l.trim().length > 0);
@@ -5795,48 +5808,69 @@ function renderScriptFormatCheck(content, formatKey) {
   const warns = [];
   const tips = [];
 
-  // ── シーン検出
-  const isSceneLine2 = l => /^[０-９0-9]+[○◎●]/.test(l) || /^[○◎●]/.test(l) || /^【.{1,20}】/.test(l) || /^INT\.|^EXT\./.test(l.toUpperCase());
-  const sceneLines2 = nonEmpty.filter(isSceneLine2);
+  // ── シーン検出（採点エンジンと同期）
+  const isSceneLine2 = l =>
+    /^[０-９0-9]+[○◎●]/.test(l) || /^[○◎●]/.test(l) || /^【.{1,20}】/.test(l) ||
+    /^INT\.|^EXT\./.test(l.toUpperCase()) || /^シーン[０-９0-9]|^場面[０-９0-9]|^#[0-9]/.test(l);
+  const sceneLines2 = nonEmpty.filter(l => isSceneLine2(l));
   const sceneCount2 = sceneLines2.length;
 
   // ── セリフ・ト書き検出
   const charDialPat = /^([ぁ-んァ-ヶーｱ-ﾝﾞﾟ一-龯A-Za-z\s　]{1,14})「(.*)」?\s*$/;
   const dialogueLines2 = nonEmpty.filter(l => charDialPat.test(l));
-  const actionLines2 = nonEmpty.filter(l => !isSceneLine2(l) && !charDialPat.test(l) && l.length > 0 && !l.match(/^（.{1,30}）$/) && !l.match(/^SE[・.]/));
+  const actionLines2 = nonEmpty.filter(l =>
+    !isSceneLine2(l) && !charDialPat.test(l) && l.length > 2 &&
+    !l.match(/^（.{1,40}）$/) && !l.match(/^SE[・.]/) && !l.match(/^BGM[・.]/) &&
+    !l.match(/^N[・.]「/) && !l.match(/^M[・.]「/)
+  );
   const totalDialogue = dialogueLines2.length;
   const totalNonEmpty2 = nonEmpty.length;
   const dialogueRatio2 = totalNonEmpty2 > 5 ? totalDialogue / totalNonEmpty2 : 0;
 
-  // ── フォーマット別チェック
+  // ── キャラクター検出
+  const charCounts2 = {};
+  dialogueLines2.forEach(l => {
+    const m = l.match(charDialPat);
+    if (m) { const n = m[1].trim(); charCounts2[n] = (charCounts2[n]||0)+1; }
+  });
+  const uniqueChars2 = Object.keys(charCounts2).length;
+
+  // ══ フォーマット別チェック ══
   if (formatKey === 'genko' || formatKey === 'genko-h' || formatKey === 'japan-standard' || !formatKey) {
     if (sceneCount2 === 0 && totalChars > 200) {
-      issues.push({ icon: 'fa-clapperboard', color: 'var(--momo)', text: '柱書き（シーン番号）が見当たりません' });
+      issues.push({ icon: 'fa-clapperboard', color: 'var(--momo)', text: '柱書き（シーン番号）が見当たりません。例：「１○病院・廊下（昼）」' });
     } else if (sceneCount2 > 0) {
-      tips.push({ icon: 'fa-film', color: 'var(--matcha)', text: `${sceneCount2}シーン検出済み` });
+      tips.push({ icon: 'fa-film', color: 'var(--matcha)', text: `${sceneCount2}シーン検出 · ${uniqueChars2}キャラクター` });
     }
   }
 
   if (formatKey === 'hollywood') {
     const hasIntExt = lines.some(l => /^INT\.|^EXT\./.test(l.trim()));
     if (!hasIntExt && totalChars > 200) {
-      issues.push({ icon: 'fa-clapperboard', color: 'var(--momo)', text: 'INT./EXT. シーン見出しなし' });
+      issues.push({ icon: 'fa-clapperboard', color: 'var(--momo)', text: 'INT./EXT. シーン見出しが見当たりません' });
     }
   }
 
-  // ── 説明台詞チェック（採点エンジンと同じ検出パターン）
-  const onTheNosePats = ['なんですよ', 'ということは', 'というのは', 'ですよね', 'んですよ', 'じゃないですか', 'つまり', '要するに', '実は私', '説明しておくと'];
-  const expositoryCount = dialogueLines2.filter(l => {
+  // ══ 採点エンジン連動チェック（24パターン） ══
+
+  // [1] 説明台詞検出（最重要）
+  const onTheNosePats = [
+    'なんですよ', 'ということは', 'というのは', 'ですよね', 'んですよ',
+    'じゃないですか', 'つまり', '要するに', '実は私', '説明しておくと',
+    'ということで', 'というわけで', 'なぜかというと', 'おわかりですか',
+    'ご存知の通り', 'ご承知の通り', 'みなさんご存知'
+  ];
+  const expositoryLines = dialogueLines2.filter(l => {
     const d = (l.match(/「(.*)」?$/) || [])[1] || '';
     return onTheNosePats.some(p => d.includes(p)) || d.length > 100;
-  }).length;
-  if (expositoryCount >= 3) {
-    issues.push({ icon: 'fa-triangle-exclamation', color: 'var(--momo)', text: `説明台詞${expositoryCount}箇所 — 「言わせずに見せる」を意識` });
-  } else if (expositoryCount >= 1) {
-    warns.push({ icon: 'fa-triangle-exclamation', color: 'var(--kogane)', text: `説明台詞の可能性${expositoryCount}箇所` });
+  });
+  if (expositoryLines.length >= 3) {
+    issues.push({ icon: 'fa-comment-slash', color: 'var(--momo)', text: `説明台詞 ${expositoryLines.length}箇所 — 「言わせずに見せる」が鉄則` });
+  } else if (expositoryLines.length >= 1) {
+    warns.push({ icon: 'fa-comment-slash', color: 'var(--kogane)', text: `説明台詞の可能性 ${expositoryLines.length}箇所 — 要確認` });
   }
 
-  // ── 連続同一キャラセリフ
+  // [2] 連続同一キャラセリフ
   let prevCharFmt = '', sameCountFmt = 0, maxSameFmt = 0;
   nonEmpty.forEach(l => {
     const m = l.match(charDialPat);
@@ -5844,68 +5878,115 @@ function renderScriptFormatCheck(content, formatKey) {
     if (name && name.length >= 1 && name.length <= 14) {
       if (name === prevCharFmt) { sameCountFmt++; maxSameFmt = Math.max(maxSameFmt, sameCountFmt); }
       else { prevCharFmt = name; sameCountFmt = 1; }
-    }
+    } else { prevCharFmt = ''; sameCountFmt = 0; }
   });
-  if (maxSameFmt >= 4) {
-    warns.push({ icon: 'fa-user', color: 'var(--fuji)', text: `同一キャラが${maxSameFmt}回連続発言 — 相手の反応を挟んで` });
+  if (maxSameFmt >= 5) {
+    issues.push({ icon: 'fa-user', color: 'var(--momo)', text: `同一キャラが${maxSameFmt}回連続発言 — 相手の反応・ト書きを挟んで` });
+  } else if (maxSameFmt >= 3) {
+    warns.push({ icon: 'fa-user', color: 'var(--kogane)', text: `同一キャラが${maxSameFmt}回連続発言 — 確認推奨` });
   }
 
-  // ── ト書き長さチェック
+  // [3] ト書き長さチェック
   const longActionFmt = actionLines2.filter(l => l.length > 90);
-  if (longActionFmt.length >= 2) {
-    warns.push({ icon: 'fa-align-left', color: 'var(--fuji)', text: `長いト書き${longActionFmt.length}箇所（90字超）— 圧縮を` });
+  const veryLongAction = actionLines2.filter(l => l.length > 150);
+  if (veryLongAction.length >= 2) {
+    issues.push({ icon: 'fa-align-left', color: 'var(--momo)', text: `超長ト書き ${veryLongAction.length}箇所（150字超）— 大幅圧縮が必要` });
+  } else if (longActionFmt.length >= 3) {
+    warns.push({ icon: 'fa-align-left', color: 'var(--kogane)', text: `長いト書き ${longActionFmt.length}箇所（90字超）— 要圧縮` });
   }
 
-  // ── セリフ比率チェック
+  // [4] セリフ平均長さ
+  const avgDialLen = dialogueLines2.length > 0
+    ? dialogueLines2.reduce((a, l) => { const d = (l.match(/「(.*)」?$/) || [])[1] || ''; return a + d.length; }, 0) / dialogueLines2.length
+    : 0;
+  if (avgDialLen > 80 && dialogueLines2.length >= 3) {
+    warns.push({ icon: 'fa-text-width', color: 'var(--fuji)', text: `セリフ平均${Math.round(avgDialLen)}字 — 長め。60字以内を目安に` });
+  }
+
+  // [5] セリフ比率チェック
   if (totalNonEmpty2 > 20) {
-    if (dialogueRatio2 > 0.75) {
-      warns.push({ icon: 'fa-comments', color: 'var(--fuji)', text: `台詞比率${Math.round(dialogueRatio2*100)}% — ト書き・映像シーンを追加` });
-    } else if (dialogueRatio2 < 0.1 && totalChars > 300) {
-      warns.push({ icon: 'fa-align-left', color: 'var(--kogane)', text: `台詞比率${Math.round(dialogueRatio2*100)}% — セリフが少ない` });
-    } else if (dialogueRatio2 > 0.15 && dialogueRatio2 < 0.65) {
-      tips.push({ icon: 'fa-balance-scale', color: 'var(--matcha)', text: `台詞比率${Math.round(dialogueRatio2*100)}% — バランス良好` });
+    if (dialogueRatio2 > 0.78) {
+      warns.push({ icon: 'fa-comments', color: 'var(--fuji)', text: `台詞比率${Math.round(dialogueRatio2*100)}% — 高すぎ。ト書き・映像シーンを` });
+    } else if (dialogueRatio2 < 0.08 && totalChars > 400) {
+      warns.push({ icon: 'fa-align-left', color: 'var(--kogane)', text: `台詞比率${Math.round(dialogueRatio2*100)}% — 低すぎ。会話を追加して` });
+    } else if (dialogueRatio2 >= 0.18 && dialogueRatio2 <= 0.60) {
+      tips.push({ icon: 'fa-balance-scale', color: 'var(--matcha)', text: `台詞比率${Math.round(dialogueRatio2*100)}% — 良好なバランス` });
     }
   }
 
-  // ── ページ推定
+  // [6] 視覚的描写チェック（採点エンジン準拠）
+  if (actionLines2.length >= 5) {
+    const visualKw = ['見つめ', '微笑', '笑', '泣', '震え', '走', '振り返', '立ち上がり', 'こぼれ', '光', '暗く', '静かに', '息を', '目を', '手を', '足を'];
+    const visualCount = actionLines2.filter(l => visualKw.some(k => l.includes(k))).length;
+    const visualRatioCheck = visualCount / actionLines2.length;
+    if (visualRatioCheck < 0.10 && actionLines2.length >= 10) {
+      warns.push({ icon: 'fa-eye', color: 'var(--fuji)', text: `映像的描写が少ない（${Math.round(visualRatioCheck*100)}%）— 行動・光・空間で感情を` });
+    } else if (visualRatioCheck >= 0.30) {
+      tips.push({ icon: 'fa-eye', color: 'var(--matcha)', text: `映像的描写が豊富（${Math.round(visualRatioCheck*100)}%）— 視覚的 ✓` });
+    }
+  }
+
+  // [7] キャラクター数チェック
+  if (totalChars > 1000) {
+    if (uniqueChars2 === 0) {
+      issues.push({ icon: 'fa-users', color: 'var(--momo)', text: '登場人物が検出できません — セリフ形式を確認して' });
+    } else if (uniqueChars2 === 1 && dialogueLines2.length > 5) {
+      warns.push({ icon: 'fa-users', color: 'var(--kogane)', text: `発話キャラが1人だけ — 対話・対立の相手が必要` });
+    } else if (uniqueChars2 >= 2) {
+      tips.push({ icon: 'fa-users', color: 'var(--matcha)', text: `登場人物 ${uniqueChars2}人検出` });
+    }
+  }
+
+  // ── ページ推定 & 目安
   const estimatedP = Math.max(1, Math.round(totalChars / 400));
-  if (totalChars > 100) {
-    tips.push({ icon: 'fa-file-lines', color: 'var(--text-muted)', text: `推定${estimatedP}ページ（${totalChars.toLocaleString()}字）` });
-  }
+  const pageLabel = totalChars >= 15000 ? '映画1本分相当' :
+                    totalChars >= 12000 ? '1時間ドラマ相当' :
+                    totalChars >= 8000  ? '30分ドラマ相当' :
+                    totalChars >= 3000  ? '短編ドラマ相当' : '';
+  tips.push({ icon: 'fa-file-lines', color: 'var(--text-muted)', text: `推定${estimatedP}ページ · ${totalChars.toLocaleString()}字${pageLabel ? ` (${pageLabel})` : ''}` });
 
-  // ── 量に応じた激励
-  if (totalChars < 500 && totalChars > 50) {
-    tips.push({ icon: 'fa-pen', color: 'var(--accent)', text: '書き続けましょう。初稿は量が命です' });
+  // ── 執筆量別メッセージ
+  if (totalChars < 400 && totalChars >= 20) {
+    tips.push({ icon: 'fa-fire', color: 'var(--accent)', text: '書き続けて！初稿は完璧でなくていい' });
   } else if (totalChars >= 12000) {
-    tips.push({ icon: 'fa-trophy', color: 'var(--kogane)', text: '1時間ドラマ1本分相当の量です！推敲へ' });
+    tips.push({ icon: 'fa-trophy', color: 'var(--kogane)', text: '十分な量です！推敲フェーズへ進もう' });
   }
 
-  // ── HTML生成
-  const okHtml = issues.length === 0
-    ? `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--matcha-bg);border-radius:6px;margin-bottom:6px;border:1px solid var(--matcha-border)">
-        <i class="fas fa-circle-check" style="color:var(--matcha);font-size:12px"></i>
-        <span style="font-size:11px;color:var(--matcha);font-weight:600">書式の大きな問題なし</span>
-      </div>` : '';
+  // ══ HTML生成（視覚強化版） ══
+  const issueCount = issues.length;
+  const warnCount = warns.length;
+
+  // スコアサマリー行
+  const summaryColor = issueCount > 0 ? 'var(--momo)' : warnCount > 0 ? 'var(--kogane)' : 'var(--matcha)';
+  const summaryIcon = issueCount > 0 ? 'fa-circle-xmark' : warnCount > 0 ? 'fa-circle-exclamation' : 'fa-circle-check';
+  const summaryText = issueCount > 0 ? `問題 ${issueCount}件` : warnCount > 0 ? `警告 ${warnCount}件` : '書式OK';
+  const summaryHtml = `
+  <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:${summaryColor}14;border:1px solid ${summaryColor}30;border-radius:8px;margin-bottom:8px">
+    <i class="fas ${summaryIcon}" style="color:${summaryColor};font-size:13px;flex-shrink:0"></i>
+    <span style="font-size:11.5px;font-weight:700;color:${summaryColor}">${summaryText}</span>
+    ${issueCount === 0 && warnCount === 0 ? '' : `<span style="font-size:10px;color:var(--text-muted);margin-left:2px">— 詳細は以下を確認</span>`}
+    <span style="font-size:10px;color:var(--text-muted);margin-left:auto">${sceneCount2}シーン</span>
+  </div>`;
 
   const issueHtml = issues.map(i => `
-    <div style="display:flex;align-items:flex-start;gap:6px;padding:5px 8px;background:var(--momo-bg);border-left:3px solid var(--momo);border-radius:0 6px 6px 0;margin-bottom:4px">
-      <i class="fas ${i.icon}" style="color:${i.color};font-size:10px;flex-shrink:0;margin-top:2px"></i>
-      <span style="font-size:10.5px;color:var(--text-primary);line-height:1.5">${i.text}</span>
-    </div>`).join('');
+  <div style="display:flex;align-items:flex-start;gap:7px;padding:6px 9px;background:var(--momo-bg);border:1px solid var(--momo-border);border-left:3px solid var(--momo);border-radius:0 7px 7px 0;margin-bottom:4px">
+    <i class="fas ${i.icon}" style="color:${i.color};font-size:10px;flex-shrink:0;margin-top:2px"></i>
+    <span style="font-size:10.5px;color:var(--text-primary);line-height:1.6">${i.text}</span>
+  </div>`).join('');
 
   const warnHtml = warns.map(w => `
-    <div style="display:flex;align-items:flex-start;gap:6px;padding:5px 8px;background:var(--kogane-bg);border-left:3px solid var(--kogane);border-radius:0 6px 6px 0;margin-bottom:4px">
-      <i class="fas ${w.icon}" style="color:${w.color};font-size:10px;flex-shrink:0;margin-top:2px"></i>
-      <span style="font-size:10.5px;color:var(--text-primary);line-height:1.5">${w.text}</span>
-    </div>`).join('');
+  <div style="display:flex;align-items:flex-start;gap:7px;padding:6px 9px;background:var(--kogane-bg);border:1px solid var(--kogane-border);border-left:3px solid var(--kogane);border-radius:0 7px 7px 0;margin-bottom:4px">
+    <i class="fas ${w.icon}" style="color:${w.color};font-size:10px;flex-shrink:0;margin-top:2px"></i>
+    <span style="font-size:10.5px;color:var(--text-primary);line-height:1.6">${w.text}</span>
+  </div>`).join('');
 
   const tipsHtml = tips.map(t => `
-    <div style="display:flex;align-items:center;gap:6px;padding:4px 8px;background:var(--bg-subtle);border-radius:6px;margin-bottom:3px">
-      <i class="fas ${t.icon}" style="color:${t.color};font-size:10px;flex-shrink:0"></i>
-      <span style="font-size:10.5px;color:var(--text-secondary)">${t.text}</span>
-    </div>`).join('');
+  <div style="display:flex;align-items:center;gap:6px;padding:4px 9px;background:var(--bg-subtle);border-radius:6px;margin-bottom:3px">
+    <i class="fas ${t.icon}" style="color:${t.color};font-size:10px;flex-shrink:0"></i>
+    <span style="font-size:10.5px;color:var(--text-secondary)">${t.text}</span>
+  </div>`).join('');
 
-  return `${okHtml}${issueHtml}${warnHtml}${tips.length > 0 ? `<div style="font-size:10px;color:var(--text-muted);margin:6px 0 3px;font-weight:600;opacity:.7">INFO</div>${tipsHtml}` : ''}`;
+  return `${summaryHtml}${issueHtml}${warnHtml}${tips.length > 0 ? `<div style="margin-top:6px;margin-bottom:3px;font-size:9.5px;color:var(--text-muted);font-weight:700;letter-spacing:.05em;opacity:.7">ℹ INFO</div>${tipsHtml}` : ''}`;
 }
 
 // ── 執筆ヒント ────────────────────────────────────────────────
@@ -12333,24 +12414,46 @@ function renderLearnStaffRoom(hero, subnav) {
   // ── セッションカード ──
   const renderSessionCard = (s) => {
     const dt = s.updatedAt ? new Date(s.updatedAt).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
-    const score = s.scores ? Math.round(Object.values(s.scores).reduce((a,b)=>a+b,0) / Object.values(s.scores).length * 20) : null;
+    const ar = s.autoScoreResult || null;
+    // Use auto-score result if available, otherwise calculate from manual scores
+    const autoScore = ar ? ar.totalScore : null;
+    const autoGrade = ar ? ar.grade : null;
+    const autoGradeLabel = ar ? ar.gradeLabel : null;
+    const manualScore = (s.scores && Object.keys(s.scores).length > 0)
+      ? Math.round(Object.values(s.scores).reduce((a,b)=>a+b,0) / Object.values(s.scores).length * 20)
+      : null;
+    const displayScore = autoScore !== null ? autoScore : manualScore;
+    const isAutoScore = autoScore !== null;
+    const scoreGradient = displayScore >= 88 ? 'linear-gradient(135deg,#a855f7,#7c3aed)' :
+      displayScore >= 78 ? 'linear-gradient(135deg,#22c55e,#16a34a)' :
+      displayScore >= 66 ? 'linear-gradient(135deg,#3b82f6,#2563eb)' :
+      displayScore >= 54 ? 'linear-gradient(135deg,#eab308,#ca8a04)' :
+      'linear-gradient(135deg,#ef4444,#dc2626)';
     return `
-    <div class="card" style="cursor:pointer;padding:14px 16px;border-left:3px solid var(--fuji);position:relative;${s.id===activeSessionId?'box-shadow:0 0 0 2px var(--fuji)':''}" onclick="staffRoomOpenSession('${s.id}')">
+    <div class="card" style="cursor:pointer;padding:12px 14px;border-left:3px solid ${s.id===activeSessionId?'var(--fuji)':'var(--border)'};position:relative;transition:all .15s;${s.id===activeSessionId?'box-shadow:0 0 0 2px var(--fuji);background:var(--fuji-bg,#f8f4ff)':''}" onclick="staffRoomOpenSession('${s.id}')" onmouseover="if('${s.id}'!=='${activeSessionId}')this.style.borderLeftColor='var(--fuji)'" onmouseout="if('${s.id}'!=='${activeSessionId}')this.style.borderLeftColor='var(--border)'">
       <div style="display:flex;align-items:flex-start;gap:10px">
         <div style="flex:1;min-width:0">
-          <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.title||'無題の脚本')}</div>
-          <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:6px">${dt}</div>
-          ${s.scriptText ? `<div style="font-size:11px;color:var(--text-secondary);line-height:1.6;overflow:hidden;max-height:36px">${esc(s.scriptText.slice(0,80))}${s.scriptText.length>80?'…':''}</div>` : ''}
+          <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.title||'無題の脚本')}</div>
+          <div style="font-size:10.5px;color:var(--text-muted);margin-bottom:4px;display:flex;align-items:center;gap:6px">
+            <span>${dt}</span>
+            ${ar && ar.analysisStats ? `<span style="color:var(--text-light)">·</span><span>${ar.analysisStats.sceneCount||0}シーン</span>` : ''}
+          </div>
+          ${s.scriptText ? `<div style="font-size:11px;color:var(--text-secondary);line-height:1.5;overflow:hidden;max-height:32px">${esc(s.scriptText.slice(0,70))}${s.scriptText.length>70?'…':''}</div>` : '<div style="font-size:10px;color:var(--text-light);font-style:italic">テキスト未入力</div>'}
         </div>
         <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:2px">
-          ${score !== null ? `
-          <div style="width:44px;height:44px;border-radius:50%;background:${score>=80?'var(--matcha-bg)':score>=60?'var(--kogane-bg)':'var(--momo-bg)'};border:2px solid ${score>=80?'var(--matcha)':score>=60?'var(--kogane)':'var(--momo)'};display:flex;align-items:center;justify-content:center">
-            <span style="font-size:13px;font-weight:700;color:${score>=80?'var(--matcha)':score>=60?'var(--kogane)':'var(--momo)'}">${score}</span>
+          ${displayScore !== null ? `
+          <div style="width:44px;height:44px;border-radius:10px;background:${scoreGradient};display:flex;align-items:center;justify-content:center;flex-direction:column;box-shadow:0 2px 8px rgba(0,0,0,.2)">
+            ${autoGrade ? `<span style="font-size:14px;font-weight:900;color:#fff;line-height:1">${autoGrade}</span>` : ''}
+            <span style="font-size:${autoGrade?'9':'13'}px;font-weight:700;color:${autoGrade?'rgba(255,255,255,.8)':'#fff'}">${displayScore}</span>
           </div>
-          <div style="font-size:9px;color:var(--text-muted)">スコア</div>` : `<div style="font-size:9px;color:var(--text-light)">評価前</div>`}
+          <div style="font-size:9px;color:var(--text-muted);margin-top:1px">${isAutoScore?'AI採点':'手動'}</div>` :
+          `<div style="width:44px;height:44px;border-radius:10px;background:var(--bg-subtle);border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1px">
+            <i class="fas fa-wand-magic-sparkles" style="font-size:12px;color:var(--text-light)"></i>
+          </div>
+          <div style="font-size:9px;color:var(--text-light);margin-top:1px">未採点</div>`}
         </div>
       </div>
-      <button onclick="event.stopPropagation();staffRoomDeleteSession('${s.id}')" style="position:absolute;top:10px;right:10px;background:none;border:none;cursor:pointer;color:var(--text-light);font-size:11px;padding:3px" title="削除"><i class="fas fa-times"></i></button>
+      <button onclick="event.stopPropagation();staffRoomDeleteSession('${s.id}')" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--text-light);font-size:10px;padding:3px;opacity:.5" title="削除" onmouseover="this.style.opacity='1';this.style.color='var(--momo)'" onmouseout="this.style.opacity='.5';this.style.color='var(--text-light)'"><i class="fas fa-times"></i></button>
     </div>`;
   };
 
@@ -12363,39 +12466,65 @@ function renderLearnStaffRoom(hero, subnav) {
     const autoItemDetails = (s.autoScoreResult && s.autoScoreResult.itemDetails) || {};
     const rubricHtml = RUBRIC_CATEGORIES.map(cat => {
       const catScore = cat.items.length > 0 ? Math.round(cat.items.reduce((a, item) => a + (scores[item.id]||0), 0) / cat.items.length * 20) : null;
+      const catScoredCount = cat.items.filter(it => (scores[it.id]||0) > 0).length;
       return `
-    <div style="margin-bottom:18px;border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden">
-      <div style="padding:10px 14px;background:${cat.color}12;border-bottom:1px solid ${cat.color}30;display:flex;align-items:center;gap:8px">
-        <i class="fas ${cat.icon}" style="color:${cat.color};width:16px"></i>
-        <span style="font-weight:700;font-size:13px;color:var(--text-primary)">${cat.label}</span>
-        ${catScore !== null && cat.items.some(it => scores[it.id]) ? `<span style="margin-left:auto;font-size:11px;font-weight:700;color:${catScore>=80?'var(--matcha)':catScore>=60?'var(--kogane)':'var(--momo)'};">${catScore}点</span>` : ''}
+    <div style="margin-bottom:14px;border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.04)">
+      <div style="padding:10px 14px;background:${cat.color}10;border-bottom:1px solid ${cat.color}25;display:flex;align-items:center;gap:8px">
+        <div style="width:30px;height:30px;border-radius:8px;background:${cat.color}20;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <i class="fas ${cat.icon}" style="color:${cat.color};font-size:12px"></i>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:700;font-size:13px;color:var(--text-primary)">${cat.label}</div>
+          <div style="font-size:10px;color:var(--text-muted);margin-top:1px">${catScoredCount}/${cat.items.length}項目採点済み</div>
+        </div>
+        ${catScore !== null && catScoredCount > 0 ? `
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0">
+          <span style="font-size:16px;font-weight:800;color:${catScore>=80?'var(--matcha)':catScore>=60?'var(--kogane)':'var(--momo)'};line-height:1">${catScore}<span style="font-size:10px;font-weight:400;opacity:.7">/100</span></span>
+          <div style="width:60px;height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:${catScore}%;background:${catScore>=80?'var(--matcha)':catScore>=60?'var(--kogane)':'var(--momo)'};border-radius:2px;transition:width .5s ease"></div>
+          </div>
+        </div>` : '<span style="font-size:10px;color:var(--text-light);flex-shrink:0">未採点</span>'}
       </div>
-      <div style="padding:12px 14px;display:flex;flex-direction:column;gap:12px">
+      <div style="padding:4px 14px 10px;display:flex;flex-direction:column;gap:0">
         ${cat.items.map(item => {
           const itemDetail = autoItemDetails[item.id] || {};
           const hasAutoScore = scores[item.id] !== undefined;
           const autoReasons = itemDetail.reasons || [];
           const autoIssues = itemDetail.issues || [];
           const scoreVal = scores[item.id] || 0;
-          const scoreColor2 = scoreVal >= 4 ? 'var(--matcha)' : scoreVal >= 3 ? 'var(--kogane)' : scoreVal >= 1 ? 'var(--momo)' : 'var(--text-muted)';
+          const scoreColor2 = scoreVal >= 4 ? 'var(--matcha)' : scoreVal >= 3 ? 'var(--kogane)' : scoreVal >= 2 ? 'var(--momo)' : scoreVal >= 1 ? '#ef4444' : 'var(--text-muted)';
+          const scoreBg2 = scoreVal >= 4 ? 'var(--matcha-bg)' : scoreVal >= 3 ? 'var(--kogane-bg)' : scoreVal >= 1 ? 'var(--momo-bg)' : 'var(--bg-subtle)';
+          const isAutoScored = hasAutoScore && scoreVal > 0;
           return `
-        <div style="display:flex;align-items:flex-start;gap:10px">
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light,#f0f0f0)">
           <div style="flex:1;min-width:0">
-            <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px">
-              <div style="font-size:12.5px;font-weight:600;color:var(--text-primary)">${item.label}</div>
-              ${item.id === 'emotional-impact' ? '<span style="font-size:9px;background:var(--fuji);color:#fff;padding:1px 6px;border-radius:10px;font-weight:700">×1.5 最重要</span>' : ''}
-              ${['theme-clarity','originality','three-act','protag-want-need','char-arc'].includes(item.id) ? '<span style="font-size:9px;background:var(--kogane-bg);color:var(--kogane);padding:1px 6px;border-radius:10px;border:1px solid var(--kogane-border)">重点項目</span>' : ''}
+            <div style="display:flex;align-items:center;gap:5px;margin-bottom:3px;flex-wrap:wrap">
+              <div style="font-size:12.5px;font-weight:700;color:var(--text-primary)">${item.label}</div>
+              ${item.id === 'emotional-impact' ? '<span style="font-size:9px;background:linear-gradient(90deg,var(--fuji),#7c3aed);color:#fff;padding:1px 7px;border-radius:10px;font-weight:700;letter-spacing:.04em">×1.5 最重要</span>' : ''}
+              ${['theme-clarity','originality'].includes(item.id) ? '<span style="font-size:9px;background:var(--kogane-bg);color:var(--kogane);padding:1px 6px;border-radius:10px;border:1px solid var(--kogane-border);font-weight:600">×1.2</span>' : ''}
+              ${['three-act','protag-want-need','char-arc'].includes(item.id) ? '<span style="font-size:9px;background:#eff6ff;color:#3b82f6;padding:1px 6px;border-radius:10px;border:1px solid #bfdbfe;font-weight:600">×1.1</span>' : ''}
+              ${isAutoScored ? `<span style="font-size:9px;background:var(--fuji-bg,#f0eeff);color:var(--fuji);padding:1px 5px;border-radius:8px;font-weight:600;border:1px solid var(--fuji-border,#e0d0ff)"><i class="fas fa-wand-magic-sparkles" style="font-size:7px;margin-right:2px"></i>AI採点</span>` : ''}
             </div>
-            <div style="font-size:11px;color:var(--text-muted);line-height:1.6;margin-bottom:${(autoReasons.length > 0 || autoIssues.length > 0) ? '6px' : '0'}">${item.desc}</div>
-            ${autoReasons.length > 0 ? `<div style="display:flex;flex-wrap:wrap;gap:3px">${autoReasons.map(r => `<span style="font-size:10px;background:var(--matcha-bg);color:var(--matcha);padding:1px 6px;border-radius:10px;border:1px solid var(--matcha-border)">✓ ${esc(r)}</span>`).join('')}</div>` : ''}
-            ${autoIssues.length > 0 ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:3px">${autoIssues.map(i2 => `<span style="font-size:10px;background:var(--momo-bg);color:var(--momo);padding:1px 6px;border-radius:10px;border:1px solid var(--momo-border)">⚠ ${esc(i2)}</span>`).join('')}</div>` : ''}
+            <div style="font-size:10.5px;color:var(--text-muted);line-height:1.6;margin-bottom:${(autoReasons.length > 0 || autoIssues.length > 0) ? '7px' : '2px'}">${item.desc}</div>
+            ${(autoReasons.length > 0 || autoIssues.length > 0) ? `
+            <div style="display:flex;flex-direction:column;gap:3px">
+              ${autoReasons.map(r => `<div style="display:flex;align-items:flex-start;gap:5px;font-size:10.5px;color:var(--matcha);line-height:1.5"><span style="flex-shrink:0;font-weight:700;margin-top:1px">✓</span><span>${esc(r)}</span></div>`).join('')}
+              ${autoIssues.map(i2 => `<div style="display:flex;align-items:flex-start;gap:5px;font-size:10.5px;color:var(--momo);line-height:1.5"><span style="flex-shrink:0;font-weight:700;margin-top:1px">⚠</span><span>${esc(i2)}</span></div>`).join('')}
+            </div>` : ''}
           </div>
-          <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+          <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:5px">
             <div style="display:flex;gap:3px">
               ${[1,2,3,4,5].map(v=>`
-              <button onclick="staffRoomSetScore('${s.id}','${item.id}',${v})" style="width:26px;height:26px;border-radius:50%;border:2px solid ${(scores[item.id]||0)>=v?cat.color:'var(--border)'};background:${(scores[item.id]||0)>=v?cat.color+'22':'transparent'};cursor:pointer;font-size:10px;font-weight:700;color:${(scores[item.id]||0)>=v?cat.color:'var(--text-light)'};transition:all .15s" title="${v}点">${v}</button>`).join('')}
+              <button onclick="staffRoomSetScore('${s.id}','${item.id}',${v})" style="width:28px;height:28px;border-radius:50%;border:2px solid ${(scores[item.id]||0)>=v?cat.color:'var(--border)'};background:${(scores[item.id]||0)>=v?cat.color+'22':'transparent'};cursor:pointer;font-size:10px;font-weight:700;color:${(scores[item.id]||0)>=v?cat.color:'var(--text-light)'};transition:all .15s;box-shadow:${(scores[item.id]||0)>=v?`0 2px 6px ${cat.color}44`:'none'}" title="${v}点" onmouseover="if(${(scores[item.id]||0)}<${v})this.style.background='${cat.color}11'" onmouseout="if(${(scores[item.id]||0)}<${v})this.style.background='transparent'">${v}</button>`).join('')}
             </div>
-            ${scoreVal > 0 ? `<span style="font-size:11px;font-weight:700;color:${scoreColor2}">${scoreVal}/5</span>` : ''}
+            ${scoreVal > 0 ? `
+            <div style="display:flex;align-items:center;gap:4px">
+              <span style="font-size:12px;font-weight:800;color:${scoreColor2};line-height:1">${scoreVal}</span>
+              <span style="font-size:9px;color:var(--text-muted)">/5</span>
+              <div style="width:32px;height:4px;background:var(--border);border-radius:2px;overflow:hidden">
+                <div style="height:100%;width:${scoreVal*20}%;background:${scoreColor2};border-radius:2px;transition:width .4s"></div>
+              </div>
+            </div>` : '<span style="font-size:10px;color:var(--text-light)">未評価</span>'}
           </div>
         </div>`;
         }).join('')}
@@ -12466,46 +12595,106 @@ function renderLearnStaffRoom(hero, subnav) {
 
       <!-- 自動採点結果バナー -->
       ${autoResult ? `
-      <div style="background:linear-gradient(135deg,#0f0a2e 0%,#1e1050 40%,#0e2040 100%);border-radius:14px;padding:22px 24px;margin-bottom:20px;color:#fff;position:relative;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,.5)">
-        <div style="position:absolute;inset:0;background:url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 200 200\"><circle cx=\"30\" cy=\"30\" r=\"80\" fill=\"%23ffffff03\"/><circle cx=\"170\" cy=\"170\" r=\"100\" fill=\"%23ffffff02\"/><circle cx=\"100\" cy=\"50\" r=\"40\" fill=\"%23ffffff02\"/></svg>');pointer-events:none"></div>
-        <!-- ヘッダー：スコア + グレード + サマリー -->
-        <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px;position:relative">
-          <div style="width:80px;height:80px;border-radius:50%;background:${autoResult.totalScore>=88?'linear-gradient(135deg,#a855f7,#7c3aed)':autoResult.totalScore>=78?'linear-gradient(135deg,#22c55e,#16a34a)':autoResult.totalScore>=66?'linear-gradient(135deg,#3b82f6,#2563eb)':autoResult.totalScore>=54?'linear-gradient(135deg,#eab308,#ca8a04)':autoResult.totalScore>=42?'linear-gradient(135deg,#f97316,#ea580c)':'linear-gradient(135deg,#ef4444,#dc2626)'};display:flex;align-items:center;justify-content:center;flex-direction:column;box-shadow:0 6px 20px rgba(0,0,0,.5);flex-shrink:0;border:2px solid rgba(255,255,255,.2)">
-            <span style="font-size:24px;font-weight:900;line-height:1">${autoResult.totalScore}</span>
-            <span style="font-size:10px;opacity:.8;margin-top:1px">/ 100</span>
+      <!-- ════════════════ 自動採点結果：審査員レポート ════════════════ -->
+      <div id="staffroom-result-${s.id}" style="margin-bottom:22px">
+
+        <!-- ① トップバナー：総合評価 -->
+        <div style="background:linear-gradient(135deg,#09071f 0%,#1a0f4a 35%,#0a1f3d 70%,#050f1e 100%);border-radius:16px;padding:0;color:#fff;position:relative;overflow:hidden;box-shadow:0 12px 48px rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.08)">
+          <!-- 背景装飾 -->
+          <div style="position:absolute;inset:0;pointer-events:none;overflow:hidden">
+            <div style="position:absolute;top:-40px;right:-40px;width:200px;height:200px;border-radius:50%;background:${autoResult.totalScore>=88?'rgba(168,85,247,.12)':autoResult.totalScore>=78?'rgba(34,197,94,.1)':autoResult.totalScore>=66?'rgba(59,130,246,.1)':autoResult.totalScore>=54?'rgba(234,179,8,.1)':'rgba(239,68,68,.1)'};filter:blur(40px)"></div>
+            <div style="position:absolute;bottom:-60px;left:-20px;width:160px;height:160px;border-radius:50%;background:rgba(255,255,255,.04);filter:blur(30px)"></div>
           </div>
-          <div style="flex:1;min-width:0">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
-              <span style="font-size:20px;font-weight:900;font-family:'Noto Serif JP',serif">${autoResult.grade}</span>
-              <span style="font-size:13px;font-weight:700;opacity:.85;background:rgba(255,255,255,.1);padding:2px 10px;border-radius:20px;border:1px solid rgba(255,255,255,.15)">${esc(autoResult.gradeLabel)}</span>
+          <!-- ヘッダーバー -->
+          <div style="padding:14px 20px 10px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:10px;position:relative">
+            <i class="fas fa-gavel" style="color:rgba(255,255,255,.5);font-size:12px"></i>
+            <span style="font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.45);font-weight:600;text-transform:uppercase">SCENARIO LAB ─ 審査員採点レポート</span>
+            <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
+              ${autoResult.analysisStats ? `<span style="font-size:10px;color:rgba(255,255,255,.3)">${new Date(autoResult.scoredAt||Date.now()).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}採点</span>` : ''}
+              <button onclick="staffRoomClearAutoScore('${s.id}')" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);border-radius:6px;width:22px;height:22px;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s" title="結果をクリア" onmouseover="this.style.background='rgba(255,68,68,.3)'" onmouseout="this.style.background='rgba(255,255,255,.08)'"><i class="fas fa-times"></i></button>
             </div>
-            <div style="font-size:11.5px;opacity:.75;line-height:1.7">${esc(autoResult.summary)}</div>
-            ${autoResult.analysisStats ? `<div style="font-size:10px;opacity:.55;margin-top:4px">${autoResult.analysisStats.sceneCount||0}シーン · ${autoResult.analysisStats.uniqueChars||0}キャラ · セリフ比率${autoResult.analysisStats.dialogueRatio||0}% · 感情密度${autoResult.analysisStats.emotionDensity||0}%</div>` : ''}
           </div>
-          <button onclick="staffRoomClearAutoScore('${s.id}')" style="position:absolute;top:-10px;right:-10px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:50%;width:24px;height:24px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s" title="結果をクリア" onmouseover="this.style.background='rgba(255,255,255,.25)'" onmouseout="this.style.background='rgba(255,255,255,.12)'"><i class="fas fa-times"></i></button>
-        </div>
-        <!-- カテゴリスコアバー -->
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;position:relative">
-          ${(autoResult.categoryScores||[]).map(cs=>`
-          <div style="background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 12px;text-align:center">
-            <div style="font-size:18px;font-weight:800;color:${cs.score>=80?'#4ade80':cs.score>=65?'#60a5fa':cs.score>=50?'#fbbf24':'#f87171'};line-height:1">${cs.score}</div>
-            <div style="width:100%;height:3px;background:rgba(255,255,255,.1);border-radius:2px;margin:6px 0">
-              <div style="height:100%;width:${cs.score}%;background:${cs.score>=80?'#4ade80':cs.score>=65?'#60a5fa':cs.score>=50?'#fbbf24':'#f87171'};border-radius:2px;transition:width .6s ease"></div>
+          <!-- メインスコア表示 -->
+          <div style="padding:20px 24px 18px;display:flex;align-items:center;gap:20px;position:relative">
+            <!-- スコアサークル -->
+            <div style="position:relative;flex-shrink:0">
+              <div style="width:96px;height:96px;border-radius:50%;background:${autoResult.totalScore>=88?'linear-gradient(135deg,#a855f7,#7c3aed,#6d28d9)':autoResult.totalScore>=78?'linear-gradient(135deg,#22c55e,#16a34a,#15803d)':autoResult.totalScore>=66?'linear-gradient(135deg,#3b82f6,#2563eb,#1d4ed8)':autoResult.totalScore>=54?'linear-gradient(135deg,#eab308,#ca8a04,#a16207)':autoResult.totalScore>=42?'linear-gradient(135deg,#f97316,#ea580c,#c2410c)':'linear-gradient(135deg,#ef4444,#dc2626,#b91c1c)'};display:flex;align-items:center;justify-content:center;flex-direction:column;box-shadow:0 8px 32px ${autoResult.totalScore>=88?'rgba(168,85,247,.5)':autoResult.totalScore>=78?'rgba(34,197,94,.4)':autoResult.totalScore>=66?'rgba(59,130,246,.4)':autoResult.totalScore>=54?'rgba(234,179,8,.4)':'rgba(239,68,68,.4)'};border:3px solid rgba(255,255,255,.15)">
+                <span style="font-size:28px;font-weight:900;line-height:1;letter-spacing:-.02em">${autoResult.totalScore}</span>
+                <span style="font-size:9px;opacity:.7;letter-spacing:.05em">/ 100</span>
+              </div>
             </div>
-            <div style="font-size:9.5px;opacity:.65;line-height:1.3">${esc(cs.label)}</div>
-          </div>`).join('')}
-        </div>
-        <!-- 詳細診断メモ（折りたたみ式） -->
-        <div style="position:relative">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;cursor:pointer" onclick="const d=document.getElementById('staffroom-notes-${s.id}');const i=document.getElementById('staffroom-notes-icon-${s.id}');if(d.style.display==='none'){d.style.display='flex';i.style.transform='rotate(180deg)'}else{d.style.display='none';i.style.transform=''}">
-            <span style="font-size:12px;font-weight:700;opacity:.9;letter-spacing:.05em">📋 詳細診断（${(autoResult.detailNotes||[]).length}件）</span>
-            <i id="staffroom-notes-icon-${s.id}" class="fas fa-chevron-down" style="font-size:10px;opacity:.6;transition:transform .2s;margin-left:auto"></i>
+            <!-- グレード＋サマリー -->
+            <div style="flex:1;min-width:0">
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">
+                <span style="font-size:28px;font-weight:900;font-family:'Noto Serif JP',serif;line-height:1;text-shadow:0 2px 12px rgba(0,0,0,.5)">${autoResult.grade}</span>
+                <div style="display:flex;flex-direction:column;gap:2px">
+                  <span style="font-size:13px;font-weight:800;background:${autoResult.totalScore>=88?'linear-gradient(90deg,#a855f7,#c084fc)':autoResult.totalScore>=78?'linear-gradient(90deg,#22c55e,#4ade80)':autoResult.totalScore>=66?'linear-gradient(90deg,#3b82f6,#60a5fa)':autoResult.totalScore>=54?'linear-gradient(90deg,#eab308,#fbbf24)':'linear-gradient(90deg,#ef4444,#f87171)'};-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text">${esc(autoResult.gradeLabel)}</span>
+                  ${autoResult.analysisStats ? `<span style="font-size:10px;color:rgba(255,255,255,.4)">${autoResult.analysisStats.sceneCount||0}シーン · 登場人物${autoResult.analysisStats.uniqueChars||0}人 · セリフ${autoResult.analysisStats.dialogueRatio||0}% · 感情密度${autoResult.analysisStats.emotionDensity||0}%</span>` : ''}
+                </div>
+              </div>
+              <div style="font-size:12px;line-height:1.75;color:rgba(255,255,255,.7)">${esc(autoResult.summary)}</div>
+            </div>
           </div>
-          <div id="staffroom-notes-${s.id}" style="display:flex;flex-direction:column;gap:5px">
-            ${(autoResult.detailNotes||[]).map(n=>`
-            <div style="background:rgba(255,255,255,.06);border-left:3px solid ${n.type==='good'?'#4ade80':n.type==='warn'?'#fbbf24':'#f87171'};border-radius:0 8px 8px 0;padding:7px 12px;font-size:11.5px;line-height:1.75;opacity:.95">${esc(n.text)}</div>`).join('')}
+          <!-- カテゴリスコアグリッド -->
+          <div style="padding:0 20px 18px;display:grid;grid-template-columns:repeat(3,1fr);gap:8px;position:relative">
+            ${(autoResult.categoryScores||[]).map(cs=>`
+            <div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:10px 12px">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+                <span style="font-size:9px;color:rgba(255,255,255,.5);line-height:1.3;font-weight:600">${esc(cs.label)}</span>
+                <span style="font-size:15px;font-weight:800;color:${cs.score>=80?'#4ade80':cs.score>=65?'#60a5fa':cs.score>=50?'#fbbf24':'#f87171'}">${cs.score}</span>
+              </div>
+              <div style="width:100%;height:4px;background:rgba(255,255,255,.08);border-radius:2px">
+                <div style="height:100%;width:${cs.score}%;background:${cs.score>=80?'linear-gradient(90deg,#4ade80,#22c55e)':cs.score>=65?'linear-gradient(90deg,#60a5fa,#3b82f6)':cs.score>=50?'linear-gradient(90deg,#fbbf24,#eab308)':'linear-gradient(90deg,#f87171,#ef4444)'};border-radius:2px;transition:width .8s ease"></div>
+              </div>
+            </div>`).join('')}
           </div>
         </div>
+
+        <!-- ② 詳細診断パネル（折りたたみ式） -->
+        <div style="margin-top:10px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg-white)">
+          <div style="padding:12px 16px;background:var(--bg-subtle);display:flex;align-items:center;gap:8px;cursor:pointer;border-bottom:1px solid var(--border)" onclick="const d=document.getElementById('sr-diag-${s.id}');const ic=document.getElementById('sr-diag-ic-${s.id}');const open=d.style.display!=='none';d.style.display=open?'none':'block';ic.style.transform=open?'':'rotate(180deg)'">
+            <i class="fas fa-microscope" style="color:var(--fuji);font-size:12px"></i>
+            <span style="font-size:12px;font-weight:700;color:var(--text-primary)">審査員診断ノート</span>
+            <span style="font-size:10px;color:var(--text-muted);background:var(--bg-canvas);border:1px solid var(--border);border-radius:10px;padding:1px 7px">${(autoResult.detailNotes||[]).length}件</span>
+            <span style="font-size:10px;color:var(--matcha);margin-left:4px">${(autoResult.detailNotes||[]).filter(n=>n.type==='good').length}✅</span>
+            <span style="font-size:10px;color:var(--momo)">${(autoResult.detailNotes||[]).filter(n=>n.type==='bad').length}❌</span>
+            <span style="font-size:10px;color:var(--kogane)">${(autoResult.detailNotes||[]).filter(n=>n.type==='warn').length}⚠</span>
+            <i id="sr-diag-ic-${s.id}" class="fas fa-chevron-up" style="margin-left:auto;font-size:10px;color:var(--text-muted);transition:transform .2s;transform:rotate(180deg)"></i>
+          </div>
+          <div id="sr-diag-${s.id}" style="display:block">
+            <div style="padding:12px 16px;display:flex;flex-direction:column;gap:6px">
+              ${(autoResult.detailNotes||[]).map(n=>`
+              <div style="display:flex;gap:10px;padding:10px 12px;background:${n.type==='good'?'var(--matcha-bg)':n.type==='warn'?'var(--kogane-bg)':'var(--momo-bg)'};border:1px solid ${n.type==='good'?'var(--matcha-border)':n.type==='warn'?'var(--kogane-border)':'var(--momo-border)'};border-radius:8px">
+                <div style="font-size:13px;flex-shrink:0;margin-top:1px">${n.type==='good'?'✅':n.type==='warn'?'⚠️':'❌'}</div>
+                <div style="font-size:11.5px;line-height:1.75;color:var(--text-primary)">${esc(n.text)}</div>
+              </div>`).join('')}
+            </div>
+          </div>
+        </div>
+
+        <!-- ③ 強み・弱み・改稿提案（タブ形式） -->
+        <div style="margin-top:10px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg-white)">
+          <div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg-subtle)">
+            <button id="sr-fb-tab-str-${s.id}" onclick="staffRoomFbTab('${s.id}','strengths')" style="flex:1;padding:10px 8px;font-size:11px;font-weight:700;border:none;cursor:pointer;border-bottom:2px solid var(--matcha);background:var(--bg-white);color:var(--matcha)"><i class="fas fa-star" style="margin-right:4px"></i>強み</button>
+            <button id="sr-fb-tab-wk-${s.id}" onclick="staffRoomFbTab('${s.id}','weaknesses')" style="flex:1;padding:10px 8px;font-size:11px;font-weight:700;border:none;cursor:pointer;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted)"><i class="fas fa-wrench" style="margin-right:4px"></i>改善点</button>
+            <button id="sr-fb-tab-sg-${s.id}" onclick="staffRoomFbTab('${s.id}','suggestions')" style="flex:1;padding:10px 8px;font-size:11px;font-weight:700;border:none;cursor:pointer;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted)"><i class="fas fa-lightbulb" style="margin-right:4px"></i>改稿提案</button>
+            <button id="sr-fb-tab-pr-${s.id}" onclick="staffRoomFbTab('${s.id}','priority')" style="flex:1;padding:10px 8px;font-size:11px;font-weight:700;border:none;cursor:pointer;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted)"><i class="fas fa-flag" style="margin-right:4px"></i>最優先</button>
+          </div>
+          <div id="sr-fb-strengths-${s.id}" style="padding:14px 16px">
+            <div style="font-size:11.5px;line-height:2;color:var(--text-primary);white-space:pre-line">${esc(autoResult.strengths||'自動採点後に生成されます')}</div>
+          </div>
+          <div id="sr-fb-weaknesses-${s.id}" style="padding:14px 16px;display:none">
+            <div style="font-size:11.5px;line-height:2;color:var(--text-primary);white-space:pre-line">${esc(autoResult.weaknesses||'自動採点後に生成されます')}</div>
+          </div>
+          <div id="sr-fb-suggestions-${s.id}" style="padding:14px 16px;display:none">
+            <div style="font-size:11.5px;line-height:2;color:var(--text-primary);white-space:pre-line">${esc(autoResult.suggestions||'自動採点後に生成されます')}</div>
+          </div>
+          <div id="sr-fb-priority-${s.id}" style="padding:14px 16px;display:none">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">次稿で最初に取り組むべき課題：</div>
+            <div style="font-size:12px;line-height:2;color:var(--text-primary);white-space:pre-line;font-weight:600">${esc(autoResult.priority||'自動採点後に生成されます')}</div>
+          </div>
+        </div>
+
       </div>` : ''}
 
       <!-- 採点シート -->
@@ -12524,32 +12713,39 @@ function renderLearnStaffRoom(hero, subnav) {
         ${rubricHtml}
       </div>
 
-      <!-- 総合コメント -->
+      <!-- 総合コメント（手書きメモ + 自動採点フィードバック連携） -->
       <div class="card" style="margin-bottom:20px;border-top:3px solid var(--kogane)">
-        <div style="font-weight:700;font-size:13px;color:var(--text-primary);margin-bottom:10px">
-          <i class="fas fa-comment-dots" style="color:var(--kogane);margin-right:6px"></i>総合評価・フィードバック
-          <span style="font-size:11px;font-weight:400;color:var(--text-muted);margin-left:6px">（自動採点後に自動生成されます）</span>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+          <div style="font-weight:700;font-size:13px;color:var(--text-primary)">
+            <i class="fas fa-pen-to-square" style="color:var(--kogane);margin-right:6px"></i>採点メモ・フィードバック記録
+          </div>
+          <span style="font-size:11px;color:var(--text-muted)">自動採点後に内容が自動入力されます。自由に編集・追記できます。</span>
+          ${autoResult ? `<button onclick="staffRoomRefillFeedback('${s.id}')" style="margin-left:auto;background:none;border:1px solid var(--fuji-border,#e0d0ff);color:var(--fuji);padding:4px 10px;border-radius:6px;font-size:10px;cursor:pointer;font-weight:600" title="AI採点の内容で上書き"><i class="fas fa-rotate" style="margin-right:3px"></i>AI採点内容を再反映</button>` : ''}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
           <div>
-            <label class="form-label" style="color:var(--matcha)">✅ 優れている点</label>
-            <textarea id="staffroom-strengths-${s.id}" class="form-textarea" rows="4" style="font-size:12.5px;line-height:1.8;resize:vertical" placeholder="・台詞のリズムが良い&#10;・主人公の動機が明確&#10;・ビジュアルシーンが秀逸" oninput="staffRoomAutoSaveFeedback('${s.id}')">${esc((s.feedback||{}).strengths||'')}</textarea>
+            <label class="form-label" style="color:var(--matcha);font-size:11px;margin-bottom:4px">✅ 優れている点</label>
+            <textarea id="staffroom-strengths-${s.id}" class="form-textarea" rows="5" style="font-size:12px;line-height:1.8;resize:vertical;border-color:var(--matcha-border)" placeholder="・台詞のリズムが良い&#10;・主人公の動機が明確&#10;・ビジュアルシーンが秀逸" oninput="staffRoomAutoSaveFeedback('${s.id}')">${esc((s.feedback||{}).strengths||'')}</textarea>
           </div>
           <div>
-            <label class="form-label" style="color:var(--momo)">🔧 改善が必要な点</label>
-            <textarea id="staffroom-weaknesses-${s.id}" class="form-textarea" rows="4" style="font-size:12.5px;line-height:1.8;resize:vertical" placeholder="・第二幕の中盤がたるい&#10;・説明台詞が多い&#10;・対立がもっと明確に" oninput="staffRoomAutoSaveFeedback('${s.id}')">${esc((s.feedback||{}).weaknesses||'')}</textarea>
+            <label class="form-label" style="color:var(--momo);font-size:11px;margin-bottom:4px">⚠️ 改善が必要な点</label>
+            <textarea id="staffroom-weaknesses-${s.id}" class="form-textarea" rows="5" style="font-size:12px;line-height:1.8;resize:vertical;border-color:var(--momo-border)" placeholder="・第二幕の中盤がたるい&#10;・説明台詞が多い&#10;・対立がもっと明確に" oninput="staffRoomAutoSaveFeedback('${s.id}')">${esc((s.feedback||{}).weaknesses||'')}</textarea>
           </div>
+        </div>
+        <div style="margin-bottom:10px">
+          <label class="form-label" style="font-size:11px;margin-bottom:4px">💡 具体的な改稿提案</label>
+          <textarea id="staffroom-suggestions-${s.id}" class="form-textarea" rows="5" style="font-size:12px;line-height:1.8;resize:vertical" placeholder="・冒頭シーンで主人公の外的目標（Want）を視覚的に示す1シーンを追加する&#10;・全説明台詞を見直し、行動・映像・沈黙に置き換える&#10;・主人公の変化を「ビフォー → 転機 → アフター」で設計し直す" oninput="staffRoomAutoSaveFeedback('${s.id}')">${esc((s.feedback||{}).suggestions||'')}</textarea>
         </div>
         <div style="margin-bottom:12px">
-          <label class="form-label">📋 具体的な改稿提案</label>
-          <textarea id="staffroom-suggestions-${s.id}" class="form-textarea" rows="5" style="font-size:12.5px;line-height:1.8;resize:vertical" placeholder="・p.30のシーンで田中の感情を行動で示す（台詞を削り、小道具を使う）&#10;・第二幕の対立をより明確にするため、〇〇を障害として追加する&#10;・セリフ「〇〇」を「△△」に変更してサブテキストを加える" oninput="staffRoomAutoSaveFeedback('${s.id}')">${esc((s.feedback||{}).suggestions||'')}</textarea>
+          <label class="form-label" style="color:var(--fuji);font-size:11px;margin-bottom:4px">🎯 次稿に向けた最重要課題（1〜3点）</label>
+          <textarea id="staffroom-priority-${s.id}" class="form-textarea" rows="3" style="font-size:12px;line-height:1.8;resize:vertical;border-color:var(--fuji-border,#e0d0ff)" placeholder="1. 〇〇を解決することが第一優先&#10;2. セリフ全般の説明台詞を削る改稿&#10;3. 第三幕のクライマックスをより明確に" oninput="staffRoomAutoSaveFeedback('${s.id}')">${esc((s.feedback||{}).priority||'')}</textarea>
         </div>
-        <div>
-          <label class="form-label">🎯 次稿に向けた最重要課題（1〜3点）</label>
-          <textarea id="staffroom-priority-${s.id}" class="form-textarea" rows="3" style="font-size:12.5px;line-height:1.8;resize:vertical" placeholder="1. 〇〇を解決することが第一優先&#10;2. セリフ全般の説明台詞を削る改稿&#10;3. 第三幕のクライマックスをより明確に" oninput="staffRoomAutoSaveFeedback('${s.id}')">${esc((s.feedback||{}).priority||'')}</textarea>
-        </div>
-        <div style="margin-top:12px;text-align:right">
-          <button class="btn btn-primary" onclick="staffRoomSaveAll('${s.id}')"><i class="fas fa-save"></i> 全て保存</button>
+        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+          <div style="font-size:10.5px;color:var(--text-muted)"><i class="fas fa-cloud" style="margin-right:4px;opacity:.5"></i>入力内容は自動保存されます</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-secondary btn-sm" onclick="staffRoomExport('${s.id}')"><i class="fas fa-file-export"></i> レポート出力</button>
+            <button class="btn btn-primary btn-sm" onclick="staffRoomSaveAll('${s.id}')"><i class="fas fa-save"></i> 保存</button>
+          </div>
         </div>
       </div>
     </div>`;
@@ -12762,6 +12958,10 @@ function staffRoomAutoScore(sessionId) {
         detailNotes: result.detailNotes,
         itemDetails: result.itemDetails || {},
         analysisStats: result.analysisStats || {},
+        strengths: result.strengths || '',
+        weaknesses: result.weaknesses || '',
+        suggestions: result.suggestions || '',
+        priority: result.priority || '',
         scoredAt: Date.now(),
       };
       sessions[idx].updatedAt = Date.now();
@@ -12787,6 +12987,41 @@ function staffRoomClearAutoScore(sessionId) {
   delete sessions[idx].autoScoreResult;
   DB.set('staffroom_sessions', sessions);
   render();
+}
+
+// ── AI採点フィードバックをメモエリアに再反映 ──────────────────
+function staffRoomRefillFeedback(sessionId) {
+  const sessions = DB.get('staffroom_sessions', []);
+  const s = sessions.find(s => s.id === sessionId);
+  if (!s || !s.autoScoreResult) return;
+  const ar = s.autoScoreResult;
+  const fillField = (id, val) => {
+    const el = document.getElementById(id);
+    if (el && val) { el.value = val; }
+  };
+  fillField(`staffroom-strengths-${sessionId}`, ar.strengths);
+  fillField(`staffroom-weaknesses-${sessionId}`, ar.weaknesses);
+  fillField(`staffroom-suggestions-${sessionId}`, ar.suggestions);
+  fillField(`staffroom-priority-${sessionId}`, ar.priority);
+  staffRoomAutoSaveFeedback(sessionId);
+  toast('AI採点の内容を反映しました', 'success');
+}
+
+// ── フィードバックタブ切り替え ──────────────────────────────────
+function staffRoomFbTab(sessionId, tab) {
+  const tabs = ['strengths','weaknesses','suggestions','priority'];
+  const tabIds = { strengths: 'str', weaknesses: 'wk', suggestions: 'sg', priority: 'pr' };
+  const colors = { strengths: 'var(--matcha)', weaknesses: 'var(--momo)', suggestions: 'var(--kogane)', priority: 'var(--fuji)' };
+  tabs.forEach(t => {
+    const panel = document.getElementById(`sr-fb-${t}-${sessionId}`);
+    const btn = document.getElementById(`sr-fb-tab-${tabIds[t]}-${sessionId}`);
+    if (panel) panel.style.display = t === tab ? '' : 'none';
+    if (btn) {
+      btn.style.borderBottom = t === tab ? `2px solid ${colors[t]}` : '2px solid transparent';
+      btn.style.background = t === tab ? 'var(--bg-white)' : 'transparent';
+      btn.style.color = t === tab ? colors[t] : 'var(--text-muted)';
+    }
+  });
 }
 
 // ── 脚本テキスト解析エンジン（ルールベース高精度） ──────────────
