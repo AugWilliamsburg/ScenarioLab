@@ -12596,6 +12596,7 @@ function renderLearnStaffRoom(hero, subnav) {
             <div class="sr-cite-block ${scoreVal<=2?'cite-bad':scoreVal>=4?'cite-good':'cite-warn'}" style="margin-top:8px">
               <div class="sr-cite-label"><i class="fas ${scoreVal<=2?'fa-highlighter':scoreVal>=4?'fa-quote-left':'fa-search'}" style="font-size:7px"></i>${scoreVal<=2?'問題箇所 — 脚本引用':scoreVal>=4?'好例 — 脚本引用':'参照 — 脚本引用'}</div>
               <div class="sr-cite-text" style="color:${scoreVal<=2?'#7f1d1d':scoreVal>=4?'#14532d':'#78350f'}">${esc(autoQuote)}</div>
+              ${scoreVal<=2 ? '<div class="sr-cite-arrow"><i class="fas fa-arrow-right" style="font-size:8px"></i>改稿対象箇所</div>' : ''}
             </div>` : ''}
             ${hasDiff ? `
             <div style="margin-top:5px;font-size:10px;color:${diffAmt>0?'#15803d':'#b91c1c'};font-weight:600">
@@ -12702,8 +12703,8 @@ function renderLearnStaffRoom(hero, subnav) {
           <!-- ヘッダーバー -->
           <div style="padding:14px 20px 10px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:10px;position:relative">
             <i class="fas fa-gavel" style="color:rgba(255,255,255,.5);font-size:12px"></i>
-            <span style="font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.45);font-weight:600;text-transform:uppercase">SCENARIO LAB ─ 審査員採点レポート v9</span>
-            <span style="font-size:9px;background:rgba(168,85,247,.25);color:rgba(200,160,255,.9);border:1px solid rgba(168,85,247,.4);border-radius:4px;padding:1px 6px;font-weight:700;letter-spacing:.05em">18項目・7軸・実脚本引用 v9</span>
+            <span style="font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.45);font-weight:600;text-transform:uppercase">SCENARIO LAB ─ 審査員採点レポート v10</span>
+            <span style="font-size:9px;background:rgba(168,85,247,.25);color:rgba(200,160,255,.9);border:1px solid rgba(168,85,247,.4);border-radius:4px;padding:1px 6px;font-weight:700;letter-spacing:.05em">18項目・7軸・実脚本引用 v10</span>
             <span class="sr-engine-badge"><i class="fas fa-microchip" style="font-size:7px"></i>精密解析エンジン</span>
             <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
               ${autoResult.analysisStats ? `<span style="font-size:10px;color:rgba(255,255,255,.3)">${new Date(autoResult.scoredAt||Date.now()).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}採点</span>` : ''}
@@ -12787,6 +12788,7 @@ function renderLearnStaffRoom(hero, subnav) {
                   ${n.quote ? `<div class="sr-cite-block ${citeClass}" style="margin-top:6px">
                     <div class="sr-cite-label"><i class="fas ${citeIcon}" style="font-size:7px"></i>${citeLabel}</div>
                     <div class="sr-cite-text">${esc(n.quote)}</div>
+                    ${n.type === 'bad' ? '<div class="sr-cite-arrow"><i class="fas fa-arrow-right" style="font-size:8px"></i>この箇所を改稿してください</div>' : ''}
                   </div>` : ''}
                 </div>
               </div>`;}).join('')}
@@ -12855,6 +12857,7 @@ function renderLearnStaffRoom(hero, subnav) {
                 ${weakQuote2 ? `<div class="sr-cite-block cite-bad" style="border-radius:0 0 6px 6px;margin:0 10px 8px;margin-top:0">
                   <div class="sr-cite-label"><i class="fas fa-highlighter" style="font-size:7px"></i>問題箇所 — 脚本より</div>
                   <div class="sr-cite-text">${esc(weakQuote2)}</div>
+                  <div class="sr-cite-arrow"><i class="fas fa-arrow-right" style="font-size:8px"></i>この箇所が主要改稿対象です</div>
                 </div>` : ''}
               </div>`;
             }).join('') || `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:16px">自動採点後に生成されます</div>`}
@@ -12931,7 +12934,10 @@ function renderLearnStaffRoom(hero, subnav) {
                 const rank = parseInt(numMatch[1]);
                 const rankBg = rank === 1 ? 'linear-gradient(135deg,#ef4444,#b91c1c)' : rank === 2 ? 'linear-gradient(135deg,#f97316,#c2410c)' : 'linear-gradient(135deg,#eab308,#a16207)';
                 const rankLabel = rank === 1 ? '最優先' : rank === 2 ? '高優先' : '優先';
-                return `<div class="sr-priority-card rank-${Math.min(rank,3)}">
+                const rankColors = ['#dc2626','#f97316','#eab308'];
+                const rankLabels = ['最優先','高優先','中優先'];
+                const rankGrad = rank===1?'linear-gradient(135deg,rgba(220,38,38,.06),rgba(239,68,68,.02))':rank===2?'linear-gradient(135deg,rgba(249,115,22,.05),transparent)':'linear-gradient(135deg,rgba(234,179,8,.04),transparent)';
+                return `<div class="sr-priority-card rank-${Math.min(rank,3)}" style="background:${rankGrad}">
                   <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:2px">
                     <span style="width:24px;height:24px;border-radius:50%;background:${rankBg};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;min-width:24px;box-shadow:0 2px 8px rgba(0,0,0,.2)">${numMatch[1]}</span>
                     <span style="font-size:7.5px;font-weight:700;color:${rank===1?'#b91c1c':rank===2?'#c2410c':'#a16207'};letter-spacing:.03em;white-space:nowrap">${rankLabel}</span>
@@ -13646,10 +13652,18 @@ function staffRoomGenerateTutoringExamples(session) {
         { title: 'WantとNeedを「衝突」させよ——葛藤がドラマをつくる', bad: 'Want: 出世したい、Need: 家族を大切にしたい——両方が自然に達成される。\n→ 葛藤なし、ドラマなし', good: 'Want: 単身赴任で出世（今しかないチャンス）\nNeed: 娘との時間（今しかできない）\n→ クライマックス: 赴任辞令の夜、娘「パパ、行かないで」\n→ WantかNeedか——この選択が物語の核心', tip: 'WantとNeedが「同じ方向」を向いていると葛藤が生まれない。「WantとNeedが対立し、クライマックスでどちらを選ぶか問われる」設計が理想形。' },
       ]
     },
+    'naturalness': {
+      label: 'セリフの自然さ・リズム',
+      tips: [
+        { title: '長すぎるセリフを「呼吸できる長さ」に切る', bad: '田中「私は長年この会社で働いてきて、それなりに頑張ってきたつもりだけど、なかなか上司に認めてもらえなくて、正直もう限界かなと感じているところです」\n（60字超 — 一息で言えない → 実際の会話ではない）', good: '田中「……もう、限界かも」\n（間）\n田中「ずっと頑張ってきたんだけどな」\n（分割することで感情に間が生まれる）', tip: 'セリフを声に出して読み、一息で自然に言えない長さなら分割しましょう。台詞の「切れ目」が感情の「間（ま）」になります。60字を超えたら必ず短くする習慣を。' },
+        { title: '情報説明のセリフ → 行動・状況に置き換える', bad: '花子「田中さん、ご存知でしょうが、この建物は三十年前に亡くなった山田社長が建てたものです」\n（キャラが「情報を口から出すロボット」になっている）', good: '（机の上に古い写真。田中、手に取る）\n花子「……懐かしいでしょう」\n田中「山田さんか。俺が入社した頃は……」\n（状況と行動が情報を自然に引き出す）', tip: '「誰もが知っているはずのことを説明させる」のが最も不自然なセリフです。情報はキャラクターの「行動・疑問・反応」に埋め込みましょう。' },
+      ]
+    },
     'authorial-voice': {
       label: '作家性・文体の独自性',
       tips: [
         { title: '抽象的な描写 → 固有の感覚的ディテールへ', bad: '夕暮れの街。田中は哀しそうに歩く。', good: '夕暮れ。アスファルトがじわじわと白くなる時間。\n田中の靴底に、ガムの跡。\n（踏んでしまったのは、三歩前だった）', tip: '「哀しい」は書かず、「哀しさを感じさせる具体的なもの」を書く。固有名詞・身体感覚・時間の感じ方——これがあなただけの文体になります。' },
+        { title: '「あなたにしか書けないシーン」を1つ作る', bad: '（どこかで読んだことのあるような感動シーン）\n田中「ありがとう。生きていてよかった」\n（普遍的すぎてどの作品でも使える）', good: '（書き手自身の記憶から来た固有の細部）\n田中、古い折り畳み傘を開く——骨が1本折れている。\n雨の中。ずっとそれを使い続けてきた。\n（固有のディテールが感情を担う）', tip: '最もオリジナルな素材はあなた自身の記憶・体験・違和感の中にあります。「私だけが知っているこの感覚」を脚本の中に1シーンだけ入れてみてください。それがあなたの「声」の核になります。' },
       ]
     },
     'theme-clarity': {
@@ -13678,6 +13692,13 @@ function staffRoomGenerateTutoringExamples(session) {
         { title: '各キャラクターの「声の設計書」を作る', bad: '田中「今日の会議はどうだった？」\n花子「まあまあかな。難しかったよ」\n上司「そうか。お疲れ様」', good: '田中（省略型・直球）「会議——どうだった」\n花子（丁寧・回避型）「えーと……先方が、少し、難しいとおっしゃって」\n上司（結論先行型）「通ったか通らなかったか」', tip: 'キャラごとに「語彙の範囲・文末の癖・話すスピード・省略の有無・口癖・禁句」を設計書に書いてから台詞を書く。そうするとキャラが自然に「しゃべりだします」。' },
       ]
     },
+    'pacing': {
+      label: 'ペーシング（緩急）',
+      tips: [
+        { title: 'シーンの「入場・目的・退場」を明確化する', bad: 'シーン5: 田中と花子が喫茶店で話す。\nシーン6: 田中と花子がまだ話している。\nシーン7: 話が終わって花子が帰る。\n（シーンの目的が曖昧で、ダレる）', good: '【シーン5: 秘密の暴露】\n田中「昨日、嘘をついたよね」（IN = 直球の疑問）\n花子「……（立ち上がり、コートを手にとる）」（OUT = 逃走）\n→ 1シーン = 1目的 = 1変化。入場時と退場時で何かが変わること。', tip: '「このシーンに入る前と後で何かが変わったか？」を問う。変わっていなければそのシーンはカットか他のシーンに合流させましょう。1シーン=1目的の原則がペーシングを劇的に改善します。' },
+        { title: 'テンション曲線を「波」にする', bad: '（全シーンが同じ感情温度で続く——山も谷もない平坦な展開）', good: '【緩】日常の会話→【急】突然の告白→【緩】静かな回想→【急】直接対決\n→ 緩急のリズムが読者に「呼吸」を与え、急のシーンをより印象的にする', tip: 'テンション低いシーンは高いシーンの「前フリ」。「山→谷→山→山（クライマックス）」のリズムを意識して配置しましょう。緩の直後の急が最も効果的です。' },
+      ]
+    },
     'format-correctness': {
       label: '脚本フォーマット',
       tips: [
@@ -13691,10 +13712,18 @@ function staffRoomGenerateTutoringExamples(session) {
         { title: '因果連鎖の強化：「なぜ→だから→しかし」', bad: 'シーン1: 田中が走る。\nシーン2: 花子が泣く。\nシーン3: 二人が話す。\n（シーンの繋がりに因果関係がない）', good: '（なぜ）田中が秘密を暴こうとした\n（だから）花子は隠し通そうとして嘘をついた\n（しかし）その嘘がさらに深い真実を示唆していた', tip: '各シーンの繋がりを「なぜ→だから→しかし」で説明できるか確認する。説明できなければシーン順序か内容に問題があります。' },
       ]
     },
+    'plot-logic': {
+      label: 'プロットの論理的一貫性',
+      tips: [
+        { title: '「偶然」を「必然」に変換する', bad: 'たまたま田中がそこを通りかかり、ちょうど事件を目撃した。\n（偶然に頼った展開——読者の信頼を失う）', good: '田中が帰宅ルートを変えたのには理由があった。昨夜の花子の一言——「東口から来て」。\nその一言が、田中をあの路地に向かわせた。\n（前のシーンに「必然性」を仕込む）', tip: '「たまたま・ちょうど・偶然・都合よく」を脚本から全て削除する。代わりにその「偶然」の前のシーンに「なぜ主人公がそこにいるか」の理由を仕込む。これが脚本技術の核です。' },
+        { title: '因果連鎖を「なぜ→だから→しかし」で確認する', bad: 'シーン1: 田中が走る。\nシーン2: 花子が泣く。\nシーン3: 二人が話す。\n（シーンの繋がりに因果関係がない）', good: '（なぜ）田中が秘密を暴こうとした\n（だから）花子は嘘をついて隠し通そうとした\n（しかし）その嘘が、さらに深い真実を示唆していた\n→ 各シーンが「なぜ→だから→しかし」で繋がる', tip: '各シーンの繋がりを「なぜ→だから→しかし」で説明できるか確認する。説明できなければシーン順序か内容に問題があります。この3語がプロットの骨格を作ります。' },
+      ]
+    },
     'production-viability': {
       label: '映像化実現可能性',
       tips: [
         { title: '大規模設定を日常的な設定に転換する', bad: '宇宙ステーション内。巨大なモンスターとの死闘が繰り広げられる。', good: '（同じテーマを）古いアパートの一室。光の届かない廊下。\n田中は出口を探して走り続けるが——部屋が全て同じに見える。', tip: 'ドラマコンクールでは「限られた予算で撮れるか」も評価基準の一つです。大規模なVFXや多数のエキストラが必要な設定は、より日常的な舞台に置き換えても物語は伝わります。' },
+        { title: '少人数・限定ロケーションで最大の物語を作る', bad: '23ヶ所のロケーション。30人の登場人物。海外シーン含む。\n（制作予算が膨大になる）', good: '（同じ物語を）マンションの1室と廊下だけで展開。\n登場人物は田中と花子の2人のみ。\n→ 制約が創意工夫を生む。少ないほど深くなる。', tip: 'コンクール評価者（多くはプロデューサーやディレクター）は「これを実際に制作できるか」で判断します。3場所・5人以内で成立する物語は通過率が上がります。' },
       ]
     },
   };
@@ -13735,7 +13764,13 @@ function staffRoomGenerateTutoringExamples(session) {
           (itemIssues.includes('発端') && t.title.includes('発端')) ||
           (itemIssues.includes('Want') && t.title.includes('Want')) ||
           (itemIssues.includes('映像') && t.title.includes('映像')) ||
-          (itemIssues.includes('目的') && t.title.includes('目的'))
+          (itemIssues.includes('目的') && t.title.includes('目的')) ||
+          (itemIssues.includes('テンション') && t.title.includes('緩急')) ||
+          (itemIssues.includes('緊張') && t.title.includes('目的衝突')) ||
+          (itemIssues.includes('フォーマット') && t.title.includes('フォーマット')) ||
+          (itemIssues.includes('変化') && t.title.includes('変化')) ||
+          (itemIssues.includes('固有') && t.title.includes('固有')) ||
+          (itemIssues.includes('声') && t.title.includes('声'))
         )) return ti;
       }
       // スコアが1の場合は最初のヒント（基礎的なもの）を使用
@@ -13766,16 +13801,17 @@ function staffRoomGenerateTutoringExamples(session) {
         ${scriptQuote ? `<div class="sr-cite-block cite-bad" style="margin-top:${issues.length>0?'7px':'2px'}">
           <div class="sr-cite-label"><i class="fas fa-highlighter" style="font-size:7px"></i>あなたの脚本の該当箇所 — 改稿対象</div>
           <div class="sr-cite-text" style="color:#7f1d1d">${esc(scriptQuote)}</div>
+          <div class="sr-cite-arrow"><i class="fas fa-arrow-right" style="font-size:8px"></i>この台詞・ト書きを下の「After」例に近づけてください</div>
         </div>` : ''}
       </div>` : ''}
       <div style="padding:12px 14px">
         <div class="sr-ba-grid" style="margin-bottom:10px">
           <div class="sr-ba-before"><div class="sr-ba-label"><i class="fas fa-times-circle" style="font-size:8px;margin-right:3px"></i>Before — 問題パターン</div><pre class="sr-ba-text">${esc(tip.bad)}</pre></div>
-          <div class="sr-ba-after"><div class="sr-ba-label"><i class="fas fa-check-circle" style="font-size:8px;margin-right:3px"></i>After — 書き直し例</div><pre class="sr-ba-text">${esc(tip.good)}</pre></div>
+          <div class="sr-ba-after"><div class="sr-ba-label"><i class="fas fa-check-circle" style="font-size:8px;margin-right:3px"></i>After — 参考リライト例</div><pre class="sr-ba-text">${esc(tip.good)}</pre></div>
         </div>
-        <div style="background:var(--fuji-bg,#f5f0ff);border:1px solid var(--fuji-border,#e0d0ff);border-radius:8px;padding:9px 12px;display:flex;gap:8px;align-items:flex-start">
+        <div style="background:var(--fuji-bg,#f5f0ff);border:1px solid var(--fuji-border,#e0d0ff);border-radius:9px;padding:10px 13px;display:flex;gap:9px;align-items:flex-start;margin-top:1px">
           <i class="fas fa-lightbulb" style="color:var(--fuji);font-size:11px;margin-top:2px;flex-shrink:0"></i>
-          <div style="font-size:10.5px;color:var(--text-primary);line-height:1.75"><strong style="color:var(--fuji)">コツ:</strong> ${esc(tip.tip)}</div>
+          <div style="font-size:10.5px;color:var(--text-primary);line-height:1.8"><strong style="color:var(--fuji);font-size:11px">コツ:</strong> ${esc(tip.tip)}</div>
         </div>
       </div>
     </div>`;
@@ -13824,7 +13860,7 @@ function staffRoomFbTab(sessionId, tab) {
 // ── 脚本テキスト解析エンジン（ルールベース高精度） ──────────────
 function staffRoomRunAnalysis(text) {
   // ══════════════════════════════════════════════════════════════════
-  //  シナリオラボ 職員室 — コンクール審査員エンジン v9.0
+  //  シナリオラボ 職員室 — コンクール審査員エンジン v10.0
   //  7カテゴリ・18項目・多軸評価モデル
   //  客観（構造・形式）× 主観（情動・映像性・作家性）× 映像化実現性
   //  判定ロジック: NHK・城戸賞・テレビ大賞 審査基準を参考に設計
@@ -14567,11 +14603,15 @@ function staffRoomRunAnalysis(text) {
     if (actionLines.length === 0) issues.push('ト書きがほぼない（ラジオドラマ的な構成）');
     if (poeticCount >= 2) reasons.push('比喩・詩的な表現あり（文体に奥行き）');
     scores['visual'] = Math.min(5, Math.max(1, pts));
-    // Quote a strong visual action line
+    // Quote a strong visual action line — prefer strong visual keywords
     const visualQuote = (() => {
-      const strongVis = ['光', '影', '血', '涙', '炎', '雨', '音', '沈黙', '笑', '手', '目', '窓', '空'];
-      const visCandidates = actionLines.filter(l => strongVis.some(kw => l.includes(kw)) && l.length >= 8 && l.length <= 80);
-      return visCandidates.length > 0 ? visCandidates[0] : null;
+      const strongVisKws = ['光', '影', '涙', '血', '炎', '雨', '霧', '煙', '沈黙', '目が', '手が', '窓', '空', '暗', '白', '赤'];
+      const basicVisKws = ['歩', '立つ', '止まる', '見る', '振り返', '走る', '座る'];
+      // Prefer lines with strong visual keywords and medium length
+      const strongCands = actionLines.filter(l => strongVisKws.some(kw => l.includes(kw)) && l.length >= 8 && l.length <= 80);
+      if (strongCands.length > 0) return strongCands[0];
+      const basicCands = actionLines.filter(l => basicVisKws.some(kw => l.includes(kw)) && l.length >= 8 && l.length <= 60);
+      return basicCands.length > 0 ? basicCands[0] : null;
     })();
     itemDetails['visual'] = { reasons, issues, quote: visualQuote };
   }
@@ -14975,14 +15015,21 @@ function staffRoomRunAnalysis(text) {
 
   // ── キャラクター診断
   if (scores['protag-want-need'] <= 2) {
-    const wantNeedBad = { type: 'bad', text: 'Want/Need設計：' + (mainCharName ? '「' + mainCharName + '」' : '主人公') + 'の欲求設計が弱い。①外的目標（Want: 何を手に入れたいか）と②内的必要性（Need: 本当は何が必要か）の両方を明確化し、両者が対立する構造にすると最強のドラマが生まれます。' };
-    // 主人公の目標に関する台詞を引用
+    const wantNeedBad = { type: 'bad', text: 'Want/Need設計：' + (mainCharName ? '「' + mainCharName + '」' : '主人公') + 'の欲求設計が弱い。◆Want（外的目標）= 主人公が求めるもの（目に見える目標）。◆Need（内的必要性）= 主人公が本当は必要なもの（内面の成長・気づき）。この2つが対立するとき最強のドラマが生まれます。' };
+    // Find protagonist's goal-related line — prioritize lines with goal keywords
     if (mainCharName && dialogueByChar[mainCharName]) {
       const mainDlgs = dialogueByChar[mainCharName];
-      const goalKws = ['したい', 'なりたい', 'ほしい', '目指', '望む', '必要', '欲し', '手に入れ'];
+      const goalKws = ['したい', 'なりたい', 'ほしい', '目指', '望む', '欲し', '手に入れ', '夢', '目標', '勝ちた', '証明', '取り戻'];
+      const needKws_dlg = ['本当は', '実は', '怖い', '弱い', '一人', '誰もいない', '孤独', '許せ', '許さ', '諦め'];
       const goalDlg = mainDlgs.find(d => goalKws.some(k => d.includes(k)));
-      if (goalDlg) wantNeedBad.quote = mainCharName + '「' + (goalDlg.length > 60 ? goalDlg.slice(0,60)+'…' : goalDlg) + '」（欲求表現が弱い — より明確化が必要）';
-      else if (mainDlgs.length > 0) wantNeedBad.quote = mainCharName + '「' + (mainDlgs[0].length > 60 ? mainDlgs[0].slice(0,60)+'…' : mainDlgs[0]) + '」（この台詞にWantを埋め込む余地があります）';
+      const needDlg = mainDlgs.find(d => needKws_dlg.some(k => d.includes(k)));
+      if (goalDlg && needDlg && goalDlg !== needDlg) {
+        wantNeedBad.quote = 'Want候補: ' + mainCharName + '「' + (goalDlg.length > 45 ? goalDlg.slice(0,45)+'…' : goalDlg) + '」\nNeed候補: ' + mainCharName + '「' + (needDlg.length > 45 ? needDlg.slice(0,45)+'…' : needDlg) + '」\n→ この2つが「衝突する構造」になっていますか？';
+      } else if (goalDlg) {
+        wantNeedBad.quote = mainCharName + '「' + (goalDlg.length > 60 ? goalDlg.slice(0,60)+'…' : goalDlg) + '」\n→ Wantは読み取れます。Needを設計してください（内面の傷・成長すべき点）';
+      } else if (mainDlgs.length > 0) {
+        wantNeedBad.quote = mainCharName + '「' + (mainDlgs[0].length > 60 ? mainDlgs[0].slice(0,60)+'…' : mainDlgs[0]) + '」\n→ この台詞にWant（外的目標）が見えません。冒頭シーンで行動で示してください';
+      }
     }
     notes.push(wantNeedBad);
   } else if (scores['protag-want-need'] >= 4) {
@@ -14994,13 +15041,16 @@ function staffRoomRunAnalysis(text) {
   }
 
   if (scores['char-arc'] <= 2) {
-    const arcBadNote = { type: 'bad', text: 'キャラクターアーク：主人公の内的変化が見えません。設計テンプレート→「①変化前の誤信（例: 一人でいい）→②転機（信頼した人が去る）→③変化後の行動（初めて助けを求める）」。変化は台詞宣言ではなく行動で見せてください。' };
-    // 変化の欠如を示す台詞を引用
+    const arcBadNote = { type: 'bad', text: 'キャラクターアーク：主人公の内的変化が見えません。設計テンプレート→①冒頭：主人公の誤信・欠点を行動で見せる ②第二幕：その欠点が原因で最悪の状況になる ③終盤：欠点を手放す行動が変化を示す。変化を「台詞で宣言」させず「行動の差」で見せてください。' };
+    // 変化の欠如を示す台詞を引用 — 冒頭vs終盤
     if (mainCharName && dialogueByChar[mainCharName] && dialogueByChar[mainCharName].length >= 2) {
-      const first = dialogueByChar[mainCharName][0];
-      const last = dialogueByChar[mainCharName][dialogueByChar[mainCharName].length - 1];
+      const allMainDlgs = dialogueByChar[mainCharName];
+      const first = allMainDlgs[0];
+      const last = allMainDlgs[allMainDlgs.length - 1];
       if (first !== last && first.length > 3 && last.length > 3) {
-        arcBadNote.quote = '冒頭: ' + mainCharName + '「' + (first.length > 40 ? first.slice(0,40)+'…' : first) + '」\n終盤: ' + mainCharName + '「' + (last.length > 40 ? last.slice(0,40)+'…' : last) + '」\n→ この2台詞の間に「行動・態度の変化」は見えますか？ なければアークを設計し直してください。';
+        arcBadNote.quote = '冒頭: ' + mainCharName + '「' + (first.length > 45 ? first.slice(0,45)+'…' : first) + '」\n終盤: ' + mainCharName + '「' + (last.length > 45 ? last.slice(0,45)+'…' : last) + '」\n→ この2台詞の姿勢・態度に差がありますか？\n  差がなければ「同じ感情・同じ論理」で物語が終わっています。\n  ⚑ 終盤の台詞を「冒頭と逆の立場」から言い直すと変化が生まれます。';
+      } else if (first.length > 3) {
+        arcBadNote.quote = mainCharName + '「' + (first.length > 55 ? first.slice(0,55)+'…' : first) + '」\n→ この台詞からどう変わりますか？アークの終着点を設計してください。';
       }
     }
     notes.push(arcBadNote);
@@ -15019,8 +15069,16 @@ function staffRoomRunAnalysis(text) {
     return null;
   })();
   if (scores['subtext'] <= 2 && onTheNoseCount >= 3) {
-    const noteObjSubtext = { type: 'bad', text: '説明台詞：解説的セリフが' + onTheNoseCount + '箇所。「感情/意図を言葉で語る」のがNG。代わりに行動・沈黙・物・視線で表現してください。コンクール審査員は1ページ目の説明台詞で手が止まります。' };
-    if (onTheNoseSample) noteObjSubtext.quote = '「' + onTheNoseSample + '」\n→ この台詞を「行動・沈黙・物」に置き換えてください';
+    const noteObjSubtext = { type: 'bad', text: '説明台詞（オン・ザ・ノーズ）：解説的セリフが' + onTheNoseCount + '箇所。「感情・意図を言葉で語らせる」のが最もコンクール審査員の手を止めます。代わりに①行動 ②物（小道具）③沈黙・間 ④視線・表情 ⑤空間の変化 で表現してください。' };
+    if (onTheNoseSample) {
+      // Try to auto-generate a before→after suggestion based on the found line
+      const subtextCharGuess = mainCharName || '田中';
+      const hasFeelingKw = onTheNoseSample.match(/悲|辛|怖|怒|嬉|悔|寂|苦|辛|困/);
+      const afterGuess = hasFeelingKw
+        ? subtextCharGuess + '、' + (hasFeelingKw[0].includes('悲')||hasFeelingKw[0].includes('寂') ? '窓の外を向く。長い沈黙。' : hasFeelingKw[0].includes('怒') ? 'コップを静かに置く。一度だけ。' : '手が止まる。机の上。')
+        : subtextCharGuess + '、黙って立ち上がる。窓に近づく。背を向けたまま。';
+      noteObjSubtext.quote = '「' + (onTheNoseSample.length > 75 ? onTheNoseSample.slice(0,75)+'…' : onTheNoseSample) + '」\n↳ 改稿ヒント: ' + afterGuess;
+    }
     notes.push(noteObjSubtext);
   } else if (scores['subtext'] >= 4) {
     notes.push({ type: 'good', text: 'サブテキスト：説明台詞を排し、行間で感情・意図を表現できています。プロの書き方ができています。' + (subtextHardCount >= 2 ? '特に沈黙・間の使い方が効果的です。' : '') });
@@ -15046,8 +15104,22 @@ function staffRoomRunAnalysis(text) {
   } else if (scores['dialogue-dynamics'] <= 2 && totalDialogueLines >= 4) {
     const blandKws2 = ['なるほど', 'そうですね', 'わかりました', 'そうか', 'お疲れさま', 'はい', 'うん'];
     const blandDlg2 = dialogueTexts.find(d => blandKws2.some(k => d.includes(k)) && d.length < 30);
-    const dynWarnNote2 = { type: 'warn', text: '対話の引力：会話に緊張感・欲求の衝突が不足しています。設計問い：「Aは何を得たがっているか」「Bは何を隠したがっているか」——両方答えられない会話はインフォ交換です。各キャラに「相手との関係の中で追いかける欲求」を設計してください。' };
-    if (blandDlg2) dynWarnNote2.quote = '「' + blandDlg2 + '」\n→ この交換に「追う欲求」を追加してください';
+    // Find a bland exchange and also the best available tension pair
+    const _tensionPairForNote = (() => {
+      const _tkws = ['なぜ', 'どうして', '違う', '嘘', '待って', '知らない', 'やめ', '頼む', '聞いて'];
+      for (let _ti = 0; _ti < Math.min(nonEmpty.length-1, 30); _ti++) {
+        if (_tkws.some(k => nonEmpty[_ti].includes(k) || (nonEmpty[_ti+1]||'').includes(k))) {
+          return nonEmpty[_ti].slice(0,45) + (nonEmpty[_ti].length>45?'…':'') + '\n' + (nonEmpty[_ti+1]||'').slice(0,45) + (((nonEmpty[_ti+1]||'').length>45)?'…':'');
+        }
+      }
+      return null;
+    })();
+    const dynWarnNote2 = { type: 'warn', text: '対話の引力：会話に緊張感・欲求の衝突が不足しています。設計チェック：① Aは何を求めてこのシーンにいる？ ② Bは何を隠したい/避けたい？ — 両方答えられない会話はインフォ交換です。各台詞に「追う欲求」を設計してください。' };
+    if (blandDlg2) {
+      dynWarnNote2.quote = '「' + blandDlg2 + '」\n→ この交換に「目的・秘密・欲求」を追加してください';
+    } else if (_tensionPairForNote) {
+      dynWarnNote2.quote = _tensionPairForNote + '\n（緊張の萌芽あり — さらに欲求の衝突を強調してください）';
+    }
     notes.push(dynWarnNote2);
   }
 
@@ -15070,11 +15142,22 @@ function staffRoomRunAnalysis(text) {
   if (scores['emotional-impact'] >= 4) {
     notes.push({ type: 'good', text: '作品力：読者の感情を動かす力があります。' + (memorableCount > 0 ? '忘れられないシーンの予兆（' + memorableCount + '箇所）があり、' : '') + (hasCatharsis ? 'カタルシスの設計も確認できます。' : '') + (hasTwist ? '転換点・逆転要素も機能しています。' : '') + '審査員の心に残る作品になっています。' });
   } else if (scores['emotional-impact'] <= 2) {
-    const noEmotionNote = { type: 'bad', text: '作品力：感情密度' + Math.round(emotionDensity * 100) + '%（低め）・強い感情瞬間' + emotionStrongCount + '箇所。クライマックス近くで「主人公が最も傷つく／最も勇気を出す」シーンを行動・沈黙・物で表現してください。感情を語らせず、「観客自身が気づく」空間を設計するのが鍵です。' };
-    if (dialogueTexts.length >= 2) {
-      const flatLines = dialogueTexts.filter(d => d.length > 3 && d.length < 35);
-      if (flatLines.length >= 2) noEmotionNote.quote = '「' + flatLines[0] + '」「' + flatLines[1] + '」（感情的変化のない平板な交換）';
+    const noEmotionNote = { type: 'bad', text: '作品力：感情密度' + Math.round(emotionDensity * 100) + '%（低め）・強い感情の瞬間' + emotionStrongCount + '箇所のみ。「この場面で涙が出るか、鳥肌が立つか」を基準に感情ピークを設計してください。クライマックスは「主人公が最も大切なものを犠牲にする瞬間」に配置し、その行動を台詞ゼロで見せましょう。' };
+    // Extract a flat dialogue exchange as evidence
+    const flatExchanges = [];
+    for (let _fi = 0; _fi < Math.min(dialogueTexts.length - 1, 20); _fi++) {
+      const _fa = dialogueTexts[_fi], _fb = dialogueTexts[_fi+1];
+      const blandPats = ['なるほど', 'そうです', 'わかりました', 'そうか', 'はい', 'ええ', 'うん', 'そうですね', 'ちょっと', 'まあ'];
+      if (_fa.length > 2 && _fa.length < 30 && _fb.length > 2 && _fb.length < 30 && blandPats.some(p => _fa.includes(p) || _fb.includes(p))) {
+        flatExchanges.push('「' + _fa + '」\n「' + _fb + '」');
+        break;
+      }
     }
+    if (flatExchanges.length === 0 && dialogueTexts.length >= 2) {
+      const _fa = dialogueTexts[0], _fb = dialogueTexts[1];
+      if (_fa.length < 40 && _fb.length < 40) flatExchanges.push('「' + _fa + '」\n「' + _fb + '」');
+    }
+    if (flatExchanges.length > 0) noEmotionNote.quote = flatExchanges[0] + '\n（感情的起伏の少ない交換 — ここに「目的の衝突」か「感情のピーク」を埋め込んでください）';
     notes.push(noEmotionNote);
   }
 
@@ -15091,24 +15174,34 @@ function staffRoomRunAnalysis(text) {
     if (itemDetails['authorial-voice'] && itemDetails['authorial-voice'].quote) authorGoodNote.quote = itemDetails['authorial-voice'].quote;
     notes.push(authorGoodNote);
   } else if (scores['authorial-voice'] <= 2) {
-    const authorBadNote = { type: 'warn', text: '作家性：文体の個性・一貫性が弱い。抽象語（「悲しい」「嬉しい」）を排し、固有の感覚的ディテール（「アスファルトの熱」「ガムの跡」）に置き換えてください。コンクールで勝つのは「うまい脚本」より「独自の声のある脚本」です。' };
-    // 抽象的な表現を含む行を引用
-    const abstractKws = ['悲しい', '嬉しい', '怒った', '楽しい', '寂しい', '辛い', '苦しい'];
-    const abstractLine = actionLines.find(l => abstractKws.some(k => l.includes(k))) 
-      || dialogueTexts.find(d => abstractKws.some(k => d.includes(k)));
+    const authorBadNote = { type: 'warn', text: '作家性：文体の個性・一貫性が弱い。抽象語（「悲しい」「嬉しい」「つらそう」）を全て排し、固有の感覚的ディテール（例：「アスファルトがじわじわと白くなる時間。田中の靴底に、ガムの跡」）に置き換えてください。「うまい脚本」より「独自の声のある脚本」が審査員の記憶に残ります。' };
+    // Find abstract emotional description lines — both in action and dialogue
+    const abstractKws = ['悲しい', '嬉しい', '怒った', '怒っ', '楽しい', '寂しい', '辛い', '苦しい', '悲しそう', '嬉しそう', '悲しんで', 'つらそう', 'かなしい'];
+    const abstractActLine = actionLines.find(l => abstractKws.some(k => l.includes(k)));
+    const abstractDlgLine = dialogueTexts.find(d => abstractKws.some(k => d.includes(k)));
+    const abstractLine = abstractActLine || abstractDlgLine;
     if (abstractLine) {
       const isDialogue = dialogueTexts.includes(abstractLine);
-      authorBadNote.quote = (isDialogue ? '「' + abstractLine + '」' : abstractLine) + '\n↳ 「' + (abstractKws.find(k => abstractLine.includes(k)) || '感情語') + '」は抽象的。固有の行動・物・感覚で置き換えてください。';
+      const foundKw = abstractKws.find(k => abstractLine.includes(k)) || '感情語';
+      const replacedEx = foundKw.includes('悲') || foundKw.includes('寂') || foundKw.includes('辛')
+        ? (mainCharName||'田中') + 'の手が、一度だけ止まる。\n  → 「悲しさ」を行動の一時停止で見せる'
+        : foundKw.includes('嬉') || foundKw.includes('楽')
+        ? (mainCharName||'田中') + '、思わず足取りが速くなる。\n  → 「嬉しさ」を体の変化で見せる'
+        : (mainCharName||'田中') + '、窓に背を向ける。\n  → 感情語を身体の向きで表現';
+      authorBadNote.quote = (isDialogue ? '「' + (abstractLine.length > 60 ? abstractLine.slice(0,60)+'…' : abstractLine) + '」' : (abstractLine.length > 65 ? abstractLine.slice(0,65)+'…' : abstractLine)) + '\n↳ 「' + foundKw + '」は抽象語。置き換え例：\n  ' + replacedEx;
     }
     notes.push(authorBadNote);
   }
 
   // ── テーマ診断
   if (scores['theme-clarity'] <= 2) {
-    const themeBadNote = { type: 'warn', text: 'テーマ：「この作品が言いたいこと」を一言で言えますか？テーマは台詞で語らせず、キャラクターの行動パターン・繰り返し・対比の中に埋め込んでください。テーマ的深度' + thematicDiversity + '概念。' };
-    // テーマ語がある場合は引用
+    const themeBadNote = { type: 'warn', text: 'テーマ：「この作品が言いたいこと」を一言（○○であっても△△できる、等）で言えますか？テーマは台詞で語らせず、①キャラの行動パターン ②繰り返し出てくるモチーフ ③構造の対比 に埋め込んでください。現在のテーマ的深度: ' + thematicDiversity + '概念。' };
+    // テーマ語がある場合は引用し、改善提案も追加
     if (itemDetails['theme-clarity'] && itemDetails['theme-clarity'].quote) {
-      themeBadNote.quote = itemDetails['theme-clarity'].quote + '\n↳ テーマ語が出てきますが、もっと行動・構造に埋め込んでください。';
+      themeBadNote.quote = itemDetails['theme-clarity'].quote + '\n↳ テーマを直接語らせず、この台詞を削除してキャラクターの行動で同じ意味を伝えてください';
+    } else {
+      // No theme quote found — show what's missing
+      themeBadNote.quote = '（テーマを示す台詞・描写が検出されません）\n↳ 「この作品のテーマは？」を一言で書き出してから、そのテーマを主人公の行動に反映させてください';
     }
     notes.push(themeBadNote);
   } else if (scores['theme-clarity'] >= 4) {
@@ -15128,11 +15221,18 @@ function staffRoomRunAnalysis(text) {
   if (scores['char-unique'] >= 4) {
     notes.push({ type: 'good', text: 'キャラクター固有性：各キャラクターが固有の声・行動パターンを持っています。' + (charVocabUniqueness > 0.4 ? 'セリフの語彙差異が大きく（差異スコア' + Math.round(charVocabUniqueness * 100) + '%）、「誰のセリフか」が一目でわかります。' : '') });
   } else if (scores['char-unique'] <= 2 && uniqueChars >= 2) {
-    const charUniqueNote = { type: 'warn', text: 'キャラクター固有性：' + uniqueChars + '人のキャラクターのセリフが似すぎています。各キャラに「語彙レベル・口癖・禁句（絶対言わない言葉）」を設定し、声を差別化してください。' };
-    if (Object.keys(charCounts).length >= 2) {
-      const least = Object.entries(charCounts).sort((a,b) => a[1]-b[1])[0];
-      const exD = (dialogueByChar[least[0]] || [])[0];
-      if (exD) charUniqueNote.quote = least[0] + '「' + (exD.length > 50 ? exD.slice(0,50)+'…' : exD) + '」（最少発言キャラの例）';
+    const charUniqueNote = { type: 'warn', text: 'キャラクター固有性：' + uniqueChars + '人のキャラクターの声が似ています（語彙差異スコア: ' + Math.round(charVocabUniqueness*100) + '%）。各キャラに「語彙レベル・話すスピード・口癖・禁句（絶対言わない言葉）・間の長さ」を設定した「声の設計書」を作り、全セリフを書き直してください。' };
+    // Show parallel dialogue comparison from top 2 characters
+    if (sortedChars.length >= 2) {
+      const charA = sortedChars[0][0], charB = sortedChars[1][0];
+      const dlgA = (dialogueByChar[charA]||[])[0];
+      const dlgB = (dialogueByChar[charB]||[])[0];
+      if (dlgA && dlgB) {
+        charUniqueNote.quote = charA + '「' + (dlgA.length > 35 ? dlgA.slice(0,35)+'…' : dlgA) + '」\n' +
+                               charB + '「' + (dlgB.length > 35 ? dlgB.slice(0,35)+'…' : dlgB) + '」\n→ この2つのセリフに「声の差異」はありますか？ 誰でも言えるセリフなら差別化が必要です';
+      } else if (dlgA) {
+        charUniqueNote.quote = charA + '「' + (dlgA.length > 50 ? dlgA.slice(0,50)+'…' : dlgA) + '」\n→ 他のキャラクターと区別できる声になっていますか？';
+      }
     }
     notes.push(charUniqueNote);
   }
@@ -15151,7 +15251,14 @@ function staffRoomRunAnalysis(text) {
 
   // ── フォーマット診断
   if (scores['format-correctness'] <= 2) {
-    notes.push({ type: 'warn', text: '脚本フォーマット：柱書き（○場所・時間帯）・ト書き・台詞（キャラ名「台詞」）の基本三要素が不揃いです。プロ投稿ではシーン番号も必須。' + (!hasSceneNumbers && sceneCount > 0 ? 'シーン番号を追加してください。' : '') });
+    const fmtNote = { type: 'warn', text: '脚本フォーマット：①柱書き（番号＋○＋場所・時間帯）②ト書き（3行以内）③台詞（キャラ名「台詞」）の基本三要素が不揃いです。' + (!hasSceneNumbers && sceneCount > 0 ? 'シーン番号を追加してください（例: 1○教室・昼）。' : '') + 'プロ投稿ではフォーマットが審査対象です。' };
+    if (!hasSceneNumbers && sceneLines.length > 0) {
+      fmtNote.quote = sceneLines[0] + '\n↳ この柱書きにシーン番号（1○ 2○ ...）を付けてください';
+    } else if (!hasProperJapFormat) {
+      const firstLine = nonEmpty[0] || '';
+      fmtNote.quote = firstLine.slice(0,60) + (firstLine.length>60?'…':'') + '\n↳ 柱書き形式（例: 1○場所・時間帯）が見当たりません';
+    }
+    notes.push(fmtNote);
   }
 
   // ── 分析情報（拡張）
@@ -15623,7 +15730,7 @@ function staffRoomExport(sessionId) {
     });
   }
 
-  text += `\n${bar}\n  Generated by シナリオラボ 職員室 自動採点システム v4.1\n  18項目・7軸コンクール審査員評価エンジン\n${bar}\n`;
+  text += `\n${bar}\n  Generated by シナリオラボ 職員室 自動採点システム v4.2\n  18項目・7軸コンクール審査員評価エンジン\n${bar}\n`;
 
   const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
   const a = document.createElement('a');
