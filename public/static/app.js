@@ -12562,6 +12562,7 @@ function renderLearnStaffRoom(hero, subnav) {
           const hasAutoScore = scores[item.id] !== undefined;
           const autoReasons = itemDetail.reasons || [];
           const autoIssues = itemDetail.issues || [];
+          const autoQuote = itemDetail.quote || null;
           const scoreVal = scores[item.id] || 0;
           const aiScore = aiItemScores[item.id] || 0;
           const manualVal = manualOverrides[item.id];
@@ -12587,10 +12588,12 @@ function renderLearnStaffRoom(hero, subnav) {
             </div>
             <div style="font-size:10.5px;color:var(--text-muted);line-height:1.6;margin-bottom:${(autoReasons.length > 0 || autoIssues.length > 0) ? '7px' : '2px'}">${item.desc}</div>
             ${(autoReasons.length > 0 || autoIssues.length > 0) ? `
-            <div style="display:flex;flex-direction:column;gap:3px">
-              ${autoReasons.map(r => `<div style="display:flex;align-items:flex-start;gap:5px;font-size:10.5px;color:var(--matcha);line-height:1.5"><span style="flex-shrink:0;font-weight:700;margin-top:1px">✓</span><span>${esc(r)}</span></div>`).join('')}
-              ${autoIssues.map(i2 => `<div style="display:flex;align-items:flex-start;gap:5px;font-size:10.5px;color:var(--momo);line-height:1.5"><span style="flex-shrink:0;font-weight:700;margin-top:1px">⚠</span><span>${esc(i2)}</span></div>`).join('')}
+            <div style="display:flex;flex-direction:column;gap:3px;margin-top:5px">
+              ${autoReasons.map(r => `<div style="display:flex;align-items:flex-start;gap:6px;font-size:10.5px;line-height:1.55"><span style="flex-shrink:0;margin-top:2px;width:14px;height:14px;border-radius:50%;background:var(--matcha);display:inline-flex;align-items:center;justify-content:center;min-width:14px"><i class="fas fa-check" style="font-size:7px;color:#fff"></i></span><span style="color:var(--text-secondary)">${esc(r)}</span></div>`).join('')}
+              ${autoIssues.map(i2 => `<div style="display:flex;align-items:flex-start;gap:6px;font-size:10.5px;line-height:1.55"><span style="flex-shrink:0;margin-top:2px;width:14px;height:14px;border-radius:50%;background:var(--momo);display:inline-flex;align-items:center;justify-content:center;min-width:14px"><i class="fas fa-exclamation" style="font-size:7px;color:#fff"></i></span><span style="color:var(--momo)">${esc(i2)}</span></div>`).join('')}
             </div>` : ''}
+            ${autoQuote ? `
+            <div style="margin-top:6px;padding:6px 10px;background:rgba(0,0,0,.03);border-radius:5px;border-left:2px solid var(--border);font-family:'Noto Serif JP',serif;font-size:10.5px;color:var(--text-secondary);line-height:1.75;word-break:break-all">${esc(autoQuote)}</div>` : ''}
             ${hasDiff ? `
             <div style="margin-top:5px;font-size:10px;color:${diffAmt>0?'#15803d':'#b91c1c'};font-weight:600">
               <i class="fas ${diffAmt>0?'fa-arrow-up':'fa-arrow-down'}" style="font-size:9px;margin-right:3px"></i>
@@ -12745,17 +12748,24 @@ function renderLearnStaffRoom(hero, subnav) {
             <i class="fas fa-microscope" style="color:var(--fuji);font-size:12px"></i>
             <span style="font-size:12px;font-weight:700;color:var(--text-primary)">審査員診断ノート</span>
             <span style="font-size:10px;color:var(--text-muted);background:var(--bg-canvas);border:1px solid var(--border);border-radius:10px;padding:1px 7px">${(autoResult.detailNotes||[]).length}件</span>
-            <span style="font-size:10px;color:var(--matcha);margin-left:4px">${(autoResult.detailNotes||[]).filter(n=>n.type==='good').length}✅</span>
-            <span style="font-size:10px;color:var(--momo)">${(autoResult.detailNotes||[]).filter(n=>n.type==='bad').length}❌</span>
-            <span style="font-size:10px;color:var(--kogane)">${(autoResult.detailNotes||[]).filter(n=>n.type==='warn').length}⚠</span>
+            <span style="font-size:10px;color:var(--matcha);margin-left:4px;display:flex;align-items:center;gap:3px"><span style="width:6px;height:6px;border-radius:50%;background:var(--matcha);flex-shrink:0;display:inline-block"></span>${(autoResult.detailNotes||[]).filter(n=>n.type==='good').length} 良好</span>
+            <span style="font-size:10px;color:var(--momo);display:flex;align-items:center;gap:3px"><span style="width:6px;height:6px;border-radius:50%;background:var(--momo);flex-shrink:0;display:inline-block"></span>${(autoResult.detailNotes||[]).filter(n=>n.type==='bad').length} 要修正</span>
+            <span style="font-size:10px;color:var(--kogane);display:flex;align-items:center;gap:3px"><span style="width:6px;height:6px;border-radius:50%;background:var(--kogane);flex-shrink:0;display:inline-block"></span>${(autoResult.detailNotes||[]).filter(n=>n.type==='warn').length} 注意</span>
             <i id="sr-diag-ic-${s.id}" class="fas fa-chevron-up" style="margin-left:auto;font-size:10px;color:var(--text-muted);transition:transform .2s;transform:rotate(180deg)"></i>
           </div>
           <div id="sr-diag-${s.id}" style="display:block">
             <div style="padding:12px 16px;display:flex;flex-direction:column;gap:6px">
               ${(autoResult.detailNotes||[]).map(n=>`
-              <div style="display:flex;gap:10px;padding:10px 12px;background:${n.type==='good'?'var(--matcha-bg)':n.type==='warn'?'var(--kogane-bg)':'var(--momo-bg)'};border:1px solid ${n.type==='good'?'var(--matcha-border)':n.type==='warn'?'var(--kogane-border)':'var(--momo-border)'};border-radius:8px">
-                <div style="font-size:13px;flex-shrink:0;margin-top:1px">${n.type==='good'?'✅':n.type==='warn'?'⚠️':'❌'}</div>
-                <div style="font-size:11.5px;line-height:1.75;color:var(--text-primary)">${esc(n.text)}</div>
+              <div style="border:1px solid ${n.type==='good'?'var(--matcha-border)':n.type==='warn'?'var(--kogane-border)':'var(--momo-border)'};border-radius:8px;overflow:hidden;border-left:3px solid ${n.type==='good'?'var(--matcha)':n.type==='warn'?'var(--kogane)':'var(--momo)'}">
+                <div style="padding:9px 12px;background:${n.type==='good'?'var(--matcha-bg)':n.type==='warn'?'var(--kogane-bg)':'var(--momo-bg)'};display:flex;gap:8px;align-items:flex-start">
+                  <span style="flex-shrink:0;margin-top:2px;width:16px;height:16px;border-radius:50%;background:${n.type==='good'?'var(--matcha)':n.type==='warn'?'var(--kogane)':'var(--momo)'};display:inline-flex;align-items:center;justify-content:center;min-width:16px">
+                    <i class="fas ${n.type==='good'?'fa-check':n.type==='warn'?'fa-exclamation':'fa-times'}" style="font-size:8px;color:#fff"></i>
+                  </span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:11.5px;line-height:1.75;color:var(--text-primary)">${esc(n.text)}</div>
+                    ${n.quote ? '<div style="margin-top:7px;padding:7px 11px;background:rgba(0,0,0,.04);border-radius:5px;border-left:2px solid ' + (n.type==='good'?'var(--matcha)':n.type==='warn'?'var(--kogane)':'var(--momo)') + ';font-size:11px;color:var(--text-secondary);line-height:1.8;white-space:pre-wrap;word-break:break-all">' + esc(n.quote) + '</div>' : ''}
+                  </div>
+                </div>
               </div>`).join('')}
             </div>
           </div>
@@ -12764,23 +12774,55 @@ function renderLearnStaffRoom(hero, subnav) {
         <!-- ③ 強み・弱み・改稿提案（タブ形式） -->
         <div style="margin-top:10px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg-white)">
           <div style="display:flex;border-bottom:1px solid var(--border);background:var(--bg-subtle)">
-            <button id="sr-fb-tab-str-${s.id}" onclick="staffRoomFbTab('${s.id}','strengths')" style="flex:1;padding:10px 8px;font-size:11px;font-weight:700;border:none;cursor:pointer;border-bottom:2px solid var(--matcha);background:var(--bg-white);color:var(--matcha)"><i class="fas fa-star" style="margin-right:4px"></i>強み</button>
-            <button id="sr-fb-tab-wk-${s.id}" onclick="staffRoomFbTab('${s.id}','weaknesses')" style="flex:1;padding:10px 8px;font-size:11px;font-weight:700;border:none;cursor:pointer;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted)"><i class="fas fa-wrench" style="margin-right:4px"></i>改善点</button>
-            <button id="sr-fb-tab-sg-${s.id}" onclick="staffRoomFbTab('${s.id}','suggestions')" style="flex:1;padding:10px 8px;font-size:11px;font-weight:700;border:none;cursor:pointer;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted)"><i class="fas fa-lightbulb" style="margin-right:4px"></i>改稿提案</button>
-            <button id="sr-fb-tab-pr-${s.id}" onclick="staffRoomFbTab('${s.id}','priority')" style="flex:1;padding:10px 8px;font-size:11px;font-weight:700;border:none;cursor:pointer;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted)"><i class="fas fa-flag" style="margin-right:4px"></i>最優先</button>
+            <button id="sr-fb-tab-str-${s.id}" onclick="staffRoomFbTab('${s.id}','strengths')" style="flex:1;padding:9px 6px;font-size:11px;font-weight:700;border:none;cursor:pointer;border-bottom:2px solid var(--matcha);background:var(--bg-white);color:var(--matcha)"><i class="fas fa-circle-check" style="margin-right:4px;font-size:10px"></i>強み</button>
+            <button id="sr-fb-tab-wk-${s.id}" onclick="staffRoomFbTab('${s.id}','weaknesses')" style="flex:1;padding:9px 6px;font-size:11px;font-weight:700;border:none;cursor:pointer;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted)"><i class="fas fa-circle-xmark" style="margin-right:4px;font-size:10px"></i>改善点</button>
+            <button id="sr-fb-tab-sg-${s.id}" onclick="staffRoomFbTab('${s.id}','suggestions')" style="flex:1;padding:9px 6px;font-size:11px;font-weight:700;border:none;cursor:pointer;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted)"><i class="fas fa-pen-nib" style="margin-right:4px;font-size:10px"></i>改稿提案</button>
+            <button id="sr-fb-tab-pr-${s.id}" onclick="staffRoomFbTab('${s.id}','priority')" style="flex:1;padding:9px 6px;font-size:11px;font-weight:700;border:none;cursor:pointer;border-bottom:2px solid transparent;background:transparent;color:var(--text-muted)"><i class="fas fa-triangle-exclamation" style="margin-right:4px;font-size:10px"></i>最優先</button>
           </div>
-          <div id="sr-fb-strengths-${s.id}" style="padding:14px 16px">
-            <div style="font-size:11.5px;line-height:2;color:var(--text-primary);white-space:pre-line">${esc(autoResult.strengths||'自動採点後に生成されます')}</div>
+          <div id="sr-fb-strengths-${s.id}" style="padding:12px 14px">
+            ${(autoResult.strengths||'').split('\n').filter(l=>l.trim()).map(line => {
+              const isItem = line.startsWith('・');
+              if (!isItem) return `<div style="font-size:11.5px;line-height:1.9;color:var(--text-primary)">${esc(line)}</div>`;
+              return `<div style="display:flex;gap:7px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border-light,#f0f0f0)">
+                <span style="flex-shrink:0;margin-top:3px;width:14px;height:14px;border-radius:50%;background:var(--matcha);display:inline-flex;align-items:center;justify-content:center;min-width:14px"><i class="fas fa-check" style="font-size:7px;color:#fff"></i></span>
+                <span style="font-size:11.5px;line-height:1.75;color:var(--text-primary)">${esc(line.slice(1).trim())}</span>
+              </div>`;
+            }).join('') || `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:16px">自動採点後に生成されます</div>`}
           </div>
-          <div id="sr-fb-weaknesses-${s.id}" style="padding:14px 16px;display:none">
-            <div style="font-size:11.5px;line-height:2;color:var(--text-primary);white-space:pre-line">${esc(autoResult.weaknesses||'自動採点後に生成されます')}</div>
+          <div id="sr-fb-weaknesses-${s.id}" style="padding:12px 14px;display:none">
+            ${(autoResult.weaknesses||'').split('\n').filter(l=>l.trim()).map(line => {
+              const isItem = line.startsWith('・');
+              if (!isItem) return `<div style="font-size:11.5px;line-height:1.9;color:var(--text-primary)">${esc(line)}</div>`;
+              return `<div style="display:flex;gap:7px;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border-light,#f0f0f0)">
+                <span style="flex-shrink:0;margin-top:3px;width:14px;height:14px;border-radius:50%;background:var(--momo);display:inline-flex;align-items:center;justify-content:center;min-width:14px"><i class="fas fa-exclamation" style="font-size:7px;color:#fff"></i></span>
+                <span style="font-size:11.5px;line-height:1.75;color:var(--text-primary)">${esc(line.slice(1).trim())}</span>
+              </div>`;
+            }).join('') || `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:16px">自動採点後に生成されます</div>`}
           </div>
-          <div id="sr-fb-suggestions-${s.id}" style="padding:14px 16px;display:none">
-            <div style="font-size:11.5px;line-height:2;color:var(--text-primary);white-space:pre-line">${esc(autoResult.suggestions||'自動採点後に生成されます')}</div>
+          <div id="sr-fb-suggestions-${s.id}" style="padding:12px 14px;display:none">
+            ${(autoResult.suggestions||'').split('\n').filter(l=>l.trim()).map(line => {
+              const isItem = line.startsWith('・');
+              const isSubItem = line.startsWith('  ') || line.startsWith('  （');
+              if (isSubItem) return `<div style="padding:3px 0 3px 24px;font-size:10.5px;color:var(--text-secondary);line-height:1.7;font-family:'Noto Serif JP',serif">${esc(line.trim())}</div>`;
+              if (!isItem) return `<div style="font-size:11.5px;line-height:1.9;color:var(--text-primary)">${esc(line)}</div>`;
+              return `<div style="margin-bottom:2px;padding-top:6px">
+                <div style="display:flex;gap:7px;align-items:flex-start">
+                  <span style="flex-shrink:0;margin-top:3px;width:14px;height:14px;border-radius:50%;background:var(--kogane);display:inline-flex;align-items:center;justify-content:center;min-width:14px"><i class="fas fa-pen" style="font-size:6px;color:#fff"></i></span>
+                  <span style="font-size:11.5px;line-height:1.75;color:var(--text-primary);font-weight:600">${esc(line.slice(1).trim())}</span>
+                </div>
+              </div>`;
+            }).join('') || `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:16px">自動採点後に生成されます</div>`}
           </div>
-          <div id="sr-fb-priority-${s.id}" style="padding:14px 16px;display:none">
-            <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">次稿で最初に取り組むべき課題：</div>
-            <div style="font-size:12px;line-height:2;color:var(--text-primary);white-space:pre-line;font-weight:600">${esc(autoResult.priority||'自動採点後に生成されます')}</div>
+          <div id="sr-fb-priority-${s.id}" style="padding:12px 14px;display:none">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">次稿で最初に取り組むべき課題：</div>
+            ${(autoResult.priority||'').split('\n').filter(l=>l.trim()).map((line, i) => {
+              const numMatch = line.match(/^(\d+)\.\s*(.+)/);
+              if (numMatch) return `<div style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border-light,#f0f0f0)">
+                <span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:var(--fuji);color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;min-width:20px">${numMatch[1]}</span>
+                <span style="font-size:12px;line-height:1.75;color:var(--text-primary);font-weight:600">${esc(numMatch[2])}</span>
+              </div>`;
+              return `<div style="font-size:11.5px;line-height:1.75;color:var(--text-primary);padding:4px 0">${esc(line)}</div>`;
+            }).join('') || `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:16px">自動採点後に生成されます</div>`}
           </div>
         </div>
 
@@ -12981,9 +13023,10 @@ function renderLearnStaffRoom(hero, subnav) {
       ${autoResult ? `
       <div id="sr-tutor-panel-${s.id}" style="margin-bottom:18px;border:1px solid var(--fuji-border,#e0d0ff);border-radius:12px;overflow:hidden;background:var(--bg-white)">
         <div style="padding:12px 16px;background:linear-gradient(90deg,var(--fuji-bg,#f5f0ff),#fff0);border-bottom:1px solid var(--fuji-border,#e0d0ff);display:flex;align-items:center;gap:8px;cursor:pointer" onclick="const b=document.getElementById('sr-tutor-body-${s.id}');const ic=document.getElementById('sr-tutor-ic-${s.id}');const open=b.style.display!=='none';b.style.display=open?'none':'block';ic.style.transform=open?'':'rotate(180deg)'">
-          <i class="fas fa-graduation-cap" style="color:var(--fuji);font-size:13px"></i>
-          <span style="font-size:12px;font-weight:700;color:var(--text-primary)">AIチュータリング</span>
-          <span style="font-size:10px;background:var(--fuji-bg,#f0eeff);color:var(--fuji);border:1px solid var(--fuji-border,#e0d0ff);border-radius:10px;padding:1px 7px;font-weight:600">優先課題の書き直し例</span>
+          <i class="fas fa-pen-ruler" style="color:var(--fuji);font-size:12px"></i>
+          <span style="font-size:12px;font-weight:700;color:var(--text-primary)">改稿テクニック</span>
+          <span style="font-size:10px;background:var(--fuji-bg,#f0eeff);color:var(--fuji);border:1px solid var(--fuji-border,#e0d0ff);border-radius:10px;padding:1px 7px;font-weight:600">優先課題 Before/After</span>
+          <span style="font-size:10px;color:var(--text-muted);margin-left:2px">脚本引用つき</span>
           <i id="sr-tutor-ic-${s.id}" class="fas fa-chevron-up" style="margin-left:auto;font-size:10px;color:var(--text-muted);transition:transform .2s;transform:rotate(180deg)"></i>
         </div>
         <div id="sr-tutor-body-${s.id}" style="display:block;padding:16px">
@@ -13045,20 +13088,20 @@ function renderLearnStaffRoom(hero, subnav) {
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
           <div>
-            <label class="form-label" style="color:var(--matcha);font-size:11px;margin-bottom:4px">✅ 優れている点</label>
+            <label class="form-label" style="color:var(--matcha);font-size:11px;margin-bottom:4px;display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:var(--matcha);flex-shrink:0;display:inline-block"></span>優れている点</label>
             <textarea id="staffroom-strengths-${s.id}" class="form-textarea" rows="5" style="font-size:12px;line-height:1.8;resize:vertical;border-color:var(--matcha-border)" placeholder="・台詞のリズムが良い&#10;・主人公の動機が明確&#10;・ビジュアルシーンが秀逸" oninput="staffRoomAutoSaveFeedback('${s.id}')">${esc((s.feedback||{}).strengths||'')}</textarea>
           </div>
           <div>
-            <label class="form-label" style="color:var(--momo);font-size:11px;margin-bottom:4px">⚠️ 改善が必要な点</label>
+            <label class="form-label" style="color:var(--momo);font-size:11px;margin-bottom:4px;display:flex;align-items:center;gap:5px"><span style="width:8px;height:8px;border-radius:50%;background:var(--momo);flex-shrink:0;display:inline-block"></span>改善が必要な点</label>
             <textarea id="staffroom-weaknesses-${s.id}" class="form-textarea" rows="5" style="font-size:12px;line-height:1.8;resize:vertical;border-color:var(--momo-border)" placeholder="・第二幕の中盤がたるい&#10;・説明台詞が多い&#10;・対立がもっと明確に" oninput="staffRoomAutoSaveFeedback('${s.id}')">${esc((s.feedback||{}).weaknesses||'')}</textarea>
           </div>
         </div>
         <div style="margin-bottom:10px">
-          <label class="form-label" style="font-size:11px;margin-bottom:4px">💡 具体的な改稿提案</label>
+          <label class="form-label" style="font-size:11px;margin-bottom:4px;display:flex;align-items:center;gap:5px"><i class="fas fa-pen-nib" style="color:var(--kogane);font-size:10px"></i>具体的な改稿提案</label>
           <textarea id="staffroom-suggestions-${s.id}" class="form-textarea" rows="5" style="font-size:12px;line-height:1.8;resize:vertical" placeholder="・冒頭シーンで主人公の外的目標（Want）を視覚的に示す1シーンを追加する&#10;・全説明台詞を見直し、行動・映像・沈黙に置き換える&#10;・主人公の変化を「ビフォー → 転機 → アフター」で設計し直す" oninput="staffRoomAutoSaveFeedback('${s.id}')">${esc((s.feedback||{}).suggestions||'')}</textarea>
         </div>
         <div style="margin-bottom:12px">
-          <label class="form-label" style="color:var(--fuji);font-size:11px;margin-bottom:4px">🎯 次稿に向けた最重要課題（1〜3点）</label>
+          <label class="form-label" style="color:var(--fuji);font-size:11px;margin-bottom:4px;display:flex;align-items:center;gap:5px"><i class="fas fa-flag" style="color:var(--fuji);font-size:10px"></i>次稿に向けた最重要課題（1〜3点）</label>
           <textarea id="staffroom-priority-${s.id}" class="form-textarea" rows="3" style="font-size:12px;line-height:1.8;resize:vertical;border-color:var(--fuji-border,#e0d0ff)" placeholder="1. 〇〇を解決することが第一優先&#10;2. セリフ全般の説明台詞を削る改稿&#10;3. 第三幕のクライマックスをより明確に" oninput="staffRoomAutoSaveFeedback('${s.id}')">${esc((s.feedback||{}).priority||'')}</textarea>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
@@ -13399,6 +13442,11 @@ function staffRoomClearAutoScore(sessionId) {
 }
 
 // ── AIチュータリング：優先課題の書き直し例生成 ──────────────────
+// ── 診断ノートテキスト整形ヘルパー ─────────────────────────────────
+function staffRoomFormatNoteText(text) {
+  return text.replace(/^[✅❌⚠️📝🎬🎭💡🔍🔧]+\s*/u, '');
+}
+
 function staffRoomGenerateTutoringExamples(session) {
   const ar = session.autoScoreResult;
   if (!ar) return '<div style="font-size:11px;color:var(--text-muted)">自動採点後に表示されます。</div>';
@@ -13482,6 +13530,38 @@ function staffRoomGenerateTutoringExamples(session) {
       label: 'ト書きの簡潔さ',
       tips: [
         { title: '過剰なト書きを削ぎ落とす', bad: '田中は非常に怒った表情で、両手を強く握りしめながら、ゆっくりと立ち上がり、窓の外を長い時間見つめた後、深い溜め息をついた。', good: '田中、立つ。\n窓。長い沈黙。', tip: '「演出しすぎない」。ト書きは「何が起きているか」だけを書き、「どう感じているか」は役者に委ねましょう。1ト書きは1〜2文が理想です。' },
+        { title: '感情描写をアクションに置き換える', bad: '佐藤は深く後悔し、自分のこれまでの行動を振り返って、どうすればよかったのかを考え込んでいた。', good: '佐藤、冷えたコーヒーを一口飲む——すぐに戻す。\nカップをゆっくりと机に置く。\n（手が、わずかに震えている）', tip: '感情は「内面の状態」を書かず、「身体の動き・物との関係・行動の細部」で示しましょう。役者が演じられる情報だけを書くのがプロのト書きです。' },
+      ]
+    },
+    'pacing': {
+      label: 'ペーシング（緩急）',
+      tips: [
+        { title: '停滞シーンを切り上げて次の目標へ', bad: 'シーン5: 田中と花子が喫茶店で話す。\nシーン6: 田中と花子が同じ喫茶店でまだ話している。\nシーン7: 花子が帰る準備をしながらまだ話す。', good: '【シーン5（喫茶店）：入場→目的達成→退場を1シーンで完結】\n田中「一つだけ聞かせてくれ」\n花子「……何？」\n田中「昨日、嘘をついたよね」\n（間）\n花子、立ち上がる——コートを手にとって出口へ向かう。', tip: '「このシーンは何のために存在するか？」を一言で言えること。入場時と退場時で何かが変化していること。それだけでペーシングは劇的に改善します。' },
+        { title: 'テンション曲線を設計する（緩→急→緩→急）', bad: '（全シーンがほぼ同じ感情温度で続く）', good: '【シーン1: 緩 — 日常の会話】\n【シーン2: 急 — 突然の電話】\n【シーン3: 緩 — 静かな回想】\n【シーン4: 急 — 対立の爆発】\n→ 緩急のリズムが読者に「呼吸」を与える', tip: 'テンションの低いシーンは高いシーンの前フリです。山と谷を交互に配置し、読者に「感情の波」を体験させましょう。' },
+      ]
+    },
+    'plot-logic': {
+      label: 'プロットの論理的一貫性',
+      tips: [
+        { title: 'ご都合主義の展開を因果関係に変換する', bad: 'たまたま田中がそこを通りかかり、偶然にも事件を目撃した。', good: '田中が帰宅ルートを変えたのには理由があった——昨夜の電話、花子の「東口から来て」という一言。\nその一言が、田中をあの路地に向かわせた。', tip: '「偶然・たまたま・ちょうど」をすべて削除してみましょう。その代わりに「なぜ主人公がそこにいるのか」を前のシーンに仕込む。偶然を必然に変えることが脚本の技術です。' },
+      ]
+    },
+    'char-unique': {
+      label: 'キャラクターの固有性',
+      tips: [
+        { title: '各キャラクターの「声の設計書」を作る', bad: '田中「今日の会議はどうだった？」\n花子「まあまあかな。難しかったよ」\n上司「そうか。お疲れ様」', good: '田中（省略型・直球）「会議——どうだった」\n花子（丁寧・回避型）「えーと……先方が、少し、難しいとおっしゃって」\n上司（結論先行型）「通ったか通らなかったか」', tip: 'キャラごとに「語彙の範囲・文末の癖・話すスピード・省略の有無・口癖・禁句」を設計書に書いてから台詞を書く。そうするとキャラが自然に「しゃべりだします」。' },
+      ]
+    },
+    'format-correctness': {
+      label: '脚本フォーマット',
+      tips: [
+        { title: '日本語脚本の正式フォーマットを整える', bad: '場面1\n田中が歩いています。花子に会います。\n花子：こんにちは\n田中：やあ', good: '1○商店街・日\n\n田中（30）、人混みの中をゆっくり歩く。\n\n花子（28）が向こうから現れる。田中に気づき——\n\n花子「……久しぶり」\n田中「（止まる）……うん」', tip: '日本語脚本の基本形式：①柱書き（番号＋○＋場所・時間帯）②ト書き（3行以内）③キャラ名＋「台詞」。この三要素のリズムを整えるだけで読みやすさが格段に向上します。' },
+      ]
+    },
+    'production-viability': {
+      label: '映像化実現可能性',
+      tips: [
+        { title: '大規模設定を日常的な設定に転換する', bad: '宇宙ステーション内。巨大なモンスターとの死闘が繰り広げられる。', good: '（同じテーマを）古いアパートの一室。光の届かない廊下。\n田中は出口を探して走り続けるが——部屋が全て同じに見える。', tip: 'ドラマコンクールでは「限られた予算で撮れるか」も評価基準の一つです。大規模なVFXや多数のエキストラが必要な設定は、より日常的な舞台に置き換えても物語は伝わります。' },
       ]
     },
   };
@@ -13497,8 +13577,8 @@ function staffRoomGenerateTutoringExamples(session) {
     </div>`;
   }
 
-  // 上位4項目（スコア1〜3）をチュータリング対象に
-  const targets = itemScoreList.filter(([,v]) => v <= 3).slice(0, 4);
+  // 上位5項目（スコア1〜3）をチュータリング対象に
+  const targets = itemScoreList.filter(([,v]) => v <= 3).slice(0, 5);
   if (targets.length === 0) {
     // スコアが全て高い場合は上位2項目
     targets.push(...itemScoreList.slice(0, 2));
@@ -13512,34 +13592,40 @@ function staffRoomGenerateTutoringExamples(session) {
     const urgency = score <= 1 ? '最優先' : score <= 2 ? '高優先' : '要改善';
     const issues = (itemDetails[itemId]?.issues || []).slice(0, 2);
 
-    return `<div style="border:1px solid ${scoreColor}33;border-radius:10px;overflow:hidden;border-left:3px solid ${scoreColor}">
-      <div style="padding:10px 14px;background:${scoreColor}08;display:flex;align-items:center;gap:8px">
-        <span style="font-size:11px;background:${scoreColor};color:#fff;padding:1px 7px;border-radius:10px;font-weight:700;flex-shrink:0">${urgency}</span>
+    const scriptQuote = itemDetails[itemId] ? itemDetails[itemId].quote : null;
+    return `<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;border-left:3px solid ${scoreColor};box-shadow:0 1px 4px rgba(0,0,0,.05)">
+      <div style="padding:9px 13px;background:${scoreColor}08;display:flex;align-items:center;gap:8px;border-bottom:1px solid ${scoreColor}18">
+        <span style="font-size:10px;background:${scoreColor};color:#fff;padding:1px 7px;border-radius:6px;font-weight:700;flex-shrink:0;letter-spacing:.04em">${urgency}</span>
         <span style="font-size:12.5px;font-weight:700;color:var(--text-primary)">${esc(db.label)}</span>
-        <span style="font-size:10px;color:${scoreColor};font-weight:700;margin-left:auto">${score}/5</span>
+        <span style="font-size:11px;color:${scoreColor};font-weight:800;margin-left:auto">${score}<span style="font-size:9px;opacity:.6">/5</span></span>
       </div>
-      ${issues.length > 0 ? `
-      <div style="padding:8px 14px;background:${scoreColor}06;border-bottom:1px dashed ${scoreColor}22">
-        ${issues.map(i2 => `<div style="font-size:10.5px;color:var(--momo);display:flex;gap:5px;margin-bottom:2px"><span>⚠</span><span>${esc(i2)}</span></div>`).join('')}
+      ${(issues.length > 0 || scriptQuote) ? `
+      <div style="padding:9px 13px;background:var(--bg-subtle);border-bottom:1px solid var(--border-light,#f0f0f0)">
+        ${issues.map(i2 => `<div style="font-size:10.5px;color:var(--momo);display:flex;gap:6px;margin-bottom:3px;align-items:flex-start"><span style="flex-shrink:0;margin-top:2px;width:13px;height:13px;border-radius:50%;background:var(--momo);display:inline-flex;align-items:center;justify-content:center;min-width:13px"><i class="fas fa-exclamation" style="font-size:7px;color:#fff"></i></span><span>${esc(i2)}</span></div>`).join('')}
+        ${scriptQuote ? `<div style="margin-top:${issues.length>0?'6px':'0'};padding:6px 10px;background:var(--momo-bg,#fff5f5);border:1px solid var(--momo-border,#fecaca);border-radius:5px;font-family:'Noto Serif JP',serif;font-size:11px;color:#7f1d1d;line-height:1.75;word-break:break-all"><span style="font-size:9.5px;font-weight:700;color:var(--momo);display:block;margin-bottom:3px">採点対象の脚本から：</span>${esc(scriptQuote)}</div>` : ''}
       </div>` : ''}
-      <div style="padding:12px 14px">
-        <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:8px;display:flex;align-items:center;gap:5px">
-          <i class="fas fa-pen-ruler" style="color:var(--fuji);font-size:10px"></i>
-          ${esc(tip.title)}
+      <div style="padding:12px 13px">
+        <div style="font-size:11px;font-weight:700;color:var(--text-secondary);margin-bottom:9px;display:flex;align-items:center;gap:5px">
+          <i class="fas fa-pen-nib" style="color:var(--fuji);font-size:10px"></i>
+          改稿テクニック：${esc(tip.title)}
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:9px 11px">
-            <div style="font-size:9.5px;font-weight:700;color:#b91c1c;margin-bottom:5px;display:flex;align-items:center;gap:3px"><i class="fas fa-times-circle" style="font-size:9px"></i> 改善前（典型的パターン）</div>
-            <pre style="font-size:10.5px;color:#7f1d1d;line-height:1.7;white-space:pre-wrap;margin:0;font-family:'Noto Serif JP',serif">${esc(tip.bad)}</pre>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:9px">
+          <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:7px;padding:8px 10px">
+            <div style="font-size:9px;font-weight:700;color:#b91c1c;margin-bottom:5px;display:flex;align-items:center;gap:3px;letter-spacing:.04em">
+              <span style="width:8px;height:8px;border-radius:50%;background:#b91c1c;flex-shrink:0;display:inline-block"></span> Before（問題のあるパターン）
+            </div>
+            <pre style="font-size:10.5px;color:#7f1d1d;line-height:1.75;white-space:pre-wrap;margin:0;font-family:'Noto Serif JP',serif">${esc(tip.bad)}</pre>
           </div>
-          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:9px 11px">
-            <div style="font-size:9.5px;font-weight:700;color:#15803d;margin-bottom:5px;display:flex;align-items:center;gap:3px"><i class="fas fa-check-circle" style="font-size:9px"></i> 改善後（推奨例）</div>
-            <pre style="font-size:10.5px;color:#14532d;line-height:1.7;white-space:pre-wrap;margin:0;font-family:'Noto Serif JP',serif">${esc(tip.good)}</pre>
+          <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:7px;padding:8px 10px">
+            <div style="font-size:9px;font-weight:700;color:#15803d;margin-bottom:5px;display:flex;align-items:center;gap:3px;letter-spacing:.04em">
+              <span style="width:8px;height:8px;border-radius:50%;background:#15803d;flex-shrink:0;display:inline-block"></span> After（推奨する書き方）
+            </div>
+            <pre style="font-size:10.5px;color:#14532d;line-height:1.75;white-space:pre-wrap;margin:0;font-family:'Noto Serif JP',serif">${esc(tip.good)}</pre>
           </div>
         </div>
-        <div style="background:var(--fuji-bg,#f5f0ff);border:1px solid var(--fuji-border,#e0d0ff);border-radius:7px;padding:8px 11px">
-          <div style="font-size:10px;color:var(--fuji);font-weight:700;margin-bottom:3px"><i class="fas fa-lightbulb" style="margin-right:3px"></i>ポイント</div>
-          <div style="font-size:10.5px;color:var(--text-primary);line-height:1.7">${esc(tip.tip)}</div>
+        <div style="background:var(--fuji-bg,#f5f0ff);border:1px solid var(--fuji-border,#e0d0ff);border-radius:7px;padding:8px 11px;display:flex;gap:8px;align-items:flex-start">
+          <i class="fas fa-lightbulb" style="color:var(--fuji);font-size:11px;margin-top:2px;flex-shrink:0"></i>
+          <div style="font-size:10.5px;color:var(--text-primary);line-height:1.75">${esc(tip.tip)}</div>
         </div>
       </div>
     </div>`;
@@ -14021,7 +14107,17 @@ function staffRoomRunAnalysis(text) {
     const convenientCount = convenientKws.filter(kw => text.includes(kw)).length;
     if (convenientCount >= 2) { pts = Math.max(1, pts - 1); issues.push('ご都合主義的展開（偶然・奇跡）が' + convenientCount + '箇所'); }
     scores['plot-logic'] = Math.min(5, Math.max(1, pts));
-    itemDetails['plot-logic'] = { reasons, issues };
+    // ご都合主義的展開の引用
+    const plotQuoteEx = (() => {
+      const convKws = ['たまたま', 'ちょうど', '偶然', '都合よく', '奇跡的に'];
+      for (const line of nonEmpty) {
+        if (convKws.some(k => line.includes(k))) {
+          return line.length > 70 ? line.slice(0, 70) + '…' : line;
+        }
+      }
+      return null;
+    })();
+    itemDetails['plot-logic'] = { reasons, issues, quote: plotQuoteEx };
   }
 
   // ── C-3: ペーシング（緩急）（客観計測）
@@ -14102,7 +14198,16 @@ function staffRoomRunAnalysis(text) {
     else if (charVocabUniqueness > 0.2) reasons.push('キャラ別の語彙に一定の差異あり');
     if (uniqueChars < 2) issues.push('識別可能な登場人物が少ない（対立・補完キャラを追加）');
     scores['char-unique'] = Math.min(5, Math.max(1, pts));
-    itemDetails['char-unique'] = { reasons, issues };
+    // キャラ固有語張の例を抽出
+    const charUniqueQuote = (() => {
+      if (Object.keys(charCounts).length < 2) return null;
+      // 最少発言キャラの台詞を一例表示
+      const leastChar = Object.entries(charCounts).sort((a,b) => a[1]-b[1])[0];
+      if (!leastChar || !dialogueByChar[leastChar[0]]) return null;
+      const d = (dialogueByChar[leastChar[0]] || [])[0];
+      return d ? leastChar[0] + '「' + (d.length > 50 ? d.slice(0,50) + '…' : d) + '」' : null;
+    })();
+    itemDetails['char-unique'] = { reasons, issues, quote: charUniqueQuote };
   }
 
   // ── C-7: サブテキストの活用（主観重視）v4.1チューニング
@@ -14134,7 +14239,14 @@ function staffRoomRunAnalysis(text) {
       issues.push('沈黙・間・省略を活用したサブテキストが少ない（「…」「（間）」等を活用）');
     }
     scores['subtext'] = Math.min(5, Math.max(1, pts));
-    itemDetails['subtext'] = { reasons, issues };
+    const subtextQuoteEx = (() => {
+      const pats = ['なんですよ', 'ということは', 'つまり', '実は私', '要するに', '説明しておくと'];
+      for (const d of dialogueTexts) {
+        if (pats.some(p => d.includes(p))) return '「' + (d.length > 70 ? d.slice(0, 70) + '…' : d) + '」';
+      }
+      return null;
+    })();
+    itemDetails['subtext'] = { reasons, issues, quote: subtextQuoteEx };
   }
 
   // ── C-8: キャラクターの声の固有性（主観分析）v4.1チューニング
@@ -14184,7 +14296,13 @@ function staffRoomRunAnalysis(text) {
       if (avgDialogueLen > 70) issues.push('1セリフが長い（60字以内を目安に分割を検討）');
     }
     scores['naturalness'] = Math.min(5, Math.max(1, pts));
-    itemDetails['naturalness'] = { reasons, issues };
+    const naturalnessQuoteEx = (() => {
+      const long = dialogueTexts.filter(d => d.length > 55);
+      if (!long.length) return null;
+      const s = long.sort((a,b) => b.length-a.length)[0];
+      return '「' + (s.length > 80 ? s.slice(0, 80) + '…' : s) + '」';
+    })();
+    itemDetails['naturalness'] = { reasons, issues, quote: naturalnessQuoteEx };
   }
 
   // ── C-10: ビジュアルストーリーテリング（主観重視）
@@ -14225,7 +14343,13 @@ function staffRoomRunAnalysis(text) {
     if (avgActionLen > 0 && avgActionLen < 50) reasons.push('ト書き平均' + Math.round(avgActionLen) + '字（適切）');
     if (shortActionRatio >= 0.5) reasons.push('簡潔なト書きスタイル（映像的な文体）');
     scores['direction-clarity'] = Math.min(5, Math.max(1, pts));
-    itemDetails['direction-clarity'] = { reasons, issues };
+    const dirQuoteEx = (() => {
+      const long = actionLines.filter(l => l.length > 90);
+      if (!long.length) return null;
+      const s = long.sort((a,b) => b.length-a.length)[0];
+      return s.length > 100 ? s.slice(0, 100) + '…' : s;
+    })();
+    itemDetails['direction-clarity'] = { reasons, issues, quote: dirQuoteEx };
   }
 
   // ── C-12: テーマの一貫性・深度（主観重視）
@@ -14468,79 +14592,104 @@ function staffRoomRunAnalysis(text) {
 
   // ── 構成診断（最重要）
   if (scores['three-act'] >= 4) {
-    notes.push({ type: 'good', text: '✅ 構成：発端事件→対立→クライマックスの三幕構造が機能しています。' + (incitingInFirstHalf ? '前半での発端事件の配置も適切。' : '') + '読み手を最後まで引き付ける骨格があります。' });
+    notes.push({ type: 'good', text: '構成：発端事件→対立→クライマックスの三幕構造が機能しています。' + (incitingInFirstHalf ? '前半での発端事件の配置も適切。' : '') + '読み手を最後まで引き付ける骨格があります。' });
   } else if (scores['three-act'] <= 2) {
     const missing = [];
     if (!hasIncitingIncident) missing.push('発端事件');
     if (!hasConflict) missing.push('対立・コンフリクト');
     if (!hasClimax) missing.push('クライマックス');
-    notes.push({ type: 'bad', text: '❌ 構成：三幕構造に問題があります。不足要素：【' + missing.join('・') + '】。「①日常→②発端事件→③障害と葛藤→④クライマックス→⑤解決」の流れを意識して設計し直してください。現在' + sceneCount + 'シーン。' });
+    notes.push({ type: 'bad', text: '構成：三幕構造に問題があります。不足要素：【' + missing.join('・') + '】。「①日常→②発端事件→③障害と葛藤→④クライマックス→⑤解決」の流れを意識して設計し直してください。現在' + sceneCount + 'シーン。' });
   }
 
   if (scores['pacing'] <= 2) {
     if (sceneLengths.length >= 2) {
       const avgLen = Math.round(sceneLengths.reduce((a, b) => a + b, 0) / sceneLengths.length);
-      notes.push({ type: 'warn', text: '⚠️ ペーシング：シーン平均' + avgLen + '行。' + (avgLen > 35 ? 'シーンが長すぎます。1シーン=1目的を徹底し、目的達成後はすぐ切ってください。' : avgLen < 3 ? 'シーンが短すぎます。各場面をもう少し展開してください。' : 'セリフとト書きのバランスを見直してください。') });
+      notes.push({ type: 'warn', text: 'ペーシング：シーン平均' + avgLen + '行。' + (avgLen > 35 ? 'シーンが長すぎます。1シーン=1目的を徹底し、目的達成後はすぐ切ってください。' : avgLen < 3 ? 'シーンが短すぎます。各場面をもう少し展開してください。' : 'セリフとト書きのバランスを見直してください。') });
     } else {
-      notes.push({ type: 'warn', text: '⚠️ ペーシング：セリフ比率' + Math.round(dialogueRatio * 100) + '%。' + (dialogueRatio > 0.75 ? 'セリフが多すぎます。映像的なシーンを増やしてください。' : '場面転換が少ない可能性があります。') });
+      notes.push({ type: 'warn', text: 'ペーシング：セリフ比率' + Math.round(dialogueRatio * 100) + '%。' + (dialogueRatio > 0.75 ? 'セリフが多すぎます。映像的なシーンを増やしてください。' : '場面転換が少ない可能性があります。') });
     }
   }
 
   // ── キャラクター診断
   if (scores['protag-want-need'] <= 2) {
-    notes.push({ type: 'bad', text: '❌ Want/Need：' + (mainCharName ? '「' + mainCharName + '」' : '主人公') + 'の欲求設計が弱い。①外的目標（Want: 何を手に入れたいか）と②内的必要性（Need: 本当は何が必要か）の両方を明確化し、両者が対立する構造にすると最強のドラマが生まれます。' });
+    notes.push({ type: 'bad', text: 'Want/Need設計：' + (mainCharName ? '「' + mainCharName + '」' : '主人公') + 'の欲求設計が弱い。①外的目標（Want: 何を手に入れたいか）と②内的必要性（Need: 本当は何が必要か）の両方を明確化し、両者が対立する構造にすると最強のドラマが生まれます。' });
   } else if (scores['protag-want-need'] >= 4) {
-    notes.push({ type: 'good', text: '✅ Want/Need：' + (mainCharName ? '「' + mainCharName + '」' : '主人公') + 'の動機設計が優秀です。外的欲求と内的必要性が明確で、読者の感情移入を促す設計になっています。' });
+    notes.push({ type: 'good', text: 'Want/Need設計：' + (mainCharName ? '「' + mainCharName + '」' : '主人公') + 'の動機設計が優秀です。外的欲求と内的必要性が明確で、読者の感情移入を促す設計になっています。' });
   }
 
   if (scores['char-arc'] <= 2) {
-    notes.push({ type: 'bad', text: '❌ キャラクターアーク：物語を通じた主人公の変容が描かれていません。脚本の最終目標は「主人公が変わること」です。第1幕で欠点/傷を見せ→第2幕で葛藤で壊れ→第3幕で変容する、の三段階で設計してください。' });
+    notes.push({ type: 'bad', text: 'キャラクターアーク：物語を通じた主人公の変容が描かれていません。脚本の最終目標は「主人公が変わること」です。第1幕で欠点/傷を見せ→第2幕で葛藤で壊れ→第3幕で変容する、の三段階で設計してください。' });
   }
 
   // ── セリフ・台詞診断
+  const onTheNoseSample = (() => {
+    const pats = ['なんですよ', 'ということは', 'つまり', '実は私', '要するに', '説明しておくと'];
+    for (const d of dialogueTexts) {
+      if (pats.some(p => d.includes(p))) return d.length > 80 ? d.slice(0, 80) + '…' : d;
+    }
+    return null;
+  })();
   if (scores['subtext'] <= 2 && onTheNoseCount >= 3) {
-    notes.push({ type: 'bad', text: '❌ 説明台詞：解説的・説明的なセリフが' + onTheNoseCount + '箇所検出されました。「なんですよ」「つまり」「実は私」で説明するセリフを削り、行動・映像・沈黙で感情を表現してください。コンクール審査員は第1ページから説明台詞があると減点します。' });
+    const noteObjSubtext = { type: 'bad', text: '説明台詞：解説的・説明的なセリフが' + onTheNoseCount + '箇所検出されました。感情や意図を直接言葉で説明するセリフを削り、行動・映像・沈黙で表現してください。コンクール審査員は最初のページから説明台詞があると減点します。' };
+    if (onTheNoseSample) noteObjSubtext.quote = '「' + onTheNoseSample + '」';
+    notes.push(noteObjSubtext);
   } else if (scores['subtext'] >= 4) {
-    notes.push({ type: 'good', text: '✅ サブテキスト：説明台詞を排し、行間で感情・意図を表現できています。プロの書き方ができています。' + (subtextHardCount >= 2 ? '特に沈黙・間の使い方が効果的です。' : '') });
+    notes.push({ type: 'good', text: 'サブテキスト：説明台詞を排し、行間で感情・意図を表現できています。プロの書き方ができています。' + (subtextHardCount >= 2 ? '特に沈黙・間の使い方が効果的です。' : '') });
   }
 
   if (avgDialogueLen > 70 && totalDialogueLines >= 3) {
-    notes.push({ type: 'warn', text: '⚠️ セリフ長：平均' + Math.round(avgDialogueLen) + '字と長すぎます。実際の会話は10〜30字程度が自然です。長いセリフは「演説」に見えます。1セリフ60字超えたら分割か削除を検討してください。' });
+    const longDlgSample = (() => {
+      const long = dialogueTexts.filter(d => d.length > 70);
+      if (!long.length) return null;
+      const s = long.reduce((a, b) => a.length > b.length ? a : b);
+      return s.length > 90 ? s.slice(0, 90) + '…' : s;
+    })();
+    const noteObjDlgLen = { type: 'warn', text: 'セリフ長：平均' + Math.round(avgDialogueLen) + '字と長めです。実際の会話は10〜30字程度が自然です。長いセリフは「演説」に見えます。1セリフ60字超えたら分割か削除を検討してください。' };
+    if (longDlgSample) noteObjDlgLen.quote = '「' + longDlgSample + '」';
+    notes.push(noteObjDlgLen);
   }
 
-  // ── 新: 対話ダイナミクス診断
+  // ── 対話ダイナミクス診断
   if (scores['dialogue-dynamics'] >= 4) {
     const _iakws = ['知らない', '秘密', '隠している', 'まだ言っていない', 'バレる', '気づいていない'];
     const _iaNote = _iakws.some(kw => text.includes(kw)) ? '情報の非対称性によるサスペンスも効果的。' : '';
-    notes.push({ type: 'good', text: '✅ 対話の引力：キャラ間の緊張・欲求の衝突が会話に宿っています（緊張要素' + tensionCount + '箇所）。' + _iaNote });
+    notes.push({ type: 'good', text: '対話の引力：キャラ間の緊張・欲求の衝突が会話に宿っています（緊張要素' + tensionCount + '箇所）。' + _iaNote });
   } else if (scores['dialogue-dynamics'] <= 2 && totalDialogueLines >= 4) {
-    notes.push({ type: 'warn', text: '⚠️ 対話の引力：キャラクター間の会話に緊張感・目的の衝突が不足しています。各キャラが「異なる目的・情報・感情」を持って同じシーンに入場する設計にしてください。' });
+    notes.push({ type: 'warn', text: '対話の引力：キャラクター間の会話に緊張感・目的の衝突が不足しています。各キャラが「異なる目的・情報・感情」を持って同じシーンに入場する設計にしてください。' });
   }
 
   // ── ト書き診断
   if (scores['direction-clarity'] <= 2) {
-    notes.push({ type: 'bad', text: '❌ ト書き：90字超の長いト書きが' + longActionCount + '箇所あります。ト書きに書くべきは「映像として見える最小限の情報」のみです。感情状態（「悲しみに暮れる」）を書かず、行動（「窓の外を見つめる」）で表してください。理想は1〜3文、30〜50字。' });
+    const longActSample = (() => {
+      const longs = actionLines.filter(l => l.length > 90);
+      if (!longs.length) return null;
+      const s = longs.reduce((a, b) => a.length > b.length ? a : b);
+      return s.length > 100 ? s.slice(0, 100) + '…' : s;
+    })();
+    const noteObjDir = { type: 'bad', text: 'ト書き：90字超の長いト書きが' + longActionCount + '箇所あります。ト書きに書くべきは「映像として見える最小限の情報」のみです。感情状態（「悲しみに暮れる」）を書かず、行動（「窓の外を見つめる」）で表してください。理想は1〜3文、30〜50字。' };
+    if (longActSample) noteObjDir.quote = longActSample;
+    notes.push(noteObjDir);
   }
 
   // ── 新: 映像化実現性診断
   if (scores['production-viability'] >= 4) {
-    notes.push({ type: 'good', text: '✅ 映像化適性：低コスト・高効率に撮影できる設定で、プロデューサーが企画を通しやすい構成です。' + (indoorScenes > 0 && outdoorScenes > 0 ? '屋内外のバランスも良好。' : '') });
+    notes.push({ type: 'good', text: '映像化適性：低コスト・高効率に撮影できる設定で、プロデューサーが企画を通しやすい構成です。' + (indoorScenes > 0 && outdoorScenes > 0 ? '屋内外のバランスも良好。' : '') });
   } else if (productionScaleHeavy) {
-    notes.push({ type: 'warn', text: '⚠️ 映像化コスト：VFX・大規模セット要素（' + vfxKws.filter(kw => text.includes(kw)).join('、') + '）が含まれています。これらをドラマ・映画の予算規模で実現できるか確認してください。ドラマの場合は日常的な舞台設定の方が通過率が上がります。' });
+    notes.push({ type: 'warn', text: '映像化コスト：VFX・大規模セット要素（' + vfxKws.filter(kw => text.includes(kw)).join('、') + '）が含まれています。これらをドラマ・映画の予算規模で実現できるか確認してください。ドラマの場合は日常的な舞台設定の方が通過率が上がります。' });
   }
 
   // ── 新: 作家性診断
   if (scores['authorial-voice'] >= 4) {
-    notes.push({ type: 'good', text: '✅ 作家性：文体・トーン・モチーフに一貫した「書き手の声」があります。コンクール審査員が「もう一度読みたい」と感じる個性の萌芽があります。' + (poeticCount >= 2 ? '詩的表現が特に効果的。' : '') });
+    notes.push({ type: 'good', text: '作家性：文体・トーン・モチーフに一貫した「書き手の声」があります。コンクール審査員が「もう一度読みたい」と感じる個性の萌芽があります。' + (poeticCount >= 2 ? '詩的表現が特に効果的。' : '') });
   } else if (scores['authorial-voice'] <= 2) {
-    notes.push({ type: 'warn', text: '⚠️ 作家性：文体・トーンの個性がまだ薄いです。「自分にしか書けない作品」を意識し、比喩・反復・固有名詞・独自の視点を積極的に使ってください。コンクールで勝つのは「うまい脚本」より「独自の声のある脚本」です。' });
+    notes.push({ type: 'warn', text: '作家性：文体・トーンの個性がまだ薄いです。「自分にしか書けない作品」を意識し、比喩・反復・固有名詞・独自の視点を積極的に使ってください。コンクールで勝つのは「うまい脚本」より「独自の声のある脚本」です。' });
   }
 
   // ── 作品力診断
   if (scores['emotional-impact'] >= 4) {
-    notes.push({ type: 'good', text: '✅ 作品力：感情的な瞬間と意外性があり、読み手を引き込む力があります。' + (memorableCount > 0 ? '記憶に残るシーンの要素もあります。' : '') + (hasTwist ? '転換点・逆転要素も機能しています。' : '') + (hasCatharsis ? 'カタルシス・読後感の設計も良好。' : '') });
+    notes.push({ type: 'good', text: '作品力：感情的な瞬間と意外性があり、読み手を引き込む力があります。' + (memorableCount > 0 ? '記憶に残るシーンの要素もあります。' : '') + (hasTwist ? '転換点・逆転要素も機能しています。' : '') + (hasCatharsis ? 'カタルシス・読後感の設計も良好。' : '') });
   } else if (scores['emotional-impact'] <= 2) {
-    notes.push({ type: 'bad', text: '❌ 作品力：「続きを読みたい」と思わせる引きが現時点では弱い。感情的クライマックス・予想外の展開・忘れられないシーンの設計が必要です。読後に何が残るか（感情・問い・映像）を意識してください。' });
+    notes.push({ type: 'bad', text: '作品力（要強化）：「続きを読みたい」と思わせる引きが現時点では弱い。感情的クライマックス・予想外の展開・忘れられないシーンの設計が必要です。読後に何が残るか（感情・問い・映像）を意識してください。' });
   }
 
   // ── 分析情報
@@ -14582,28 +14731,28 @@ function staffRoomRunAnalysis(text) {
       }).join('\n')
     : '・全体的にバランスが取れています。各項目のさらなる磨き上げを目指してください。';
 
-  // 具体的な改稿提案（弱点に絞った実践アドバイス）
+  // 具体的な改稿提案（弱点に絞った実践アドバイス + 具体的セリフ・ト書き例）
   const suggestions_parts = [];
   if (scores['protag-want-need'] <= 2) {
-    suggestions_parts.push('・冒頭シーンで' + (mainCharName || '主人公') + 'の「外的目標（Want）」を視覚的に示す1シーンを追加する。（例：何かを強く求めているが、それを妨げる障害がある状況を冒頭10分以内で見せる）');
+    suggestions_parts.push('・冒頭シーンで' + (mainCharName || '主人公') + 'の「外的目標（Want）」を視覚的に示す1シーンを追加する。\n  具体例：\n  （改善前）田中、漠然と窓の外を見ている。\n  （改善後）田中、書類を繰る。「合格者一覧」——自分の名前はない。\n  → 外的目標「合格したい」が映像で示される');
   }
   if (onTheNoseCount >= 3) {
-    suggestions_parts.push('・全セリフを見直し、「説明・解説・確認」をしているセリフを行動・映像・沈黙に置き換える。目安：1シーンで説明台詞は0〜1個まで。「なんですよ」「ということは」「実は私」で始まるセリフを全て削除してください。');
+    suggestions_parts.push('・全セリフを見直し、「説明・解説・確認」をしているセリフを行動・映像・沈黙に置き換える。\n  具体例：\n  （改善前）田中「つまり、私はずっと一人で頑張ってきたということです」\n  （改善後）田中、コップを握る——誰も見ていない会議室で。\n  → 感情を「言わず、見せる」');
   }
   if (scores['char-arc'] <= 2) {
-    suggestions_parts.push('・主人公の変化を「ビフォー → 転機 → アフター」で設計し直す。第1幕：' + (mainCharName || '主人公') + 'の欠点・傷を見せる。第2幕：その欠点が原因で最悪の状況になる。第3幕：変容する瞬間を描く。');
+    suggestions_parts.push('・主人公の変化を「ビフォー → 転機 → アフター」で設計し直す。\n  第1幕：' + (mainCharName || '主人公') + 'の欠点・傷を見せる。\n  第2幕：その欠点が原因で最悪の状況になる。\n  第3幕：変容する瞬間を映像で見せる（台詞で語らない）。');
   }
   if (longActionCount >= 3) {
-    suggestions_parts.push('・90字超のト書きを全て見直し「映像として撮れる最小情報」に圧縮する。感情状態を書かず行動で表す（「怒る」→「コップを叩きつける」）。理想は1〜3文、30〜50字。');
+    suggestions_parts.push('・90字超のト書きを全て見直し「映像として撮れる最小情報」に圧縮する。\n  具体例：\n  （改善前）田中は非常に怒った表情で、両手を強く握りしめながら、ゆっくりと立ち上がり、窓の外を見つめた。\n  （改善後）田中、立つ。窓。\n  → 役者に「演じる余白」を与える');
   }
   if (scores['pacing'] <= 2) {
-    suggestions_parts.push('・各シーンに入場（IN）と退場（OUT）を設ける。「このシーンで何が変化したか」を確認し、変化のないシーンは削除する。1シーンの目安は原稿用紙1〜2枚（400〜800字）。');
+    suggestions_parts.push('・各シーンに入場（IN）と退場（OUT）を設ける。\n  改善チェック：「このシーンに入る前と後で、何かが変わったか？」\n  変化がないシーンは削除または他のシーンに合流させる。\n  1シーンの目安：原稿用紙1〜2枚（400〜800字）。');
   }
   if (scores['subtext'] <= 2) {
-    suggestions_parts.push('・「感情を言葉にさせない」練習：怒りを「怒る」と書かず、コップを叩きつけさせる。悲しみを「悲しむ」と書かず、黙って雨を見つめさせる。沈黙・間・物・空間が最強の感情表現。');
+    suggestions_parts.push('・「感情を言葉にさせない」練習：怒りを「怒る」と書かず、コップを叩きつけさせる。\n  具体例：\n  （改善前）花子「悲しい。どうしてこうなったの」\n  （改善後）花子、手元の花瓶——少しだけ傾ける。戻す。\n  沈黙・間・物・空間が最強の感情表現。');
   }
   if (scores['dialogue-dynamics'] <= 2 && totalDialogueLines >= 3) {
-    suggestions_parts.push('・各シーンのキャラクターに「異なる目的・秘密・感情」を持たせる。例：Aは謝罪を求めているが、Bは逃げたい——この「目的の衝突」が会話の引力を生む。全会話シーンで「各キャラが何を望んでいるか」を書き出してみてください。');
+    suggestions_parts.push('・各シーンのキャラクターに「異なる目的・秘密・感情」を持たせる。\n  具体例：\n  （改善前）田中「最近どう？」花子「普通だよ」田中「そうか」\n  （改善後）田中「……例の件、返事は？」（目標：答えを得たい）\n  花子「お茶飲む？」（目標：話題を逸らしたい）\n  田中「いらない。聞かせてくれ」\n  → 目的の衝突が会話の引力を生む');
   }
   if (scores['authorial-voice'] <= 2) {
     suggestions_parts.push('・「自分にしか書けないシーン」を1つ作る。実体験・記憶・独自の観察から来る具体的なディテールを1シーンに注ぎ込む。比喩・反復・固有名詞を積極的に使い、文体に「あなたの声」を刻む。');
