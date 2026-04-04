@@ -12723,9 +12723,12 @@ function renderLearnStaffRoom(hero, subnav) {
         <textarea id="staffroom-script-${s.id}" class="form-textarea" rows="14" style="font-size:13px;line-height:1.9;font-family:'Noto Serif JP',serif;resize:vertical" placeholder="脚本テキストをここに貼り付けてください。&#10;&#10;例：&#10;１○病院・廊下（昼）&#10;&#10;田中、白衣姿で歩く。表情が固い。&#10;&#10;田中「（独り言）今日中に…」" oninput="staffRoomAutoSaveScript('${s.id}')">${esc(s.scriptText||'')}</textarea>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;flex-wrap:wrap;gap:8px">
           <span style="font-size:11px;color:var(--text-muted)"><span id="staffroom-char-${s.id}">${(s.scriptText||'').replace(/\\n/g,'').length}字</span></span>
-          <button class="btn btn-primary" id="staffroom-submit-btn-${s.id}" onclick="staffRoomAutoScore('${s.id}')" style="background:linear-gradient(135deg,var(--fuji),#7c3aed);border-color:transparent;font-size:13px;padding:8px 18px;border-radius:8px;font-weight:700;letter-spacing:.05em;box-shadow:0 2px 8px rgba(107,70,193,.35)">
-            <i class="fas fa-wand-magic-sparkles" style="margin-right:6px"></i>提出・自動採点
-          </button>
+          <div style="display:flex;gap:8px;align-items:center">
+            ${s.autoScoreResult ? `<span style="font-size:10px;color:rgba(107,70,193,.7);font-weight:600"><i class="fas fa-check-circle" style="margin-right:3px"></i>採点済み</span>` : ''}
+            <button class="btn btn-primary" id="staffroom-submit-btn-${s.id}" onclick="staffRoomAutoScore('${s.id}')" style="background:linear-gradient(135deg,var(--fuji),#7c3aed);border-color:transparent;font-size:13px;padding:8px 20px;border-radius:8px;font-weight:700;letter-spacing:.05em;box-shadow:0 2px 12px rgba(107,70,193,.4);transition:all .2s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 16px rgba(107,70,193,.5)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 12px rgba(107,70,193,.4)'">
+              <i class="fas fa-wand-magic-sparkles" style="margin-right:6px"></i>${s.autoScoreResult ? '再採点' : '提出・自動採点'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -13310,6 +13313,81 @@ function renderLearnStaffRoom(hero, subnav) {
         ${rubricHtml}
       </div>
 
+      <!-- ── アノテーション（行単位添削）セクション ─────────────────── -->
+      <div class="card" style="margin-bottom:20px;border-top:3px solid #1d4ed8;background:linear-gradient(135deg,#eff6ff,#fff)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap">
+          <div style="font-weight:700;font-size:13px;color:#1e3a8a;display:flex;align-items:center;gap:7px">
+            <i class="fas fa-file-lines" style="color:#2563eb;font-size:14px"></i>
+            アノテーション添削（行単位・Before/After付き）
+          </div>
+          <span style="font-size:10.5px;color:#3b82f6;background:#dbeafe;border-radius:6px;padding:2px 8px;font-weight:600">v19精密版</span>
+          <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+            ${s.autoScoreResult ? `
+            <button onclick="staffRoomGenerateAnnotatedScript('${s.id}')" style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border:none;border-radius:7px;padding:7px 14px;font-size:11px;cursor:pointer;font-weight:700;box-shadow:0 2px 8px rgba(37,99,235,.3);display:flex;align-items:center;gap:5px" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
+              <i class="fas fa-file-magnifying-glass"></i>アノテーション表示
+            </button>
+            <button onclick="staffRoomDownloadAnnotated('${s.id}')" style="background:#fff;color:#2563eb;border:1px solid #93c5fd;border-radius:7px;padding:7px 12px;font-size:11px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:5px" onmouseover="this.style.background='#eff6ff'" onmouseout="this.style.background='#fff'">
+              <i class="fas fa-download"></i>TXTダウンロード
+            </button>` : `
+            <span style="font-size:10.5px;color:#6b7280;font-style:italic">採点後に行単位アノテーションが利用可能になります</span>`}
+          </div>
+        </div>
+        ${s.autoScoreResult ? (() => {
+          const ar2 = s.autoScoreResult;
+          const jc2 = ar2.analysisStats?.judgesComments || ar2.judgesComments || [];
+          const dn2 = ar2.detailNotes || [];
+          const badCount2 = dn2.filter(n=>n.type==='bad').length;
+          const warnCount2 = dn2.filter(n=>n.type==='warn').length;
+          const goodCount2 = dn2.filter(n=>n.type==='good').length;
+          const scriptLen2 = (s.scriptText||'').replace(/[\s\n]/g,'').length;
+          const cleanedLen2 = (() => { try { return cleanScriptText(s.scriptText||'').replace(/[\s\n]/g,'').length; } catch(e){ return scriptLen2; } })();
+          const noiseRemoved2 = scriptLen2 - cleanedLen2;
+          return `
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin-bottom:10px">
+          <div style="background:#fff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 10px;text-align:center">
+            <div style="font-size:20px;font-weight:900;color:#1d4ed8">${ar2.totalScore||'—'}</div>
+            <div style="font-size:9px;color:#6b7280;margin-top:2px">総合スコア /100</div>
+          </div>
+          <div style="background:#fff;border:1px solid #fecaca;border-radius:8px;padding:8px 10px;text-align:center">
+            <div style="font-size:20px;font-weight:900;color:#dc2626">${badCount2}</div>
+            <div style="font-size:9px;color:#6b7280;margin-top:2px">要修正</div>
+          </div>
+          <div style="background:#fff;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;text-align:center">
+            <div style="font-size:20px;font-weight:900;color:#d97706">${warnCount2}</div>
+            <div style="font-size:9px;color:#6b7280;margin-top:2px">要注意</div>
+          </div>
+          <div style="background:#fff;border:1px solid #86efac;border-radius:8px;padding:8px 10px;text-align:center">
+            <div style="font-size:20px;font-weight:900;color:#16a34a">${goodCount2}</div>
+            <div style="font-size:9px;color:#6b7280;margin-top:2px">好評価</div>
+          </div>
+          <div style="background:#fff;border:1px solid #ddd6fe;border-radius:8px;padding:8px 10px;text-align:center">
+            <div style="font-size:20px;font-weight:900;color:#7c3aed">${jc2.length}</div>
+            <div style="font-size:9px;color:#6b7280;margin-top:2px">審査員</div>
+          </div>
+          ${noiseRemoved2 > 0 ? `<div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:8px 10px;text-align:center">
+            <div style="font-size:14px;font-weight:900;color:#92400e">-${noiseRemoved2}字</div>
+            <div style="font-size:9px;color:#6b7280;margin-top:2px">ノイズ除去</div>
+          </div>` : ''}
+        </div>
+        ${noiseRemoved2 > 0 ? `<div style="font-size:10px;color:#92400e;background:#fef3c7;border:1px solid #fde68a;border-radius:6px;padding:5px 10px;margin-bottom:8px">
+          <i class="fas fa-broom" style="margin-right:4px"></i>
+          応募フォーマットのヘッダー・ページ番号などを自動除去（${noiseRemoved2}字相当のノイズを除去して本文のみ分析）。アノテーション表示では除去行を薄いグレーで「メタ情報」バッジ付きで確認できます。
+        </div>` : ''}
+        ${s.attachedFileMeta ? `<div style="font-size:10px;color:#1e40af;background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:5px 10px;margin-bottom:8px;display:flex;align-items:center;gap:7px">
+          <i class="fas ${s.attachedFileMeta.type === 'pdf' ? 'fa-file-pdf' : 'fa-file-lines'}" style="color:#2563eb;font-size:12px;flex-shrink:0"></i>
+          <span>元ファイル: <strong>${esc(s.attachedFileMeta.name)}</strong> (${s.attachedFileMeta.type.toUpperCase()})${s.pdfPageCount ? ' · <strong>' + s.pdfPageCount + 'ページ</strong>のPDF — ページ番号を自動識別' : ''}</span>
+        </div>` : ''}
+        <div style="font-size:10.5px;color:#374151;line-height:1.7">
+          <i class="fas fa-circle-info" style="color:#3b82f6;margin-right:4px"></i>
+          <strong>アノテーション表示</strong>で元の脚本テキスト上に行番号・バッジ・改稿ヒント（Before/After）が重なって表示されます。ページ番号・応募フォーマット情報は自動識別されて採点対象外として表示されます。バッジをクリックで詳細展開。
+        </div>`;
+        })() : `
+        <div style="font-size:11px;color:#6b7280;padding:10px 0;font-style:italic">
+          <i class="fas fa-arrow-up" style="margin-right:4px;color:#2563eb"></i>
+          脚本テキストを入力して「提出・自動採点」を実行すると、行単位のアノテーション添削が利用できます
+        </div>`}
+      </div>
+
       <!-- 総合コメント（手書きメモ + 自動採点フィードバック連携） -->
       <div class="card" style="margin-bottom:20px;border-top:3px solid var(--kogane)">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
@@ -13621,16 +13699,19 @@ function staffRoomSaveAll(sessionId) {
   toast('保存しました', 'success');
 }
 
-// ── 自動採点エンジン ──────────────────────────────────────────
+// ── 自動採点エンジン v19 ─────────────────────────────────────
 function staffRoomAutoScore(sessionId) {
-  // まずスクリプトを保存
+  // まずスクリプトを保存（DOM から最新テキストを取得）
   staffRoomAutoSaveScript(sessionId);
 
-  const sessions = DB.get('staffroom_sessions', []);
-  const idx = sessions.findIndex(s => s.id === sessionId);
+  // 保存後に最新 sessions を再取得（stale closure 防止）
+  let sessions = DB.get('staffroom_sessions', []);
+  let idx = sessions.findIndex(s => s.id === sessionId);
   if (idx === -1) return;
-  const s = sessions[idx];
-  const text = s.scriptText || '';
+
+  const evalMode  = sessions[idx].evalMode  || 'contest';
+  const sType     = sessions[idx].scriptType || 'tv-drama';
+  const text      = sessions[idx].scriptText || '';
 
   if (text.trim().length < 50) {
     toast('脚本テキストを入力してから提出してください（50字以上）', 'error');
@@ -13646,61 +13727,100 @@ function staffRoomAutoScore(sessionId) {
 
   // 非同期で採点（UIをブロックしないようsetTimeout）
   setTimeout(() => {
+    let result = null;
     try {
-      const result = staffRoomRunAnalysis(text, s.evalMode || 'contest', s.scriptType || 'tv-drama');
+      result = staffRoomRunAnalysis(text, evalMode, sType);
+    } catch(engineErr) {
+      console.error('採点エンジンエラー:', engineErr);
+      const errMsg = engineErr && engineErr.message ? engineErr.message.slice(0, 80) : '不明なエラー';
+      toast(`採点エラー（エンジン）: ${errMsg}`, 'error');
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-wand-magic-sparkles" style="margin-right:6px"></i>提出・自動採点';
+      }
+      return;
+    }
 
-      // スコアをセッションに保存
+    try {
+      // 保存前に最新 sessions を再取得（非同期間の競合防止）
+      sessions = DB.get('staffroom_sessions', []);
+      idx = sessions.findIndex(s => s.id === sessionId);
+      if (idx === -1) {
+        toast('セッションが見つかりません', 'error');
+        return;
+      }
+
+      // フィードバックを保存
       sessions[idx].scores = result.itemScores;
       sessions[idx].feedback = {
-        strengths: result.strengths,
-        weaknesses: result.weaknesses,
-        suggestions: result.suggestions,
-        priority: result.priority,
-      };
-      const newAutoResult = {
-        totalScore: result.totalScore,
-        grade: result.grade,
-        gradeLabel: result.gradeLabel,
-        summary: result.summary,
-        categoryScores: result.categoryScores,
-        detailNotes: result.detailNotes,
-        itemDetails: result.itemDetails || {},
-        itemScores: { ...result.itemScores },  // 差分ハイライト用にAIスコアを保持
-        analysisStats: result.analysisStats || {},
-        judgesComments: result.judgesComments || result.analysisStats?.judgesComments || [],
-        strengths: result.strengths || '',
-        weaknesses: result.weaknesses || '',
+        strengths:   result.strengths   || '',
+        weaknesses:  result.weaknesses  || '',
         suggestions: result.suggestions || '',
-        priority: result.priority || '',
-        scoredAt: Date.now(),
+        priority:    result.priority    || '',
       };
-      sessions[idx].autoScoreResult = newAutoResult;
-      // 自動採点後は手動上書きをリセット
-      sessions[idx].manualOverrides = {};
 
-      // ── 採点履歴を蓄積 ──
+      // 採点結果オブジェクト組み立て
+      const jc = result.analysisStats?.judgesComments || result.judgesComments || [];
+      const newAutoResult = {
+        totalScore:    result.totalScore,
+        grade:         result.grade,
+        gradeLabel:    result.gradeLabel,
+        summary:       result.summary       || '',
+        categoryScores: result.categoryScores || [],
+        detailNotes:   result.detailNotes   || [],
+        itemDetails:   result.itemDetails   || {},
+        itemScores:    { ...result.itemScores },
+        analysisStats: result.analysisStats || {},
+        judgesComments: jc,
+        strengths:     result.strengths    || '',
+        weaknesses:    result.weaknesses   || '',
+        suggestions:   result.suggestions  || '',
+        priority:      result.priority     || '',
+        scoredAt:      Date.now(),
+        evalMode,
+        scriptType:    sType,
+      };
+      sessions[idx].autoScoreResult  = newAutoResult;
+      sessions[idx].manualOverrides  = {};
+
+      // 採点履歴を蓄積（最大20件）
       if (!sessions[idx].scoreHistory) sessions[idx].scoreHistory = [];
       sessions[idx].scoreHistory.push({
-        scoredAt: newAutoResult.scoredAt,
-        totalScore: newAutoResult.totalScore,
-        grade: newAutoResult.grade,
+        scoredAt:       newAutoResult.scoredAt,
+        totalScore:     newAutoResult.totalScore,
+        grade:          newAutoResult.grade,
         categoryScores: newAutoResult.categoryScores,
-        itemScores: { ...result.itemScores },
-        scriptLength: (s.scriptText || '').length,
+        itemScores:     { ...result.itemScores },
+        scriptLength:   text.length,
       });
-      // 最大20件まで保存
       if (sessions[idx].scoreHistory.length > 20) {
         sessions[idx].scoreHistory = sessions[idx].scoreHistory.slice(-20);
       }
 
       sessions[idx].updatedAt = Date.now();
-      DB.set('staffroom_sessions', sessions);
+
+      // localStorage 容量超過を検知して丁寧に対処
+      try {
+        DB.set('staffroom_sessions', sessions);
+      } catch(storErr) {
+        // 容量超過の場合: 古い詳細データを削除して再試行
+        console.warn('Storage save warning:', storErr);
+        sessions[idx].autoScoreResult.detailNotes = (newAutoResult.detailNotes || []).slice(0, 10);
+        try {
+          DB.set('staffroom_sessions', sessions);
+        } catch(e2) {
+          console.error('Storage save failed:', e2);
+          toast('ストレージ容量不足。古いセッションを削除してください。', 'warn');
+        }
+      }
 
       render();
-      toast(`✅ 自動採点完了！総合スコア ${result.totalScore}/100点 (${result.grade})`, 'success');
-    } catch(e) {
-      console.error('AutoScore error:', e);
-      toast('採点中にエラーが発生しました', 'error');
+      const judgeCount = jc.length;
+      toast(`✅ 採点完了！${result.totalScore}点 (${result.grade}) — ${judgeCount}名の審査員`, 'success');
+    } catch(saveErr) {
+      console.error('採点保存エラー:', saveErr);
+      const errMsg = saveErr && saveErr.message ? saveErr.message.slice(0, 80) : '不明なエラー';
+      toast(`採点保存エラー: ${errMsg}`, 'error');
       if (btn) {
         btn.disabled = false;
         btn.innerHTML = '<i class="fas fa-wand-magic-sparkles" style="margin-right:6px"></i>提出・自動採点';
@@ -14010,17 +14130,157 @@ function staffRoomFbTab(sessionId, tab) {
   });
 }
 
+// ── 脚本テキスト前処理クリーナー v19 ──────────────────────────────
+// 応募フォーマットのヘッダー・ページ番号・用紙情報を除去し
+// 純粋な「脚本本文」だけを抽出する
+function cleanScriptText(rawText) {
+  // v19.1: ページマーカーを除去してから処理
+  const textWithoutMarkers = rawText.replace(/\u0000PAGE:\d+\u0000/g, '');
+  const lines = textWithoutMarkers.split('\n');
+  let metaHeaderDone = false;  // 冒頭メタ情報（タイトル行等）をスキップしたか
+
+  // 除去すべきパターン
+  const skipPatterns = [
+    // 応募用紙ヘッダー系（「○○大賞 応募用紙」「応募作品」など）
+    /^.{0,30}(大賞|コンクール|応募|賞|公募).{0,20}(応募用紙|応募票|応募作品|応募フォーム|提出用紙|出品票|送付状)/,
+    /^(応募用紙|応募票|応募フォーム|提出用紙|出品票|送付状)/,
+    // ページ番号のみの行（数字だけ or P.数字 形式）
+    /^\s*[Pp]\.?\s*\d{1,4}\s*$/,
+    /^\s*\d{1,4}\s*\/\s*\d{1,4}\s*$/,   // 7/20 形式
+    /^\s*-\s*\d{1,4}\s*-\s*$/,           // -7- 形式
+    // タイトルページの定型情報（作者名・連絡先・学校名等だけの行）
+    /^.{0,20}(作者|著者|原作|脚本|作品名|タイトル|連絡先|住所|電話|メール|学校|組|クラス|氏名|提出者)[:：]/,
+    // 空行が5行以上の区切り（セクション区切りと判断）→ 1空行に圧縮（別処理）
+  ];
+
+  // v19.1: ページ番号行の精確な判定
+  // 「47」のような番号をページ番号として認識するため、前後の文脈を使用
+  const isPageNumberLine = (lt, prevLt, nextLt) => {
+    if (!/^\s*\d{1,4}\s*$/.test(lt)) return false;
+    const num = parseInt(lt.trim());
+    if (num > 500) return false;  // 500ページ超は本文の数字とみなす
+    // 前後が空行、または前後が「応募用紙ヘッダー系」や「ページフッター」系ならページ番号と判断
+    const prevEmpty = !prevLt || prevLt.trim() === '';
+    const nextEmpty = !nextLt || nextLt.trim() === '';
+    // 前後どちらかが空行なら高確率でページ番号
+    if (prevEmpty || nextEmpty) return true;
+    // 前後が脚本の本文（台詞・ト書き）でなく、単独の短い行ならページ番号
+    const prevIsScript = prevLt && (
+      /^[０-９0-9○◎●]/.test(prevLt.trim()) ||
+      /^【.{1,30}】/.test(prevLt.trim()) ||
+      /^INT\.|^EXT\./.test(prevLt.trim().toUpperCase()) ||
+      /「/.test(prevLt)
+    );
+    if (!prevIsScript && prevLt && prevLt.trim().length < 30) return true;
+    return false;
+  };
+
+  // 「登場人物ブロック」：「名前（年齢）　説明」が3行以上連続する箇所を検出・除去
+  const isCharProfileLine = (l) =>
+    /^[ぁ-ん一-龯A-Za-zＡ-Ｚ]{1,15}[　\s（(（].{0,50}[歳才]/.test(l) ||
+    /^[ぁ-ん一-龯A-Za-zＡ-Ｚ]{1,15}\s{1,3}\d{1,3}歳/.test(l);
+
+  // v19.1: 登場人物一覧行の除去（文脈依存で判断）
+  const isCharListLine = (l, charProfileStreak) =>
+    (/^.{0,15}登場人物[:：\s]/.test(l) || /^.{0,15}(出演者|配役|キャスト)[:：\s]/.test(l)) ||
+    (charProfileStreak >= 2 && isCharProfileLine(l));
+
+  // 「ページ末尾の連続注記」：「次頁に続く」「END」「了」のみ行
+  const isPageFooter = (l) => /^(次頁に続く|次のページへ|END|了|以上|おわり|\.\.\.|…+)$/i.test(l.trim());
+
+  // まず冒頭のメタブロックを飛ばす（最初の柱書き or 台詞が出るまで）
+  const isSceneOrDialogue = (l) =>
+    /^[０-９0-9○◎●]{1,5}/.test(l) ||
+    /^INT\.|^EXT\./i.test(l) ||
+    /^【.{1,30}】/.test(l) ||
+    (/^[　\s]*[一-龯ぁ-んA-Za-z]{1,14}[　\s]*$/.test(l) && l.trim().length < 15) ||   // キャラ名行
+    /^[ぁ-ん一-龯]{1,14}「/.test(l) ||  // キャラ名「台詞」
+    /^[　\s]*「/.test(l);                // インデント台詞
+
+  // 連続キャラプロフィール行のカウント
+  let charProfileStreak = 0;
+  const processedLines = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
+    const lt = l.trim();
+    const prevLt = i > 0 ? lines[i-1].trim() : '';
+    const nextLt = i < lines.length - 1 ? lines[i+1].trim() : '';
+
+    // ページフッター（「次頁に続く」等）
+    if (isPageFooter(lt)) continue;
+
+    // 応募用紙ヘッダー系のパターンに一致
+    if (skipPatterns.some(p => p.test(lt))) continue;
+
+    // v19.1: ページ番号の精確な判定（前後文脈を使用）
+    if (isPageNumberLine(lt, prevLt, nextLt)) continue;
+
+    // 登場人物一覧行
+    if (isCharListLine(lt, charProfileStreak)) {
+      if (isCharProfileLine(lt)) {
+        charProfileStreak++;
+        if (charProfileStreak >= 3) continue;
+      } else {
+        charProfileStreak = 0;
+        continue;  // 「登場人物：」ヘッダー行は除去
+      }
+    } else {
+      if (!isCharProfileLine(lt)) charProfileStreak = 0;
+    }
+
+    // 冒頭メタブロック：最初の柱書き or 対話が来るまで疑わしい短い行は飛ばす
+    if (!metaHeaderDone) {
+      if (isSceneOrDialogue(lt)) {
+        metaHeaderDone = true;
+      } else if (lt.length > 0 && lt.length < 20 && !lt.includes('○') && !lt.includes('◎')) {
+        // 短い行で柱書きでもなければメタ情報として飛ばす
+        continue;
+      } else if (lt.length >= 20) {
+        // 長めの行が出たら本文開始と判断
+        metaHeaderDone = true;
+      }
+    }
+
+    processedLines.push(l);
+  }
+
+  // 連続する空行を最大2行に圧縮
+  const result = [];
+  let emptyStreak = 0;
+  for (const l of processedLines) {
+    if (l.trim() === '') {
+      emptyStreak++;
+      if (emptyStreak <= 2) result.push(l);
+    } else {
+      emptyStreak = 0;
+      result.push(l);
+    }
+  }
+
+  return result.join('\n');
+}
+
 // ── 脚本テキスト解析エンジン（ルールベース高精度） ──────────────
 function staffRoomRunAnalysis(text, evalMode, scriptType) {
   // ══════════════════════════════════════════════════════════════════
-  //  シナリオラボ 職員室 — 精密採点エンジン v18.0
-  //  8カテゴリ・24項目・評価モード対応多軸モデル（v18: 7名審査員・映像演出評価・独自性評価・強化ビフォーアフター）
+  //  シナリオラボ 職員室 — 精密採点エンジン v19.0
+  //  8カテゴリ・24項目・評価モード対応多軸モデル
+  //  v19: 前処理クリーナー導入・応募用紙ノイズ除去・精度向上
+  //  v18: 7名審査員・映像演出評価・独自性評価・強化ビフォーアフター
   //  評価モード: contest(コンクール) | adaptation(映像化適合) | school(添削) | general(総合)
   //  客観（構造・形式）× 主観（情動・映像性・作家性）× 映像化実現性 × 商業適合性
   //  判定ロジック: NHK・城戸賞・テレビ大賞・映像化適合度 審査基準参考
   // ══════════════════════════════════════════════════════════════════
   const mode = evalMode || 'contest';
   const sType = scriptType || 'tv-drama';
+
+  // ── v19: 前処理：応募フォーマットノイズ除去 ──────────────────────
+  const cleanedText = cleanScriptText(text);
+  const originalLineCount = text.split('\n').length;
+  const cleanedLineCount = cleanedText.split('\n').length;
+  const noiseLineCount = originalLineCount - cleanedLineCount;
+
   // Script-type weight multipliers: adjust key axes based on target format
   const scriptTypeWeights = {
     'tv-drama':    { 'emotional-impact':1.7, 'dialogue-dynamics':1.3, 'char-arc':1.2, 'subtext':1.1, 'pacing':1.2, 'commercial-fit':1.2 },
@@ -14034,10 +14294,11 @@ function staffRoomRunAnalysis(text, evalMode, scriptType) {
   };
   const stWeights = scriptTypeWeights[sType] || {};
 
-  const rawLines = text.split('\n');
+  // v19: クリーニング済みテキストを分析対象として使用
+  const rawLines = cleanedText.split('\n');
   const lines = rawLines.map(l => l.trim());
   const nonEmpty = lines.filter(l => l.length > 0);
-  const totalChars = text.replace(/[\s\n\r]/g, '').length;
+  const totalChars = cleanedText.replace(/[\s\n\r]/g, '').length;
   const totalLines = nonEmpty.length;
 
   if (totalChars < 30) {
@@ -14397,6 +14658,8 @@ function staffRoomRunAnalysis(text, evalMode, scriptType) {
   const detectedGenres = Object.entries(genreHints)
     .filter(([, kws]) => kws.filter(kw => text.includes(kw)).length >= 2)
     .map(([genre]) => genre);
+  // genreStr をここで定義（TDZ回避: 採点ブロック内で使用するため早期定義）
+  const genreStr = detectedGenres.length > 0 ? detectedGenres.join('・') : '';
 
   // ────────────────────────────────────────────────────────────────
   //  [C] 18項目精密採点（各1〜5点）
@@ -16373,6 +16636,8 @@ function staffRoomRunAnalysis(text, evalMode, scriptType) {
 
   // ── シナリオ学校添削モード追加診断 (v13) ──────────────────────────────
   if (mode === 'school') {
+    // charDialPat: ローカル定義（外部スコープのものはアクセス不可のため）
+    const charDialPatLocal = /^([ぁ-んァ-ヶーｱ-ﾝﾞﾟ一-龯A-Za-z\s　]{1,14})「(.*)」?\s*$/;
     const hasSceneNumbersSchool = nonEmpty.some(l=>/^[０-９0-9]+[○◎●]/.test(l));
     const hasParentheticalsSchool = nonEmpty.some(l=>/^[（(].+[）)]/.test(l));
     const schoolIssues = [];
@@ -16387,7 +16652,7 @@ function staffRoomRunAnalysis(text, evalMode, scriptType) {
       };
       notes.push(schoolNote);
     }
-    const verboseAction = nonEmpty.filter(l=>!isSceneLine(l)&&!charDialPat.test(l)&&l.length>60).slice(0,1);
+    const verboseAction = nonEmpty.filter(l=>!isSceneLine(l)&&!charDialPatLocal.test(l)&&l.length>60).slice(0,1);
     if (verboseAction.length > 0) {
       notes.push({
         type: 'warn',
@@ -16400,7 +16665,7 @@ function staffRoomRunAnalysis(text, evalMode, scriptType) {
   }
 
   // ── 分析情報（拡張）
-  const genreStr = detectedGenres.length > 0 ? detectedGenres.join('・') : '';
+  // genreStr は detectedGenres 直後に定義済み
   const pageNote = totalChars < 400
     ? '分量：' + totalChars + '字（約' + estimatedPages + 'ページ）。採点精度向上のためより多くのテキストを入力してください（目安: 400字以上）。'
     : '分析完了：' + totalChars.toLocaleString() + '字 / 約' + estimatedPages + 'ページ / ' + sceneCount + 'シーン / ' + uniqueChars + '人 / セリフ' + Math.round(dialogueRatio*100) + '%' + (genreStr ? ' / 推定ジャンル：' + genreStr : '') + (onTheNoseCount > 0 ? ' / 説明台詞' + onTheNoseCount + '件' : '');
@@ -16660,7 +16925,7 @@ function staffRoomRunAnalysis(text, evalMode, scriptType) {
     (sceneLines.length >= 5 ? 1 : 0)
   ));
 
-  // ── v13 審査員コメント生成 ───────────────────────────────────────────────
+  // ── v19 審査員コメント生成（精密版・全モード対応）────────────────────────
   const judgesCommentsV13 = [];
   const evalModeV13 = mode || 'contest';
   if (evalModeV13 === 'contest' || evalModeV13 === 'general') {
@@ -16988,7 +17253,7 @@ ${sceneCount}シーン構成で${typeL}としての放送尺（30〜60分）に�
     gradeLabel,
     summary,
     categoryScores,
-    detailNotes: notes.slice(0, 20),
+    detailNotes: notes.slice(0, 30),
     strengths,
     weaknesses,
     suggestions,
@@ -17047,6 +17312,22 @@ async function staffRoomReadFile(file, sessionId) {
     if (titleEl && !titleEl.value) titleEl.value = name;
   };
 
+  // v19: ファイルのメタ情報を保存（アノテーション時に元フォーマット情報を保持するため）
+  const saveFileMetaToSession = (fileName, fileSize, fileType, pageMap) => {
+    const sessions = DB.get('staffroom_sessions', []);
+    const idx = sessions.findIndex(s => s.id === sessionId);
+    if (idx !== -1) {
+      sessions[idx].attachedFileMeta = {
+        name: fileName,
+        size: fileSize,
+        type: fileType || ext,
+        uploadedAt: Date.now(),
+        pageMap: pageMap || null,  // {pageNumber: firstLineIndex} のマッピング
+      };
+      DB.set('staffroom_sessions', sessions);
+    }
+  };
+
   if (ext === 'pdf') {
     toast('PDFからテキストを抽出しています…', 'info');
     try {
@@ -17062,22 +17343,57 @@ async function staffRoomReadFile(file, sessionId) {
       const bytes = new Uint8Array(arrayBuffer);
       const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
 
+      // v19: ページごとに抽出してページマップを構築
       let fullText = '';
+      const pageMap = {};  // {pageNumber: lineIndexInFullText}
+      let lineIndex = 0;
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
-        const pageText = content.items.map(item => item.str).join('');
-        if (pageText.trim()) fullText += pageText + '\n';
+        // ページ内アイテムを行グループ化して改行を適切に処理
+        let pageLines = [];
+        let currentLine = '';
+        let lastY = null;
+        content.items.forEach(item => {
+          // y座標が変わったら改行と判断（PDFの行構造を保持）
+          const curY = item.transform ? Math.round(item.transform[5]) : null;
+          if (lastY !== null && curY !== null && Math.abs(curY - lastY) > 3) {
+            if (currentLine.trim()) pageLines.push(currentLine.trim());
+            currentLine = '';
+          }
+          currentLine += item.str;
+          lastY = curY;
+        });
+        if (currentLine.trim()) pageLines.push(currentLine.trim());
+
+        if (pageLines.length > 0) {
+          pageMap[i] = lineIndex;  // このページの開始行インデックスを記録
+          // v19: ページ区切りマーカーを挿入（アノテーション時にページ番号を識別するため）
+          const pageMarker = `\u0000PAGE:${i}\u0000`;  // 不可視マーカー
+          fullText += pageMarker + pageLines.join('\n') + '\n';
+          lineIndex += pageLines.length + 1;
+        }
       }
+      // ページマーカーを除去して表示用テキストを作成
+      const displayText = fullText.replace(/\u0000PAGE:\d+\u0000/g, '');
 
       setTitle(file.name.replace(/\.pdf$/i, ''));
+      saveFileMetaToSession(file.name, file.size, 'pdf', pageMap);
 
       const progressEl = document.getElementById(`staffroom-file-progress-${sessionId}`);
-      if (fullText.trim()) {
-        ta.value = fullText;
+      if (displayText.trim()) {
+        ta.value = displayText;
         staffRoomAutoSaveScript(sessionId);
-        if (progressEl) progressEl.textContent = `✅ ${fullText.length}字抽出完了`;
-        toast(`✅ PDFから${fullText.length}字を抽出しました`, 'success');
+        // v19: ページマップ付きでセッションに元テキスト（ページ情報付き）を保存
+        const sessionsUpd = DB.get('staffroom_sessions', []);
+        const idxUpd = sessionsUpd.findIndex(s => s.id === sessionId);
+        if (idxUpd !== -1) {
+          sessionsUpd[idxUpd].scriptTextWithPageMap = fullText;  // ページマーカー付きテキスト
+          sessionsUpd[idxUpd].pdfPageCount = pdf.numPages;
+          DB.set('staffroom_sessions', sessionsUpd);
+        }
+        if (progressEl) progressEl.textContent = `✅ ${displayText.length}字 (${pdf.numPages}ページ) 抽出完了`;
+        toast(`✅ PDFから${displayText.length}字を抽出しました (${pdf.numPages}ページ)`, 'success');
       } else {
         ta.value = `【${file.name}】\n\nPDFからテキストを自動抽出できませんでした。\nスキャン画像のPDFや保護されたPDFは手動でテキストを貼り付けてください。`;
         staffRoomAutoSaveScript(sessionId);
@@ -17097,11 +17413,13 @@ async function staffRoomReadFile(file, sessionId) {
     // テキスト系ファイル
     const reader = new FileReader();
     reader.onload = (e) => {
-      ta.value = e.target.result;
+      const content = e.target.result;
+      ta.value = content;
       staffRoomAutoSaveScript(sessionId);
       setTitle(file.name.replace(/\.[^.]+$/, ''));
+      saveFileMetaToSession(file.name, file.size, ext, null);
       const progressEl = document.getElementById(`staffroom-file-progress-${sessionId}`);
-      if (progressEl) progressEl.textContent = `✅ ${e.target.result.length}字読込`;
+      if (progressEl) progressEl.textContent = `✅ ${content.length}字読込`;
       toast(`${file.name} を読み込みました`, 'success');
     };
     reader.onerror = () => toast('ファイルの読み込みに失敗しました', 'error');
@@ -17134,7 +17452,69 @@ function staffRoomGenerateAnnotatedScript(sessionId) {
   const itemScores  = ar ? (ar.itemScores  || {}) : {};
   const itemDetails = ar ? (ar.itemDetails || {}) : {};
 
-  const rawLines = s.scriptText.split('\n');
+  // v19.1: アノテーションは元テキストをそのまま表示しつつ、
+  // メタ情報行（ページ番号・応募ヘッダーなど）には「メタ情報」バッジを付与する
+  const originalText = s.scriptText;
+  const rawLines = originalText.split('\n');  // 元の行を保持（表示用）
+
+  // v19.1: ページマップ付きテキスト（PDF抽出時）を参照してページ番号を正確に識別
+  const scriptTextWithPageMap = s.scriptTextWithPageMap || null;
+  const attachedFileMeta = s.attachedFileMeta || null;
+
+  // ページ番号行の収集（ページマップ付きテキストから）
+  const pageNumberLineSet = new Set();
+  if (scriptTextWithPageMap) {
+    // ページマーカーの直前の行はページ末尾、直後の行はページ先頭
+    const pmLines = scriptTextWithPageMap.split('\n');
+    pmLines.forEach((l, i) => {
+      if (/\u0000PAGE:\d+\u0000/.test(l)) {
+        // このマーカー行の前後の数字行をページ番号として登録
+        const prevLine = i > 0 ? pmLines[i-1].trim() : '';
+        const nextLine = i < pmLines.length - 1 ? pmLines[i+1].trim() : '';
+        if (/^\d{1,4}$/.test(prevLine)) pageNumberLineSet.add(prevLine);
+        if (/^\d{1,4}$/.test(nextLine)) pageNumberLineSet.add(nextLine);
+      }
+    });
+  }
+
+  // ノイズ行かどうかを判定する関数（v19.1: より精確な判定）
+  const isNoiseLine = (l, lineIdx) => {
+    const lt = l.trim();
+    if (!lt) return false;
+
+    // 応募ヘッダー系
+    if (/大賞|コンクール|応募用紙|応募票/.test(lt) &&
+        /^.{0,30}(大賞|コンクール|応募|賞|公募)/.test(lt)) return true;
+    if (/^(応募用紙|応募票|応募フォーム|提出用紙|出品票|送付状)/.test(lt)) return true;
+    if (/^.{0,20}(作者|著者|脚本|作品名|タイトル|連絡先|住所|電話|メール|学校|氏名|提出者)[:：]/.test(lt)) return true;
+
+    // P.数字 形式のページ番号
+    if (/^\s*[Pp]\.?\s*\d{1,4}\s*$/.test(lt)) return true;
+    if (/^\s*\d{1,4}\s*\/\s*\d{1,4}\s*$/.test(lt)) return true;
+    if (/^\s*-\s*\d{1,4}\s*-\s*$/.test(lt)) return true;
+
+    // 純粋な数字行: ページマップで明示されたページ番号 or 前後文脈で判定
+    if (/^\d{1,4}$/.test(lt)) {
+      const num = parseInt(lt);
+      if (num > 500) return false;
+      // ページマップに登録済みなら確実にページ番号
+      if (pageNumberLineSet.has(lt)) return true;
+      // 前後の行で判定（前後が空行 or メタ情報行ならページ番号）
+      const prevL = lineIdx > 0 ? rawLines[lineIdx-1].trim() : '';
+      const nextL = lineIdx < rawLines.length - 1 ? rawLines[lineIdx+1].trim() : '';
+      const prevIsScript = prevL && (
+        /^[０-９0-9○◎●]/.test(prevL) ||
+        /^【.{1,30}】/.test(prevL) ||
+        /^INT\.|^EXT\./.test(prevL.toUpperCase()) ||
+        prevL.includes('「') ||
+        (prevL.length > 15 && !prevL.match(/^\d{1,4}$/))
+      );
+      // 前が脚本本文でないなら、ページ番号と判断
+      if (!prevIsScript || !prevL) return true;
+    }
+
+    return false;
+  };
 
   // ── v14: Build rich annotation map from multiple sources ──────────
   // annotMap[lineIndex] = [{label, type, comment, source}]
@@ -17472,6 +17852,26 @@ function staffRoomGenerateAnnotatedScript(sessionId) {
     const l = rawLine.trim();
     if (l === '') { annotHtml += '<div style="height:5px"></div>'; prevLineB = ''; return; }
 
+    // v19.1: ノイズ行（応募ヘッダー・ページ番号）は薄く表示して「メタ情報」バッジ
+    // ページ番号は「p.XX」「ページ番号」として明示的に表示
+    const isNoise = isNoiseLine(rawLine, ri);
+    if (isNoise) {
+      const isPageNum = /^\d{1,4}$/.test(l.trim());
+      const noiseLabel = isPageNum
+        ? `p.${l.trim()} <i class="fas fa-circle-minus" style="font-size:7px;margin-left:3px"></i>ページ番号`
+        : `<i class="fas fa-circle-minus" style="font-size:7px"></i>メタ情報`;
+      const noiseTitle = isPageNum
+        ? `ページ番号 ${l.trim()} — 採点対象外`
+        : '採点対象外：応募フォーマット情報・ページ番号等';
+      annotHtml += `<div class="sr-ann-line2" style="opacity:.3;background:#fefce8;border-left:2px solid #fde68a">` +
+        `<span class="sr-ann-lnum2">${ri+1}</span>` +
+        `<span class="sr-ann-text2 direction-line" style="color:#92400e;font-style:italic;font-size:10px">${esc(l)}</span>` +
+        `<div class="sr-ann-badges"><span class="sr-ann-badge warn" title="${noiseTitle}">${noiseLabel}</span></div>` +
+        `</div>`;
+      prevLineB = l;
+      return;
+    }
+
     let lineClass = 'direction-line';
     let lineContent = esc(l);
 
@@ -17606,7 +18006,7 @@ function staffRoomGenerateAnnotatedScript(sessionId) {
         <i class="fas fa-file-lines" style="color:#a78bfa;font-size:14px"></i>
         <div style="flex:1">
           <div style="font-weight:700;font-size:13px">${esc(s.title||'無題の脚本')}　—　アノテーション付き脚本</div>
-          <div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">v18精密行単位添削 · 7審査員採点＋自動検出を脚本上にマッピング · クリックで改稿ヒント・Before/After展開</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">v19精密行単位添削 · 7審査員採点＋自動検出 · ページ番号/メタ情報識別 · クリックで改稿ヒント・Before/After展開${attachedFileMeta ? ' · 元ファイル: ' + esc(attachedFileMeta.name) : ''}</div>
         </div>
         <div style="display:flex;gap:6px">
           <button onclick="(function(){const ps=document.querySelectorAll('[id^=ann-panel-]');let anyHidden=Array.from(ps).some(p=>p.style.display==='none');ps.forEach(p=>p.style.display=anyHidden?'block':'none');})()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:5px 10px;font-size:10px;cursor:pointer;font-weight:600" title="全コメントを一括展開/折り畳み"><i class="fas fa-expand-alt" style="margin-right:4px"></i>全展開</button>
@@ -17645,7 +18045,7 @@ function staffRoomGenerateAnnotatedScript(sessionId) {
             </div>` : ''}
             ${ar && ar.judgesComments && ar.judgesComments.length > 0 ? `
             <div style="margin-top:10px;border-top:1px solid rgba(255,255,255,.08);padding-top:8px">
-              <div style="font-size:9.5px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:6px"><i class="fas fa-gavel" style="margin-right:4px;color:#c4b5fd"></i>審査員コメント (${ar.judgesComments.length}名 · v18精密版)</div>
+              <div style="font-size:9.5px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:6px"><i class="fas fa-gavel" style="margin-right:4px;color:#c4b5fd"></i>審査員コメント (${ar.judgesComments.length}名 · v19精密版)</div>
               <div style="display:flex;flex-direction:column;gap:5px">
                 ${ar.judgesComments.slice(0,5).map(j =>
                   '<div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 10px">' +
@@ -17691,8 +18091,27 @@ function staffRoomDownloadAnnotated(sessionId) {
   const rawLines = s.scriptText.split('\n');
   const bar = '═'.repeat(60);
   const line2 = '─'.repeat(60);
+  const attachedMeta = s.attachedFileMeta || null;
 
-  let out = `${bar}\n  アノテーション付き脚本\n  ${s.title || '無題の脚本'}\n  生成: ${new Date().toLocaleString('ja-JP')}\n${bar}\n\n`;
+  let out = `${bar}\n  アノテーション付き脚本\n  ${s.title || '無題の脚本'}\n  生成: ${new Date().toLocaleString('ja-JP')}`;
+  if (attachedMeta) out += `\n  元ファイル: ${attachedMeta.name} (${attachedMeta.type.toUpperCase()})`;
+  if (s.pdfPageCount) out += `\n  ページ数: ${s.pdfPageCount}ページ`;
+  out += `\n${bar}\n\n`;
+
+  // v19.1: ページ番号行を識別するためにページマップを活用
+  const scriptTextWithPageMap = s.scriptTextWithPageMap || null;
+  const pageNumberLineSet = new Set();
+  if (scriptTextWithPageMap) {
+    const pmLines = scriptTextWithPageMap.split('\n');
+    pmLines.forEach((l, i) => {
+      if (/\u0000PAGE:\d+\u0000/.test(l)) {
+        const prevLine = i > 0 ? pmLines[i-1].trim() : '';
+        const nextLine = i < pmLines.length - 1 ? pmLines[i+1].trim() : '';
+        if (/^\d{1,4}$/.test(prevLine)) pageNumberLineSet.add(prevLine);
+        if (/^\d{1,4}$/.test(nextLine)) pageNumberLineSet.add(nextLine);
+      }
+    });
+  }
 
   // Map quotes to lines
   const issueMap = {};
@@ -17741,23 +18160,35 @@ function staffRoomDownloadAnnotated(sessionId) {
   });
 
   rawLines.forEach((rl, ri) => {
-    out += `${String(ri+1).padStart(4,' ')} | ${rl}\n`;
-    // Diagnostic notes first
-    if (issueMap[ri]) {
-      issueMap[ri].forEach(note => {
-        const mark = note.type === 'bad' ? '⚠ 要修正' : note.type === 'good' ? '✓ 好評価' : 'ℹ 注意';
-        out += `         ${mark}: [${note.label||''}]\n`;
-        out += `           ${(note.text||'').slice(0,120)}\n`;
-        if (note.quote) out += `           引用根拠: 「${note.quote.slice(0,60)}」\n`;
-      });
-    }
-    // Auto-annotations
-    if (autoAnnotMapTxt[ri]) {
-      autoAnnotMapTxt[ri].forEach(ann => {
-        const mark2 = ann.type === 'bad' ? '⚠ 要修正' : ann.type === 'good' ? '✓ 好例' : '△ 注意';
-        out += `         ${mark2}: [${ann.label}]\n`;
-        out += `           ${ann.comment.replace(/\n/g,'\n           ')}\n`;
-      });
+    const rlTrimmed = rl.trim();
+    // v19.1: ページ番号行の識別
+    const isPageNumLine = /^\d{1,4}$/.test(rlTrimmed) && pageNumberLineSet.has(rlTrimmed);
+    const isMetaLine = isPageNumLine ||
+      /^.{0,30}(大賞|コンクール|応募|賞|公募).{0,20}(応募用紙|応募票|応募作品)/.test(rlTrimmed) ||
+      /^\s*[Pp]\.?\s*\d{1,4}\s*$/.test(rlTrimmed);
+
+    if (isMetaLine) {
+      const metaLabel = isPageNumLine ? `[p.${rlTrimmed}]` : '[メタ情報]';
+      out += `${String(ri+1).padStart(4,' ')} | ${rl}  ${metaLabel} ← 採点対象外\n`;
+    } else {
+      out += `${String(ri+1).padStart(4,' ')} | ${rl}\n`;
+      // Diagnostic notes first
+      if (issueMap[ri]) {
+        issueMap[ri].forEach(note => {
+          const mark = note.type === 'bad' ? '⚠ 要修正' : note.type === 'good' ? '✓ 好評価' : 'ℹ 注意';
+          out += `         ${mark}: [${note.label||''}]\n`;
+          out += `           ${(note.text||'').slice(0,120)}\n`;
+          if (note.quote) out += `           引用根拠: 「${note.quote.slice(0,60)}」\n`;
+        });
+      }
+      // Auto-annotations
+      if (autoAnnotMapTxt[ri]) {
+        autoAnnotMapTxt[ri].forEach(ann => {
+          const mark2 = ann.type === 'bad' ? '⚠ 要修正' : ann.type === 'good' ? '✓ 好例' : '△ 注意';
+          out += `         ${mark2}: [${ann.label}]\n`;
+          out += `           ${ann.comment.replace(/\n/g,'\n           ')}\n`;
+        });
+      }
     }
   });
 
@@ -17787,7 +18218,7 @@ function staffRoomDownloadAnnotated(sessionId) {
       if (st.commercialScoreRaw !== undefined) out += `  商業適合: ${st.commercialScoreRaw}/5\n`;
     }
   }
-  out += `\n${bar}\n  ■ 審査員コメント（${ar && ar.judgesComments ? ar.judgesComments.length : 0}名 · v18精密版）\n${bar}\n`;
+  out += `\n${bar}\n  ■ 審査員コメント（${ar && ar.judgesComments ? ar.judgesComments.length : 0}名 · v19精密版）\n${bar}\n`;
   if (ar && ar.judgesComments && ar.judgesComments.length > 0) {
     ar.judgesComments.forEach((j, ji) => {
       const scoreBar = '█'.repeat(j.score||0) + '░'.repeat(5-(j.score||0));
@@ -17938,7 +18369,7 @@ function staffRoomExport(sessionId) {
   const exportJudges = (ar && ar.judgesComments && ar.judgesComments.length > 0) ? ar.judgesComments :
                        (ar && ar.analysisStats && ar.analysisStats.judgesComments) ? ar.analysisStats.judgesComments : [];
   if (exportJudges.length > 0) {
-    text += `\n${line}\n審査員コメント（${exportJudges.length}名 · v18精密版）\n${line}\n`;
+    text += `\n${line}\n審査員コメント（${exportJudges.length}名 · v19精密版）\n${line}\n`;
     exportJudges.forEach((jc, ji) => {
       const scoreBar = '█'.repeat(jc.score||0) + '░'.repeat(5-(jc.score||0));
       text += `\n[${ji+1}] 【${jc.judge}】 ${scoreBar} ${jc.score}/5点\n${jc.comment}\n`;
