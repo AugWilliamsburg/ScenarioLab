@@ -10,6 +10,32 @@ app.use('/api/*', cors())
 // API: Projects CRUD (localStorage-based on frontend)
 app.get('/api/health', (c) => c.json({ status: 'ok', service: 'シナリオラボ' }))
 
+// PDF extraction proxy - forwards requests to the Python pdfminer server (port 3001)
+// This avoids mixed-content (HTTPS→HTTP) issues in the browser.
+// The Hono worker calls the Python server server-to-server (HTTP is fine).
+app.post('/api/extract-pdf', async (c) => {
+  try {
+    const body = await c.req.arrayBuffer();
+    const contentType = c.req.header('content-type') || 'multipart/form-data';
+
+    const resp = await fetch('http://localhost:3001/extract', {
+      method: 'POST',
+      headers: { 'content-type': contentType },
+      body: body,
+    });
+
+    if (!resp.ok) {
+      return c.json({ error: `PDF server returned ${resp.status}` }, 502);
+    }
+
+    const data = await resp.json() as Record<string, unknown>;
+    return c.json(data);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return c.json({ error: `PDF proxy error: ${msg}` }, 500);
+  }
+})
+
 // Main app - serve the full SPA
 app.get('*', (c) => {
   return c.html(`<!DOCTYPE html>

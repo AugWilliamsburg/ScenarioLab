@@ -12773,7 +12773,7 @@ function renderLearnStaffRoom(hero, subnav) {
             <i class="fas fa-gavel" style="color:rgba(255,255,255,.5);font-size:12px"></i>
             <span style="font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.45);font-weight:600;text-transform:uppercase">SCENARIO LAB ─ 審査員採点レポート v14</span>
             <span style="font-size:9px;background:rgba(168,85,247,.25);color:rgba(200,160,255,.9);border:1px solid rgba(168,85,247,.4);border-radius:4px;padding:1px 6px;font-weight:700;letter-spacing:.05em">21項目・8軸・脚本タイプ対応 v14</span>
-            <span class="sr-engine-badge"><i class="fas fa-microchip" style="font-size:7px"></i>精密解析エンジン v23</span>
+            <span class="sr-engine-badge"><i class="fas fa-microchip" style="font-size:7px"></i>精密解析エンジン v24</span>
             ${autoResult.analysisStats && autoResult.analysisStats.scriptType ? `<span class="sr-type-badge"><i class="fas fa-tag" style="font-size:7px"></i>${{'tv-drama':'TVドラマ','film':'映画','stage':'舞台','web':'WEB/配信','competition':'コンクール自由','short':'短編','anime':'アニメ','radio':'ラジオ/音声'}[autoResult.analysisStats.scriptType]||autoResult.analysisStats.scriptType}</span>` : ''}
             <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
               ${autoResult.analysisStats ? `<span style="font-size:10px;color:rgba(255,255,255,.3)">${new Date(autoResult.scoredAt||Date.now()).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}採点</span>` : ''}
@@ -13344,7 +13344,7 @@ function renderLearnStaffRoom(hero, subnav) {
             <i class="fas fa-file-lines" style="color:#2563eb;font-size:14px"></i>
             アノテーション添削（行単位・Before/After付き）
           </div>
-          <span style="font-size:10.5px;color:#3b82f6;background:#dbeafe;border-radius:6px;padding:2px 8px;font-weight:600">v23精密版</span>
+          <span style="font-size:10.5px;color:#3b82f6;background:#dbeafe;border-radius:6px;padding:2px 8px;font-weight:600">v24精密版</span>
           <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
             ${s.autoScoreResult ? `
             <button onclick="staffRoomGenerateAnnotatedScript('${s.id}')" style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border:none;border-radius:7px;padding:7px 14px;font-size:11px;cursor:pointer;font-weight:700;box-shadow:0 2px 8px rgba(37,99,235,.3);display:flex;align-items:center;gap:5px" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
@@ -17493,7 +17493,7 @@ async function staffRoomReadFile(file, sessionId) {
   };
 
   if (ext === 'pdf') {
-    toast('📄 PDFを解析中…（高精度サーバー抽出エンジン v23）', 'info');
+    toast('📄 PDFを解析中…（高精度サーバー抽出エンジン v24）', 'info');
     try {
       const arrayBuffer = await file.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
@@ -17522,7 +17522,9 @@ async function staffRoomReadFile(file, sessionId) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-        const resp = await fetch('http://localhost:3001/extract', {
+        // Use /api/extract-pdf proxy (avoids mixed-content HTTPS→HTTP issue)
+        // The Hono worker forwards this to the Python pdfminer server server-to-server
+        const resp = await fetch('/api/extract-pdf', {
           method: 'POST',
           body: formData,
           signal: controller.signal,
@@ -17593,7 +17595,7 @@ async function staffRoomReadFile(file, sessionId) {
             extractedBy: 'pdfminer-v23',
           }
         });
-        toast(`✅ PDF ${totalPages}ページ / ${charCount.toLocaleString()}字を抽出（${layoutType}）v23 高精度`, 'success');
+        toast(`✅ PDF ${totalPages}ページ / ${charCount.toLocaleString()}字を抽出（${layoutType}）v24 高精度`, 'success');
         render();
         setTimeout(() => {
           const btn = document.getElementById(`staffroom-submit-btn-${sessionId}`);
@@ -17732,7 +17734,7 @@ async function staffRoomReadFile(file, sessionId) {
               extractedBy: 'pdfjs-v23-fallback',
             }
           });
-          toast(`✅ PDF ${pdf.numPages}ページ / ${charCount.toLocaleString()}字を抽出（${layoutType}）v23 標準`, 'success');
+          toast(`✅ PDF ${pdf.numPages}ページ / ${charCount.toLocaleString()}字を抽出（${layoutType}）v24 標準`, 'success');
           render();
           setTimeout(() => {
             const btn = document.getElementById(`staffroom-submit-btn-${sessionId}`);
@@ -18405,7 +18407,7 @@ function staffRoomGenerateAnnotatedScript(sessionId) {
             </div>` : ''}
             ${ar && ar.judgesComments && ar.judgesComments.length > 0 ? `
             <div style="margin-top:10px;border-top:1px solid rgba(255,255,255,.08);padding-top:8px">
-              <div style="font-size:9.5px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:6px"><i class="fas fa-gavel" style="margin-right:4px;color:#c4b5fd"></i>審査員コメント (${ar.judgesComments.length}名 · v23精密版)</div>
+              <div style="font-size:9.5px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:6px"><i class="fas fa-gavel" style="margin-right:4px;color:#c4b5fd"></i>審査員コメント (${ar.judgesComments.length}名 · v24精密版)</div>
               <div style="display:flex;flex-direction:column;gap:5px">
                 ${ar.judgesComments.slice(0,5).map(j =>
                   '<div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 10px">' +
@@ -18669,7 +18671,7 @@ function staffRoomDownloadAnnotated(sessionId) {
       if (st.commercialScoreRaw !== undefined) out += `  商業適合: ${st.commercialScoreRaw}/5\n`;
     }
   }
-  out += `\n${bar}\n  ■ 審査員コメント（${ar && ar.judgesComments ? ar.judgesComments.length : 0}名 · v23精密版）\n${bar}\n`;
+  out += `\n${bar}\n  ■ 審査員コメント（${ar && ar.judgesComments ? ar.judgesComments.length : 0}名 · v24精密版）\n${bar}\n`;
   if (ar && ar.judgesComments && ar.judgesComments.length > 0) {
     ar.judgesComments.forEach((j, ji) => {
       const scoreBar = '█'.repeat(j.score||0) + '░'.repeat(5-(j.score||0));
@@ -18820,7 +18822,7 @@ function staffRoomExport(sessionId) {
   const exportJudges = (ar && ar.judgesComments && ar.judgesComments.length > 0) ? ar.judgesComments :
                        (ar && ar.analysisStats && ar.analysisStats.judgesComments) ? ar.analysisStats.judgesComments : [];
   if (exportJudges.length > 0) {
-    text += `\n${line}\n審査員コメント（${exportJudges.length}名 · v23精密版）\n${line}\n`;
+    text += `\n${line}\n審査員コメント（${exportJudges.length}名 · v24精密版）\n${line}\n`;
     exportJudges.forEach((jc, ji) => {
       const scoreBar = '█'.repeat(jc.score||0) + '░'.repeat(5-(jc.score||0));
       text += `\n[${ji+1}] 【${jc.judge}】 ${scoreBar} ${jc.score}/5点\n${jc.comment}\n`;
