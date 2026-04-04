@@ -12498,6 +12498,7 @@ function renderLearnStaffRoom(hero, subnav) {
           <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.title||'無題の脚本')}</div>
           <div style="font-size:10.5px;color:var(--text-muted);margin-bottom:4px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             <span>${dt}</span>
+            ${s.evalMode ? `<span class="sr-mode-badge ${s.evalMode}">${{contest:'🏆コンクール',adaptation:'🎬映像化',school:'📚添削',general:'📊総合'}[s.evalMode]||s.evalMode}</span>` : ''}
             ${ar && ar.analysisStats ? `<span style="color:var(--text-light)">·</span><span>${ar.analysisStats.sceneCount||0}シーン</span>` : ''}
             ${s.scoreHistory && s.scoreHistory.length >= 2 ? `<span style="color:var(--text-light)">·</span><span style="color:var(--matcha);font-weight:600">${s.scoreHistory.length}回採点</span>` : ''}
             ${s.manualOverrides && Object.keys(s.manualOverrides).length > 0 ? `<span style="font-size:9px;background:#eff6ff;color:#3b82f6;border:1px solid #bfdbfe;border-radius:8px;padding:0 5px;font-weight:600">差分あり</span>` : ''}
@@ -12645,14 +12646,34 @@ function renderLearnStaffRoom(hero, subnav) {
     return `
     <div>
       <!-- セッションヘッダー -->
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
         <button class="btn btn-ghost btn-sm" onclick="staffRoomCloseSession()" style="flex-shrink:0"><i class="fas fa-arrow-left"></i></button>
         <input class="form-input" id="staffroom-title" style="flex:1;min-width:200px;font-size:14px;font-weight:600" placeholder="脚本タイトル" value="${esc(s.title||'')}" oninput="staffRoomAutoSaveTitle('${s.id}')">
         <div style="display:flex;gap:6px;flex-shrink:0">
           <button class="btn btn-primary btn-sm" onclick="staffRoomSaveAll('${s.id}')"><i class="fas fa-save"></i> 保存</button>
           <button class="btn btn-secondary btn-sm" onclick="staffRoomExport('${s.id}')"><i class="fas fa-file-export"></i> レポート</button>
+          ${s.autoScoreResult ? `<button class="btn btn-sm" style="background:linear-gradient(135deg,#1e3a8a,#1d4ed8);color:#fff;border:none" onclick="staffRoomGenerateAnnotatedScript('${s.id}')"><i class="fas fa-file-lines" style="margin-right:4px"></i>アノテーション</button>` : ''}
         </div>
       </div>
+
+      <!-- 評価モード選択 -->
+      <div class="sr-mode-strip">
+        <span style="font-size:10.5px;font-weight:700;color:var(--text-muted);align-self:center;white-space:nowrap"><i class="fas fa-sliders" style="margin-right:4px"></i>評価モード:</span>
+        ${[
+          { id:'contest',   icon:'fa-trophy',        label:'コンクール審査',   desc:'NHK・城戸賞・テレビ大賞基準。審査員視点で採点。コンクール通過力・感情インパクト・作家性を重視。' },
+          { id:'adaptation',icon:'fa-video',          label:'映像化適合',       desc:'映像化・ドラマ化・映画化の実現可能性。制作費効率・ロケ多様性・VFX依存度・放送枠適合を重視。' },
+          { id:'school',    icon:'fa-graduation-cap', label:'シナリオ学校添削',  desc:'教育的フィードバック重視。基礎技術・フォーマット・構成の正確さを丁寧に指摘。初級～中級向け。' },
+          { id:'general',   icon:'fa-chart-bar',      label:'総合評価',         desc:'全軸バランス評価。コンクール・映像化・教育的観点をすべて含む総合診断レポート。' },
+        ].map(m => `<button class="sr-mode-btn ${(s.evalMode||'contest')===m.id?'active':''}" onclick="staffRoomSetMode('${s.id}','${m.id}',this)">
+          <i class="fas ${m.icon}"></i>${m.label}
+        </button>`).join('')}
+      </div>
+      <div class="sr-mode-desc" id="sr-mode-desc-${s.id}">${{
+        contest:    '<i class="fas fa-trophy" style="color:var(--fuji);margin-right:4px"></i><strong>コンクール審査モード</strong> — NHK・城戸賞・テレビ大賞基準。審査員視点で採点。コンクール通過力・感情インパクト・作家性を重視。',
+        adaptation: '<i class="fas fa-video" style="color:#2563eb;margin-right:4px"></i><strong>映像化適合モード</strong> — 映像化・ドラマ化・映画化の実現可能性を重視。制作費効率・ロケ多様性・VFX依存度・放送枠適合を詳細評価。',
+        school:     '<i class="fas fa-graduation-cap" style="color:#16a34a;margin-right:4px"></i><strong>シナリオ学校添削モード</strong> — 基礎技術・フォーマット・構成の正確さを丁寧に指摘。具体的な改稿提案と模範例付き。',
+        general:    '<i class="fas fa-chart-bar" style="color:#ca8a04;margin-right:4px"></i><strong>総合評価モード</strong> — コンクール・映像化・教育的観点を全方位で評価。採点ヒストリー・比較分析付き。',
+      }[(s.evalMode||'contest')]}</div>
 
       <!-- 脚本入力エリア -->
       <div class="card" style="margin-bottom:20px;border-top:3px solid var(--fuji)">
@@ -12706,11 +12727,12 @@ function renderLearnStaffRoom(hero, subnav) {
           <!-- ヘッダーバー -->
           <div style="padding:14px 20px 10px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:10px;position:relative">
             <i class="fas fa-gavel" style="color:rgba(255,255,255,.5);font-size:12px"></i>
-            <span style="font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.45);font-weight:600;text-transform:uppercase">SCENARIO LAB ─ 審査員採点レポート v12</span>
-            <span style="font-size:9px;background:rgba(168,85,247,.25);color:rgba(200,160,255,.9);border:1px solid rgba(168,85,247,.4);border-radius:4px;padding:1px 6px;font-weight:700;letter-spacing:.05em">18項目・7軸・脚本固有分析 v12</span>
+            <span style="font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.45);font-weight:600;text-transform:uppercase">SCENARIO LAB ─ 審査員採点レポート v13</span>
+            <span style="font-size:9px;background:rgba(168,85,247,.25);color:rgba(200,160,255,.9);border:1px solid rgba(168,85,247,.4);border-radius:4px;padding:1px 6px;font-weight:700;letter-spacing:.05em">24項目・8軸・評価モード対応 v13</span>
             <span class="sr-engine-badge"><i class="fas fa-microchip" style="font-size:7px"></i>精密解析エンジン</span>
             <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
               ${autoResult.analysisStats ? `<span style="font-size:10px;color:rgba(255,255,255,.3)">${new Date(autoResult.scoredAt||Date.now()).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}採点</span>` : ''}
+              <button onclick="staffRoomGenerateAnnotatedScript('${s.id}')" style="background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.3);color:rgba(165,180,252,.9);border-radius:6px;height:22px;padding:0 8px;font-size:9px;cursor:pointer;display:flex;align-items:center;gap:3px;font-weight:600" title="アノテーション付き脚本を表示"><i class="fas fa-file-lines"></i> 脚本注釈</button>
               <button onclick="staffRoomClearAutoScore('${s.id}')" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:rgba(255,255,255,.6);border-radius:6px;width:22px;height:22px;font-size:9px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s" title="結果をクリア" onmouseover="this.style.background='rgba(255,68,68,.3)'" onmouseout="this.style.background='rgba(255,255,255,.08)'"><i class="fas fa-times"></i></button>
             </div>
           </div>
@@ -12736,6 +12758,8 @@ function renderLearnStaffRoom(hero, subnav) {
                     <span><i class="fas fa-heart" style="font-size:7px;opacity:.6;margin-right:2px"></i>感情${autoResult.analysisStats.emotionDensity||0}%</span>
                     ${autoResult.analysisStats.onTheNoseCount > 0 ? `<span style="color:rgba(248,113,113,.7)"><i class="fas fa-exclamation-circle" style="font-size:7px;margin-right:2px"></i>説明台詞${autoResult.analysisStats.onTheNoseCount}件</span>` : ''}
                     ${autoResult.analysisStats.hasCatharsis ? '<span style="color:rgba(74,222,128,.7)"><i class="fas fa-check-circle" style="font-size:7px;margin-right:2px"></i>カタルシス</span>' : ''}
+                    ${autoResult.analysisStats.obstacleScore !== undefined ? `<span style="color:${autoResult.analysisStats.obstacleScore>=4?'rgba(74,222,128,.7)':autoResult.analysisStats.obstacleScore>=2?'rgba(251,191,36,.7)':'rgba(248,113,113,.7)'}"><i class="fas fa-shield-halved" style="font-size:7px;margin-right:2px"></i>障壁${['','▼','△','◇','○','◎'][autoResult.analysisStats.obstacleScore]||autoResult.analysisStats.obstacleScore}</span>` : ''}
+                    ${autoResult.analysisStats.adaptationScore !== undefined ? `<span style="color:rgba(147,197,253,.7)"><i class="fas fa-video" style="font-size:7px;margin-right:2px"></i>映像適合${autoResult.analysisStats.adaptationScore}%</span>` : ''}
                   </span>` : ''}
                 </div>
               </div>
@@ -12762,7 +12786,50 @@ function renderLearnStaffRoom(hero, subnav) {
           </div>
         </div>
 
-        <!-- ② 詳細診断パネル（折りたたみ式） v12 -->
+        <!-- ② 審査員コメント欄 (v13) -->
+        ${autoResult.analysisStats && autoResult.analysisStats.judgesComments && autoResult.analysisStats.judgesComments.length > 0 ? `
+        <div class="sr-judges-section" style="margin:0 0 14px">
+          <div style="font-size:10px;letter-spacing:.1em;color:rgba(255,255,255,.4);font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px;background:linear-gradient(135deg,#09071f,#1a0f4a);padding:10px 14px 0;border-radius:10px 10px 0 0">
+            <i class="fas fa-gavel" style="font-size:9px"></i>審査員コメント
+            <span class="sr-v13-badge" style="margin-left:auto">v13</span>
+          </div>
+          <div style="padding:0 12px 12px;background:linear-gradient(135deg,#09071f,#1a0f4a);border-radius:0 0 10px 10px">
+            ${autoResult.analysisStats.judgesComments.map(jc=>`
+            <div class="sr-judge-card">
+              <div class="sr-judge-name">${esc(jc.judge)}</div>
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <span class="sr-judge-score">${jc.score}</span>
+                <span style="font-size:9px;color:rgba(255,255,255,.4)">/5</span>
+                <div style="flex:1;height:3px;background:rgba(255,255,255,.08);border-radius:2px">
+                  <div style="height:100%;width:${(jc.score||0)*20}%;background:${(jc.score||0)>=4?'#4ade80':(jc.score||0)>=3?'#fbbf24':'#f87171'};border-radius:2px;transition:width .8s"></div>
+                </div>
+              </div>
+              <div class="sr-judge-comment">${esc(jc.comment||'')}</div>
+            </div>`).join('')}
+            ${autoResult.analysisStats.adaptationScore !== undefined ? `
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)">
+              <div style="font-size:10px;color:rgba(255,255,255,.4);font-weight:700;margin-bottom:8px"><i class="fas fa-video" style="margin-right:4px"></i>映像化・商業適合スコア (v13)</div>
+              <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
+                ${[
+                  {label:'映像化適合度', val: autoResult.analysisStats.adaptationScore, max:100, unit:'%', color: autoResult.analysisStats.adaptationScore>=70?'#4ade80':autoResult.analysisStats.adaptationScore>=50?'#fbbf24':'#f87171'},
+                  {label:'商業適合度', val: (autoResult.analysisStats.commercialScore||0)*20, max:100, unit:'%', color: (autoResult.analysisStats.commercialScore||0)>=4?'#4ade80':(autoResult.analysisStats.commercialScore||0)>=2?'#fbbf24':'#f87171'},
+                  {label:'障壁強度', val: (autoResult.analysisStats.obstacleScore||0)*20, max:100, unit:'%', color: (autoResult.analysisStats.obstacleScore||0)>=4?'#4ade80':(autoResult.analysisStats.obstacleScore||0)>=2?'#fbbf24':'#f87171'},
+                  {label:'テンポ・リズム', val: (autoResult.analysisStats.tempoScore||0)*20, max:100, unit:'%', color: (autoResult.analysisStats.tempoScore||0)>=4?'#4ade80':(autoResult.analysisStats.tempoScore||0)>=2?'#fbbf24':'#f87171'},
+                ].map(ax=>`<div style="background:rgba(255,255,255,.05);border-radius:6px;padding:8px 10px">
+                  <div style="display:flex;justify-content:space-between;margin-bottom:4px">
+                    <span style="font-size:9px;color:rgba(255,255,255,.45)">${ax.label}</span>
+                    <span style="font-size:12px;font-weight:900;color:${ax.color}">${ax.val}${ax.unit}</span>
+                  </div>
+                  <div style="height:3px;background:rgba(255,255,255,.08);border-radius:2px">
+                    <div style="height:100%;width:${ax.val}%;background:${ax.color};border-radius:2px;transition:width .8s"></div>
+                  </div>
+                </div>`).join('')}
+              </div>
+            </div>` : ''}
+          </div>
+        </div>` : ''}
+
+        <!-- ③ 詳細診断パネル（折りたたみ式） v13 -->
         <div class="sr-diag-panel">
           <div class="sr-diag-panel-header" onclick="const d=document.getElementById('sr-diag-${s.id}');const ic=document.getElementById('sr-diag-ic-${s.id}');const open=d.style.display!=='none';d.style.display=open?'none':'block';ic.style.transform=open?'':'rotate(180deg)'">
             <i class="fas fa-microscope" style="color:var(--fuji);font-size:12px;flex-shrink:0"></i>
@@ -12786,13 +12853,17 @@ function renderLearnStaffRoom(hero, subnav) {
               <div class="sr-diag-note note-${typeClass}">
                 <div class="sr-diag-note-icon"><i class="fas ${iconName}"></i></div>
                 <div style="flex:1;min-width:0">
+                  ${n.label ? `<div style="font-size:10px;font-weight:800;letter-spacing:.03em;margin-bottom:4px;color:${n.type==='good'?'#15803d':n.type==='warn'?'#b45309':'#b91c1c'}">${esc(n.label)}</div>` : ''}
                   <div class="sr-diag-note-text">${esc(n.text).replace(/\n/g,'<br>')}</div>
-                  ${n.quote ? `<div class="sr-cite-block ${citeClass}">
-                    <div class="sr-cite-label"><i class="fas ${citeIcon}" style="font-size:8px;margin-right:4px"></i>${citeLabel}</div>
-                    <div class="sr-cite-text">${esc(n.quote)}</div>
-                    ${n.type === 'bad' ? `<div class="sr-cite-arrow"><i class="fas fa-arrow-right" style="font-size:9px;margin-right:5px"></i>この台詞・ト書きを改稿してください</div>` : ''}
-                    ${n.type === 'warn' ? `<div class="sr-cite-arrow"><i class="fas fa-lightbulb" style="font-size:9px;margin-right:5px"></i>改稿のヒントとして参照してください</div>` : ''}
-                    ${n.type === 'good' ? `<div class="sr-cite-arrow"><i class="fas fa-star" style="font-size:8px;margin-right:5px"></i>この表現・構造を他のシーンにも展開してください</div>` : ''}
+                  ${n.quote ? `<div class="sr-quote-v13">
+                    <div class="sr-quote-v13-label ${n.type==='bad'?'bad':n.type==='good'?'good':'warn'}">
+                      <i class="fas ${n.type==='good'?'fa-file-circle-check':n.type==='warn'?'fa-file-circle-exclamation':'fa-file-circle-xmark'}" style="margin-right:4px;font-size:9px"></i>${citeLabel}
+                    </div>
+                    <div class="sr-quote-v13-body ${n.type==='bad'?'bad':n.type==='good'?'good':'warn'}">${esc((n.quote||'').slice(0,300))}${(n.quote||'').length>300?'…':''}</div>
+                    ${n.improve ? `<div class="sr-quote-v13-improve"><i class="fas fa-arrow-right" style="color:var(--fuji);margin-right:4px"></i>${esc(n.improve)}</div>` :
+                      n.type === 'bad' ? `<div class="sr-quote-v13-improve"><i class="fas fa-arrow-right" style="color:#dc2626;margin-right:4px"></i>この台詞・ト書きを改稿してください</div>` :
+                      n.type === 'warn' ? `<div class="sr-quote-v13-improve"><i class="fas fa-lightbulb" style="color:#d97706;margin-right:4px"></i>改稿のヒントとして参照してください</div>` :
+                      `<div class="sr-quote-v13-improve"><i class="fas fa-star" style="color:#16a34a;margin-right:4px"></i>この表現・構造を他のシーンにも展開してください</div>`}
                   </div>` : ''}
                 </div>
               </div>`;}).join('')}
@@ -13284,6 +13355,31 @@ function renderLearnStaffRoom(hero, subnav) {
 }
 
 // ── 職員室：操作関数 ────────────────────────────────────────
+
+function staffRoomSetMode(sessionId, mode, btn) {
+  const sessions = DB.get('staffroom_sessions', []);
+  const idx = sessions.findIndex(s => s.id === sessionId);
+  if (idx === -1) return;
+  sessions[idx].evalMode = mode;
+  sessions[idx].updatedAt = Date.now();
+  DB.set('staffroom_sessions', sessions);
+
+  // Update UI without full re-render
+  const strip = btn.closest('.sr-mode-strip');
+  if (strip) strip.querySelectorAll('.sr-mode-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  const descEl = document.getElementById(`sr-mode-desc-${sessionId}`);
+  const descMap = {
+    contest:    '<i class="fas fa-trophy" style="color:var(--fuji);margin-right:4px"></i><strong>コンクール審査モード</strong> — NHK・城戸賞・テレビ大賞基準。審査員視点で採点。コンクール通過力・感情インパクト・作家性を重視。',
+    adaptation: '<i class="fas fa-video" style="color:#2563eb;margin-right:4px"></i><strong>映像化適合モード</strong> — 映像化・ドラマ化・映画化の実現可能性を重視。制作費効率・ロケ多様性・VFX依存度・放送枠適合を詳細評価。',
+    school:     '<i class="fas fa-graduation-cap" style="color:#16a34a;margin-right:4px"></i><strong>シナリオ学校添削モード</strong> — 基礎技術・フォーマット・構成の正確さを丁寧に指摘。具体的な改稿提案と模範例付き。',
+    general:    '<i class="fas fa-chart-bar" style="color:#ca8a04;margin-right:4px"></i><strong>総合評価モード</strong> — コンクール・映像化・教育的観点を全方位で評価。採点ヒストリー・比較分析付き。',
+  };
+  if (descEl) descEl.innerHTML = descMap[mode] || descMap.contest;
+  toast(`評価モードを「${btn.textContent.trim()}」に切り替えました`, 'info');
+}
+
 function staffRoomNewSession() {
   const sessions = DB.get('staffroom_sessions', []);
   const id = 'sr-' + Date.now();
@@ -13513,7 +13609,7 @@ function staffRoomAutoScore(sessionId) {
   // 非同期で採点（UIをブロックしないようsetTimeout）
   setTimeout(() => {
     try {
-      const result = staffRoomRunAnalysis(text);
+      const result = staffRoomRunAnalysis(text, s.evalMode || 'contest');
 
       // スコアをセッションに保存
       sessions[idx].scores = result.itemScores;
@@ -13870,13 +13966,15 @@ function staffRoomFbTab(sessionId, tab) {
 }
 
 // ── 脚本テキスト解析エンジン（ルールベース高精度） ──────────────
-function staffRoomRunAnalysis(text) {
+function staffRoomRunAnalysis(text, evalMode) {
   // ══════════════════════════════════════════════════════════════════
-  //  シナリオラボ 職員室 — コンクール審査員エンジン v11.0
-  //  7カテゴリ・18項目・多軸評価モデル
-  //  客観（構造・形式）× 主観（情動・映像性・作家性）× 映像化実現性
-  //  判定ロジック: NHK・城戸賞・テレビ大賞 審査基準を参考に設計
+  //  シナリオラボ 職員室 — 精密採点エンジン v13.0
+  //  8カテゴリ・24項目・評価モード対応多軸モデル
+  //  評価モード: contest(コンクール) | adaptation(映像化適合) | school(添削) | general(総合)
+  //  客観（構造・形式）× 主観（情動・映像性・作家性）× 映像化実現性 × 商業適合性
+  //  判定ロジック: NHK・城戸賞・テレビ大賞・映像化適合度 審査基準参考
   // ══════════════════════════════════════════════════════════════════
+  const mode = evalMode || 'contest';
 
   const rawLines = text.split('\n');
   const lines = rawLines.map(l => l.trim());
@@ -15907,6 +16005,59 @@ function staffRoomRunAnalysis(text) {
     notes.push(fmtGoodNote);
   }
 
+  // ── 障壁・対立強度 診断 (v13) ─────────────────────────────────────────
+  {
+    const obstacleKwDiag = ['だめだ','無理だ','できない','阻む','拒否','拒絶','邪魔','妨げ','追い込む','逃げ場','罠','裏切','誤解','嘘','秘密','危機','絶体絶命','どん底','失敗','挫折','壊れ','奪われ','失って','諦め','限界'];
+    const obstCountDiag = obstacleKwDiag.reduce((n,kw)=>n+(text.match(new RegExp(kw,'g'))||[]).length,0);
+    const obstScoreDiag = Math.min(5, Math.round(obstCountDiag / Math.max(1,sceneLines.length) * 2.5));
+    if (obstScoreDiag <= 1) {
+      const obstLine = nonEmpty.find(l=>l.length>10 && !isSceneLine(l));
+      const obstBadNote = {
+        type: 'bad',
+        label: '障壁・対立強度が不足',
+        text: `主人公の前に立ちはだかる障壁（物理的・心理的・人間関係的）が希薄です。障壁が弱いと物語は平板になります。対立キーワード検出数: ${obstCountDiag}件（${sceneLines.length}シーン中）。\n\n「主人公が〜しようとすると〜によって阻まれる」という構造を各シーンに組み込んでください。障壁は外的（他者・状況）と内的（自己の恐れ・信念・傷）の両方が必要です。`,
+        quote: obstLine ? obstLine.trim() : '',
+        improve: '改稿ヒント: 主人公が目標に向かって一歩踏み出すたびにより大きな壁が現れる「エスカレーション」構造を設計してください。第一幕の小さな障壁 → 第二幕の大きな挫折 → 第三幕の絶体絶命。',
+      };
+      notes.push(obstBadNote);
+    } else if (obstScoreDiag >= 4) {
+      const obstGoodNote = {
+        type: 'good',
+        label: '障壁・対立強度が高い',
+        text: `主人公の前に立ちはだかる障壁が十分に設定されています。対立キーワード${obstCountDiag}件を検出。物語に緊張感があり、読み手を引きつける力があります。この障壁の強度を最終シーンまで維持・強化してください。`,
+      };
+      notes.push(obstGoodNote);
+    }
+  }
+
+  // ── シナリオ学校添削モード追加診断 (v13) ──────────────────────────────
+  if (mode === 'school') {
+    const hasSceneNumbersSchool = nonEmpty.some(l=>/^[０-９0-9]+[○◎●]/.test(l));
+    const hasParentheticalsSchool = nonEmpty.some(l=>/^[（(].+[）)]/.test(l));
+    const schoolIssues = [];
+    if (!hasSceneNumbersSchool) schoolIssues.push('シーン番号（例: １○）がありません。プロ形式では各シーン柱書きに番号を付けます。');
+    if (!hasParentheticalsSchool) schoolIssues.push('演技指示（括弧書き: 「（間）」「（苦笑いして）」）がありません。適切に使ってください。');
+    if (schoolIssues.length > 0) {
+      const schoolNote = {
+        type: 'warn',
+        label: '【添削】基礎フォーマット確認',
+        text: schoolIssues.map((n,i)=>`${i+1}. ${n}`).join('\n\n'),
+        improve: '正しい形式例:\n１○病院・廊下（昼）\n田中（苦笑いして）\n「大丈夫ですよ」',
+      };
+      notes.push(schoolNote);
+    }
+    const verboseAction = nonEmpty.filter(l=>!isSceneLine(l)&&!charDialPat.test(l)&&l.length>60).slice(0,1);
+    if (verboseAction.length > 0) {
+      notes.push({
+        type: 'warn',
+        label: '【添削】ト書きを簡潔に',
+        text: 'ト書きが長すぎます。ト書きは「カメラが捉えるもの」だけを書いてください。感情・心理は書かず、外から見える行動と環境だけを。原則: 1アクション = 1行。',
+        quote: verboseAction[0].trim(),
+        improve: '改稿例: 「田中は深い悲しみに暮れながらゆっくりと立ち上がり、」→「田中、立ち上がる。」',
+      });
+    }
+  }
+
   // ── 分析情報（拡張）
   const genreStr = detectedGenres.length > 0 ? detectedGenres.join('・') : '';
   const pageNote = totalChars < 400
@@ -16138,6 +16289,81 @@ function staffRoomRunAnalysis(text) {
      '根本的な再構成が必要です。まず三幕の設計図（プロットアウトライン）を紙に書き、そこから書き直してください。');
 
   // 分析統計（エディタ連携用）
+  // ── v13 拡張軸計算 ─────────────────────────────────────────────────────
+  const obstacleKwV13 = ['だめだ','無理だ','できない','阻む','拒否','拒絶','邪魔','妨げ','追い込む','逃げ場','罠','裏切','誤解','嘘','秘密','危機','絶体絶命','どん底','失敗','挫折','壊れ','奪われ','失って','諦め','限界'];
+  const obstacleCountV13 = obstacleKwV13.reduce((n,kw)=>n+(text.match(new RegExp(kw,'g'))||[]).length,0);
+  const obstacleScoreV13 = Math.min(5, Math.round(obstacleCountV13 / Math.max(1,sceneLines.length) * 2.5 + (scores['three-act']||0)*0.2));
+
+  const popularGenresV13 = ['ミステリー','サスペンス','恋愛','ヒューマン','家族','青春','コメディ'];
+  const genreBonusV13 = popularGenresV13.filter(g=>genreStr.includes(g)).length;
+  const indoorRatioV13 = (indoorScenes + 1) / Math.max(1, sceneLines.length);
+  const commercialScoreV13 = Math.min(5, Math.round(
+    indoorRatioV13 * 1.5 +
+    Math.max(0, 3 - (uniqueChars > 8 ? 2 : uniqueChars > 5 ? 1 : 0)) +
+    genreBonusV13 * 0.4
+  ));
+
+  const adaptationScoreV13 = Math.min(100, Math.round(
+    ((scores['visual']||0) * 0.35 +
+     (scores['direction-clarity']||0) * 0.25 +
+     (scores['production-viability']||0) * 0.25 +
+     (scores['format-correctness']||0) * 0.15) * 20
+  ));
+
+  const avgSceneLenV13 = sceneLines.length > 0 ? Math.round(totalLines / sceneLines.length) : totalLines;
+  const tempoScoreV13 = Math.min(5, Math.round(
+    (shortActionRatio > 0.5 ? 2 : shortActionRatio > 0.3 ? 1 : 0) +
+    (avgSceneLenV13 < 20 ? 2 : avgSceneLenV13 < 35 ? 1 : 0) +
+    (sceneLines.length >= 5 ? 1 : 0)
+  ));
+
+  // ── v13 審査員コメント生成 ───────────────────────────────────────────────
+  const judgesCommentsV13 = [];
+  const evalModeV13 = mode || 'contest';
+  if (evalModeV13 === 'contest' || evalModeV13 === 'general') {
+    const eiSc = scores['emotional-impact'] || 0;
+    const avSc = scores['authorial-voice'] || 0;
+    const origSc = scores['originality'] || 0;
+    judgesCommentsV13.push({
+      judge: '審査委員長',
+      score: eiSc,
+      comment: eiSc >= 4
+        ? `感情的インパクトが際立っています。コンクールの一次審査を通過するに十分な牽引力があります。${origSc >= 4 ? 'オリジナリティも高く、この書き手ならではの世界観が確立されています。次稿では「審査員の記憶に残るシーン」をさらに1つ追加することを目指してください。' : '次稿ではオリジナリティをさらに磨き、「この作家にしか書けない話」という確信を読み手に与えてください。'}`
+        : `感情的インパクトが今一歩です。コンクール審査員は「続きを読みたい」と思わせる瞬間を探します。転換点・意外性・忘れられないシーン——3つのうち少なくとも1つを強化してください。読後に「何かが変わった」という感覚が残る脚本が一次通過します。`
+    });
+    const subtSc = scores['subtext'] || 0;
+    const voiceSc = scores['voice'] || 0;
+    judgesCommentsV13.push({
+      judge: 'セリフ担当審査員',
+      score: Math.round((subtSc + voiceSc) / 2),
+      comment: subtSc >= 4
+        ? `サブテキストの扱いが秀逸です。登場人物が本音を言わずに感情を伝える技術が確立されています。キャラクターの声も固有性があり、誰が話しているか台詞だけで分かります。`
+        : `セリフに「説明」が多く見受けられます。登場人物は本音を言いません。「言いたいこと」の裏にある行動・沈黙・物で語る——サブテキスト技法を全セリフに適用してください。「悲しい」ではなく「コーヒーカップを洗い続ける手が止まらない」。`
+    });
+  }
+  if (evalModeV13 === 'adaptation' || evalModeV13 === 'general') {
+    const prodSc  = scores['production-viability'] || 0;
+    const visSc   = scores['visual'] || 0;
+    judgesCommentsV13.push({
+      judge: 'プロデューサー視点',
+      score: Math.round((prodSc + visSc + commercialScoreV13) / 3),
+      comment: prodSc >= 4
+        ? `制作コスト観点で優れています。日常的な舞台設定・映像映えするト書き——放送・配信向けのパッケージとして企画を通す力があります。商業適合度: ${commercialScoreV13}/5。映像化適合スコア: ${adaptationScoreV13}%。`
+        : `制作コストが心配です。VFX・大規模ロケ・多人数キャストは予算を圧迫します。同じ感情効果を「密室」「2人」「日常の道具」で表現できないか検討してください。予算内で作れる脚本が実際に映像化されます。`
+    });
+  }
+  if (evalModeV13 === 'school' || evalModeV13 === 'general') {
+    const fmtSc = scores['format-correctness'] || 0;
+    const threeActSc = scores['three-act'] || 0;
+    judgesCommentsV13.push({
+      judge: '講師・添削担当',
+      score: Math.round((fmtSc + threeActSc) / 2),
+      comment: fmtSc >= 4 && threeActSc >= 4
+        ? `基礎が完全に身についています。フォーマット・三幕構成・因果関係——プロの読み手が違和感なく読める脚本です。次のステップは「個性」の確立です。`
+        : `まずは基礎の徹底を。脚本フォーマット（柱書き・ト書き・台詞の配置）と三幕構成（発端事件・対立・クライマックスの位置）を正確に実装してください。審査員はフォーマットの乱れで読む気を失います。`
+    });
+  }
+
   const analysisStats = {
     sceneCount, uniqueChars, totalChars, estimatedPages,
     dialogueRatio: Math.round(dialogueRatio * 100),
@@ -16150,6 +16376,15 @@ function staffRoomRunAnalysis(text) {
     tensionCount, poeticCount, repeatedMotifs,
     productionScalePractical, locationVariety,
     hasCatharsis,
+    // v13 extended axes
+    obstacleScore: obstacleScoreV13,
+    obstacleCount: obstacleCountV13,
+    commercialScore: commercialScoreV13,
+    adaptationScore: adaptationScoreV13,
+    tempoScore: tempoScoreV13,
+    avgSceneLen: avgSceneLenV13,
+    judgesComments: judgesCommentsV13,
+    evalMode: evalModeV13,
   };
 
   return {
@@ -16279,6 +16514,178 @@ async function staffRoomReadFile(file, sessionId) {
   }
 }
 
+
+// ── アノテーション付き脚本生成（v13）─────────────────────────────────────
+function staffRoomGenerateAnnotatedScript(sessionId) {
+  const sessions = DB.get('staffroom_sessions', []);
+  const s = sessions.find(x => x.id === sessionId);
+  if (!s || !s.scriptText) { toast('脚本テキストがありません', 'error'); return; }
+
+  const ar = s.autoScoreResult || null;
+  const detailNotes = ar ? (ar.detailNotes || []) : [];
+  const itemScores  = ar ? (ar.itemScores  || {}) : {};
+
+  const rawLines = s.scriptText.split('\n');
+
+  // Build an index of scene-level issues from detailNotes
+  const issueMap = {}; // lineIndex → [{label, type}]
+
+  // Extract quotes from detailNotes and map them back to lines
+  detailNotes.forEach(note => {
+    const q = note.quote || '';
+    if (!q) return;
+    const qLines = q.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    qLines.forEach(ql => {
+      // Find matching line in script
+      rawLines.forEach((rl, ri) => {
+        if (rl.trim() === ql || rl.trim().includes(ql.slice(0,20)) && ql.length > 10) {
+          if (!issueMap[ri]) issueMap[ri] = [];
+          const type = note.type || 'note';
+          issueMap[ri].push({ label: note.label || '', type });
+        }
+      });
+    });
+  });
+
+  // Helper detectors
+  const isSceneLine = l =>
+    /^[０-９0-9]+[○◎●]/.test(l) || /^[○◎●]/.test(l) ||
+    /^【.{1,30}】/.test(l) || /^INT\.|^EXT\./.test(l.toUpperCase()) ||
+    /^シーン[０-９0-9]|^#[0-9]/.test(l);
+  const isCharName = l => /^[　\s]*[A-ZＡ-Ｚぁ-ん一-龯]{1,15}[　\s]*$/.test(l.trim()) && l.trim().length < 16;
+  const isDialogue = (l, prev) => prev && isCharName(prev) && !isSceneLine(l);
+  const isDirection = l => !isSceneLine(l) && !isCharName(l) && l.trim().length > 0;
+
+  let annotHtml = '';
+  let prevLine = '';
+  let sceneIdx = 0;
+  let longDialogueWarned = new Set();
+
+  rawLines.forEach((rawLine, ri) => {
+    const l = rawLine.trim();
+    if (l === '') { annotHtml += '<div style="height:6px"></div>'; prevLine = ''; return; }
+
+    let lineClass = 'direction-line';
+    let lineContent = esc(l);
+
+    if (isSceneLine(l)) {
+      sceneIdx++;
+      lineClass = 'scene-line';
+      lineContent = `<i class="fas fa-film" style="font-size:8px;margin-right:4px;opacity:.5"></i>${esc(l)}`;
+    } else if (isCharName(l)) {
+      lineClass = 'char-line';
+    } else if (isDialogue(l, prevLine)) {
+      lineClass = 'dialogue-line';
+      // Warn on very long dialogue
+      if (l.length > 80 && !longDialogueWarned.has(ri)) {
+        longDialogueWarned.add(ri);
+        if (!issueMap[ri]) issueMap[ri] = [];
+        issueMap[ri].push({ label: `長台詞(${l.length}字)`, type: 'bad' });
+      }
+    }
+
+    // Build inline comment badges
+    let commentHtml = '';
+    if (issueMap[ri]) {
+      issueMap[ri].forEach(issue => {
+        const typeClass = issue.type === 'bad' ? 'warn' : issue.type === 'good' ? 'good' : 'note';
+        const icon = issue.type === 'bad' ? 'fa-triangle-exclamation' :
+                     issue.type === 'good' ? 'fa-check' : 'fa-circle-info';
+        commentHtml += `<span class="sr-ann-comment ${typeClass}"><i class="fas ${icon}" style="font-size:8px"></i> ${esc(issue.label.slice(0,18))}</span>`;
+      });
+    }
+
+    annotHtml += `<div class="sr-ann-line">
+      <span class="sr-ann-lnum">${ri+1}</span>
+      <span class="sr-ann-text ${lineClass}">${lineContent}</span>
+      ${commentHtml}
+    </div>`;
+    prevLine = l;
+  });
+
+  // Build modal
+  const modalEl = document.getElementById('modal-overlay');
+  if (!modalEl) return;
+  modalEl.innerHTML = `
+    <div class="modal-dialog" style="max-width:820px;width:95vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column">
+      <div class="modal-header" style="flex-shrink:0;display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#09071f,#1a0f4a);color:#fff;border-radius:12px 12px 0 0;padding:14px 18px">
+        <i class="fas fa-file-lines" style="color:#a78bfa;font-size:14px"></i>
+        <div style="flex:1">
+          <div style="font-weight:700;font-size:13px">${esc(s.title||'無題の脚本')}　—　アノテーション付き脚本</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">採点結果を脚本上に直接マッピング · 問題箇所と好評価箇所を行単位で表示</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button onclick="staffRoomDownloadAnnotated('${sessionId}')" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:5px 10px;font-size:10px;cursor:pointer;font-weight:600"><i class="fas fa-download" style="margin-right:4px"></i>TXTダウンロード</button>
+          <button onclick="document.getElementById('modal-overlay').style.display='none'" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);border-radius:6px;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center"><i class="fas fa-times" style="font-size:11px"></i></button>
+        </div>
+      </div>
+      <div style="flex:1;overflow-y:auto">
+        <div class="sr-annotated-body">
+          ${annotHtml || '<div style="color:var(--text-muted);padding:20px;text-align:center">脚本テキストがありません</div>'}
+        </div>
+      </div>
+      <div style="flex-shrink:0;padding:10px 16px;background:var(--bg-subtle);border-top:1px solid var(--border);font-size:10.5px;color:var(--text-muted);display:flex;align-items:center;gap:12px;border-radius:0 0 12px 12px">
+        <span><span style="display:inline-block;width:10px;height:10px;background:#fef3c7;border:1px solid #fde68a;border-radius:2px;margin-right:3px"></span>要注意</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#dcfce7;border:1px solid #bbf7d0;border-radius:2px;margin-right:3px"></span>好評価</span>
+        <span><span style="display:inline-block;width:10px;height:10px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:2px;margin-right:3px"></span>情報</span>
+        <span style="margin-left:auto">${rawLines.length}行 · ${detailNotes.length}件の診断ノート適用</span>
+      </div>
+    </div>`;
+  modalEl.style.display = 'flex';
+}
+
+function staffRoomDownloadAnnotated(sessionId) {
+  const sessions = DB.get('staffroom_sessions', []);
+  const s = sessions.find(x => x.id === sessionId);
+  if (!s || !s.scriptText) return;
+
+  const ar = s.autoScoreResult || null;
+  const detailNotes = ar ? (ar.detailNotes || []) : [];
+  const rawLines = s.scriptText.split('\n');
+  const bar = '═'.repeat(60);
+  const line2 = '─'.repeat(60);
+
+  let out = `${bar}\n  アノテーション付き脚本\n  ${s.title || '無題の脚本'}\n  生成: ${new Date().toLocaleString('ja-JP')}\n${bar}\n\n`;
+
+  // Map quotes to lines
+  const issueMap = {};
+  detailNotes.forEach(note => {
+    const q = note.quote || '';
+    if (!q) return;
+    q.split('\n').map(l=>l.trim()).filter(l=>l.length>0).forEach(ql => {
+      rawLines.forEach((rl, ri) => {
+        if (rl.trim() === ql || (rl.trim().includes(ql.slice(0,20)) && ql.length > 10)) {
+          if (!issueMap[ri]) issueMap[ri] = [];
+          issueMap[ri].push(note);
+        }
+      });
+    });
+  });
+
+  rawLines.forEach((rl, ri) => {
+    out += `${String(ri+1).padStart(4,' ')} | ${rl}\n`;
+    if (issueMap[ri]) {
+      issueMap[ri].forEach(note => {
+        const mark = note.type === 'bad' ? '⚠' : note.type === 'good' ? '✓' : 'ℹ';
+        out += `       ${mark} [${note.label||''}] ${(note.text||'').slice(0,80)}\n`;
+      });
+    }
+  });
+
+  out += `\n${bar}\n  診断ノート一覧 (${detailNotes.length}件)\n${bar}\n`;
+  detailNotes.forEach((n,i) => {
+    out += `\n[${i+1}] ${n.label||''}\n${n.text||''}\n`;
+    if (n.quote) out += `  引用: ${n.quote.slice(0,100)}\n`;
+  });
+
+  const blob = new Blob([out], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `annotated_${(s.title||'script').slice(0,20).replace(/[\s\/\\]/g,'_')}_${new Date().toISOString().slice(0,10)}.txt`;
+  a.click();
+  toast('アノテーション付き脚本をダウンロードしました', 'success');
+}
+
 function staffRoomExport(sessionId) {
   const sessions = DB.get('staffroom_sessions', []);
   const s = sessions.find(x => x.id === sessionId);
@@ -16319,6 +16726,8 @@ function staffRoomExport(sessionId) {
 
   let text = `${bar}\n  シナリオラボ 職員室 — 脚本評価レポート\n${bar}\n`;
   text += `タイトル  : ${s.title || '無題の脚本'}\n`;
+  const modeLabels = { contest:'コンクール審査モード', adaptation:'映像化適合モード', school:'シナリオ学校添削モード', general:'総合評価モード' };
+  if (s.evalMode) text += `評価モード: ${modeLabels[s.evalMode]||s.evalMode}\n`;
   text += `評価日時  : ${new Date(s.updatedAt||Date.now()).toLocaleString('ja-JP')}\n`;
   if (displayScore !== null) {
     text += `総合スコア: ${displayScore}/100点`;
@@ -16387,7 +16796,20 @@ function staffRoomExport(sessionId) {
     });
   }
 
-  text += `\n${bar}\n  Generated by シナリオラボ 職員室 自動採点システム v4.2\n  18項目・7軸コンクール審査員評価エンジン\n${bar}\n`;
+  // 審査員コメントをエクスポート
+  if (ar && ar.analysisStats && ar.analysisStats.judgesComments && ar.analysisStats.judgesComments.length > 0) {
+    text += `\n${line}\n審査員コメント\n${line}\n`;
+    ar.analysisStats.judgesComments.forEach(jc => {
+      text += `\n【${jc.judge}】スコア: ${jc.score}/5\n${jc.comment}\n`;
+    });
+  }
+  if (ar && ar.analysisStats) {
+    if (ar.analysisStats.adaptationScore !== undefined) text += `\n映像化適合スコア: ${ar.analysisStats.adaptationScore}%\n`;
+    if (ar.analysisStats.commercialScore !== undefined) text += `商業適合度: ${ar.analysisStats.commercialScore}/5\n`;
+    if (ar.analysisStats.obstacleScore !== undefined) text += `障壁強度: ${ar.analysisStats.obstacleScore}/5\n`;
+    if (ar.analysisStats.tempoScore !== undefined) text += `テンポ・リズム: ${ar.analysisStats.tempoScore}/5\n`;
+  }
+  text += `\n${bar}\n  Generated by シナリオラボ 職員室 自動採点システム v13\n  24項目・8軸・評価モード対応エンジン\n${bar}\n`;
 
   const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
   const a = document.createElement('a');
