@@ -12685,6 +12685,8 @@ function renderLearnStaffRoom(hero, subnav) {
           { id:'web',          icon:'fa-globe',       label:'WEB/配信' },
           { id:'competition',  icon:'fa-award',       label:'コンクール自由' },
           { id:'short',        icon:'fa-stopwatch',   label:'短編(<30分)' },
+          { id:'anime',        icon:'fa-dragon',      label:'アニメ' },
+          { id:'radio',        icon:'fa-microphone',  label:'ラジオ/音声' },
         ].map(t => `<button class="sr-script-type-btn ${(s.scriptType||'tv-drama')===t.id?'active':''}" onclick="staffRoomSetScriptType('${s.id}','${t.id}',this)">
           <i class="fas ${t.icon}" style="font-size:9px"></i>${t.label}
         </button>`).join('')}
@@ -12745,7 +12747,7 @@ function renderLearnStaffRoom(hero, subnav) {
             <span style="font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.45);font-weight:600;text-transform:uppercase">SCENARIO LAB ─ 審査員採点レポート v14</span>
             <span style="font-size:9px;background:rgba(168,85,247,.25);color:rgba(200,160,255,.9);border:1px solid rgba(168,85,247,.4);border-radius:4px;padding:1px 6px;font-weight:700;letter-spacing:.05em">21項目・8軸・脚本タイプ対応 v14</span>
             <span class="sr-engine-badge"><i class="fas fa-microchip" style="font-size:7px"></i>精密解析エンジン v14</span>
-            ${autoResult.analysisStats && autoResult.analysisStats.scriptType ? `<span class="sr-type-badge"><i class="fas fa-tag" style="font-size:7px"></i>${{'tv-drama':'TVドラマ','film':'映画','stage':'舞台','web':'WEB/配信','competition':'コンクール自由','short':'短編'}[autoResult.analysisStats.scriptType]||autoResult.analysisStats.scriptType}</span>` : ''}
+            ${autoResult.analysisStats && autoResult.analysisStats.scriptType ? `<span class="sr-type-badge"><i class="fas fa-tag" style="font-size:7px"></i>${{'tv-drama':'TVドラマ','film':'映画','stage':'舞台','web':'WEB/配信','competition':'コンクール自由','short':'短編','anime':'アニメ','radio':'ラジオ/音声'}[autoResult.analysisStats.scriptType]||autoResult.analysisStats.scriptType}</span>` : ''}
             <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
               ${autoResult.analysisStats ? `<span style="font-size:10px;color:rgba(255,255,255,.3)">${new Date(autoResult.scoredAt||Date.now()).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}採点</span>` : ''}
               <button onclick="staffRoomGenerateAnnotatedScript('${s.id}')" style="background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.3);color:rgba(165,180,252,.9);border-radius:6px;height:22px;padding:0 8px;font-size:9px;cursor:pointer;display:flex;align-items:center;gap:3px;font-weight:600" title="アノテーション付き脚本を表示"><i class="fas fa-file-lines"></i> 脚本注釈</button>
@@ -12807,7 +12809,7 @@ function renderLearnStaffRoom(hero, subnav) {
         <div class="sr-judges-section" style="margin:0 0 14px">
           <div style="font-size:10px;letter-spacing:.1em;color:rgba(255,255,255,.4);font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px;background:linear-gradient(135deg,#09071f,#1a0f4a);padding:10px 14px 0;border-radius:10px 10px 0 0">
             <i class="fas fa-gavel" style="font-size:9px"></i>審査員コメント
-            <span class="sr-v13-badge" style="margin-left:auto">v13</span>
+            <span class="sr-v13-badge" style="margin-left:auto">v18</span>
           </div>
           <div style="padding:0 12px 12px;background:linear-gradient(135deg,#09071f,#1a0f4a);border-radius:0 0 10px 10px">
             ${autoResult.analysisStats.judgesComments.map(jc=>`
@@ -13665,6 +13667,7 @@ function staffRoomAutoScore(sessionId) {
         itemDetails: result.itemDetails || {},
         itemScores: { ...result.itemScores },  // 差分ハイライト用にAIスコアを保持
         analysisStats: result.analysisStats || {},
+        judgesComments: result.judgesComments || result.analysisStats?.judgesComments || [],
         strengths: result.strengths || '',
         weaknesses: result.weaknesses || '',
         suggestions: result.suggestions || '',
@@ -14010,8 +14013,8 @@ function staffRoomFbTab(sessionId, tab) {
 // ── 脚本テキスト解析エンジン（ルールベース高精度） ──────────────
 function staffRoomRunAnalysis(text, evalMode, scriptType) {
   // ══════════════════════════════════════════════════════════════════
-  //  シナリオラボ 職員室 — 精密採点エンジン v15.0
-  //  8カテゴリ・24項目・評価モード対応多軸モデル
+  //  シナリオラボ 職員室 — 精密採点エンジン v18.0
+  //  8カテゴリ・24項目・評価モード対応多軸モデル（v18: 7名審査員・映像演出評価・独自性評価・強化ビフォーアフター）
   //  評価モード: contest(コンクール) | adaptation(映像化適合) | school(添削) | general(総合)
   //  客観（構造・形式）× 主観（情動・映像性・作家性）× 映像化実現性 × 商業適合性
   //  判定ロジック: NHK・城戸賞・テレビ大賞・映像化適合度 審査基準参考
@@ -14026,6 +14029,8 @@ function staffRoomRunAnalysis(text, evalMode, scriptType) {
     'web':         { 'pacing':1.5, 'three-act':1.3, 'emotional-impact':1.3, 'originality':1.2, 'production-viability':1.2 },
     'competition': { 'emotional-impact':1.8, 'authorial-voice':1.5, 'originality':1.5, 'theme-clarity':1.4, 'subtext':1.2 },
     'short':       { 'pacing':1.6, 'emotional-impact':1.5, 'three-act':1.4, 'subtext':1.2 },
+    'anime':       { 'visual':1.5, 'char-arc':1.5, 'originality':1.4, 'emotional-impact':1.3, 'dialogue-dynamics':1.2 },
+    'radio':       { 'dialogue-dynamics':1.8, 'subtext':1.4, 'voice':1.5, 'naturalness':1.3, 'visual':0.4 },
   };
   const stWeights = scriptTypeWeights[sType] || {};
 
@@ -16662,32 +16667,113 @@ function staffRoomRunAnalysis(text, evalMode, scriptType) {
     const eiSc = scores['emotional-impact'] || 0;
     const avSc = scores['authorial-voice'] || 0;
     const origSc = scores['originality'] || 0;
+    // v17: 審査委員長コメントに脚本固有テキストを埋め込む
+    const chairComment = (() => {
+      const mn = mainCharName || '主人公';
+      const scnCount = sceneCount;
+      const genreHint = genreStr ? `（推定ジャンル: ${genreStr}）` : '';
+      // Find a memorable dialogue line for citation
+      const memDlg = itemDetails['emotional-impact']?.quote ||
+        dialogueTexts.filter(d => d.length >= 15 && d.length <= 60)
+          .sort((a,b) => b.length - a.length)[0] || null;
+      const memScene = sceneLines.length > 0 ? sceneLines[Math.floor(sceneLines.length * 0.7)] : null;
+
+      if (eiSc >= 4) {
+        let c = `感情的インパクトが際立っています${genreHint}。`;
+        c += `${mn}を中心に${scnCount}シーンで構成されたこの脚本は、コンクール一次審査を通過するに十分な牽引力を持っています。`;
+        if (memDlg) c += `
+特に「${memDlg.slice(0,50)}${memDlg.length>50?'…':''}」の台詞は審査員の印象に残るでしょう。`;
+        if (memScene) c += `
+${memScene}付近のシーンが作品の情感的クライマックスとして機能しています。`;
+        c += origSc >= 4
+          ? '\nオリジナリティも高く、この書き手ならではの世界観が確立されています。次稿では「審査員の記憶に残るシーン」をさらに1つ追加することを目指してください。'
+          : '\n次稿ではオリジナリティをさらに磨き、「この作家にしか書けない話」という確信を読み手に与えてください。';
+        return c;
+      } else {
+        let c = `感情的インパクトが今一歩です${genreHint}。`;
+        c += `現在${scnCount}シーン、${mn}を主軸とした構成ですが、コンクール審査員が「続きを読みたい」と思わせる決定的な瞬間が見当たりません。`;
+        if (memDlg) {
+          c += `
+「${memDlg.slice(0,45)}${memDlg.length>45?'…':''}」——この台詞の場面に、もう一段階の感情的緊張を加えてください。`;
+        } else {
+          c += '\n転換点・意外性・忘れられないシーン——3つのうち少なくとも1つを強化してください。';
+        }
+        c += '\n読後に「何かが変わった」という感覚が残る脚本が一次通過します。';
+        return c;
+      }
+    })();
     judgesCommentsV13.push({
       judge: '審査委員長',
       score: eiSc,
-      comment: eiSc >= 4
-        ? `感情的インパクトが際立っています。コンクールの一次審査を通過するに十分な牽引力があります。${origSc >= 4 ? 'オリジナリティも高く、この書き手ならではの世界観が確立されています。次稿では「審査員の記憶に残るシーン」をさらに1つ追加することを目指してください。' : '次稿ではオリジナリティをさらに磨き、「この作家にしか書けない話」という確信を読み手に与えてください。'}`
-        : `感情的インパクトが今一歩です。コンクール審査員は「続きを読みたい」と思わせる瞬間を探します。転換点・意外性・忘れられないシーン——3つのうち少なくとも1つを強化してください。読後に「何かが変わった」という感覚が残る脚本が一次通過します。`
+      comment: chairComment
     });
     const subtSc = scores['subtext'] || 0;
     const voiceSc = scores['voice'] || 0;
+    // v17: セリフ担当コメントに実際の台詞を引用
+    const dlgJudgeComment = (() => {
+      const longDlg = dialogueTexts.filter(d=>d.length>70).sort((a,b)=>b.length-a.length)[0];
+      const otnDlg = dialogueTexts.find(d => ['なんですよ','ということは','つまり','実は私','要するに'].some(p=>d.includes(p)));
+      const subtDlg = dialogueTexts.find(d => ['…','——'].some(p=>d.includes(p)) && d.length < 20);
+      const charCount = Object.keys(dialogueByChar || {}).length;
+      if (subtSc >= 4) {
+        let c = `サブテキストの扱いが秀逸です（サブテキスト${subtSc}/5・声の固有性${voiceSc}/5）。`;
+        c += `${charCount}人のキャラクターがそれぞれ固有の話し方を持ち、台詞だけで誰が話しているか判別できます。`;
+        if (subtDlg) c += `
+例: 「${subtDlg}」——この沈黙・省略が感情の深さを語っています。`;
+        c += '\n次稿でも、このサブテキスト技法を全シーンに貫徹してください。';
+        return c;
+      } else {
+        let c = `セリフに「説明」が多く見受けられます（サブテキスト${subtSc}/5・声の固有性${voiceSc}/5）。`;
+        if (otnDlg) c += `
+例: 「${otnDlg.slice(0,50)}${otnDlg.length>50?'…':''}」——登場人物がこの感情を直接言っています。`;
+        c += '\n登場人物は本音を言いません。「言いたいこと」の裏にある行動・沈黙・物で語る——サブテキスト技法を適用してください。';
+        if (longDlg) c += `
+また「${longDlg.slice(0,40)}…」(${longDlg.length}字)は長すぎます。60字以内に分割してください。`;
+        c += '\n「悲しい」ではなく「コーヒーカップを洗い続ける手が止まらない」。';
+        return c;
+      }
+    })();
     judgesCommentsV13.push({
       judge: 'セリフ担当審査員',
       score: Math.round((subtSc + voiceSc) / 2),
-      comment: subtSc >= 4
-        ? `サブテキストの扱いが秀逸です。登場人物が本音を言わずに感情を伝える技術が確立されています。キャラクターの声も固有性があり、誰が話しているか台詞だけで分かります。`
-        : `セリフに「説明」が多く見受けられます。登場人物は本音を言いません。「言いたいこと」の裏にある行動・沈黙・物で語る——サブテキスト技法を全セリフに適用してください。「悲しい」ではなく「コーヒーカップを洗い続ける手が止まらない」。`
+      comment: dlgJudgeComment
     });
   }
   if (evalModeV13 === 'adaptation' || evalModeV13 === 'general') {
     const prodSc  = scores['production-viability'] || 0;
     const visSc   = scores['visual'] || 0;
+    // v17: プロデューサーコメントに実際の制作情報を反映
+    const prodJudgeComment = (() => {
+      const locCount = locationVariety || Math.min(sceneCount, 5);
+      const castCount = uniqueChars;
+      const typeL = {'tv-drama':'TVドラマ','film':'映画','stage':'舞台','web':'WEB/配信','competition':'コンクール','short':'短編'}[sType] || sType;
+      const costLevel = prodSc >= 4 ? '低〜中' : prodSc >= 3 ? '中' : '中〜高';
+      // Find any VFX or high-cost elements
+      const vfxLine = actionLines.find(l => ['爆発','VFX','CG','宇宙','大群衆','空を飛ぶ'].some(k=>l.includes(k)));
+      if (prodSc >= 4) {
+        let c = `${typeL}として制作コスト観点で優れています（映像化適合度${adaptationScoreV13}%・商業適合度${commercialScoreV13}/5）。`;
+        c += `
+推定制作規模: ロケ約${locCount}カ所・レギュラーキャスト${castCount}名・コストレベル${costLevel}。`;
+        c += `
+${sceneCount}シーン構成で${typeL}としての放送尺（30〜60分）に適した構成です。`;
+        c += '\n企画として通る力があります。次のステップは完成度の高いパイロット版の準備です。';
+        return c;
+      } else {
+        let c = `${typeL}として制作コスト面に課題があります（映像化適合度${adaptationScoreV13}%・商業適合度${commercialScoreV13}/5）。`;
+        c += `
+現在: ロケ約${locCount}カ所・レギュラーキャスト${castCount}名——`;
+        c += castCount > 7 ? `キャスト数(${castCount}名)が多すぎます。メインキャラを5名以内に絞ってください。` : '';
+        c += locCount > 8 ? `ロケ数(${locCount}カ所)が多すぎます。主要ロケ3〜5カ所に集中してください。` : '';
+        if (vfxLine) c += `
+特に「${vfxLine.slice(0,45)}」のような場面は制作費が膨らみます。音響・照明・役者の演技で代替してください。`;
+        c += '\n同じ感情効果を「密室」「2人」「日常の道具」で表現できないか検討してください。予算内で作れる脚本が実際に映像化されます。';
+        return c;
+      }
+    })();
     judgesCommentsV13.push({
       judge: 'プロデューサー視点',
       score: Math.round((prodSc + visSc + commercialScoreV13) / 3),
-      comment: prodSc >= 4
-        ? `制作コスト観点で優れています。日常的な舞台設定・映像映えするト書き——放送・配信向けのパッケージとして企画を通す力があります。商業適合度: ${commercialScoreV13}/5。映像化適合スコア: ${adaptationScoreV13}%。`
-        : `制作コストが心配です。VFX・大規模ロケ・多人数キャストは予算を圧迫します。同じ感情効果を「密室」「2人」「日常の道具」で表現できないか検討してください。予算内で作れる脚本が実際に映像化されます。`
+      comment: prodJudgeComment
     });
   }
   if (evalModeV13 === 'school' || evalModeV13 === 'general') {
@@ -16708,20 +16794,10 @@ function staffRoomRunAnalysis(text, evalMode, scriptType) {
       if (fmtSc <= 2) missing.push(`フォーマット（柱書き・ト書き・台詞の配置）が不正確（${fmtSc}/5）`);
       if (threeActSc <= 2) missing.push(`三幕構成（発端事件・対立・クライマックスの位置）が不明確（${threeActSc}/5）`);
       const fmtHint = fmtSc <= 2
-        ? '
-
-【フォーマット修正例】
-① 柱書き: 「○1　室内　居間　昼」の形式を統一
-② ト書き: 1文1動作、50字以内
-③ 台詞: キャラ名→改行→セリフの順で配置'
+        ? '\n\n【フォーマット修正例】\n① 柱書き: 「○1\u3000室内\u3000居間\u3000昼」の形式を統一\n② ト書き: 1文1動作、50字以内\n③ 台詞: キャラ名→改行→セリフの順で配置'
         : '';
       const structHint = threeActSc <= 2
-        ? '
-
-【構成修正チェック】
-① 発端事件は冒頭15〜25%に配置しましたか？
-② 第二幕に最大の障壁（壁）はありますか？
-③ クライマックスは終盤80〜90%にありますか？'
+        ? '\n\n【構成修正チェック】\n① 発端事件は冒頭15〜25%に配置しましたか？\n② 第二幕に最大の障壁（壁）はありますか？\n③ クライマックスは終盤80〜90%にありますか？'
         : '';
       return `基礎の徹底が優先事項です。${missing.join('、')}。${fmtHint}${structHint}`;
     })();
@@ -16739,27 +16815,18 @@ function staffRoomRunAnalysis(text, evalMode, scriptType) {
     const mainChar = itemDetails['protag-want-need']?.quote || null;
     const themeComment = (() => {
       if (themeSc >= 4 && arcSc >= 4) {
-        return `テーマとキャラクター変化が高水準です（テーマ${themeSc}/5・アーク${arcSc}/5）。
-` +
-               `作品の核心となるメッセージが脚本全体に貫通し、主人公の変化がそのテーマを体現しています。` +
-               (origSc >= 4 ? '
-独自性も高く、審査員の記憶に残る作品です。' : '
-独自性（${origSc}/5）をさらに高めることで、唯一無二の作品になります。');
+        return `テーマとキャラクター変化が高水準です（テーマ${themeSc}/5・アーク${arcSc}/5）。\n作品の核心となるメッセージが脚本全体に貫通し、主人公の変化がそのテーマを体現しています。` +
+               (origSc >= 4 ? '\n独自性も高く、審査員の記憶に残る作品です。' : '\n独自性（'+origSc+'/5）をさらに高めることで、唯一無二の作品になります。');
       }
       const issues2 = [];
       if (themeSc <= 2) {
-        issues2.push(`テーマの明確さ（${themeSc}/5）: このシナリオで「何を伝えたいか」を一文で言えますか？
-  改善: 主人公の台詞か行動に、テーマを体現する瞬間を1シーン追加してください。`);
+        issues2.push(`テーマの明確さ（${themeSc}/5）: このシナリオで「何を伝えたいか」を一文で言えますか？\n  改善: 主人公の台詞か行動に、テーマを体現する瞬間を1シーン追加してください。`);
       }
       if (arcSc <= 2) {
-        issues2.push(`キャラクターアーク（${arcSc}/5）: 主人公は冒頭と結末で何が変わりましたか？
-  改善: 「変化前の台詞」と「変化後の台詞」を並べて、変化が見えるか確認してください。`);
-        if (mainChar) issues2.push(`  主人公の最初の台詞: 「${mainChar.slice(0,50)}」
-  ——この言い方・考え方が終盤どう変わるかを設計してください。`);
+        issues2.push(`キャラクターアーク（${arcSc}/5）: 主人公は冒頭と結末で何が変わりましたか？\n  改善: 「変化前の台詞」と「変化後の台詞」を並べて、変化が見えるか確認してください。`);
+        if (mainChar) issues2.push(`  主人公の最初の台詞: 「${mainChar.slice(0,50)}」\n  ——この言い方・考え方が終盤どう変わるかを設計してください。`);
       }
-      return issues2.join('
-
-') || `テーマ・アークに改善余地があります（テーマ${themeSc}/5・アーク${arcSc}/5）。テーマと主人公の変化を直結させてください。`;
+      return issues2.join('\n\n') || `テーマ・アークに改善余地があります（テーマ${themeSc}/5・アーク${arcSc}/5）。テーマと主人公の変化を直結させてください。`;
     })();
     judgesCommentsV13.push({
       judge: 'テーマ・キャラクター担当',
@@ -16777,19 +16844,19 @@ function staffRoomRunAnalysis(text, evalMode, scriptType) {
     // Obstacle judge comment
     const obstComment = (() => {
       if (obstSc >= 4) {
-        const ex = itemDetails['obstacle-strength']?.quote;
-        return `障壁の設計が優れています（${obstSc}/5）。${typeLabel}として主人公を十分に追い詰める構造が機能しています。` +
-               (ex ? `
-引用: 「${ex.slice(0,60)}」——この対立が脚本の引力を生んでいます。` : '');
+        const ex = itemDetails['obstacle-strength']?.quote ||
+          actionLines.find(l => ['阻む','対立','裏切','危機','絶体絶命','追い詰め','拒否'].some(k=>l.includes(k)));
+        const mn17 = mainCharName || '主人公';
+        const exConflict = actionLines.find(l => ['拒否','立ちはだかる','振り払う','叩きつける','立ち去る'].some(k=>l.includes(k)));
+        let c = `障壁の設計が優れています（${obstSc}/5）。${typeLabel}として${mn17}を十分に追い詰める構造が機能しています。`;
+        if (ex) c += `\n引用: 「${ex.slice(0,65)}${ex.length>65?'…':''}」——この対立が脚本の引力を生んでいます。`;
+        if (exConflict && exConflict !== ex) c += `\nまた: 「${exConflict.slice(0,55)}」——この物理的対立も効果的です。`;
+        c += `\n次稿では障壁を「最後の最後でさらに一段階深める」ことで、カタルシスが倍増します。`;
+        return c;
       }
       if (obstSc <= 2) {
-        return `障壁強度が不足しています（${obstSc}/5）。${typeLabel}として主人公をもっと追い詰める設計を。
-` +
-               `3層の障壁を設計してください:
-` +
-               `① 外的障壁（人物・環境・社会の壁）
-② 内的障壁（主人公の恐れ・誤信・弱さ）
-③ 状況障壁（時間切れ・情報不足・選択の罠）`;
+        const noConflictScene = sceneLines.find(l => l.length > 5) || '場面1';
+        return `障壁強度が不足しています（${obstSc}/5）。${typeLabel}として主人公をもっと追い詰める設計を。\n3層の障壁を設計してください:\n① 外的障壁（人物・環境・社会の壁）\n② 内的障壁（主人公の恐れ・誤信・弱さ）\n③ 状況障壁（時間切れ・情報不足・選択の罠）\n\n改稿前例: 主人公が目標に向かって歩く\n改稿後例: 主人公が進もうとするが、父親の言葉が頭を離れず足が止まる。財布を見ると1000円しかない。外では雨が降り始める。`;
       }
       return `障壁設計に改善余地あり（${obstSc}/5）。外的×内的の組み合わせでさらに追い詰めてください。`;
     })();
@@ -16833,6 +16900,60 @@ function staffRoomRunAnalysis(text, evalMode, scriptType) {
     }
   }
 
+  // ── v18: 映像演出担当（全モード共通）
+  {
+    const visSc = scores['visual'] || 0;
+    const visualExLines = actionLines.filter(l => ['光','影','空','沈黙','見つめ','目線','手が止ま','涙','微笑','窓の外','雨','煙','炎','水面','鏡'].some(k=>l.includes(k)));
+    const visualExample18 = visualExLines.sort((a,b)=>b.length-a.length)[0];
+    const highCostLine18 = actionLines.find(l => ['爆発','VFX','CG','大群衆','宇宙','特殊効果','空中を飛'].some(k=>l.includes(k)));
+    const visComment = (() => {
+      if (visSc >= 4) {
+        let c = `映像演出ポテンシャルが高い脚本です（映像的価値${visSc}/5）。`;
+        if (visualExample18) c += `\n好例: 「${visualExample18.slice(0,65)}${visualExample18.length>65?'…':''}」——この具体的な視覚描写が映像演出家の創造力を刺激します。`;
+        c += `\n次稿では「言葉では伝えられない感情を映像だけで表現するシーン」を1つ追加してください。`;
+        return c;
+      }
+      if (visSc <= 2) {
+        let c = `映像的な描写が不足しています（映像的価値${visSc}/5）。ト書きが「説明文」になっています。`;
+        if (highCostLine18) c += `\n⚠️ 高コスト要素: 「${highCostLine18.slice(0,50)}」——予算圧迫要因。→ 代替案: 爆発→「遠くで轟音。煙が上がる。二人は動かない。」`;
+        c += `\n\n映像的ト書き変換例:\nBefore: 「田中は悲しんでいる」\nAfter: 「田中、窓の外を見つめたまま動かない。コーヒーカップが冷めていく。」\n感情を「行動・物・空間」で見せてください。`;
+        return c;
+      }
+      let c = `映像的価値に改善余地があります（${visSc}/5）。`;
+      if (visualExample18) c += `\n現状の好例: 「${visualExample18.slice(0,55)}」——この方向性でト書き全体を統一してください。`;
+      else c += `\nト書きに「見える・聞こえる」具体的な動作・物・光・音を加えてください。`;
+      return c;
+    })();
+    judgesCommentsV13.push({ judge: '映像演出担当', score: visSc, comment: visComment });
+  }
+  // ── v18: 独自性・作家性担当（全モード共通）
+  {
+    const origSc18 = scores['originality'] || 0;
+    const voiceSc18 = scores['authorial-voice'] || scores['voice'] || 0;
+    const themeSc18 = scores['theme-clarity'] || 0;
+    const poeticLine18 = dialogueTexts.filter(d => d.length > 10 && d.length < 60 && ['…','——','ね','よ'].some(p=>d.endsWith(p))).sort((a,b) => ['夢','嘘','空','光','影','記憶','時間','孤独'].filter(k=>b.includes(k)).length - ['夢','嘘','空','光','影','記憶','時間','孤独'].filter(k=>a.includes(k)).length)[0];
+    const genericLine18 = dialogueTexts.find(d => ['頑張ります','よろしくお願いします','分かりました','なるほど'].some(p=>d.includes(p)));
+    const origComment = (() => {
+      if (origSc18 >= 4 && voiceSc18 >= 4) {
+        let c = `独自性と作家性が際立っています（独自性${origSc18}/5・作家性${voiceSc18}/5）。`;
+        if (poeticLine18) c += `\n「${poeticLine18}」——この台詞はあなたにしか書けないものです。`;
+        c += `\nテーマ（${themeSc18}/5）とも連動し、審査員の記憶に残る作品です。`;
+        return c;
+      }
+      if (origSc18 <= 2 || voiceSc18 <= 2) {
+        let c = `独自性・作家性の強化が最重要課題です（独自性${origSc18}/5・作家性${voiceSc18}/5）。`;
+        if (genericLine18) c += `\n要注意台詞: 「${genericLine18.slice(0,50)}」——どの脚本にでも出てくるセリフです。\n→ この登場人物だけが言える「一生に一度の言葉」に書き換えてください。`;
+        c += `\n\nオリジナリティ向上の3問:\n① この物語はあなたの実体験・体験者の話に基づいていますか？\n② 主人公のセリフを声に出して「この人しか言わない」と感じますか？\n③ 読後に読者の価値観が何か変わる物語ですか？`;
+        return c;
+      }
+      let c = `独自性に改善余地があります（独自性${origSc18}/5・作家性${voiceSc18}/5）。`;
+      if (poeticLine18) c += `\n好例: 「${poeticLine18}」——この方向性を全体に広げてください。`;
+      c += `\n「この作家にしか書けない話」という確信を読み手に持たせることを目標に。`;
+      return c;
+    })();
+    judgesCommentsV13.push({ judge: '独自性・作家性担当', score: Math.round((origSc18 + voiceSc18) / 2), comment: origComment });
+  }
+
   const analysisStats = {
     sceneCount, uniqueChars, totalChars, estimatedPages,
     dialogueRatio: Math.round(dialogueRatio * 100),
@@ -16872,6 +16993,7 @@ function staffRoomRunAnalysis(text, evalMode, scriptType) {
     weaknesses,
     suggestions,
     priority,
+    judgesComments: judgesCommentsV13,
     scoringNotes: Object.fromEntries(Object.entries(itemDetails).map(([k, v]) => [k, [...(v.reasons||[]), ...(v.issues||[])].join('。')])),
     itemDetails,
     analysisStats,
@@ -16988,7 +17110,20 @@ async function staffRoomReadFile(file, sessionId) {
 }
 
 
-// ── アノテーション付き脚本生成（v13）─────────────────────────────────────
+// ── v16: Annotation helper functions ─────────────────────────────────────
+function srAnnToggle(el) {
+  const pid = el.getAttribute('data-panel');
+  const p = document.getElementById(pid);
+  if (p) { p.style.display = p.style.display === 'none' ? 'block' : 'none'; }
+  event.stopPropagation();
+}
+function srAnnClose(el) {
+  const pid = el.getAttribute('data-panel');
+  const p = document.getElementById(pid);
+  if (p) { p.style.display = 'none'; }
+}
+
+// ── アノテーション付き脚本生成（v16）─────────────────────────────────────
 function staffRoomGenerateAnnotatedScript(sessionId) {
   const sessions = DB.get('staffroom_sessions', []);
   const s = sessions.find(x => x.id === sessionId);
@@ -17066,29 +17201,44 @@ function staffRoomGenerateAnnotatedScript(sessionId) {
   const vfxPats = ['爆発', '宇宙', '空を飛ぶ', '変身', '大群衆', 'VFX', 'CG特殊', '大津波', '隕石', '龍が'];
   const obstacleKws = ['だめだ','無理だ','できない','拒否','拒絶','阻む','裏切','危機','絶体絶命','追い詰め'];
   const visualKws = ['光','影','炎','靄','血','煙','波','色','輪郭','シルエット','砂埃','水面','蒸気'];
-  const clisheKws = ['頑張ります','よろしくお願いします','気をつけて','心配しないで','大丈夫','任せてください','信じて'];
+  const clisheKws = ['頑張ります','よろしくお願いします','気をつけて','心配しないで','大丈夫','任せてください','信じて','絶対に諦めない','必ず帰ってくる','君のことが好きだ','俺がいる','一緒にいてくれ','お前には関係ない','なんでわかってくれない','一人にしないで','お前が必要だ','もう限界だ','もっと早く言えば','生きていてよかった','信じていたのに','約束したじゃないか'];
   const tensionKws = ['違う','やめろ','なぜ','嘘だ','ふざけるな','待ってくれ','頼む','絶対に','許せない','裏切り'];
+
+  // v17: Enhanced on-the-nose hint with character-aware rewriting
+  const buildOnTheNoseHintV17 = (line, charName) => {
+    const shortLine = line.slice(0, 35) + (line.length > 35 ? '…' : '');
+    const cn = charName || 'キャラクター';
+    const emoMap = {
+      '悲し': { before: `「${shortLine}」`, after: `（${cn}はテーブルの縁を指でなぞる。何も言わない）` },
+      '嬉し': { before: `「${shortLine}」`, after: `（${cn}は財布から古い写真を取り出し、しばらく見つめる）` },
+      '怒':   { before: `「${shortLine}」`, after: `（${cn}はコップを置く。水がこぼれる。拭かない）` },
+      '心配': { before: `「${shortLine}」`, after: `（${cn}のスマホの画面が、また暗くなる）` },
+      'つらい': { before: `「${shortLine}」`, after: `（${cn}は一度深呼吸する。それでも立てない）` },
+      'つまり': { before: `「${shortLine}」`, after: `（セリフを削除。${cn}の行動だけで情報を示す）` },
+      '実は':  { before: `「${shortLine}」`, after: `（情報を台詞で言わせず、小道具・手紙・画面表示で見せる）` },
+    };
+    for (const [k, ex] of Object.entries(emoMap)) {
+      if (line.includes(k)) {
+        return `「言わせずに見せる」変換が必要です。\nBefore: ${ex.before}\nAfter例: ${ex.after}`;
+      }
+    }
+    // Generic fallback with actual line
+    return `説明的台詞を行動・物・沈黙に置換してください。\nBefore: 「${shortLine}」\nAfter例: （${cn}の[具体的な行動]で、台詞の代わりに感情を示す）`;
+  };
 
   // Helper: build rewrite hint for on-the-nose dialogue
   const buildOnTheNoseHint = (line) => {
     const emoMap = {
-      '悲し': 'Before: 「私は悲しい」
-After: （テーブルの端を握りしめたまま、返事をしない）',
-      '嬉し': 'Before: 「嬉しいです」
-After: （財布の中の古い写真を、何度も見る）',
-      '怒': 'Before: 「怒っています」
-After: （コップを置く。水がこぼれる。拭かない）',
-      '心配': 'Before: 「心配しています」
-After: （スマホを見る。また見る。置く。また取る）',
+      '悲し': 'Before: 「私は悲しい」\nAfter: （テーブルの端を握りしめたまま、返事をしない）',
+      '嬉し': 'Before: 「嬉しいです」\nAfter: （財布の中の古い写真を、何度も見る）',
+      '怒': 'Before: 「怒っています」\nAfter: （コップを置く。水がこぼれる。拭かない）',
+      '心配': 'Before: 「心配しています」\nAfter: （スマホを見る。また見る。置く。また取る）',
     };
     for (const [k, ex] of Object.entries(emoMap)) {
-      if (line.includes(k)) return '説明台詞を行動に変換してください。
-例: ' + ex;
+      if (line.includes(k)) return '説明台詞を行動に変換してください。\n例: ' + ex;
     }
-    return '「言わせずに見せる」変換推奨。
-Before: ' + line.slice(0,30) + (line.length>30?'…':'') +
-           '
-After: （何か具体的な行動・物・沈黙で感情を示す）';
+    return '「言わせずに見せる」変換推奨。\nBefore: ' + line.slice(0,30) + (line.length>30?'…':'') +
+           '\nAfter: （何か具体的な行動・物・沈黙で感情を示す）';
   };
 
   // Helper: compress long action line
@@ -17098,9 +17248,7 @@ After: （何か具体的な行動・物・沈黙で感情を示す）';
       .replace(/とても|非常に|大変|すごく|少し|ゆっくりと|静かに|慌てて/g, '')
       .replace(/（.*?）/g, '')
       .trim();
-    return '90字以内に圧縮してください。
-Before: ' + line.slice(0,50) + '…
-After例: ' +
+    return '90字以内に圧縮してください。\nBefore: ' + line.slice(0,50) + '…\nAfter例: ' +
            (compressed.slice(0,60) || line.slice(0,40));
   };
 
@@ -17108,6 +17256,17 @@ After例: ' +
   let prevPrevLineA = '';
   let consecutiveDlgChar = '';
   let consecutiveDlgCount = 0;
+  const seenCharsA = new Set();
+  let currentSceneCharCount = 0;
+  let inNewScene = false;
+
+  // v17: キャラクター固有の台詞収集 (声のパターン分析用)
+  const charDialoguesA = {};  // {charName: [dialogueText, ...]}
+  const charFirstAppearA = {};  // {charName: lineIndex}
+  let currentCharA = '';
+  let sceneIdxA = 0;
+  // キャラ名パターン（全角・半角大文字、漢字、ひらがな可）
+  const charNamePatA = /^[　\s]*([A-ZＡ-Ｚ一-龯ぁ-ん]{1,15})[　\s]*$/;
 
   rawLines.forEach((rl, ri) => {
     const l = rl.trim();
@@ -17117,13 +17276,30 @@ After例: ' +
     const isDlg = !isScene && !isChar && isCharNameA(prevLineA);
     const isAct = !isScene && !isChar && !isDlg && l.length > 0;
 
+    // v17: Track char name and collect dialogues
+    if (isSceneLineA(l)) { sceneIdxA++; currentCharA = ''; }
+    if (isCharNameA(l)) {
+      currentCharA = l.trim();
+      if (!charFirstAppearA[currentCharA]) charFirstAppearA[currentCharA] = ri;
+      if (!charDialoguesA[currentCharA]) charDialoguesA[currentCharA] = [];
+    } else if (currentCharA && !isSceneLineA(l) && !isCharNameA(l) && l.length > 0) {
+      // This is dialogue for currentChar
+      if (charDialoguesA[currentCharA]) charDialoguesA[currentCharA].push(l);
+      currentCharA = ''; // reset after dialogue collected
+    }
+
     if (isChar) {
       // Track consecutive dialogue by same character
       if (l === consecutiveDlgChar) {
         consecutiveDlgCount++;
         if (consecutiveDlgCount >= 3) {
+          // v17: Suggest inserting other char or action between monologues
+          const partner = Object.keys(charDialoguesA).find(c => c !== l.trim() && (charDialoguesA[c]||[]).length > 0);
+          const suggestion = partner
+            ? `他のキャラ（例: ${partner}）の反応や行動を${consecutiveDlgCount}発言の間に挟んでください。\n例: ${partner}「……」（無言で${l.trim()}を見る）`
+            : `${consecutiveDlgCount}連続発言の間に（間）や相手の行動・表情を1行挿入してください。`;
           addAnnot(ri, '独話過多', 'warn',
-            `${l}が${consecutiveDlgCount}回連続発言。他のキャラクターや行動を挟んで対話リズムを作ってください。`, 'auto');
+            `【${l.trim()}】が${consecutiveDlgCount}回連続発言中。\n${suggestion}`, 'auto');
         }
       } else {
         consecutiveDlgChar = l;
@@ -17132,27 +17308,46 @@ After例: ' +
     }
 
     if (isDlg) {
-      // Long dialogue warning with specific rewrite hint
+      // v17: Long dialogue — character-aware split suggestion
       if (l.length > 80) {
-        const hint = 'セリフが' + l.length + '字（目安60字以内）。
-分割例:
-' +
-          '  Before: ' + l.slice(0,40) + '…
-' +
-          '  After①: ' + l.slice(0,30) + '
-' +
-          '  After②: （間）' + l.slice(30,55).trim() + '…';
+        const charName = isCharNameA(prevLineA) ? prevLineA.trim() : 'キャラクター';
+        const part1 = l.slice(0, Math.floor(l.length * 0.45));
+        const part2 = l.slice(Math.floor(l.length * 0.45));
+        const hint = `${charName}の台詞が${l.length}字（目安60字以内）。\n` +
+          `分割・圧縮してください。\n` +
+          `Before: 「${l.slice(0,50)}${l.length>50?'…':''}」\n` +
+          `After例:\n` +
+          `  ${charName}「${part1.trim().slice(0,35)}」\n` +
+          `  （間 / 相手の反応を挟む）\n` +
+          `  ${charName}「${part2.trim().slice(0,35)}${part2.length>35?'…':''}」`;
         addAnnot(ri, '長台詞(' + l.length + '字)', 'bad', hint, 'auto');
       }
-      // On-the-nose detection with rewrite hint
-      if (onTheNosePats.some(p => l.includes(p))) {
-        addAnnot(ri, '説明台詞', 'bad', buildOnTheNoseHint(l), 'auto');
+      // On-the-nose detection with rewrite hint — v17: use actual line text
+      const foundOtn = onTheNosePats.find(p => l.includes(p));
+      if (foundOtn) {
+        const charName = isCharNameA(prevLineA) ? prevLineA.trim() : '';
+        const namePrefix = charName ? `【${charName}の台詞】` : '';
+        const hint = buildOnTheNoseHintV17(l, charName);
+        addAnnot(ri, '説明台詞', 'bad', namePrefix + hint, 'auto');
       }
-      // Cliché dialogue detection
-      if (clisheKws.some(p => l.includes(p)) && l.length < 25) {
+      // v17: Cliché dialogue — use actual line and character name
+      const foundClishe = clisheKws.find(p => l.includes(p));
+      if (foundClishe && l.length < 35) {
+        const charName = isCharNameA(prevLineA) ? prevLineA.trim() : 'このキャラ';
+        const altMap = {
+          '頑張ります':       `「……もう一度だけ、やってみます」（${charName}らしい弱さを含んだ言葉に）`,
+          'よろしくお願いします': `（頭を下げる。言葉は出ない）（台詞を行動に変換）`,
+          '気をつけて':       `「……帰ってきてくれ」（感情を正確に言う言葉に）`,
+          '心配しないで':     `「なんでもない」（逆説的な言葉で本音を示す）`,
+          '大丈夫':          `（首を振るだけ。声が出ない）（行動で表現）`,
+          '任せてください':   `「私が、やります」（能動的で固有の言い方に）`,
+          '信じて':          `「……お願いだ」（弱さを見せる、固有の言葉に）`,
+          '絶対に諦めない':   `「もうやめる気はない」（固有の強さの表現に）`,
+          '必ず帰ってくる':   `（${charName}は何も言わず、ドアを閉める）`,
+        };
+        const alt = altMap[foundClishe] || `${charName}だけが言える言い回しに変えてください`;
         addAnnot(ri, '常套句', 'warn',
-          '頻出の常套句です。そのキャラクターだけが言う固有の言い方に変えてください。
-例: 「頑張ります」→「……もう一度、やってみます」', 'auto');
+          `「${l.slice(0,25)}」は頻出表現です。\n${charName}固有の言い方に変えてください。\nAfter例: ${alt}`, 'auto');
       }
       // Tension/conflict detection (good)
       if (tensionKws.some(p => l.includes(p))) {
@@ -17165,33 +17360,44 @@ After例: ' +
       if (l.length > 100) {
         addAnnot(ri, '長ト書き(' + l.length + '字)', 'bad', buildLongActionHint(l), 'auto');
       }
-      // Abstract emotion in direction with concrete replacement
+      // v17: Emotion in action — use actual text, nearby char context
       const foundEmotion = emotionAbstractPats.find(p => l.includes(p));
       if (foundEmotion) {
+        const shortAct = l.slice(0, 45) + (l.length > 45 ? '…' : '');
         const emoReplace = {
-          '悲しい': '（椅子を引く。座らない。窓を見る）',
-          '悲しそう': '（口元を手で押さえ、目線を落とす）',
-          '嬉しい': '（ポケットに手を入れたまま、少し笑う）',
-          '嬉しそう': '（唇が動くが、声は出ない）',
-          '怒っ': '（テーブルを手で叩く。水が揺れる）',
-          'つらい': '（目をつぶる。長い間、開かない）',
-          '苦しい': '（息を止める。また吸う。また止める）',
-          '淋しい': '（手が止まる。もう一度、同じ動作をする）',
-          '心配そう': '（時計を見る。また見る。席を立てない）',
+          '悲しい':   '（椅子を引く。座らない。窓だけを見る）',
+          '悲しそう': '（口元を手で押さえ、目線を床に落とす）',
+          '嬉しい':   '（財布の中の古い写真を、一度だけ見る）',
+          '嬉しそう': '（唇が動くが、声は出ない。また動く）',
+          '怒っ':     '（テーブルに手をつく。水がこぼれる。拭かない）',
+          'つらい':   '（目をつぶる。ずっと開かない）',
+          '苦しい':   '（息を止める。また吸う。また止める。繰り返す）',
+          '淋しい':   '（手が止まる。もう一度、同じ動作をする）',
+          '心配そう': '（スマホを見る。また見る。置く。また取る）',
+          '焦っている': '（引き出しを開ける。閉める。また開ける）',
         };
-        const replace = emoReplace[foundEmotion] || '（具体的な行動・物・空間に置き換えてください）';
+        const replace = emoReplace[foundEmotion] || `（${foundEmotion}→具体的な物・動作・空間描写に置き換え）`;
         addAnnot(ri, '感情語(ト書き)', 'warn',
-          'ト書きに感情語は書かない。行動で見せてください。
-Before: ' + l.slice(0,40) +
-          '
-After例: ' + replace, 'auto');
+          `ト書きに感情語（「${foundEmotion}」）は書かない——行動で見せてください。\nBefore: 「${shortAct}」\nAfter例: ${replace}`, 'auto');
       }
-      // High-cost VFX with alternative suggestion
+      // v17: High-cost VFX — cite actual line and suggest concrete low-cost alternatives
       const foundVFX = vfxPats.find(p => l.includes(p));
       if (foundVFX) {
+        const shortL = l.slice(0, 50) + (l.length > 50 ? '…' : '');
+        const vfxAlts = {
+          '爆発':   '爆音SE + 窓ガラスが振動するショット',
+          '宇宙':   '星空の画像/プロジェクション + キャラの表情',
+          '空を飛ぶ': '影だけ、または台詞で「飛んでた」と示唆',
+          '変身':   '衣装替え + 照明変化で表現',
+          '大群衆': '群衆音SE + 主人公の顔アップ',
+          'VFX':   '音響・照明・役者の演技で代替',
+          '大津波': '浸水した室内 + キャラの証言',
+          '隕石':   '閃光 + 揺れ + 反応ショットで表現',
+          '龍が':   '影・炎の光 + 恐怖する人物で示唆',
+        };
+        const alt = vfxAlts[foundVFX] || '音響+照明+役者反応で代替表現可能';
         addAnnot(ri, '高コスト要素', 'warn',
-          'VFX・大規模セット要素（「' + foundVFX + '」）。
-低コスト代替案: 音響効果+登場人物の反応で表現する、またはカットして後の台詞で示唆する。', 'auto');
+          `「${foundVFX}」を含む高コスト描写:\n「${shortL}」\n低コスト代替案: ${alt}`, 'auto');
       }
       // Good: subtext (hard)
       if (subtextHardPats.some(p => l.includes(p))) {
@@ -17219,6 +17425,43 @@ After例: ' + replace, 'auto');
     prevLineA = l;
   });
 
+  // ── v17: Post-loop: character voice uniformity check ──────────────
+  {
+    const charNames = Object.keys(charDialoguesA).filter(c => (charDialoguesA[c]||[]).length >= 2);
+    if (charNames.length >= 2) {
+      // Check if multiple chars use very similar sentence patterns
+      const getPatterns = (dlgs) => {
+        const endings = dlgs.map(d => d.slice(-4)).filter(Boolean);
+        const starters = dlgs.map(d => d.slice(0, 4)).filter(Boolean);
+        return { endings, starters };
+      };
+      // Find chars with very uniform endings (sign of "same voice")
+      const charPatterns = {};
+      charNames.forEach(cn => {
+        charPatterns[cn] = getPatterns(charDialoguesA[cn]);
+      });
+      // Count shared ending patterns between chars
+      for (let i = 0; i < charNames.length; i++) {
+        for (let j = i+1; j < charNames.length; j++) {
+          const cn1 = charNames[i], cn2 = charNames[j];
+          const e1 = new Set(charPatterns[cn1].endings);
+          const e2 = charPatterns[cn2].endings;
+          const shared = e2.filter(e => e1.has(e)).length;
+          const similarity = shared / Math.max(e1.size, 1);
+          if (similarity > 0.6 && e1.size >= 2) {
+            // Flag first appearance of both chars
+            const ri1 = charFirstAppearA[cn1];
+            const ri2 = charFirstAppearA[cn2];
+            if (ri1 !== undefined) {
+              addAnnot(ri1, '声の類似', 'warn',
+                `${cn1}と${cn2}の台詞パターンが似ています（語尾・語調）。\n各キャラ固有の話し方を設計してください。\n例: ${cn1}は体言止め多用、${cn2}は疑問形多用など。`, 'voice-analysis');
+            }
+          }
+        }
+      }
+    }
+  }
+
   // ── Build annotated HTML ───────────────────────────────────────────
   let annotHtml = '';
   let prevLineB = '';
@@ -17242,44 +17485,133 @@ After例: ' + replace, 'auto');
       lineClass = 'dialogue-line';
     }
 
-    // Build badge HTML
+    // ── v16: Build badge + expandable detail panel ────────────────
     let badgeHtml = '';
+    let detailPanelHtml = '';
+    const lineId = 'ann-line-' + ri;
+
     if (annotMap[ri] && annotMap[ri].length > 0) {
       annotCount += annotMap[ri].length;
-      annotMap[ri].forEach(ann => {
+      const hasBad = annotMap[ri].some(a => a.type === 'bad');
+      const hasWarn = annotMap[ri].some(a => a.type === 'warn');
+      const hasGood = annotMap[ri].some(a => a.type === 'good');
+
+      // Badge strip
+      annotMap[ri].forEach((ann, ai) => {
         const badgeType = ann.type === 'bad' ? 'bad' : ann.type === 'good' ? 'good' : ann.type === 'warn' ? 'warn' : 'info';
         const icon = ann.type === 'bad' ? 'fa-triangle-exclamation' : ann.type === 'good' ? 'fa-check' : ann.type === 'warn' ? 'fa-exclamation' : 'fa-circle-info';
-        const tooltipId = 'ann-tt-' + ri + '-' + Math.random().toString(36).slice(2,6);
-        // Build rich tooltip: label + full comment
-        const tooltipText = ann.label + ': ' + ann.comment.replace(/\n/g,' | ').slice(0,160);
-        badgeHtml += '<span class="sr-ann-badge ' + badgeType + '" title="' + esc(tooltipText) + '" style="cursor:help">' +
-          '<i class="fas ' + icon + '" style="font-size:7px"></i>' +
-          esc(ann.label.slice(0,18)) + '</span>';
+        const panelId = 'ann-panel-' + ri + '-' + ai;
+        const shortLabel = esc(ann.label.slice(0, 18));
+        badgeHtml += '<span class="sr-ann-badge ' + badgeType + '" ' +
+          'data-panel="' + panelId + '" onclick="srAnnToggle(this)" ' +
+          'style="cursor:pointer" title="クリックで詳細を展開">' +
+          '<i class="fas ' + icon + '" style="font-size:7px"></i>' + shortLabel + '</span>';
+
+        // Detail panel for each annotation
+        const bgColor = ann.type === 'bad' ? '#fff5f5' : ann.type === 'good' ? '#f0fdf4' : ann.type === 'warn' ? '#fffbeb' : '#eff6ff';
+        const borderColor = ann.type === 'bad' ? '#fca5a5' : ann.type === 'good' ? '#86efac' : ann.type === 'warn' ? '#fde68a' : '#bfdbfe';
+        const headerColor = ann.type === 'bad' ? '#dc2626' : ann.type === 'good' ? '#16a34a' : ann.type === 'warn' ? '#d97706' : '#2563eb';
+
+        // Parse comment for Before/After sections
+        const rawComment = ann.comment || '';
+        const lines_c = rawComment.split('\n');
+        let beforeText = '';
+        let afterText = '';
+        let mainText = '';
+        let inBefore = false, inAfter = false;
+        lines_c.forEach(cl => {
+          if (/^Before[:：]|^改稿前[:：]/.test(cl)) { inBefore = true; inAfter = false; beforeText += cl + '\n'; }
+          else if (/^After[:：]|^After[①②③][:：]|^改稿後[:：]|^After例[:：]/.test(cl)) { inAfter = true; inBefore = false; afterText += cl + '\n'; }
+          else if (inBefore) { beforeText += cl + '\n'; }
+          else if (inAfter) { afterText += cl + '\n'; }
+          else { inBefore = false; inAfter = false; mainText += cl + '\n'; }
+        });
+        mainText = mainText.trim();
+        beforeText = beforeText.trim();
+        afterText = afterText.trim();
+
+        let panelContent = '';
+        if (mainText) {
+          panelContent += '<div style="font-size:11px;color:#374151;line-height:1.75;margin-bottom:' + (beforeText||afterText?'8px':'0') + '">' + esc(mainText).replace(/\n/g,'<br>') + '</div>';
+        }
+        if (beforeText || afterText) {
+          panelContent += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px">';
+          if (beforeText) {
+            panelContent += '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:6px 8px">' +
+              '<div style="font-size:9px;font-weight:700;color:#dc2626;margin-bottom:3px"><i class="fas fa-times-circle" style="font-size:8px;margin-right:3px"></i>改稿前</div>' +
+              '<pre style="font-size:10.5px;color:#7f1d1d;white-space:pre-wrap;margin:0;font-family:inherit;line-height:1.6">' + esc(beforeText) + '</pre></div>';
+          }
+          if (afterText) {
+            panelContent += '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:6px 8px">' +
+              '<div style="font-size:9px;font-weight:700;color:#16a34a;margin-bottom:3px"><i class="fas fa-check-circle" style="font-size:8px;margin-right:3px"></i>改稿後（例）</div>' +
+              '<pre style="font-size:10.5px;color:#14532d;white-space:pre-wrap;margin:0;font-family:inherit;line-height:1.6">' + esc(afterText) + '</pre></div>';
+          }
+          panelContent += '</div>';
+        }
+
+        detailPanelHtml += '<div id="' + panelId + '" style="display:none;margin:4px 0 4px 36px;background:' + bgColor + ';border:1px solid ' + borderColor + ';border-radius:7px;padding:8px 12px">' +
+          '<div style="font-size:10px;font-weight:700;color:' + headerColor + ';margin-bottom:5px;display:flex;align-items:center;justify-content:space-between">' +
+          '<span><i class="fas ' + icon + '" style="font-size:8px;margin-right:4px"></i>' + esc(ann.label) + '</span>' +
+          '<span style="font-size:9px;font-weight:400;color:#9ca3af;cursor:pointer" data-panel="' + panelId + '" onclick="srAnnClose(this)">✕ 閉じる</span>' +
+          '</div>' +
+          panelContent +
+          '</div>';
       });
     }
 
-    annotHtml += '<div class="sr-ann-line2">' +
+    annotHtml += '<div class="sr-ann-line2" style="' + (annotMap[ri] && annotMap[ri].some(a=>a.type==='bad') ? 'background:#fff8f8;' : annotMap[ri] && annotMap[ri].some(a=>a.type==='good') ? 'background:#f7fef7;' : '') + '">' +
       '<span class="sr-ann-lnum2">' + (ri+1) + '</span>' +
       '<span class="sr-ann-text2 ' + lineClass + '">' + lineContent + '</span>' +
       (badgeHtml ? '<div class="sr-ann-badges">' + badgeHtml + '</div>' : '') +
-      '</div>';
+      '</div>' +
+      detailPanelHtml;
     prevLineB = l;
   });
 
   // Build modal
-  const modalEl = document.getElementById('modal-overlay');
-  if (!modalEl) return;
+  // v16: Pre-compute annotation stats for template literal
+  const annotBadCount = Object.values(annotMap).flat().filter(a=>a.type==='bad').length;
+  const annotWarnCount = Object.values(annotMap).flat().filter(a=>a.type==='warn').length;
+  const annotGoodCount = Object.values(annotMap).flat().filter(a=>a.type==='good').length;
+
+  // v17: Always create fresh modal overlay (closeModal removes it)
+  closeModal();
+  const modalEl = document.createElement('div');
+  modalEl.id = 'modal-overlay';
+  modalEl.className = 'modal-overlay';
+  modalEl.style.cssText = 'display:flex;align-items:center;justify-content:center;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)';
+  modalEl.addEventListener('click', (e) => { if (e.target === modalEl) closeModal(); });
+  document.body.appendChild(modalEl);
   modalEl.innerHTML = `
+    <style>
+      .sr-ann-line2 { display:flex; align-items:flex-start; flex-wrap:wrap; padding:2px 8px; border-radius:3px; min-height:22px; transition:background .15s; }
+      .sr-ann-line2:hover { background:#f9fafb !important; }
+      .sr-ann-lnum2 { flex-shrink:0; min-width:32px; font-size:10px; color:#9ca3af; font-family:monospace; padding-top:3px; user-select:none; }
+      .sr-ann-text2 { flex:1; font-size:12.5px; line-height:1.85; white-space:pre-wrap; word-break:break-all; padding-right:4px; }
+      .sr-ann-badges { display:flex; flex-wrap:wrap; gap:3px; align-items:center; flex-shrink:0; padding-top:2px; padding-left:4px; }
+      .sr-ann-badge { display:inline-flex; align-items:center; gap:3px; padding:1px 6px; border-radius:10px; font-size:9.5px; font-weight:600; white-space:nowrap; transition:opacity .15s; }
+      .sr-ann-badge:hover { opacity:.8; }
+      .sr-ann-badge.bad { background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; }
+      .sr-ann-badge.warn { background:#fef3c7; color:#92400e; border:1px solid #fde68a; }
+      .sr-ann-badge.good { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
+      .sr-ann-badge.info { background:#dbeafe; color:#1e40af; border:1px solid #93c5fd; }
+      .scene-line { font-weight:700; color:#1e3a8a; background:#eff6ff; padding:1px 4px; border-radius:3px; }
+      .char-line { font-weight:700; color:#7c3aed; text-align:center; display:block; }
+      .dialogue-line { color:#1f2937; margin-left:16px; }
+      .direction-line { color:#4b5563; font-style:italic; }
+      .sr-annotated-body .scene-line { display:inline-block; }
+    </style>
     <div class="modal-dialog" style="max-width:820px;width:95vw;max-height:90vh;overflow:hidden;display:flex;flex-direction:column">
       <div class="modal-header" style="flex-shrink:0;display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#09071f,#1a0f4a);color:#fff;border-radius:12px 12px 0 0;padding:14px 18px">
         <i class="fas fa-file-lines" style="color:#a78bfa;font-size:14px"></i>
         <div style="flex:1">
           <div style="font-weight:700;font-size:13px">${esc(s.title||'無題の脚本')}　—　アノテーション付き脚本</div>
-          <div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">採点結果を脚本上に直接マッピング · 問題箇所と好評価箇所を行単位で表示</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">v18精密行単位添削 · 7審査員採点＋自動検出を脚本上にマッピング · クリックで改稿ヒント・Before/After展開</div>
         </div>
         <div style="display:flex;gap:6px">
+          <button onclick="(function(){const ps=document.querySelectorAll('[id^=ann-panel-]');let anyHidden=Array.from(ps).some(p=>p.style.display==='none');ps.forEach(p=>p.style.display=anyHidden?'block':'none');})()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:5px 10px;font-size:10px;cursor:pointer;font-weight:600" title="全コメントを一括展開/折り畳み"><i class="fas fa-expand-alt" style="margin-right:4px"></i>全展開</button>
           <button onclick="staffRoomDownloadAnnotated('${sessionId}')" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:5px 10px;font-size:10px;cursor:pointer;font-weight:600"><i class="fas fa-download" style="margin-right:4px"></i>TXTダウンロード</button>
-          <button onclick="document.getElementById('modal-overlay').style.display='none'" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);border-radius:6px;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center"><i class="fas fa-times" style="font-size:11px"></i></button>
+          <button onclick="closeModal()" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.2);color:rgba(255,255,255,.7);border-radius:6px;width:28px;height:28px;cursor:pointer;display:flex;align-items:center;justify-content:center"><i class="fas fa-times" style="font-size:11px"></i></button>
         </div>
       </div>
       <div style="flex:1;overflow-y:auto">
@@ -17308,8 +17640,20 @@ After例: ' + replace, 'auto');
               <i class="fas fa-triangle-exclamation" style="font-size:8px;margin-right:3px"></i>
               最優先改稿箇所 (${ar.detailNotes.filter(n=>n.type==='bad').length}件):
               ${ar.detailNotes.filter(n=>n.type==='bad').slice(0,3).map(n=>
-                `<span style="background:rgba(248,113,113,.12);border-radius:4px;padding:1px 5px;margin-left:3px">${(n.text||'').slice(0,25)}…</span>`
+                '<span style="background:rgba(248,113,113,.12);border-radius:4px;padding:1px 5px;margin-left:3px">' + (n.text||'').slice(0,25) + '…</span>'
               ).join('')}
+            </div>` : ''}
+            ${ar && ar.judgesComments && ar.judgesComments.length > 0 ? `
+            <div style="margin-top:10px;border-top:1px solid rgba(255,255,255,.08);padding-top:8px">
+              <div style="font-size:9.5px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:6px"><i class="fas fa-gavel" style="margin-right:4px;color:#c4b5fd"></i>審査員コメント (${ar.judgesComments.length}名 · v18精密版)</div>
+              <div style="display:flex;flex-direction:column;gap:5px">
+                ${ar.judgesComments.slice(0,5).map(j =>
+                  '<div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 10px">' +
+                  '<div style="font-size:9px;font-weight:700;color:rgba(196,181,253,.9);margin-bottom:2px">【' + j.judge + '】 ' + j.score + '/5点</div>' +
+                  '<div style="font-size:10px;color:rgba(255,255,255,.65);line-height:1.6">' + (j.comment||'').slice(0,120) + (j.comment&&j.comment.length>120?'…':'') + '</div>' +
+                  '</div>'
+                ).join('')}
+              </div>
             </div>` : ''}
           </div>
           <!-- Legend -->
@@ -17318,7 +17662,9 @@ After例: ' + replace, 'auto');
             <span><span style="display:inline-block;width:8px;height:8px;background:#fffbeb;border:1px solid #fde68a;border-radius:2px;margin-right:3px"></span>注意</span>
             <span><span style="display:inline-block;width:8px;height:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:2px;margin-right:3px"></span>好評価</span>
             <span><span style="display:inline-block;width:8px;height:8px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:2px;margin-right:3px"></span>情報</span>
-            <span style="margin-left:auto;font-size:9px">バッジにカーソルを当てると詳細コメント・改稿ヒントを確認できます</span>
+            <span style="margin-left:auto;font-size:9px;color:#6b7280">
+              <i class="fas fa-hand-pointer" style="margin-right:3px;font-size:8px"></i>バッジをクリック → 改稿ヒント・Before/After例を展開
+            </span>
           </div>
           ${annotHtml || '<div style="color:var(--text-muted);padding:20px;text-align:center">脚本テキストがありません</div>'}
         </div>
@@ -17327,10 +17673,12 @@ After例: ' + replace, 'auto');
         <span><span style="display:inline-block;width:10px;height:10px;background:#fef3c7;border:1px solid #fde68a;border-radius:2px;margin-right:3px"></span>要注意</span>
         <span><span style="display:inline-block;width:10px;height:10px;background:#dcfce7;border:1px solid #bbf7d0;border-radius:2px;margin-right:3px"></span>好評価</span>
         <span><span style="display:inline-block;width:10px;height:10px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:2px;margin-right:3px"></span>情報</span>
-        <span style="margin-left:auto">${rawLines.length}行 · ${annotCount}件のアノテーション適用</span>
+        <span style="margin-left:auto">${rawLines.length}行 · <span style="color:#ef4444;font-weight:600">${annotBadCount}件 要修正</span> · <span style="color:#d97706;font-weight:600">${annotWarnCount}件 注意</span> · <span style="color:#16a34a;font-weight:600">${annotGoodCount}件 好評価</span> — 計${annotCount}件</span>
       </div>
     </div>`;
-  modalEl.style.display = 'flex';
+  // v17: Already appended to body with correct display style
+  // Scroll to top of annotation body
+  setTimeout(()=>{const ab=modalEl.querySelector('.sr-annotated-body');if(ab)ab.parentElement.scrollTop=0;},50);
 }
 
 function staffRoomDownloadAnnotated(sessionId) {
@@ -17413,7 +17761,44 @@ function staffRoomDownloadAnnotated(sessionId) {
     }
   });
 
-  out += `\n${bar}\n  診断ノート詳細 (${detailNotes.length}件)\n${bar}\n`;
+  // v16: Enhanced diagnostic notes section with scores
+  out += `\n${bar}\n  ■ 採点サマリー\n${bar}\n`;
+  if (ar) {
+    out += `総合スコア: ${ar.totalScore||'—'}/100点  評価: ${ar.grade||'—'} ${ar.gradeLabel||''}\n`;
+    if (ar.itemScores) {
+      const scoreEntries = Object.entries(ar.itemScores).sort((a,b)=>a[1]-b[1]);
+      out += `\n▼ 低スコア項目（要改善）:\n`;
+      scoreEntries.filter(([,v])=>v<=2).forEach(([k,v]) => {
+        out += `  ${k}: ${v}/5点\n`;
+      });
+      out += `\n▼ 高スコア項目（強み）:\n`;
+      scoreEntries.filter(([,v])=>v>=4).forEach(([k,v]) => {
+        out += `  ${k}: ${v}/5点\n`;
+      });
+    }
+    if (ar.analysisStats) {
+      const st = ar.analysisStats;
+      out += `\n▼ 分析統計:\n`;
+      if (st.sceneCount) out += `  シーン数: ${st.sceneCount}\n`;
+      if (st.uniqueChars) out += `  登場人物数: ${st.uniqueChars}\n`;
+      if (st.dialogueRatio) out += `  台詞比率: ${st.dialogueRatio}%\n`;
+      if (st.obstacleScoreRaw !== undefined) out += `  障壁強度: ${st.obstacleScoreRaw}/5\n`;
+      if (st.tempoScoreRaw !== undefined) out += `  テンポ: ${st.tempoScoreRaw}/5\n`;
+      if (st.commercialScoreRaw !== undefined) out += `  商業適合: ${st.commercialScoreRaw}/5\n`;
+    }
+  }
+  out += `\n${bar}\n  ■ 審査員コメント（${ar && ar.judgesComments ? ar.judgesComments.length : 0}名 · v18精密版）\n${bar}\n`;
+  if (ar && ar.judgesComments && ar.judgesComments.length > 0) {
+    ar.judgesComments.forEach((j, ji) => {
+      const scoreBar = '█'.repeat(j.score||0) + '░'.repeat(5-(j.score||0));
+      out += `\n[${ji+1}] 【${j.judge}】 ${scoreBar} ${j.score}/5点\n`;
+      out += `${j.comment}\n`;
+      out += `${'─'.repeat(40)}\n`;
+    });
+  } else {
+    out += '（採点後に審査員コメントが生成されます）\n';
+  }
+  out += `\n${bar}\n  ■ 診断ノート詳細 (${detailNotes.length}件)\n${bar}\n`;
   detailNotes.forEach((n,i) => {
     out += `\n[${i+1}] ${n.type === 'bad' ? '⚠ 要修正' : n.type === 'good' ? '✓ 好評価' : 'ℹ 参考'}: ${n.label||''}\n`;
     out += `${n.text||''}\n`;
@@ -17471,7 +17856,7 @@ function staffRoomExport(sessionId) {
   text += `タイトル  : ${s.title || '無題の脚本'}\n`;
   const modeLabels = { contest:'コンクール審査モード', adaptation:'映像化適合モード', school:'シナリオ学校添削モード', general:'総合評価モード' };
   if (s.evalMode) text += `評価モード: ${modeLabels[s.evalMode]||s.evalMode}\n`;
-  const typeLabelsEx = {'tv-drama':'TVドラマ','film':'映画','stage':'舞台','web':'WEB/配信','competition':'コンクール自由','short':'短編'};
+  const typeLabelsEx = {'tv-drama':'TVドラマ','film':'映画','stage':'舞台','web':'WEB/配信','competition':'コンクール自由','short':'短編','anime':'アニメ','radio':'ラジオ/音声'};
   if (s.scriptType) text += `脚本タイプ: ${typeLabelsEx[s.scriptType]||s.scriptType}\n`;
   const arSt14 = s.autoScoreResult && s.autoScoreResult.analysisStats;
   if (arSt14) {
@@ -17549,11 +17934,14 @@ function staffRoomExport(sessionId) {
     });
   }
 
-  // 審査員コメントをエクスポート
-  if (ar && ar.analysisStats && ar.analysisStats.judgesComments && ar.analysisStats.judgesComments.length > 0) {
-    text += `\n${line}\n審査員コメント\n${line}\n`;
-    ar.analysisStats.judgesComments.forEach(jc => {
-      text += `\n【${jc.judge}】スコア: ${jc.score}/5\n${jc.comment}\n`;
+  // 審査員コメントをエクスポート（v18: ar.judgesComments 優先）
+  const exportJudges = (ar && ar.judgesComments && ar.judgesComments.length > 0) ? ar.judgesComments :
+                       (ar && ar.analysisStats && ar.analysisStats.judgesComments) ? ar.analysisStats.judgesComments : [];
+  if (exportJudges.length > 0) {
+    text += `\n${line}\n審査員コメント（${exportJudges.length}名 · v18精密版）\n${line}\n`;
+    exportJudges.forEach((jc, ji) => {
+      const scoreBar = '█'.repeat(jc.score||0) + '░'.repeat(5-(jc.score||0));
+      text += `\n[${ji+1}] 【${jc.judge}】 ${scoreBar} ${jc.score}/5点\n${jc.comment}\n`;
     });
   }
   if (ar && ar.analysisStats) {
@@ -17562,7 +17950,7 @@ function staffRoomExport(sessionId) {
     if (ar.analysisStats.obstacleScore !== undefined) text += `障壁強度: ${ar.analysisStats.obstacleScore}/5\n`;
     if (ar.analysisStats.tempoScore !== undefined) text += `テンポ・リズム: ${ar.analysisStats.tempoScore}/5\n`;
   }
-  text += `\n${bar}\n  Generated by シナリオラボ 職員室 自動採点システム v13\n  24項目・8軸・評価モード対応エンジン\n${bar}\n`;
+  text += `\n${bar}\n  Generated by シナリオラボ 職員室 自動採点システム v18\n  24項目・8軸・7審査員・評価モード対応エンジン\n${bar}\n`;
 
   const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
   const a = document.createElement('a');
@@ -31253,6 +31641,10 @@ function init() {
     DB.saveProject(sample);
   }
   render();
+  // v16: Signal loader completion
+  if (typeof window.__loaderDone === 'function') {
+    setTimeout(window.__loaderDone, 100);
+  }
 }
 
 // ── Global event bindings ──────────────────────────────────────
