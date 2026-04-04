@@ -12692,40 +12692,64 @@ function renderLearnStaffRoom(hero, subnav) {
         </button>`).join('')}
       </div>
 
-      <!-- 脚本入力エリア -->
+      <!-- 脚本ファイル添付エリア（v20: textarea廃止・ファイル直接処理） -->
       <div class="card" style="margin-bottom:20px;border-top:3px solid var(--fuji)">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-          <i class="fas fa-scroll" style="color:var(--fuji)"></i>
-          <span style="font-weight:700;font-size:13px">脚本テキスト（添削対象）</span>
-          <span style="font-size:11px;color:var(--text-muted);margin-left:auto">PDF・ファイルからも貼り付け可能</span>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+          <i class="fas fa-file-lines" style="color:var(--fuji)"></i>
+          <span style="font-weight:700;font-size:13px">脚本ファイル添付</span>
+          <span style="font-size:11px;color:var(--text-muted);margin-left:auto">PDF・TXT・DOCX対応 · ファイルをそのまま精密解析</span>
         </div>
-        <!-- ファイル添付エリア（強化版） -->
-        <div style="border:1px solid var(--border);border-radius:var(--radius-md);overflow:hidden;margin-bottom:10px">
-          <div style="display:flex;gap:0">
-            <div id="staffroom-dropzone-${s.id}" style="flex:1;border:none;border-right:1px dashed var(--border);padding:10px 14px;text-align:center;background:var(--bg-subtle);cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:10px"
-              onclick="document.getElementById('staffroom-file-${s.id}').click()"
-              ondragover="event.preventDefault();this.style.background='var(--fuji-bg, #f0eeff)';this.style.borderColor='var(--fuji)'"
-              ondragleave="this.style.background='var(--bg-subtle)';this.style.borderColor=''"
-              ondrop="event.preventDefault();this.style.background='var(--bg-subtle)';staffRoomHandleFileDrop(event,'${s.id}')">
-              <i class="fas fa-file-arrow-up" style="font-size:22px;color:var(--fuji);flex-shrink:0"></i>
-              <div style="text-align:left">
-                <div style="font-size:12px;color:var(--text-primary);font-weight:600">ファイルを添付</div>
-                <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px">PDFからテキストを自動抽出 · .pdf .txt .md .docx</div>
+
+        <!-- ドロップゾーン（大型） -->
+        <div id="staffroom-dropzone-${s.id}"
+          style="border:2px dashed ${s.scriptText ? 'var(--fuji)' : 'var(--border)'};border-radius:12px;padding:${s.scriptText ? '16px 20px' : '36px 20px'};text-align:center;background:${s.scriptText ? 'rgba(107,70,193,.04)' : 'var(--bg-subtle)'};cursor:pointer;transition:all .25s;position:relative"
+          onclick="document.getElementById('staffroom-file-${s.id}').click()"
+          ondragover="event.preventDefault();this.style.background='rgba(107,70,193,.1)';this.style.borderColor='var(--fuji)';this.style.borderStyle='solid'"
+          ondragleave="this.style.background='${s.scriptText ? 'rgba(107,70,193,.04)' : 'var(--bg-subtle)'}';this.style.borderStyle='dashed'"
+          ondrop="event.preventDefault();this.style.background='${s.scriptText ? 'rgba(107,70,193,.04)' : 'var(--bg-subtle)'}';this.style.borderStyle='dashed';staffRoomHandleFileDrop(event,'${s.id}')">
+
+          <input type="file" id="staffroom-file-${s.id}" style="display:none" accept=".pdf,.txt,.md,.docx,.doc,.csv" onchange="staffRoomHandleFileSelect(event,'${s.id}')">
+
+          ${s.scriptText ? `
+            <!-- ファイル読込済み状態 -->
+            <div style="display:flex;align-items:center;gap:14px;text-align:left">
+              <div style="width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,var(--fuji),#7c3aed);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px rgba(107,70,193,.3)">
+                <i class="fas fa-${(s.attachedFileMeta?.type||'txt')==='pdf'?'file-pdf':'file-lines'}" style="font-size:20px;color:#fff"></i>
               </div>
-              <input type="file" id="staffroom-file-${s.id}" style="display:none" accept=".pdf,.txt,.md,.docx,.doc,.csv" onchange="staffRoomHandleFileSelect(event,'${s.id}')">
+              <div style="flex:1;min-width:0">
+                <div style="font-size:13px;font-weight:700;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.attachedFileMeta?.name || s.title || '脚本ファイル')}</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:3px;display:flex;gap:10px;flex-wrap:wrap">
+                  <span id="staffroom-char-${s.id}"><i class="fas fa-align-left" style="margin-right:3px;opacity:.6"></i>${(s.scriptText||'').replace(/\s/g,'').length}字</span>
+                  ${s.attachedFileMeta?.size ? `<span><i class="fas fa-weight" style="margin-right:3px;opacity:.6"></i>${Math.round(s.attachedFileMeta.size/1024)}KB</span>` : ''}
+                  ${s.pdfPageCount ? `<span><i class="fas fa-file-pdf" style="margin-right:3px;opacity:.6"></i>${s.pdfPageCount}ページ</span>` : ''}
+                  <span id="staffroom-file-progress-${s.id}" style="color:var(--matcha)">✅ 読込完了</span>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex-shrink:0">
+                <button onclick="event.stopPropagation();document.getElementById('staffroom-file-${s.id}').click()" style="background:rgba(107,70,193,.1);border:1px solid rgba(107,70,193,.3);color:var(--fuji);border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer;font-weight:600"><i class="fas fa-rotate" style="margin-right:4px"></i>差し替え</button>
+                <button onclick="event.stopPropagation();staffRoomClearScript('${s.id}')" style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);color:#dc2626;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer"><i class="fas fa-trash" style="margin-right:4px"></i>クリア</button>
+              </div>
             </div>
-            <div id="staffroom-file-status-${s.id}" style="display:flex;align-items:center;padding:10px 14px;font-size:11px;color:var(--text-muted);flex-shrink:0;flex-direction:column;justify-content:center;gap:3px;min-width:120px;text-align:center">
-              <i class="fas fa-inbox" style="font-size:16px;opacity:.3;margin-bottom:3px"></i>
-              <span>ファイル未添付</span>
+          ` : `
+            <!-- 未添付状態 -->
+            <div>
+              <i class="fas fa-file-arrow-up" style="font-size:40px;color:var(--fuji);opacity:.5;margin-bottom:12px;display:block"></i>
+              <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:6px">脚本ファイルをここにドロップ</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">または <span style="color:var(--fuji);font-weight:600;text-decoration:underline">クリックして選択</span></div>
+              <div style="font-size:11px;color:var(--text-light);margin-top:8px">PDF・TXT・MD・DOCX対応　·　PDFは自動でテキスト抽出</div>
+              <div id="staffroom-file-progress-${s.id}" style="margin-top:8px;font-size:12px;color:var(--text-muted)"></div>
             </div>
-          </div>
+          `}
         </div>
-        <textarea id="staffroom-script-${s.id}" class="form-textarea" rows="14" style="font-size:13px;line-height:1.9;font-family:'Noto Serif JP',serif;resize:vertical" placeholder="脚本テキストをここに貼り付けてください。&#10;&#10;例：&#10;１○病院・廊下（昼）&#10;&#10;田中、白衣姿で歩く。表情が固い。&#10;&#10;田中「（独り言）今日中に…」" oninput="staffRoomAutoSaveScript('${s.id}')">${esc(s.scriptText||'')}</textarea>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;flex-wrap:wrap;gap:8px">
-          <span style="font-size:11px;color:var(--text-muted)"><span id="staffroom-char-${s.id}">${(s.scriptText||'').replace(/\\n/g,'').length}字</span></span>
+
+        <!-- 採点ボタン -->
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;flex-wrap:wrap;gap:8px">
+          <div id="staffroom-file-status-${s.id}" style="font-size:11px;color:var(--text-muted)">
+            ${s.scriptText ? '' : '<i class="fas fa-info-circle" style="margin-right:4px"></i>ファイルを添付してから採点してください'}
+          </div>
           <div style="display:flex;gap:8px;align-items:center">
             ${s.autoScoreResult ? `<span style="font-size:10px;color:rgba(107,70,193,.7);font-weight:600"><i class="fas fa-check-circle" style="margin-right:3px"></i>採点済み</span>` : ''}
-            <button class="btn btn-primary" id="staffroom-submit-btn-${s.id}" onclick="staffRoomAutoScore('${s.id}')" style="background:linear-gradient(135deg,var(--fuji),#7c3aed);border-color:transparent;font-size:13px;padding:8px 20px;border-radius:8px;font-weight:700;letter-spacing:.05em;box-shadow:0 2px 12px rgba(107,70,193,.4);transition:all .2s" onmouseover="this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 16px rgba(107,70,193,.5)'" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 12px rgba(107,70,193,.4)'">
+            <button class="btn btn-primary" id="staffroom-submit-btn-${s.id}" onclick="staffRoomAutoScore('${s.id}')" ${!s.scriptText ? 'disabled style="opacity:.5;cursor:not-allowed;"' : ''} style="background:linear-gradient(135deg,var(--fuji),#7c3aed);border-color:transparent;font-size:13px;padding:8px 20px;border-radius:8px;font-weight:700;letter-spacing:.05em;box-shadow:0 2px 12px rgba(107,70,193,.4);transition:all .2s" onmouseover="if(!this.disabled){this.style.transform='translateY(-1px)';this.style.boxShadow='0 4px 16px rgba(107,70,193,.5)'}" onmouseout="this.style.transform='';this.style.boxShadow='0 2px 12px rgba(107,70,193,.4)'">
               <i class="fas fa-wand-magic-sparkles" style="margin-right:6px"></i>${s.autoScoreResult ? '再採点' : '提出・自動採点'}
             </button>
           </div>
@@ -13582,16 +13606,35 @@ function staffRoomAutoSaveTitle(sessionId) {
 }
 
 function staffRoomAutoSaveScript(sessionId) {
+  // v20: textareaが存在する場合はそこから、なければsessionから取得（後方互換）
   const el = document.getElementById(`staffroom-script-${sessionId}`);
   const countEl = document.getElementById(`staffroom-char-${sessionId}`);
-  if (!el) return;
   const sessions = DB.get('staffroom_sessions', []);
   const idx = sessions.findIndex(s => s.id === sessionId);
   if (idx === -1) return;
-  sessions[idx].scriptText = el.value;
+  if (el) {
+    sessions[idx].scriptText = el.value;
+    sessions[idx].updatedAt = Date.now();
+    DB.set('staffroom_sessions', sessions);
+    if (countEl) countEl.textContent = el.value.replace(/\s/g,'').length + '字';
+  }
+  // textareaがない場合（v20新UI）はDBのscriptTextをそのまま使う
+}
+
+// v20: スクリプトクリア（ファイル添付をやり直す）
+function staffRoomClearScript(sessionId) {
+  if (!confirm('添付ファイルと読込テキストをクリアしますか？')) return;
+  const sessions = DB.get('staffroom_sessions', []);
+  const idx = sessions.findIndex(s => s.id === sessionId);
+  if (idx === -1) return;
+  sessions[idx].scriptText = '';
+  sessions[idx].scriptTextWithPageMap = null;
+  sessions[idx].attachedFileMeta = null;
+  sessions[idx].pdfPageCount = null;
   sessions[idx].updatedAt = Date.now();
   DB.set('staffroom_sessions', sessions);
-  if (countEl) countEl.textContent = el.value.replace(/\n/g,'').length + '字';
+  render();
+  toast('クリアしました。新しいファイルを添付してください。', 'info');
 }
 
 function staffRoomAutoSaveFeedback(sessionId) {
@@ -13699,12 +13742,13 @@ function staffRoomSaveAll(sessionId) {
   toast('保存しました', 'success');
 }
 
-// ── 自動採点エンジン v19 ─────────────────────────────────────
+// ── 自動採点エンジン v20 ─────────────────────────────────────
 function staffRoomAutoScore(sessionId) {
-  // まずスクリプトを保存（DOM から最新テキストを取得）
-  staffRoomAutoSaveScript(sessionId);
+  // v20: textareaがあれば先に保存（後方互換）、なければDBから直接取得
+  const taEl = document.getElementById(`staffroom-script-${sessionId}`);
+  if (taEl) staffRoomAutoSaveScript(sessionId);
 
-  // 保存後に最新 sessions を再取得（stale closure 防止）
+  // 最新 sessions を取得（stale closure 防止）
   let sessions = DB.get('staffroom_sessions', []);
   let idx = sessions.findIndex(s => s.id === sessionId);
   if (idx === -1) return;
@@ -13713,8 +13757,15 @@ function staffRoomAutoScore(sessionId) {
   const sType     = sessions[idx].scriptType || 'tv-drama';
   const text      = sessions[idx].scriptText || '';
 
-  if (text.trim().length < 50) {
-    toast('脚本テキストを入力してから提出してください（50字以上）', 'error');
+  // v20: ファイルが未添付の場合は明確なメッセージ
+  if (!text || text.trim().length === 0) {
+    toast('脚本ファイルを添付してください', 'error');
+    return;
+  }
+  // 最低文字数チェック（過剰に厳しくしない: 30字のみ）
+  const rawCharCount = text.replace(/[\s\n\r]/g,'').length;
+  if (rawCharCount < 30) {
+    toast('脚本テキストが短すぎます（30字以上必要）', 'error');
     return;
   }
 
@@ -14188,14 +14239,16 @@ function cleanScriptText(rawText) {
   // 「ページ末尾の連続注記」：「次頁に続く」「END」「了」のみ行
   const isPageFooter = (l) => /^(次頁に続く|次のページへ|END|了|以上|おわり|\.\.\.|…+)$/i.test(l.trim());
 
-  // まず冒頭のメタブロックを飛ばす（最初の柱書き or 台詞が出るまで）
+  // 冒頭のメタブロックを飛ばす（最初の柱書き or 台詞が出るまで）
+  // v20: より保守的な判定（本文を誤って消さない）
   const isSceneOrDialogue = (l) =>
     /^[０-９0-9○◎●]{1,5}/.test(l) ||
     /^INT\.|^EXT\./i.test(l) ||
     /^【.{1,30}】/.test(l) ||
-    (/^[　\s]*[一-龯ぁ-んA-Za-z]{1,14}[　\s]*$/.test(l) && l.trim().length < 15) ||   // キャラ名行
     /^[ぁ-ん一-龯]{1,14}「/.test(l) ||  // キャラ名「台詞」
-    /^[　\s]*「/.test(l);                // インデント台詞
+    /^[　\s]*「/.test(l) ||              // インデント台詞
+    /^（.{1,20}）$/.test(l) ||          // ト書き（括弧のみ行）
+    l.trim().length > 25;               // v20: 25字超えたら本文と判断（保守的に）
 
   // 連続キャラプロフィール行のカウント
   let charProfileStreak = 0;
@@ -14216,11 +14269,11 @@ function cleanScriptText(rawText) {
     // v19.1: ページ番号の精確な判定（前後文脈を使用）
     if (isPageNumberLine(lt, prevLt, nextLt)) continue;
 
-    // 登場人物一覧行
+    // 登場人物一覧行（連続3行以上のプロフィールのみ除去）
     if (isCharListLine(lt, charProfileStreak)) {
       if (isCharProfileLine(lt)) {
         charProfileStreak++;
-        if (charProfileStreak >= 3) continue;
+        if (charProfileStreak >= 3) continue;  // 3行以上連続したプロフィールのみ除去
       } else {
         charProfileStreak = 0;
         continue;  // 「登場人物：」ヘッダー行は除去
@@ -14229,15 +14282,20 @@ function cleanScriptText(rawText) {
       if (!isCharProfileLine(lt)) charProfileStreak = 0;
     }
 
-    // 冒頭メタブロック：最初の柱書き or 対話が来るまで疑わしい短い行は飛ばす
+    // v20: 冒頭メタブロック除去（より保守的）
+    // 明確な応募ヘッダー行のみを除去。短い行でも本文の可能性がある場合は残す。
     if (!metaHeaderDone) {
       if (isSceneOrDialogue(lt)) {
         metaHeaderDone = true;
-      } else if (lt.length > 0 && lt.length < 20 && !lt.includes('○') && !lt.includes('◎')) {
-        // 短い行で柱書きでもなければメタ情報として飛ばす
+      } else if (lt.length === 0) {
+        // 空行はスキップ（続ける）
+        processedLines.push(l);
         continue;
-      } else if (lt.length >= 20) {
-        // 長めの行が出たら本文開始と判断
+      } else if (lt.length > 0 && lt.length < 15 && !lt.match(/[ぁ-ん一-龯ａ-ｚＡ-Ｚ０-９「（]/)) {
+        // v20: 15字未満かつ日本語/台詞記号を含まない行のみ（タイトル・作者名等）をスキップ
+        continue;
+      } else {
+        // それ以外はメタブロック終了と判断して本文として残す
         metaHeaderDone = true;
       }
     }
@@ -14294,17 +14352,25 @@ function staffRoomRunAnalysis(text, evalMode, scriptType) {
   };
   const stWeights = scriptTypeWeights[sType] || {};
 
-  // v19: クリーニング済みテキストを分析対象として使用
-  const rawLines = cleanedText.split('\n');
+  // v20: クリーニング済みテキストを分析対象として使用
+  // ただしcleanScriptTextで過剰削除が起きた場合は元テキストにフォールバック
+  const rawTextChars = text.replace(/[\s\n\r\u0000]/g, '').length;
+  const cleanedChars = cleanedText.replace(/[\s\n\r]/g, '').length;
+  // クリーニングで90%以上削除された場合は元テキストを使用（誤削除防止）
+  const analysisText = (cleanedChars < 30 && rawTextChars >= 30 && cleanedChars < rawTextChars * 0.1)
+    ? text.replace(/\u0000PAGE:\d+\u0000/g, '')  // ページマーカーのみ除去して使用
+    : cleanedText;
+
+  const rawLines = analysisText.split('\n');
   const lines = rawLines.map(l => l.trim());
   const nonEmpty = lines.filter(l => l.length > 0);
-  const totalChars = cleanedText.replace(/[\s\n\r]/g, '').length;
+  const totalChars = analysisText.replace(/[\s\n\r]/g, '').length;
   const totalLines = nonEmpty.length;
 
   if (totalChars < 30) {
     return {
       itemScores: {}, totalScore: 0, grade: 'E', gradeLabel: '採点不可',
-      summary: 'テキストが短すぎて採点できません。脚本テキストを入力してください。',
+      summary: `テキストが短すぎます（${totalChars}字）。脚本ファイルを正しく添付してください。`,
       categoryScores: [], detailNotes: [], strengths: '', weaknesses: '', suggestions: '', priority: '',
       itemDetails: {}, genreStr: '', analysisStats: {}
     };
@@ -17268,68 +17334,80 @@ ${sceneCount}シーン構成で${typeL}としての放送尺（30〜60分）に�
 function staffRoomHandleFileSelect(event, sessionId) {
   const file = event.target.files[0];
   if (!file) return;
-  staffRoomShowFileStatus(sessionId, file);
+  staffRoomShowFileLoading(sessionId, file);
   staffRoomReadFile(file, sessionId);
 }
 
 function staffRoomHandleFileDrop(event, sessionId) {
   const file = event.dataTransfer.files[0];
   if (!file) return;
-  staffRoomShowFileStatus(sessionId, file);
+  staffRoomShowFileLoading(sessionId, file);
   staffRoomReadFile(file, sessionId);
 }
 
-function staffRoomShowFileStatus(sessionId, file) {
-  const statusEl = document.getElementById(`staffroom-file-status-${sessionId}`);
-  if (!statusEl) return;
+// v20: ファイル読み込み開始時のローディング表示（ドロップゾーン内）
+function staffRoomShowFileLoading(sessionId, file) {
+  const dropzone = document.getElementById(`staffroom-dropzone-${sessionId}`);
+  if (!dropzone) return;
   const ext = file.name.split('.').pop().toLowerCase();
   const iconMap = { pdf: 'fa-file-pdf', txt: 'fa-file-lines', md: 'fa-file-code', docx: 'fa-file-word', doc: 'fa-file-word', csv: 'fa-file-csv' };
-  const colorMap = { pdf: '#c0392b', txt: '#2980b9', md: '#27ae60', docx: '#2563eb', doc: '#2563eb', csv: '#16a085' };
   const icon = iconMap[ext] || 'fa-file';
-  const color = colorMap[ext] || '#7f8c8d';
   const sizeLabel = file.size < 1024*1024 ? (file.size/1024).toFixed(0)+'KB' : (file.size/1024/1024).toFixed(1)+'MB';
-  statusEl.innerHTML = `
-    <i class="fas ${icon}" style="font-size:18px;color:${color};margin-bottom:3px"></i>
-    <span style="font-size:10px;color:var(--text-primary);font-weight:600;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(file.name)}</span>
-    <span style="font-size:9px;color:var(--text-muted)">${sizeLabel}</span>
-    <div id="staffroom-file-progress-${sessionId}" style="font-size:9px;color:${color};margin-top:2px">処理中…</div>
+  dropzone.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;padding:10px 0">
+      <i class="fas fa-circle-notch fa-spin" style="font-size:32px;color:var(--fuji);opacity:.8"></i>
+      <div style="font-size:13px;font-weight:600;color:var(--text-primary)">${esc(file.name)}</div>
+      <div style="font-size:11px;color:var(--text-muted)">${sizeLabel} · ${ext.toUpperCase()} · 解析中…</div>
+      <div id="staffroom-file-progress-${sessionId}" style="font-size:12px;color:var(--fuji)">📂 テキスト抽出中…</div>
+    </div>
   `;
 }
 
+// 後方互換: 旧コードからの呼び出し用（何もしない）
+function staffRoomShowFileStatus(sessionId, file) {}
+
+// v20: ファイル直接処理（textareaに依存しない・セッションに直接保存・UIをre-render）
 async function staffRoomReadFile(file, sessionId) {
   const ext = file.name.split('.').pop().toLowerCase();
-  const ta = document.getElementById(`staffroom-script-${sessionId}`);
-  if (!ta) return;
+
+  // v20: ドロップゾーンにローディング状態を表示
+  const dropzone = document.getElementById(`staffroom-dropzone-${sessionId}`);
+  const progressEl = document.getElementById(`staffroom-file-progress-${sessionId}`);
+  if (progressEl) progressEl.textContent = '📂 処理中…';
+
+  // セッション直接更新ヘルパー（DBに直接保存）
+  const saveToSession = (updates) => {
+    const sessions = DB.get('staffroom_sessions', []);
+    const idx = sessions.findIndex(s => s.id === sessionId);
+    if (idx === -1) return;
+    Object.assign(sessions[idx], updates, { updatedAt: Date.now() });
+    try {
+      DB.set('staffroom_sessions', sessions);
+    } catch(e) {
+      // localStorage容量オーバー対策
+      if (updates.scriptText && updates.scriptText.length > 50000) {
+        updates.scriptText = updates.scriptText.slice(0, 50000);
+        Object.assign(sessions[idx], updates, { updatedAt: Date.now() });
+        DB.set('staffroom_sessions', sessions);
+        toast('テキストが大きいため先頭50,000字のみ保存しました', 'warning');
+      }
+    }
+  };
 
   const setTitle = (name) => {
     const sessions = DB.get('staffroom_sessions', []);
     const idx = sessions.findIndex(s => s.id === sessionId);
     if (idx !== -1 && !sessions[idx].title) {
       sessions[idx].title = name;
+      sessions[idx].updatedAt = Date.now();
       DB.set('staffroom_sessions', sessions);
     }
     const titleEl = document.getElementById('staffroom-title');
     if (titleEl && !titleEl.value) titleEl.value = name;
   };
 
-  // v19: ファイルのメタ情報を保存（アノテーション時に元フォーマット情報を保持するため）
-  const saveFileMetaToSession = (fileName, fileSize, fileType, pageMap) => {
-    const sessions = DB.get('staffroom_sessions', []);
-    const idx = sessions.findIndex(s => s.id === sessionId);
-    if (idx !== -1) {
-      sessions[idx].attachedFileMeta = {
-        name: fileName,
-        size: fileSize,
-        type: fileType || ext,
-        uploadedAt: Date.now(),
-        pageMap: pageMap || null,  // {pageNumber: firstLineIndex} のマッピング
-      };
-      DB.set('staffroom_sessions', sessions);
-    }
-  };
-
   if (ext === 'pdf') {
-    toast('PDFからテキストを抽出しています…', 'info');
+    toast('📄 PDFを解析中…（ページ構造を保持して精密抽出）', 'info');
     try {
       let pdfjsLib = window.pdfjsLib;
       if (!pdfjsLib) {
@@ -17343,84 +17421,107 @@ async function staffRoomReadFile(file, sessionId) {
       const bytes = new Uint8Array(arrayBuffer);
       const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
 
-      // v19: ページごとに抽出してページマップを構築
-      let fullText = '';
+      // v20: ページごとに抽出してページマップを構築（y座標で行を正確に復元）
+      let fullTextWithMarkers = '';
       const pageMap = {};  // {pageNumber: lineIndexInFullText}
       let lineIndex = 0;
+
       for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const content = await page.getTextContent();
-        // ページ内アイテムを行グループ化して改行を適切に処理
-        let pageLines = [];
-        let currentLine = '';
-        let lastY = null;
+
+        // y座標でアイテムをグループ化して行を復元
+        const yGroups = {};
         content.items.forEach(item => {
-          // y座標が変わったら改行と判断（PDFの行構造を保持）
-          const curY = item.transform ? Math.round(item.transform[5]) : null;
-          if (lastY !== null && curY !== null && Math.abs(curY - lastY) > 3) {
-            if (currentLine.trim()) pageLines.push(currentLine.trim());
-            currentLine = '';
-          }
-          currentLine += item.str;
-          lastY = curY;
+          if (!item.str) return;
+          const curY = item.transform ? Math.round(item.transform[5] * 10) / 10 : 0;
+          if (!yGroups[curY]) yGroups[curY] = { y: curY, items: [] };
+          yGroups[curY].items.push(item);
         });
-        if (currentLine.trim()) pageLines.push(currentLine.trim());
+
+        // y座標の降順（PDF座標系は下から上）でソート
+        const sortedYGroups = Object.values(yGroups).sort((a, b) => b.y - a.y);
+        const pageLines = sortedYGroups
+          .map(g => g.items.map(it => it.str).join('').trim())
+          .filter(l => l.length > 0);
 
         if (pageLines.length > 0) {
-          pageMap[i] = lineIndex;  // このページの開始行インデックスを記録
-          // v19: ページ区切りマーカーを挿入（アノテーション時にページ番号を識別するため）
-          const pageMarker = `\u0000PAGE:${i}\u0000`;  // 不可視マーカー
-          fullText += pageMarker + pageLines.join('\n') + '\n';
+          pageMap[i] = lineIndex;
+          const pageMarker = `\u0000PAGE:${i}\u0000`;
+          fullTextWithMarkers += pageMarker + pageLines.join('\n') + '\n';
           lineIndex += pageLines.length + 1;
         }
       }
-      // ページマーカーを除去して表示用テキストを作成
-      const displayText = fullText.replace(/\u0000PAGE:\d+\u0000/g, '');
+
+      // 表示・採点用テキスト（ページマーカーを除去）
+      const displayText = fullTextWithMarkers.replace(/\u0000PAGE:\d+\u0000/g, '');
 
       setTitle(file.name.replace(/\.pdf$/i, ''));
-      saveFileMetaToSession(file.name, file.size, 'pdf', pageMap);
 
-      const progressEl = document.getElementById(`staffroom-file-progress-${sessionId}`);
-      if (displayText.trim()) {
-        ta.value = displayText;
-        staffRoomAutoSaveScript(sessionId);
-        // v19: ページマップ付きでセッションに元テキスト（ページ情報付き）を保存
-        const sessionsUpd = DB.get('staffroom_sessions', []);
-        const idxUpd = sessionsUpd.findIndex(s => s.id === sessionId);
-        if (idxUpd !== -1) {
-          sessionsUpd[idxUpd].scriptTextWithPageMap = fullText;  // ページマーカー付きテキスト
-          sessionsUpd[idxUpd].pdfPageCount = pdf.numPages;
-          DB.set('staffroom_sessions', sessionsUpd);
-        }
-        if (progressEl) progressEl.textContent = `✅ ${displayText.length}字 (${pdf.numPages}ページ) 抽出完了`;
-        toast(`✅ PDFから${displayText.length}字を抽出しました (${pdf.numPages}ページ)`, 'success');
+      if (displayText.trim().length > 20) {
+        const charCount = displayText.replace(/[\s\n\r]/g,'').length;
+        // v20: DBに直接保存（textareaを介さない）
+        saveToSession({
+          scriptText: displayText,
+          scriptTextWithPageMap: fullTextWithMarkers,
+          pdfPageCount: pdf.numPages,
+          attachedFileMeta: {
+            name: file.name,
+            size: file.size,
+            type: 'pdf',
+            uploadedAt: Date.now(),
+            pageMap: pageMap,
+          }
+        });
+        toast(`✅ PDF ${pdf.numPages}ページ / ${charCount.toLocaleString()}字を抽出しました`, 'success');
+        // UIを再描画（新UIで読込完了状態を表示）
+        render();
+        // 採点ボタンを有効化
+        setTimeout(() => {
+          const btn = document.getElementById(`staffroom-submit-btn-${sessionId}`);
+          if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
+        }, 100);
       } else {
-        ta.value = `【${file.name}】\n\nPDFからテキストを自動抽出できませんでした。\nスキャン画像のPDFや保護されたPDFは手動でテキストを貼り付けてください。`;
-        staffRoomAutoSaveScript(sessionId);
-        if (progressEl) progressEl.textContent = '⚠️ 抽出失敗（手動貼付を）';
-        toast('PDFのテキスト抽出ができませんでした（画像PDFの可能性）', 'warning');
+        toast('⚠️ PDFからテキストを抽出できませんでした（スキャン画像PDFの可能性）', 'warning');
+        if (progressEl) progressEl.textContent = '⚠️ テキスト抽出失敗（スキャン画像PDF？）';
       }
     } catch(e) {
       console.error('PDF extraction error:', e);
-      setTitle(file.name.replace(/\.pdf$/i, ''));
-      ta.value = `【${file.name}】\n\nPDF処理中にエラーが発生しました。\nテキストを手動でコピー＆ペーストしてください。\n\nエラー: ${e.message}`;
-      staffRoomAutoSaveScript(sessionId);
-      const progressEl = document.getElementById(`staffroom-file-progress-${sessionId}`);
-      if (progressEl) progressEl.textContent = '❌ エラー発生';
-      toast('PDFの処理に失敗しました', 'error');
+      toast(`PDFの処理に失敗しました: ${e.message ? e.message.slice(0,60) : '不明なエラー'}`, 'error');
+      if (progressEl) progressEl.textContent = '❌ PDF処理エラー';
     }
   } else {
-    // テキスト系ファイル
+    // テキスト系ファイル（TXT / MD / DOCX等）
     const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = e.target.result;
-      ta.value = content;
-      staffRoomAutoSaveScript(sessionId);
-      setTitle(file.name.replace(/\.[^.]+$/, ''));
-      saveFileMetaToSession(file.name, file.size, ext, null);
-      const progressEl = document.getElementById(`staffroom-file-progress-${sessionId}`);
-      if (progressEl) progressEl.textContent = `✅ ${content.length}字読込`;
-      toast(`${file.name} を読み込みました`, 'success');
+    reader.onload = (ev) => {
+      const content = ev.target.result;
+      if (!content || content.trim().length === 0) {
+        toast('ファイルにテキストが見つかりませんでした', 'warning');
+        return;
+      }
+      const charCount = content.replace(/[\s\n\r]/g,'').length;
+      const titleName = file.name.replace(/\.[^.]+$/, '');
+      setTitle(titleName);
+      // v20: DBに直接保存
+      saveToSession({
+        scriptText: content,
+        scriptTextWithPageMap: null,
+        pdfPageCount: null,
+        attachedFileMeta: {
+          name: file.name,
+          size: file.size,
+          type: ext,
+          uploadedAt: Date.now(),
+          pageMap: null,
+        }
+      });
+      toast(`✅ ${file.name} を読み込みました（${charCount.toLocaleString()}字）`, 'success');
+      // UIを再描画
+      render();
+      setTimeout(() => {
+        const btn = document.getElementById(`staffroom-submit-btn-${sessionId}`);
+        if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
+      }, 100);
     };
     reader.onerror = () => toast('ファイルの読み込みに失敗しました', 'error');
     reader.readAsText(file, 'UTF-8');
@@ -17441,11 +17542,11 @@ function srAnnClose(el) {
   if (p) { p.style.display = 'none'; }
 }
 
-// ── アノテーション付き脚本生成（v16）─────────────────────────────────────
+// ── アノテーション付き脚本生成（v20: 元ファイルをそのまま複製＋アノテーション重畳）────
 function staffRoomGenerateAnnotatedScript(sessionId) {
   const sessions = DB.get('staffroom_sessions', []);
   const s = sessions.find(x => x.id === sessionId);
-  if (!s || !s.scriptText) { toast('脚本テキストがありません', 'error'); return; }
+  if (!s || !s.scriptText) { toast('脚本ファイルを先に添付してください', 'error'); return; }
 
   const ar = s.autoScoreResult || null;
   const detailNotes = ar ? (ar.detailNotes || []) : [];
@@ -18006,7 +18107,7 @@ function staffRoomGenerateAnnotatedScript(sessionId) {
         <i class="fas fa-file-lines" style="color:#a78bfa;font-size:14px"></i>
         <div style="flex:1">
           <div style="font-weight:700;font-size:13px">${esc(s.title||'無題の脚本')}　—　アノテーション付き脚本</div>
-          <div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">v19精密行単位添削 · 7審査員採点＋自動検出 · ページ番号/メタ情報識別 · クリックで改稿ヒント・Before/After展開${attachedFileMeta ? ' · 元ファイル: ' + esc(attachedFileMeta.name) : ''}</div>
+          <div style="font-size:10px;color:rgba(255,255,255,.5);margin-top:2px">v20 元ファイル完全複製＋アノテーション重畳 · 7審査員採点 · クリックで改稿ヒント・Before/After展開${attachedFileMeta ? ' <span style="color:rgba(167,139,250,.8);font-weight:600">📎 ' + esc(attachedFileMeta.name) + (s.pdfPageCount ? ' (' + s.pdfPageCount + 'p)' : '') + '</span>' : ''}</div>
         </div>
         <div style="display:flex;gap:6px">
           <button onclick="(function(){const ps=document.querySelectorAll('[id^=ann-panel-]');let anyHidden=Array.from(ps).some(p=>p.style.display==='none');ps.forEach(p=>p.style.display=anyHidden?'block':'none');})()" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:5px 10px;font-size:10px;cursor:pointer;font-weight:600" title="全コメントを一括展開/折り畳み"><i class="fas fa-expand-alt" style="margin-right:4px"></i>全展開</button>
