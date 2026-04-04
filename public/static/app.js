@@ -6993,10 +6993,10 @@ function renderFeedback(proj) {
   }
 
   const TYPE_INFO = {
-    positive: { label:'✅ 良い点', cls:'tag-green', color:'var(--green)' },
-    issue:    { label:'❌ 問題点', cls:'tag-red', color:'var(--red)' },
-    question: { label:'❓ 疑問',   cls:'tag-yellow', color:'var(--kogane)' },
-    note:     { label:'📝 メモ',   cls:'tag-blue', color:'var(--fuji)' },
+    positive: { label:'良い点', icon:'fa-circle-check', cls:'tag-green', color:'var(--green)' },
+    issue:    { label:'問題点', icon:'fa-circle-xmark', cls:'tag-red', color:'var(--red)' },
+    question: { label:'疑問',   icon:'fa-circle-question', cls:'tag-yellow', color:'var(--kogane)' },
+    note:     { label:'メモ',   icon:'fa-note-sticky', cls:'tag-blue', color:'var(--fuji)' },
   };
 
   const fbCards = filtered.length === 0
@@ -7010,7 +7010,7 @@ function renderFeedback(proj) {
       <div class="feedback-card ${f.type||'note'}" style="${f.resolved?'opacity:0.7':''}">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span class="tag ${ti.cls}" style="font-size:10px">${ti.label}</span>
+            <span class="tag ${ti.cls}" style="font-size:10px;display:inline-flex;align-items:center;gap:3px"><i class="fas ${ti.icon||'fa-tag'}" style="font-size:8px"></i>${ti.label}</span>
             ${f.reviewer ? `<span style="font-size:11px;color:var(--text-muted)"><i class="fas fa-user" style="font-size:9px"></i> ${esc(f.reviewer)}</span>` : ''}
             ${f.priority === 'high' ? `<span style="font-size:9px;padding:1px 7px;background:var(--momo-bg);color:var(--momo);border:1px solid var(--momo-border);border-radius:var(--radius-full);font-weight:700">🔴 優先度高</span>` : ''}
           </div>
@@ -12492,7 +12492,7 @@ function renderLearnStaffRoom(hero, subnav) {
       displayScore >= 54 ? 'linear-gradient(135deg,#eab308,#ca8a04)' :
       'linear-gradient(135deg,#ef4444,#dc2626)';
     return `
-    <div class="card" style="cursor:pointer;padding:12px 14px;border-left:3px solid ${s.id===activeSessionId?'var(--fuji)':'var(--border)'};position:relative;transition:all .15s;${s.id===activeSessionId?'box-shadow:0 0 0 2px var(--fuji);background:var(--fuji-bg,#f8f4ff)':''}" onclick="staffRoomOpenSession('${s.id}')" onmouseover="if('${s.id}'!=='${activeSessionId}')this.style.borderLeftColor='var(--fuji)'" onmouseout="if('${s.id}'!=='${activeSessionId}')this.style.borderLeftColor='var(--border)'">
+    <div class="sr-session-card ${s.id===activeSessionId?'active':''}" onclick="staffRoomOpenSession('${s.id}')">
       <div style="display:flex;align-items:flex-start;gap:10px">
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.title||'無題の脚本')}</div>
@@ -12506,15 +12506,15 @@ function renderLearnStaffRoom(hero, subnav) {
         </div>
         <div style="flex-shrink:0;display:flex;flex-direction:column;align-items:center;gap:2px">
           ${displayScore !== null ? `
-          <div style="width:44px;height:44px;border-radius:10px;background:${scoreGradient};display:flex;align-items:center;justify-content:center;flex-direction:column;box-shadow:0 2px 8px rgba(0,0,0,.2)">
-            ${autoGrade ? `<span style="font-size:14px;font-weight:900;color:#fff;line-height:1">${autoGrade}</span>` : ''}
-            <span style="font-size:${autoGrade?'9':'13'}px;font-weight:700;color:${autoGrade?'rgba(255,255,255,.8)':'#fff'}">${displayScore}</span>
+          <div class="sr-session-score-badge" style="background:${scoreGradient}">
+            ${autoGrade ? `<span style="font-size:15px;font-weight:900;color:#fff;line-height:1">${autoGrade}</span>` : ''}
+            <span style="font-size:${autoGrade?'9.5':'14'}px;font-weight:700;color:${autoGrade?'rgba(255,255,255,.75)':'#fff'}">${displayScore}</span>
           </div>
-          <div style="font-size:9px;color:var(--text-muted);margin-top:1px">${isAutoScore?'AI採点':'手動'}</div>` :
-          `<div style="width:44px;height:44px;border-radius:10px;background:var(--bg-subtle);border:1px dashed var(--border);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1px">
-            <i class="fas fa-wand-magic-sparkles" style="font-size:12px;color:var(--text-light)"></i>
+          <div style="font-size:9px;color:var(--text-muted);margin-top:2px;text-align:center">${isAutoScore?'AI採点':'手動'}</div>` :
+          `<div class="sr-session-score-badge" style="background:var(--bg-subtle);border:1px dashed var(--border)">
+            <i class="fas fa-sparkles" style="font-size:13px;color:var(--text-light)"></i>
           </div>
-          <div style="font-size:9px;color:var(--text-light);margin-top:1px">未採点</div>`}
+          <div style="font-size:9px;color:var(--text-light);margin-top:2px;text-align:center">未採点</div>`}
         </div>
       </div>
       <button onclick="event.stopPropagation();staffRoomDeleteSession('${s.id}')" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:var(--text-light);font-size:10px;padding:3px;opacity:.5" title="削除" onmouseover="this.style.opacity='1';this.style.color='var(--momo)'" onmouseout="this.style.opacity='.5';this.style.color='var(--text-light)'"><i class="fas fa-times"></i></button>
@@ -12599,7 +12599,7 @@ function renderLearnStaffRoom(hero, subnav) {
                 ${scoreVal<=2?'問題箇所 — 脚本より':scoreVal>=4?'好例 — 脚本より':'参照 — 脚本より'}
               </div>
               <div class="sr-cite-text">${esc(autoQuote)}</div>
-              ${scoreVal<=2 ? '<div class="sr-cite-arrow"><i class="fas fa-arrow-right" style="font-size:8px;margin-right:4px"></i>この箇所を改稿対象として確認してください</div>' : ''}
+              ${scoreVal<=2 ? `<div class="sr-cite-arrow"><i class="fas fa-arrow-right" style="font-size:9px;margin-right:5px"></i>この箇所を改稿対象として確認してください</div>` : scoreVal>=4 ? `<div class="sr-cite-arrow"><i class="fas fa-star" style="font-size:8px;margin-right:5px"></i>この表現を他のシーンにも展開してください</div>` : ''}
             </div>` : ''}
             ${hasDiff ? `
             <div style="margin-top:5px;font-size:10px;color:${diffAmt>0?'#15803d':'#b91c1c'};font-weight:600">
@@ -12706,8 +12706,8 @@ function renderLearnStaffRoom(hero, subnav) {
           <!-- ヘッダーバー -->
           <div style="padding:14px 20px 10px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;gap:10px;position:relative">
             <i class="fas fa-gavel" style="color:rgba(255,255,255,.5);font-size:12px"></i>
-            <span style="font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.45);font-weight:600;text-transform:uppercase">SCENARIO LAB ─ 審査員採点レポート v11</span>
-            <span style="font-size:9px;background:rgba(168,85,247,.25);color:rgba(200,160,255,.9);border:1px solid rgba(168,85,247,.4);border-radius:4px;padding:1px 6px;font-weight:700;letter-spacing:.05em">18項目・7軸・脚本固有分析 v11</span>
+            <span style="font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.45);font-weight:600;text-transform:uppercase">SCENARIO LAB ─ 審査員採点レポート v12</span>
+            <span style="font-size:9px;background:rgba(168,85,247,.25);color:rgba(200,160,255,.9);border:1px solid rgba(168,85,247,.4);border-radius:4px;padding:1px 6px;font-weight:700;letter-spacing:.05em">18項目・7軸・脚本固有分析 v12</span>
             <span class="sr-engine-badge"><i class="fas fa-microchip" style="font-size:7px"></i>精密解析エンジン</span>
             <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
               ${autoResult.analysisStats ? `<span style="font-size:10px;color:rgba(255,255,255,.3)">${new Date(autoResult.scoredAt||Date.now()).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}採点</span>` : ''}
@@ -12762,16 +12762,15 @@ function renderLearnStaffRoom(hero, subnav) {
           </div>
         </div>
 
-        <!-- ② 詳細診断パネル（折りたたみ式） -->
-        <div style="margin-top:10px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg-white)">
-          <div style="padding:12px 16px;background:var(--bg-subtle);display:flex;align-items:center;gap:8px;cursor:pointer;border-bottom:1px solid var(--border)" onclick="const d=document.getElementById('sr-diag-${s.id}');const ic=document.getElementById('sr-diag-ic-${s.id}');const open=d.style.display!=='none';d.style.display=open?'none':'block';ic.style.transform=open?'':'rotate(180deg)'">
-            <i class="fas fa-microscope" style="color:var(--fuji);font-size:12px"></i>
-            <span style="font-size:12px;font-weight:700;color:var(--text-primary)">審査員診断ノート</span>
-            <span style="font-size:9px;color:var(--fuji);background:var(--fuji-bg,#f0eeff);border:1px solid var(--fuji-border,#e0d0ff);border-radius:8px;padding:1px 6px;font-weight:600">脚本引用つき</span>
-            <span style="font-size:10px;color:var(--text-muted);background:var(--bg-canvas);border:1px solid var(--border);border-radius:10px;padding:1px 7px">${(autoResult.detailNotes||[]).length}件</span>
-            <span style="font-size:10px;color:var(--matcha);margin-left:4px;display:flex;align-items:center;gap:3px"><span style="width:6px;height:6px;border-radius:50%;background:var(--matcha);flex-shrink:0;display:inline-block"></span>${(autoResult.detailNotes||[]).filter(n=>n.type==='good').length} 良好</span>
-            <span style="font-size:10px;color:var(--momo);display:flex;align-items:center;gap:3px"><span style="width:6px;height:6px;border-radius:50%;background:var(--momo);flex-shrink:0;display:inline-block"></span>${(autoResult.detailNotes||[]).filter(n=>n.type==='bad').length} 要修正</span>
-            <span style="font-size:10px;color:var(--kogane);display:flex;align-items:center;gap:3px"><span style="width:6px;height:6px;border-radius:50%;background:var(--kogane);flex-shrink:0;display:inline-block"></span>${(autoResult.detailNotes||[]).filter(n=>n.type==='warn').length} 注意</span>
+        <!-- ② 詳細診断パネル（折りたたみ式） v12 -->
+        <div class="sr-diag-panel">
+          <div class="sr-diag-panel-header" onclick="const d=document.getElementById('sr-diag-${s.id}');const ic=document.getElementById('sr-diag-ic-${s.id}');const open=d.style.display!=='none';d.style.display=open?'none':'block';ic.style.transform=open?'':'rotate(180deg)'">
+            <i class="fas fa-microscope" style="color:var(--fuji);font-size:12px;flex-shrink:0"></i>
+            <span class="sr-diag-panel-title">審査員診断ノート <span style="font-size:9px;font-weight:600;background:var(--fuji-bg,#f0eeff);color:var(--fuji);border:1px solid var(--fuji-border,#e0d0ff);border-radius:8px;padding:1px 7px;margin-left:2px">脚本引用つき</span></span>
+            <span class="sr-diag-count-chip">${(autoResult.detailNotes||[]).length}件</span>
+            <span style="font-size:10px;color:#15803d;display:flex;align-items:center;gap:3px;margin-left:4px"><span class="sr-diag-status-dot" style="background:#22c55e"></span>${(autoResult.detailNotes||[]).filter(n=>n.type==='good').length}件 良好</span>
+            <span style="font-size:10px;color:#b91c1c;display:flex;align-items:center;gap:3px"><span class="sr-diag-status-dot" style="background:#dc2626"></span>${(autoResult.detailNotes||[]).filter(n=>n.type==='bad').length}件 要修正</span>
+            <span style="font-size:10px;color:#b45309;display:flex;align-items:center;gap:3px"><span class="sr-diag-status-dot" style="background:#d97706"></span>${(autoResult.detailNotes||[]).filter(n=>n.type==='warn').length}件 注意</span>
             <i id="sr-diag-ic-${s.id}" class="fas fa-chevron-up" style="margin-left:auto;font-size:10px;color:var(--text-muted);transition:transform .2s;transform:rotate(180deg)"></i>
           </div>
           <div id="sr-diag-${s.id}" style="display:block">
@@ -12787,12 +12786,13 @@ function renderLearnStaffRoom(hero, subnav) {
               <div class="sr-diag-note note-${typeClass}">
                 <div class="sr-diag-note-icon"><i class="fas ${iconName}"></i></div>
                 <div style="flex:1;min-width:0">
-                  <div style="font-size:11.5px;line-height:1.75;color:var(--text-primary);font-weight:500">${esc(n.text)}</div>
-                  ${n.quote ? `<div class="sr-cite-block ${citeClass}" style="margin-top:7px">
-                    <div class="sr-cite-label"><i class="fas ${citeIcon}" style="font-size:7px;margin-right:3px"></i>${citeLabel}</div>
+                  <div class="sr-diag-note-text">${esc(n.text).replace(/\n/g,'<br>')}</div>
+                  ${n.quote ? `<div class="sr-cite-block ${citeClass}">
+                    <div class="sr-cite-label"><i class="fas ${citeIcon}" style="font-size:8px;margin-right:4px"></i>${citeLabel}</div>
                     <div class="sr-cite-text">${esc(n.quote)}</div>
-                    ${n.type === 'bad' ? '<div class="sr-cite-arrow"><i class="fas fa-arrow-right" style="font-size:8px;margin-right:4px"></i>この台詞・ト書きを改稿してください</div>' : ''}
-                    ${n.type === 'warn' ? '<div class="sr-cite-arrow" style="color:#b45309;border-top-color:rgba(217,119,6,.2)"><i class="fas fa-lightbulb" style="font-size:8px;margin-right:4px"></i>改稿のヒントにしてください</div>' : ''}
+                    ${n.type === 'bad' ? `<div class="sr-cite-arrow"><i class="fas fa-arrow-right" style="font-size:9px;margin-right:5px"></i>この台詞・ト書きを改稿してください</div>` : ''}
+                    ${n.type === 'warn' ? `<div class="sr-cite-arrow"><i class="fas fa-lightbulb" style="font-size:9px;margin-right:5px"></i>改稿のヒントとして参照してください</div>` : ''}
+                    ${n.type === 'good' ? `<div class="sr-cite-arrow"><i class="fas fa-star" style="font-size:8px;margin-right:5px"></i>この表現・構造を他のシーンにも展開してください</div>` : ''}
                   </div>` : ''}
                 </div>
               </div>`;}).join('')}
@@ -12803,10 +12803,20 @@ function renderLearnStaffRoom(hero, subnav) {
         <!-- ③ 強み・弱み・改稿提案（タブ形式） -->
         <div style="margin-top:10px;border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--bg-white)">
           <div class="sr-fb-tabs">
-            <button id="sr-fb-tab-str-${s.id}" class="sr-fb-tab active" onclick="staffRoomFbTab('${s.id}','strengths')"><i class="fas fa-circle-check" style="font-size:9px;color:var(--matcha)"></i>強み</button>
-            <button id="sr-fb-tab-wk-${s.id}" class="sr-fb-tab" onclick="staffRoomFbTab('${s.id}','weaknesses')"><i class="fas fa-circle-xmark" style="font-size:9px;color:var(--momo)"></i>弱点</button>
-            <button id="sr-fb-tab-sg-${s.id}" class="sr-fb-tab" onclick="staffRoomFbTab('${s.id}','suggestions')"><i class="fas fa-pen-nib" style="font-size:9px;color:var(--kogane)"></i>改稿提案</button>
-            <button id="sr-fb-tab-pr-${s.id}" class="sr-fb-tab" onclick="staffRoomFbTab('${s.id}','priority')"><i class="fas fa-flag" style="font-size:9px;color:var(--fuji)"></i>最優先</button>
+            <button id="sr-fb-tab-str-${s.id}" class="sr-fb-tab active" onclick="staffRoomFbTab('${s.id}','strengths')">
+              <i class="fas fa-circle-check" style="font-size:10px;color:var(--matcha)"></i>強み
+              <span style="font-size:9px;font-weight:700;background:rgba(34,197,94,.12);color:#15803d;border-radius:8px;padding:0 5px;margin-left:1px">${(autoResult.strengths||'').split('\n').filter(l=>l.startsWith('・')).length}</span>
+            </button>
+            <button id="sr-fb-tab-wk-${s.id}" class="sr-fb-tab" onclick="staffRoomFbTab('${s.id}','weaknesses')">
+              <i class="fas fa-circle-xmark" style="font-size:10px;color:var(--momo)"></i>弱点
+              <span style="font-size:9px;font-weight:700;background:rgba(239,68,68,.1);color:#b91c1c;border-radius:8px;padding:0 5px;margin-left:1px">${(autoResult.weaknesses||'').split('\n').filter(l=>l.startsWith('・')).length}</span>
+            </button>
+            <button id="sr-fb-tab-sg-${s.id}" class="sr-fb-tab" onclick="staffRoomFbTab('${s.id}','suggestions')">
+              <i class="fas fa-pen-nib" style="font-size:10px;color:var(--kogane)"></i>改稿提案
+            </button>
+            <button id="sr-fb-tab-pr-${s.id}" class="sr-fb-tab" onclick="staffRoomFbTab('${s.id}','priority')">
+              <i class="fas fa-flag" style="font-size:10px;color:var(--fuji)"></i>最優先課題
+            </button>
           </div>
           <div id="sr-fb-strengths-${s.id}" style="padding:12px 14px">
             ${(autoResult.strengths||'').split('\n').filter(l=>l.trim()).map((line, lineIdx) => {
@@ -12818,12 +12828,10 @@ function renderLearnStaffRoom(hero, subnav) {
               const scoreVal = scoreMatch ? parseInt(scoreMatch[2]) : null;
               const scoreColor2 = scoreVal >= 5 ? 'linear-gradient(135deg,#7c3aed,#a855f7)' : scoreVal >= 4 ? 'var(--matcha)' : 'var(--kogane)';
               const scoreDisplay2 = scoreVal >= 5 ? '<span style="font-size:11px;font-weight:800;background:linear-gradient(135deg,#7c3aed,#a855f7);color:#fff;padding:1px 7px;border-radius:8px;letter-spacing:.03em">★ 5/5</span>' : null;
-              return `<div style="display:flex;gap:8px;align-items:flex-start;padding:7px 10px;margin-bottom:4px;background:var(--matcha-bg,#f0fdf4);border:1px solid var(--matcha-border,#bbf7d0);border-radius:8px;border-left:3px solid var(--matcha)">
-                <span style="flex-shrink:0;margin-top:2px;width:16px;height:16px;border-radius:50%;background:var(--matcha);display:inline-flex;align-items:center;justify-content:center;min-width:16px;box-shadow:0 1px 4px rgba(34,197,94,.3)"><i class="fas fa-check" style="font-size:7px;color:#fff"></i></span>
-                <div style="flex:1;min-width:0">
-                  <div style="font-size:11.5px;line-height:1.7;color:var(--text-primary);font-weight:500">${esc(content)}</div>
-                </div>
-                ${scoreVal !== null ? `<span style="flex-shrink:0;font-size:12px;font-weight:800;color:${scoreColor2};line-height:1">${scoreVal}<span style="font-size:8px;opacity:.6">/5</span></span>` : ''}
+              return `<div class="sr-strength-item">
+                <span class="sr-strength-icon"><i class="fas fa-check" style="font-size:7px"></i></span>
+                <div class="sr-strength-text">${esc(content)}</div>
+                ${scoreVal !== null ? `<span style="flex-shrink:0;font-size:12px;font-weight:800;color:${scoreColor2};line-height:1;white-space:nowrap">${scoreVal}<span style="font-size:8px;opacity:.6">/5</span></span>` : ''}
               </div>`;
             }).join('') || `<div style="font-size:11px;color:var(--text-muted);text-align:center;padding:16px">自動採点後に生成されます</div>`}
           </div>
@@ -12849,14 +12857,14 @@ function renderLearnStaffRoom(hero, subnav) {
               const weakItemKey2 = weakItemId2 ? weakItemId2[1] : null;
               const weakItemDetail2 = weakItemKey2 && autoResult.itemDetails ? autoResult.itemDetails[weakItemKey2] : null;
               const weakQuote2 = weakItemDetail2 ? weakItemDetail2.quote : null;
-              return `<div style="margin-bottom:6px;border:1px solid ${isCritical ? 'rgba(239,68,68,.3)' : 'rgba(239,68,68,.15)'};border-radius:8px;overflow:hidden;border-left:3px solid ${isCritical ? '#dc2626' : 'var(--momo)'}">
-                <div style="display:flex;gap:8px;align-items:flex-start;padding:7px 10px;background:${isCritical ? 'rgba(239,68,68,.06)' : 'rgba(239,68,68,.03)'}">
-                  <span style="flex-shrink:0;margin-top:2px;width:16px;height:16px;border-radius:50%;background:${isCritical ? '#dc2626' : 'var(--momo)'};display:inline-flex;align-items:center;justify-content:center;min-width:16px;box-shadow:0 1px 4px rgba(239,68,68,.25)"><i class="fas fa-exclamation" style="font-size:7px;color:#fff"></i></span>
+              return `<div class="sr-weakness-item${isCritical ? ' critical' : ''}">
+                <div class="sr-weakness-header">
+                  <span class="sr-weakness-icon"><i class="fas fa-exclamation" style="font-size:7px"></i></span>
                   <div style="flex:1;min-width:0">
-                    <div style="font-size:11.5px;line-height:1.7;color:var(--text-primary);font-weight:500">${esc(content)}</div>
-                    ${isCritical ? '<div style="font-size:9.5px;color:#b91c1c;margin-top:3px;font-weight:600"><i class="fas fa-circle-exclamation" style="margin-right:3px"></i>最優先改善項目</div>' : ''}
+                    <div class="sr-weakness-text">${esc(content)}</div>
+                    ${isCritical ? '<div style="font-size:9.5px;color:#991b1b;margin-top:3px;font-weight:700;display:flex;align-items:center;gap:3px"><i class="fas fa-circle-exclamation" style="font-size:8px"></i>最優先改善項目</div>' : ''}
                   </div>
-                  ${scoreVal !== null ? `<span style="flex-shrink:0;font-size:12px;font-weight:800;color:${isCritical ? '#dc2626' : 'var(--momo)'};line-height:1;white-space:nowrap">${scoreVal}<span style="font-size:8px;opacity:.6">/5</span></span>` : ''}
+                  ${scoreVal !== null ? `<span style="flex-shrink:0;font-size:12.5px;font-weight:800;color:${isCritical ? '#dc2626' : 'var(--momo)'};line-height:1;white-space:nowrap">${scoreVal}<span style="font-size:8px;opacity:.6">/5</span></span>` : ''}
                 </div>
                 ${weakQuote2 ? `<div class="sr-cite-block cite-bad" style="border-radius:0;margin:0;border-left:none;border-right:none;border-bottom:none">
                   <div class="sr-cite-label"><i class="fas fa-code" style="font-size:7px"></i>脚本引用 — 問題の箇所</div>
@@ -13264,7 +13272,7 @@ function renderLearnStaffRoom(hero, subnav) {
   <!-- セッション一覧 -->
   ${sessions.length === 0 ? `
   <div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
-    <div style="font-size:48px;margin-bottom:16px;opacity:.2">📝</div>
+    <div style="font-size:40px;margin-bottom:16px;opacity:.15"><i class="fas fa-scroll" style="color:var(--fuji)"></i></div>
     <div style="font-size:15px;font-weight:600;margin-bottom:8px">まだ評価セッションがありません</div>
     <div style="font-size:12.5px;margin-bottom:20px">脚本を入力してプロ水準で評価・添削を行いましょう</div>
     <button class="btn btn-primary" onclick="staffRoomNewSession()"><i class="fas fa-plus"></i> 最初の評価セッションを作成</button>
@@ -15495,11 +15503,45 @@ function staffRoomRunAnalysis(text) {
     notes.push(noEmotionNote);
   }
 
-  // ── オリジナリティ診断
+  // ── オリジナリティ診断（v12拡張）
   if (scores['originality'] <= 2 && totalChars > 200) {
-    notes.push({ type: 'warn', text: 'オリジナリティ：ジャンルの独自性や切り口が薄い。「このシナリオでしか描けない何か」を一言で言えますか？ジャンルの定番を1つ裏切る要素、あるいは固有の体験から来る独自ディテールを追加してください。' });
+    // ジャンルが検出されている場合は、そのジャンルの定番からの逸脱を提案
+    const genreForOrig = detectedGenres[0] || null;
+    const origBadNote = {
+      type: 'warn',
+      text: 'オリジナリティ：独自の切り口・視点が弱い。'
+        + (genreForOrig ? '「' + genreForOrig + '」ジャンルの定番展開の中に埋没しています。' : '')
+        + '\n強化の3手順:'
+        + '\n① この物語を一言で言える「裏切り」は何か？（ジャンルの定番を1つ裏返す）'
+        + '\n② この作家にしか書けない「固有の体験・記憶・違和感」を1シーンに盛り込む'
+        + '\n③ 「もし○○だったら？」の逆説的前提でシーンを1つ書き直す'
+    };
+    // 最も「ありきたり」な台詞を探して引用
+    const genericPhrases = ['頑張れ', 'ありがとう', '大丈夫', 'わかった', 'そうか', 'なるほど', '信じてくれ', 'お前なら', 'きっとうまくいく'];
+    const genericDlg = dialogueTexts.find(d => genericPhrases.some(p => d.includes(p)) && d.length > 3 && d.length < 40);
+    if (genericDlg) {
+      origBadNote.quote = '定番的な台詞: 「' + genericDlg + '」'
+        + '\n\n↳ この台詞はこの脚本でしか言えない言葉ですか？'
+        + '\n  もし他の作品でも使えるなら、この状況・このキャラクターだけの言い方に書き直してください。'
+        + (genreForOrig ? '\n  例えば「' + genreForOrig + '」なら、あなたの作品だけが持つ「〇〇」という要素を使って。' : '');
+    } else if (actionLines.length > 0) {
+      origBadNote.quote = '（固有の体験・記憶からくる具体的ディテールが検出されません）'
+        + '\n\n↳ あなた自身が「このシーンでしか使えない」と思うモノ・場所・音・時間を1つ書き込んでください。'
+        + '\n  例：「1998年製のラジカセ」「田端駅南口の、消えかけた自販機の光」';
+    }
+    notes.push(origBadNote);
   } else if (scores['originality'] >= 4) {
-    notes.push({ type: 'good', text: 'オリジナリティ：' + (detectedGenres.length >= 2 ? detectedGenres.join('×') + 'のジャンル交差で独自性があります。' : '') + (poeticCount >= 2 ? '詩的・比喩的表現（' + poeticCount + '箇所）が文体に個性を与えています。' : '') + '書き手独自の視点が感じられます。' });
+    const origGoodNote = {
+      type: 'good',
+      text: 'オリジナリティ：'
+        + (detectedGenres.length >= 2 ? detectedGenres.join('×') + 'のジャンル交差で独自性があります。' : '書き手固有の視点が感じられます。')
+        + (poeticCount >= 2 ? '詩的・比喩的表現（' + poeticCount + '箇所）が文体に個性を加えています。' : '')
+        + (uniqueStructureKws.some(kw => text.includes(kw)) ? '構造面でも独自の試みが見られます。' : '')
+    };
+    if (itemDetails['originality'] && itemDetails['originality'].quote) {
+      origGoodNote.quote = itemDetails['originality'].quote + '\n↑ 固有の視点・ディテールが光る箇所';
+    }
+    notes.push(origGoodNote);
   }
 
   // ── 作家性診断（拡張）
@@ -15627,11 +15669,45 @@ function staffRoomRunAnalysis(text) {
     notes.push(themeGoodNote);
   }
 
-  // ── ビジュアル診断
-  if (scores['visual'] <= 2 && actionLines.length < 3) {
-    notes.push({ type: 'bad', text: 'ビジュアル：映像的な描写が不足しています。「カメラで撮れるか？」を基準にト書きを書き直してください。音・光・質感・空間の使い方で感情を表現する映像言語を意識してください。' });
+  // ── ビジュアル診断（v12拡張）
+  if (scores['visual'] <= 2) {
+    // 映像的でない行を探す（感情語のあるト書き）
+    const nonVisualAct = actionLines.find(l => ['悲しい','嬉しい','怒っ','うれしい','つらい','悲しんで','感じた','思った','悩んで'].some(k => l.includes(k)));
+    const visualBadNote = {
+      type: 'bad',
+      text: 'ビジュアルストーリーテリング：映像的描写が弱い（ビジュアル行' + Math.round(visualRatio*100) + '%）。'
+        + (!nonVisualAct && actionLines.length < 3 ? 'ト書き自体が少なすぎます。' : '')
+        + '\n脚本のト書きは「カメラで撮れるもの・マイクで収録できるもの」だけを書いてください。'
+        + '\n感情や内面状態は書かず、その感情が表れた「行動・物・空間・音」に変換します。'
+    };
+    if (nonVisualAct) {
+      const firstAbstractKw = ['悲しい','嬉しい','怒っ','うれしい','つらい','悲しんで','感じた','思った'].find(k => nonVisualAct.includes(k)) || '感情語';
+      visualBadNote.quote = '問題のト書き: ' + (nonVisualAct.length > 70 ? nonVisualAct.slice(0,70)+'…' : nonVisualAct)
+        + '\n\n「' + firstAbstractKw + '」はカメラで撮れません。置き換え例:'
+        + '\n  ト書き: ' + (mainCharName || '田中') + '、立つ。窓に近づく。外の音——遠くで、何か。'
+        + '\n  （内面を行動・環境・音で代替）';
+    } else if (actionLines.length > 0) {
+      const firstAct = actionLines[0];
+      visualBadNote.quote = '冒頭のト書き: ' + (firstAct.length > 70 ? firstAct.slice(0,70)+'…' : firstAct)
+        + '\n\n↳ このシーンに「音・光・質感・距離感」を1つ追加してみてください。'
+        + '\n  例: 「（遠くで踏切の音）」「（蛍光灯がちらつく）」「（床の冷たさ）」';
+    }
+    notes.push(visualBadNote);
   } else if (scores['visual'] >= 4) {
-    notes.push({ type: 'good', text: 'ビジュアル：映像的描写が豊富です。' + (sensoryCount >= 2 ? '五感の描写（' + sensoryCount + '箇所）が読者の脳内に映像を生み出しています。' : '') + (memorableCount > 0 ? '忘れられないシーンの要素（' + memorableCount + '箇所）があります。' : '') });
+    const visualGoodExample = (() => {
+      const sKws = ['音', '光', '匂い', '冷たい', '温かい', '白い', '暗い', '静寂', '沈黙', '風'];
+      return actionLines.find(l => sKws.some(k => l.includes(k)) && l.length >= 6 && l.length <= 60) || null;
+    })();
+    const visualGoodNote = {
+      type: 'good',
+      text: 'ビジュアルストーリーテリング：映像で語れています。'
+        + (sensoryCount >= 2 ? '五感の描写（' + sensoryCount + '箇所）が読者の脳内に映像を生み出しています。' : '')
+        + (memorableCount > 0 ? '記憶に残るシーン要素（' + memorableCount + '箇所）があります。' : '')
+    };
+    if (visualGoodExample) {
+      visualGoodNote.quote = visualGoodExample + '\n↑ 感覚・環境描写が映像を生む好例';
+    }
+    notes.push(visualGoodNote);
   }
 
   // ── キャラクター固有性診断
@@ -15685,28 +15761,150 @@ function staffRoomRunAnalysis(text) {
     notes.push(charUniqueNote2);
   }
 
+  // ── ペーシング診断（v12拡張: 最長シーンの実際の内容を引用）
+  if (scores['pacing'] <= 2 && sceneCount >= 2) {
+    // 最長シーンを抽出して具体的に指摘
+    const longestScene = (() => {
+      // シーン区切りでテキストを分割し、最長シーンを見つける
+      const sceneSections = [];
+      let curSceneStart = -1, curSceneLabel = '';
+      for (let _psi = 0; _psi < nonEmpty.length; _psi++) {
+        if (isSceneLine(nonEmpty[_psi])) {
+          if (curSceneStart >= 0) {
+            sceneSections.push({ label: curSceneLabel, lines: nonEmpty.slice(curSceneStart+1, _psi) });
+          }
+          curSceneStart = _psi;
+          curSceneLabel = nonEmpty[_psi];
+        }
+      }
+      if (curSceneStart >= 0) {
+        sceneSections.push({ label: curSceneLabel, lines: nonEmpty.slice(curSceneStart+1) });
+      }
+      return sceneSections.length > 0
+        ? sceneSections.reduce((a, b) => a.lines.length > b.lines.length ? a : b)
+        : null;
+    })();
+    const pacingBadNote = {
+      type: 'warn',
+      text: 'ペーシング：' + sceneCount + 'シーン中、緩急のリズムが弱い。'
+        + (longestScene ? '最長シーン「' + (longestScene.label.length > 30 ? longestScene.label.slice(0,30)+'…' : longestScene.label) + '」が' + longestScene.lines.length + '行と長大です。' : '')
+        + '\n1シーン=1目的の原則：入場時と退場時で「何かが変化」しているか確認してください。'
+        + '\n変化がなければそのシーンはカットか、他のシーンに統合します。'
+    };
+    if (longestScene && longestScene.lines.length > 5) {
+      const sampleLines = longestScene.lines.slice(0, 5).join('\n');
+      const lastLine = longestScene.lines[longestScene.lines.length - 1];
+      pacingBadNote.quote = '最長シーン: ' + longestScene.label + '\n\n'
+        + (sampleLines.length > 180 ? sampleLines.slice(0,180)+'…' : sampleLines)
+        + '\n（中略 / 計' + longestScene.lines.length + '行）'
+        + (lastLine ? '\n' + lastLine : '')
+        + '\n\n↳ このシーンは「この会話が終わった後、何が変わったか？」を一文で答えられますか？'
+        + '\n  答えられなければ、ここを半分以下に圧縮してください。';
+    }
+    notes.push(pacingBadNote);
+  } else if (scores['pacing'] >= 4 && sceneCount >= 3) {
+    notes.push({ type: 'good', text: 'ペーシング：' + sceneCount + 'シーンの緩急が良好です。シーンの入退場が機能的で読み手を引き込みます。' + (memorableCount > 0 ? '記憶に残るシーンの要素（' + memorableCount + '箇所）が物語の波を作っています。' : '') });
+  }
+
   // ── Want/Need 詳細（主人公名付き）
   if (scores['protag-want-need'] >= 4 && mainCharName) {
     notes.push({ type: 'good', text: 'Want/Need設計：「' + mainCharName + '」のWant（外的目標）とNeed（内的必要性）が明確で、ドラマの核として機能しています。この拮抗構造が物語の深みを生んでいます。' });
   }
 
-  // ── 映像化実現性診断
-  if (scores['production-viability'] >= 4) {
-    notes.push({ type: 'good', text: '映像化適性：低コスト・高効率に撮影できる設定で、プロデューサーが企画を通しやすい構成です。' + (indoorScenes > 0 && outdoorScenes > 0 ? '屋内外のバランスも良好。' : '') });
-  } else if (productionScaleHeavy) {
-    notes.push({ type: 'warn', text: '映像化コスト：VFX・大規模セット要素が含まれています。ドラマコンクールでは日常的な舞台設定の方が通過率が上がります。予算で実現できるか確認してください。' });
+  // ── 自然さ・リズム診断（v12新規）
+  if (scores['naturalness'] <= 2 && totalDialogueLines >= 4) {
+    // 最も不自然な長い台詞を探す
+    const unnaturalDlg = dialogueTexts.filter(d => d.length > 55).reduce((a, b) => a.length > b.length ? a : b, '');
+    const naturalNote = {
+      type: 'warn',
+      text: 'セリフの自然さ：平均' + Math.round(avgDialogueLen) + '字と台詞が長い。'
+        + '実際の会話は10〜35字が自然なリズムです。'
+        + '\n60字超の台詞は「説明台詞」「演説」になりがちです。'
+        + '\n改善方法: 1つの長い台詞を3〜4行に分割し、相手の反応（ト書きや短い返答）を挿入してください。'
+    };
+    if (unnaturalDlg.length > 0) {
+      // 分割例を自動生成
+      const parts = unnaturalDlg.slice(0, 55).split(/[、。！？]/).filter(p => p.trim().length > 0).slice(0, 2);
+      const charGuessN = mainCharName || '田中';
+      naturalNote.quote = '問題の台詞（' + unnaturalDlg.length + '字）:\n「' + (unnaturalDlg.length > 85 ? unnaturalDlg.slice(0,85)+'…' : unnaturalDlg) + '」'
+        + '\n\n↳ 分割改稿の例:'
+        + '\n  ' + charGuessN + '「' + (parts[0] || unnaturalDlg.slice(0,20)) + '——」'
+        + '\n  （相手、視線を外す）'
+        + '\n  ' + charGuessN + '「（続けて）……' + (parts[1] || unnaturalDlg.slice(20,38)) + '」';
+    }
+    notes.push(naturalNote);
+  } else if (scores['naturalness'] >= 4 && totalDialogueLines >= 4) {
+    notes.push({
+      type: 'good',
+      text: 'セリフの自然さ：平均' + Math.round(avgDialogueLen) + '字と適切な長さで、会話のリズムが良い。'
+        + (avgDialogueLen <= 30 ? '特に短台詞の多用がテンポを生んでいます。' : '')
+        + 'セリフを音読しても違和感がないレベルに達しています。'
+    });
   }
 
-  // ── フォーマット診断
+  // ── 映像化実現性診断（v12拡張）
+  if (scores['production-viability'] >= 4) {
+    const prodGoodNote = {
+      type: 'good',
+      text: '映像化適性：低コスト・高効率に撮影できる設定で、プロデューサーが企画を通しやすい構成です。'
+        + (indoorScenes > 0 && outdoorScenes > 0 ? '屋内外のバランスも良好。' : '')
+        + (sceneCount <= 15 ? 'シーン数' + sceneCount + '（適切な規模）です。' : '')
+    };
+    if (sceneLines.length > 0) {
+      const practicalSceneLine = sceneLines.find(l => practicalKws.some(k => l.includes(k)));
+      if (practicalSceneLine) {
+        prodGoodNote.quote = practicalSceneLine + '\n↑ 実現可能な日常的舞台設定の好例';
+      }
+    }
+    notes.push(prodGoodNote);
+  } else if (productionScaleHeavy) {
+    const heavySceneEx = sceneLines.find(l => vfxKws.some(k => l.includes(k))) || null;
+    const prodWarnNote = {
+      type: 'warn',
+      text: '映像化コスト：VFX・大規模セット要素が含まれています。ドラマコンクールでは日常的な舞台設定の方が通過率が上がります。'
+        + '\n制作予算で実現できるか確認し、必要に応じて舞台設定を変換してください。'
+    };
+    if (heavySceneEx) {
+      prodWarnNote.quote = heavySceneEx + '\n\n↳ この設定を「室内・少人数・日常」に変換できませんか？'
+        + '\n  同じドラマは、小さな空間でも成立します。';
+    }
+    notes.push(prodWarnNote);
+  }
+
+  // ── フォーマット診断（v12拡張）
   if (scores['format-correctness'] <= 2) {
-    const fmtNote = { type: 'warn', text: '脚本フォーマット：①柱書き（番号＋○＋場所・時間帯）②ト書き（3行以内）③台詞（キャラ名「台詞」）の基本三要素が不揃いです。' + (!hasSceneNumbers && sceneCount > 0 ? 'シーン番号を追加してください（例: 1○教室・昼）。' : '') + 'プロ投稿ではフォーマットが審査対象です。' };
+    const fmtIssues = [];
+    if (!hasSceneNumbers && sceneCount > 0) fmtIssues.push('シーン番号なし（例: 1○ではなく「教室・昼」のみ）');
+    if (!hasProperJapFormat && sceneCount === 0) fmtIssues.push('柱書き（シーン区切り）が検出されません');
+    if (parentheticalLines.length === 0 && totalDialogueLines > 3) fmtIssues.push('演技指示（カッコ書き）がゼロ');
+    const fmtNote = {
+      type: 'warn',
+      text: '脚本フォーマット：正式な日本語脚本フォーマットを整えてください。'
+        + (fmtIssues.length > 0 ? '\n問題点: ' + fmtIssues.join('、') + '。' : '')
+        + '\n基本三要素: ①柱書き（番号○場所・時間帯）②ト書き（3行以内）③台詞（キャラ名「台詞」）。'
+        + 'プロ投稿ではフォーマットも審査対象です。'
+    };
     if (!hasSceneNumbers && sceneLines.length > 0) {
-      fmtNote.quote = sceneLines[0] + '\n↳ この柱書きにシーン番号（1○ 2○ ...）を付けてください';
+      fmtNote.quote = '現在の柱書き: ' + sceneLines[0]
+        + '\n\n↳ 正しい形式: 1○' + sceneLines[0].replace(/^[○◯0-9１-９]+[○◯\s]*/, '')
+        + '\n  （先頭に連番を付け、○記号で場所と時間帯を区切る）';
     } else if (!hasProperJapFormat) {
       const firstLine = nonEmpty[0] || '';
-      fmtNote.quote = firstLine.slice(0,60) + (firstLine.length>60?'…':'') + '\n↳ 柱書き形式（例: 1○場所・時間帯）が見当たりません';
+      fmtNote.quote = '冒頭行: ' + (firstLine.length > 60 ? firstLine.slice(0,60)+'…' : firstLine)
+        + '\n\n正しい柱書きの例:\n  1○田中のアパート・夜\n\n  田中（30）、コップに水を注ぐ。\n\n  田中「（独り言）どこへ行った……」';
     }
     notes.push(fmtNote);
+  } else if (scores['format-correctness'] >= 4) {
+    const fmtGoodNote = {
+      type: 'good',
+      text: '脚本フォーマット：プロ水準の書式が整っています。'
+        + (hasSceneNumbers ? 'シーン番号付きの柱書きが正しく配置されています。' : '')
+        + (parentheticalLines.length > 0 ? '演技指示（' + parentheticalLines.length + '箇所）も適切です。' : '')
+    };
+    if (sceneLines.length > 0) {
+      fmtGoodNote.quote = sceneLines[0] + '\n↑ 正しい柱書き形式の好例';
+    }
+    notes.push(fmtGoodNote);
   }
 
   // ── 分析情報（拡張）
