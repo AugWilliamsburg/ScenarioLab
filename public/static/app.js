@@ -12773,7 +12773,7 @@ function renderLearnStaffRoom(hero, subnav) {
             <i class="fas fa-gavel" style="color:rgba(255,255,255,.5);font-size:12px"></i>
             <span style="font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.45);font-weight:600;text-transform:uppercase">SCENARIO LAB ─ 審査員採点レポート v14</span>
             <span style="font-size:9px;background:rgba(168,85,247,.25);color:rgba(200,160,255,.9);border:1px solid rgba(168,85,247,.4);border-radius:4px;padding:1px 6px;font-weight:700;letter-spacing:.05em">21項目・8軸・脚本タイプ対応 v14</span>
-            <span class="sr-engine-badge"><i class="fas fa-microchip" style="font-size:7px"></i>精密解析エンジン v22</span>
+            <span class="sr-engine-badge"><i class="fas fa-microchip" style="font-size:7px"></i>精密解析エンジン v23</span>
             ${autoResult.analysisStats && autoResult.analysisStats.scriptType ? `<span class="sr-type-badge"><i class="fas fa-tag" style="font-size:7px"></i>${{'tv-drama':'TVドラマ','film':'映画','stage':'舞台','web':'WEB/配信','competition':'コンクール自由','short':'短編','anime':'アニメ','radio':'ラジオ/音声'}[autoResult.analysisStats.scriptType]||autoResult.analysisStats.scriptType}</span>` : ''}
             <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
               ${autoResult.analysisStats ? `<span style="font-size:10px;color:rgba(255,255,255,.3)">${new Date(autoResult.scoredAt||Date.now()).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}採点</span>` : ''}
@@ -13344,7 +13344,7 @@ function renderLearnStaffRoom(hero, subnav) {
             <i class="fas fa-file-lines" style="color:#2563eb;font-size:14px"></i>
             アノテーション添削（行単位・Before/After付き）
           </div>
-          <span style="font-size:10.5px;color:#3b82f6;background:#dbeafe;border-radius:6px;padding:2px 8px;font-weight:600">v22精密版</span>
+          <span style="font-size:10.5px;color:#3b82f6;background:#dbeafe;border-radius:6px;padding:2px 8px;font-weight:600">v23精密版</span>
           <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
             ${s.autoScoreResult ? `
             <button onclick="staffRoomGenerateAnnotatedScript('${s.id}')" style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border:none;border-radius:7px;padding:7px 14px;font-size:11px;cursor:pointer;font-weight:700;box-shadow:0 2px 8px rgba(37,99,235,.3);display:flex;align-items:center;gap:5px" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
@@ -14227,10 +14227,19 @@ function cleanScriptText(rawText) {
   };
 
   // ── 登場人物プロフィール行判定 ───────────────────────────────
-  const isCharProfileLine = (l) =>
-    /^[ぁ-ん一-龯A-Za-zＡ-Ｚ]{1,15}[　\s（(（].{0,50}[歳才]/.test(l) ||
-    /^[ぁ-ん一-龯A-Za-zＡ-Ｚ]{1,15}\s{1,3}\d{1,3}歳/.test(l) ||
-    /^[ぁ-ん一-龯Ａ-Ｚ]{1,12}（[０-９0-9]{1,3}）.{2,30}$/.test(l);
+  // v23: 台詞や長いト書きを誤検出しないよう条件を厳密化
+  // - 「を含む行は台詞なので除外
+  // - 行全体が12文字以内のみプロフィール判定対象
+  // - ト書きに紛れる「舞台袖にいる美園舞子（２９）、呼吸」などを除外
+  const isCharProfileLine = (l) => {
+    if (l.includes('「') || l.includes('』') || l.includes('』')) return false;
+    if (l.length > 20) return false; // 長い行はト書き/台詞なので除外
+    return (
+      /^[ぁ-ん一-龯A-Za-zＡ-Ｚ]{1,10}[　\s（(（].{0,15}[歳才]/.test(l) ||
+      /^[ぁ-ん一-龯A-Za-zＡ-Ｚ]{1,10}\s{1,3}\d{1,3}歳/.test(l) ||
+      /^[ぁ-ん一-龯Ａ-Ｚ]{1,8}（[０-９0-9]{1,3}）[^「』]{1,15}$/.test(l)
+    );
+  };
 
   const isCharListLine = (l, streak) =>
     /^.{0,15}登場人物[:：\s]?$/.test(l) ||
@@ -14336,26 +14345,59 @@ function staffRoomRunAnalysis(text, evalMode, scriptType) {
   // 例: "小出「二年間、教育現場を離れていたんです" + "ね？」" → "小出「二年間…ね？」"
   // 判定: 「で始まり」が閉じられていない行 + 次行が続きと思われる行
   const rejoinSplitLines = (txt) => {
+    // v23: 縦書きPDFの列区切りによる途中改行を再結合
+    // 縦書きPDFでは1列=1テキストボックスなので、
+    // 文の途中で切れている行（句点・感嘆符・疑問符・閉じ括弧で終わっていない）を
+    // 次の行と結合する
     const ls = txt.split('\n');
     const out = [];
     let i = 0;
+
+    const isSentenceEnd = (s) => {
+      if (!s || s.length === 0) return true;
+      const last = s[s.length - 1];
+      return /[。！？」』）\uff01\uff1f\u300d\u300f\uff09×＊]/.test(last) || last === '×';
+    };
+    const isSceneLine = (s) => /^[○◎●０-９0-9]|^【|^INT\.|^EXT\./i.test(s);
+    const isCharDialogueLine = (s) => /^[ぁ-ん一-龯ァ-ヶＡ-Ｚa-zA-Z]{1,12}[「『]/.test(s);
+    const isCharNameOnly = (s) => /^[ぁ-ん一-龯ァ-ヶ]{1,8}[　\s]*$/.test(s);
+
     while (i < ls.length) {
       const l = ls[i];
       const lt = l.trim();
-      // 「を含むが」を含まない → 台詞が分割されている可能性
-      const openCount = (lt.match(/「/g) || []).length;
-      const closeCount = (lt.match(/」/g) || []).length;
-      if (openCount > closeCount && i + 1 < ls.length) {
+
+      if (!lt) {
+        out.push(l);
+        i++;
+        continue;
+      }
+
+      // 文が途中で終わっていると判断できる場合、次行と結合を試みる
+      if (!isSentenceEnd(lt) && !isSceneLine(lt) && i + 1 < ls.length) {
         const nextLt = ls[i + 1].trim();
-        // 次行が短い（30字未満）かつシーン行・キャラ行でない → 続き
-        const isNextScene = /^[○◎●０-９0-9]|^【|^INT\.|^EXT\./i.test(nextLt);
-        const isNextChar = /^[ぁ-ん一-龯]{1,12}「/.test(nextLt) || /^[ぁ-ん一-龯]{1,8}[　\s]*$/.test(nextLt);
-        if (!isNextScene && !isNextChar && nextLt.length > 0 && nextLt.length <= 40) {
-          out.push(lt + nextLt);
-          i += 2;
-          continue;
+        if (nextLt.length > 0 &&
+            !isSceneLine(nextLt) &&
+            !isCharNameOnly(nextLt)) {
+
+          // 台詞の続き：「を含むが」を含まない
+          const openCount = (lt.match(/「|『/g) || []).length;
+          const closeCount = (lt.match(/」|』/g) || []).length;
+          if (openCount > closeCount) {
+            out.push(lt + nextLt);
+            i += 2;
+            continue;
+          }
+
+          // ト書きの続き：短い行で次行も短くシーン行・台詞行でない
+          if (!isCharDialogueLine(lt) && !isCharDialogueLine(nextLt) &&
+              lt.length <= 35 && nextLt.length <= 35) {
+            out.push(lt + nextLt);
+            i += 2;
+            continue;
+          }
         }
       }
+
       out.push(l);
       i++;
     }
@@ -17451,225 +17493,96 @@ async function staffRoomReadFile(file, sessionId) {
   };
 
   if (ext === 'pdf') {
-    toast('📄 PDFを解析中…（縦書き・横書き自動判定・精密抽出 v22）', 'info');
+    toast('📄 PDFを解析中…（高精度サーバー抽出エンジン v23）', 'info');
     try {
-      let pdfjsLib = window.pdfjsLib;
-      if (!pdfjsLib) {
-        const mod = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs');
-        pdfjsLib = mod;
-        window.pdfjsLib = mod;
-      }
-      pdfjsLib.GlobalWorkerOptions.workerSrc = window.PDFJS_WORKER_URL;
-
       const arrayBuffer = await file.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
-      const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
 
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-      // v22: 縦書き/横書き自動判定＋精密テキスト抽出エンジン
-      //  - 列ベースクラスタリング（適応的閾値）
-      //  - フッターノイズを列単位で除去（境界x座標検出）
-      //  - シーン番号の正確な再結合
-      //  - 縦書き列の分割行を再結合
+      // v23: サーバーサイド pdfminer 抽出エンジン（最高精度）
+      //  - Python pdfminer.six による LTTextBox レベル抽出
+      //  - 縦書き: 各 LTTextBox = 1列（右→左順に正確に並び替え）
+      //  - 横書き: Y座標でグルーピング、左→右で結合
+      //  - フッター・ヘッダーノイズを確実に除去
+      //  - フォールバック: サーバー不可の場合は PDF.js v22 エンジン
       // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-      // ── 縦書き判定 ──────────────────────────────────────────────
-      // TextItemの文字列を1文字ずつ分解して x 座標ごとの集中度を計算
-      const detectVertical = (items) => {
-        if (items.length < 5) return false;
-        const xBuckets = {};
-        for (const it of items) {
-          if (!it.str || !it.str.trim()) continue;
-          // 文字ごとに x 座標を均等割り
-          const cx = it.transform[4] + (it.width || 0) / 2;
-          const bx = Math.round(cx / 10) * 10;
-          xBuckets[bx] = (xBuckets[bx] || 0) + it.str.replace(/\s/g,'').length;
-        }
-        // 同一 x バケットに 3 文字以上ある列が 3 本以上 → 縦書き
-        const denseCols = Object.values(xBuckets).filter(cnt => cnt >= 3).length;
-        return denseCols >= 3;
-      };
+      // ── サーバーサイド抽出を試みる ──────────────────────────────
+      // Python pdfminer サーバー（port 3001）を優先的に使用
+      // サーバー不可の場合は PDF.js フォールバックへ
+      let extractionResult = null;
 
-      // ── 縦書きページ精密抽出 ────────────────────────────────────
-      // TextItem の str 文字列を1文字に分解し x,y 座標を付与してから列クラスタリング
-      const extractVerticalPage = (items) => {
-        // 1. 全文字を収集（x,y,char）
-        const allChars = [];
-        for (const it of items) {
-          if (!it.str) continue;
-          const chars = [...it.str];
-          const itemX = it.transform[4];
-          const itemY = it.transform[5];
-          const charW = it.width / Math.max(chars.length, 1);
-          const charH = it.height || 12;
-          chars.forEach((ch, idx) => {
-            if (ch === ' ' || ch === '\u00a0' || ch === '\n') return;
-            allChars.push({
-              char: ch,
-              x: itemX + charW * (idx + 0.5),
-              y: itemY + charH / 2,
-              h: charH,
-            });
-          });
-        }
-        if (allChars.length === 0) return [];
+      try {
+        if (progressEl) progressEl.textContent = '🔬 高精度抽出中（pdfminer）…';
 
-        // 2. 代表的な文字高さ（中央値）から列幅閾値を計算
-        const sortedH = allChars.map(c=>c.h).filter(h=>h>2).sort((a,b)=>a-b);
-        const medH = sortedH[Math.floor(sortedH.length / 2)] || 12;
-        const colThresh = medH * 1.4;  // 文字高さの 1.4 倍が列の幅
+        // FormData を使用してバイナリファイルを直接送信（base64変換不要）
+        const formData = new FormData();
+        formData.append('file', new Blob([bytes], { type: 'application/pdf' }), file.name);
 
-        // 3. x 座標昇順でソートして列に割り当て
-        allChars.sort((a, b) => a.x - b.x);
-        const columns = []; // { xSum, count, chars[] }
-        for (const c of allChars) {
-          let placed = false;
-          for (let ci = columns.length - 1; ci >= 0; ci--) {
-            const col = columns[ci];
-            const xCenter = col.xSum / col.count;
-            if (Math.abs(c.x - xCenter) <= colThresh) {
-              col.chars.push(c);
-              col.xSum += c.x;
-              col.count++;
-              placed = true;
-              break;
-            }
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+        const resp = await fetch('http://localhost:3001/extract', {
+          method: 'POST',
+          body: formData,
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (resp.ok) {
+          const data = await resp.json();
+          if (!data.error && data.text && data.text.length > 20) {
+            extractionResult = data;
+            console.log(`[PDF v23] Server extraction OK: ${data.pages}p / ${data.char_count}chars / vertical=${data.is_vertical}`);
+          } else if (data.error) {
+            console.warn('[PDF v23] Server extraction error:', data.error);
           }
-          if (!placed) {
-            columns.push({ xSum: c.x, count: 1, chars: [c] });
-          }
+        } else {
+          console.warn('[PDF v23] Server returned status:', resp.status);
         }
-
-        // 4. フッター列検出（ページ右端または左端の短い列で「応募」「大賞」等を含む）
-        const pageWidth = items.reduce((mx, it) => Math.max(mx, it.transform[4] + (it.width||0)), 0);
-        const isFooterCol = (col) => {
-          const xCenter = col.xSum / col.count;
-          const colText = col.chars.map(c=>c.char).join('');
-          // 右端 or 左端 30pt 以内で短い列かつノイズ文字列
-          const nearEdge = xCenter < 30 || xCenter > pageWidth - 30;
-          const hasNoise = /応募|大賞|シナリ|ヤング|用紙/.test(colText);
-          const isShort = col.chars.length <= 8;
-          return (nearEdge && isShort) || (hasNoise && isShort);
-        };
-
-        // 5. 縦書きは右列（x大）→左列（x小）の順に読む
-        const contentCols = columns.filter(col => !isFooterCol(col));
-        contentCols.sort((a, b) => (b.xSum / b.count) - (a.xSum / a.count));
-
-        // 6. 各列内を y 降順（上から下）で文字結合 → 1行
-        const rawLines = contentCols.map(col => {
-          const sorted = col.chars.slice().sort((a, b) => b.y - a.y);
-          return sorted.map(c => c.char).join('').trim();
-        }).filter(l => l.length > 0);
-
-        // 7. 縦書き「シーン番号のみ行」の後に続くシーン行と結合
-        //    例: "1" → "○ホール・ステージ上" → "1\n○ホール・ステージ上" に正規化
-        //    縦書き原稿では番号が最右列、柱書きが次列になるため両方が分かれて出てくる
-        //    ここでは番号を柱書きの前に移動させずに、そのまま別行として保持する
-        //    （cleanScriptText の縦書き対応で再結合する）
-
-        return rawLines;
-      };
-
-      // ── 横書きページ抽出（変更なし） ────────────────────────────
-      const extractHorizontalPage = (items) => {
-        const yGroups = {};
-        for (const item of items) {
-          if (!item.str || !item.str.trim()) continue;
-          const curY = Math.round(item.transform[5] * 2) / 2;
-          if (!yGroups[curY]) yGroups[curY] = { y: curY, items: [] };
-          yGroups[curY].items.push(item);
-        }
-        return Object.values(yGroups)
-          .sort((a, b) => b.y - a.y)
-          .map(g => g.items.sort((a, b) => a.transform[4] - b.transform[4]).map(it => it.str).join('').trim())
-          .filter(l => l.length > 0);
-      };
-
-      // ── 行レベルのノイズフィルタ ────────────────────────────────
-      const isNoiseLine = (l) => {
-        const lt = l.trim();
-        return (
-          /^[Pp]\.?\s*\d{1,4}$/.test(lt) ||              // P.47 / p47
-          /^\d{1,4}\s*\/\s*\d{1,4}$/.test(lt) ||         // 7/20
-          /^\s*-\s*\d{1,4}\s*-\s*$/.test(lt) ||          // -7-
-          /ヤングシナリオ大賞/.test(lt) ||
-          /シナリオ大賞\s*応募/.test(lt) ||
-          /^応募用紙$/.test(lt) ||
-          /^(次頁に続く|次のページへ)$/.test(lt)
-        );
-      };
-
-      let fullTextWithMarkers = '';
-      const pageMap = {};
-      let lineIndex = 0;
-      let isVerticalDoc = null;
-
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const content = await page.getTextContent();
-        if (content.items.length === 0) continue;
-
-        // 最初の実質ページ（文字数が多い）で縦横判定
-        if (isVerticalDoc === null && content.items.length >= 5) {
-          isVerticalDoc = detectVertical(content.items);
-        }
-
-        let pageLines = isVerticalDoc
-          ? extractVerticalPage(content.items)
-          : extractHorizontalPage(content.items);
-
-        // 行レベルノイズ除去
-        pageLines = pageLines.filter(l => !isNoiseLine(l));
-
-        // v22: 縦書きPDF後処理 — シーン行末尾に混入した数字（シーン番号）を分離
-        // 例: "○ホール・ステージ上1" → ["○ホール・ステージ上", "1"] (逆順で挿入)
-        if (isVerticalDoc) {
-          const fixedLines = [];
-          for (const ln of pageLines) {
-            // "○〜〜数字" or "【〜〜】数字" のパターン: 末尾の数字を別行に分離
-            const sceneNumMatch = ln.match(/^([○◎●]|【).+?([0-9０-９]{1,3})$/);
-            if (sceneNumMatch) {
-              const numStr = sceneNumMatch[2];
-              const baseStr = ln.slice(0, ln.length - numStr.length).trim();
-              if (baseStr.length > 2) {
-                // 数字（シーン番号）を先頭に、シーン行を後に（右→左読みなので番号が先）
-                fixedLines.push(numStr);
-                fixedLines.push(baseStr);
-                continue;
-              }
-            }
-            fixedLines.push(ln);
-          }
-          pageLines = fixedLines;
-        }
-
-        if (pageLines.length > 0) {
-          pageMap[i] = lineIndex;
-          const pageMarker = `\u0000PAGE:${i}\u0000`;
-          fullTextWithMarkers += pageMarker + pageLines.join('\n') + '\n';
-          lineIndex += pageLines.length + 1;
-        }
+      } catch(serverErr) {
+        console.warn('[PDF v23] Server unavailable, falling back to PDF.js:', serverErr.message || serverErr);
       }
 
-      // 表示・採点用テキスト（ページマーカーを除去）
-      const displayText = fullTextWithMarkers.replace(/\u0000PAGE:\d+\u0000/g, '');
+      // ── サーバー抽出成功パス ─────────────────────────────────────
+      if (extractionResult) {
+        const { text: displayText, text_with_markers: fullTextWithMarkers,
+                is_vertical: isVerticalDoc, pages: totalPages,
+                page_map: pageMapRaw, char_count: charCount } = extractionResult;
 
-      setTitle(file.name.replace(/\.pdf$/i, ''));
+        // page_map のキーを文字列→数値に変換
+        const pageMap = {};
+        for (const [k, v] of Object.entries(pageMapRaw || {})) {
+          pageMap[parseInt(k)] = v;
+        }
 
-      if (displayText.trim().length > 20) {
-        const charCount = displayText.replace(/[\s\n\r]/g,'').length;
+        setTitle(file.name.replace(/\.pdf$/i, ''));
         const layoutType = isVerticalDoc ? '縦書き' : '横書き';
-        // v22: PDFバイナリをメモリキャッシュに保存（原本表示用）
+
+        // PDFバイナリをメモリキャッシュに保存（原本表示用）
         if (!window._srPdfBytesCache) window._srPdfBytesCache = {};
         window._srPdfBytesCache[sessionId] = bytes;
-        window._srPdfLibCache = pdfjsLib;
+
+        // PDF.js は原本表示用にのみロード
+        try {
+          let pdfjsLib = window.pdfjsLib;
+          if (!pdfjsLib) {
+            const mod = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs');
+            pdfjsLib = mod;
+            window.pdfjsLib = mod;
+          }
+          pdfjsLib.GlobalWorkerOptions.workerSrc = window.PDFJS_WORKER_URL;
+          window._srPdfLibCache = pdfjsLib;
+        } catch(pdfJsErr) {
+          console.warn('[PDF v23] PDF.js load failed (viewer unavailable):', pdfJsErr);
+        }
+
         saveToSession({
           scriptText: displayText,
-          scriptTextWithPageMap: fullTextWithMarkers,
-          pdfPageCount: pdf.numPages,
+          scriptTextWithPageMap: fullTextWithMarkers || displayText,
+          pdfPageCount: totalPages,
           pdfIsVertical: isVerticalDoc,
-          _pdfArrayBuffer: true, // フラグのみ（バイナリはメモリキャッシュ）
+          _pdfArrayBuffer: true,
           attachedFileMeta: {
             name: file.name,
             size: file.size,
@@ -17677,17 +17590,158 @@ async function staffRoomReadFile(file, sessionId) {
             uploadedAt: Date.now(),
             pageMap: pageMap,
             isVertical: isVerticalDoc,
+            extractedBy: 'pdfminer-v23',
           }
         });
-        toast(`✅ PDF ${pdf.numPages}ページ / ${charCount.toLocaleString()}字を抽出（${layoutType}）v22`, 'success');
+        toast(`✅ PDF ${totalPages}ページ / ${charCount.toLocaleString()}字を抽出（${layoutType}）v23 高精度`, 'success');
         render();
         setTimeout(() => {
           const btn = document.getElementById(`staffroom-submit-btn-${sessionId}`);
           if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
         }, 100);
+
       } else {
-        toast('⚠️ PDFからテキストを抽出できませんでした（スキャン画像PDFの可能性）', 'warning');
-        if (progressEl) progressEl.textContent = '⚠️ テキスト抽出失敗（スキャン画像PDF？）';
+        // ── PDF.js フォールバック（v22 エンジン） ──────────────────
+        console.log('[PDF v23] Using PDF.js fallback engine...');
+        if (progressEl) progressEl.textContent = '📄 PDF.js フォールバック抽出中…';
+
+        let pdfjsLib = window.pdfjsLib;
+        if (!pdfjsLib) {
+          const mod = await import('https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs');
+          pdfjsLib = mod;
+          window.pdfjsLib = mod;
+        }
+        pdfjsLib.GlobalWorkerOptions.workerSrc = window.PDFJS_WORKER_URL;
+
+        const pdf = await pdfjsLib.getDocument({ data: bytes }).promise;
+
+        // ── 縦書き判定（複数ページをサンプリング） ──────────────
+        const detectVertical = (itemsList) => {
+          let vCount = 0, hCount = 0;
+          for (const items of itemsList) {
+            // アイテムをグループ化して各グループの幅/高さを推定
+            const xBuckets = {};
+            for (const it of items) {
+              if (!it.str || !it.str.trim()) continue;
+              const cx = Math.round((it.transform[4] + (it.width || 0) / 2) / 8) * 8;
+              xBuckets[cx] = (xBuckets[cx] || 0) + it.str.replace(/\s/g,'').length;
+            }
+            const buckets = Object.values(xBuckets);
+            const denseNarrow = buckets.filter(cnt => cnt >= 3 && cnt <= 30).length;
+            const total = buckets.length;
+            if (total > 0 && denseNarrow / total > 0.5) vCount++;
+            else hCount++;
+          }
+          return vCount > hCount && vCount >= 2;
+        };
+
+        // サンプルページ収集
+        const sampleItems = [];
+        for (let sp = 1; sp <= Math.min(5, pdf.numPages); sp++) {
+          const sPage = await pdf.getPage(sp);
+          const sCont = await sPage.getTextContent();
+          if (sCont.items.length >= 5) sampleItems.push(sCont.items);
+        }
+        const isVerticalDoc = detectVertical(sampleItems);
+
+        // ── 縦書きページ抽出（LTTextBox相当のグループ化） ─────────
+        const extractVerticalPage = (items, pageWidth) => {
+          // アイテムを x 座標でグループ化（各グループ = 1列）
+          const colMap = {};
+          for (const it of items) {
+            if (!it.str || !it.str.trim()) continue;
+            const cx = Math.round(it.transform[4] / 12) * 12;
+            if (!colMap[cx]) colMap[cx] = { chars: [], y: [] };
+            colMap[cx].chars.push(it.str);
+            colMap[cx].y.push(it.transform[5]);
+          }
+          // 右→左でソートして各列テキスト結合
+          return Object.entries(colMap)
+            .filter(([cx]) => {
+              const x = parseInt(cx);
+              return x > 30 && x < pageWidth - 18;
+            })
+            .sort(([a], [b]) => parseInt(b) - parseInt(a))
+            .map(([, col]) => col.chars.join('').trim())
+            .filter(l => l.length > 0);
+        };
+
+        const extractHorizontalPage = (items) => {
+          const yGroups = {};
+          for (const item of items) {
+            if (!item.str || !item.str.trim()) continue;
+            const curY = Math.round(item.transform[5] * 2) / 2;
+            if (!yGroups[curY]) yGroups[curY] = { y: curY, items: [] };
+            yGroups[curY].items.push(item);
+          }
+          return Object.values(yGroups)
+            .sort((a, b) => b.y - a.y)
+            .map(g => g.items.sort((a, b) => a.transform[4] - b.transform[4]).map(it => it.str).join('').trim())
+            .filter(l => l.length > 0);
+        };
+
+        const isNoiseLine = (l) => {
+          const lt = l.trim();
+          return /^[Pp]\.?\s*\d{1,4}$/.test(lt) || /^\d{1,4}\s*\/\s*\d{1,4}$/.test(lt) ||
+                 /^\s*-\s*\d{1,4}\s*-\s*$/.test(lt) || /ヤングシナリオ大賞/.test(lt) ||
+                 /シナリオ大賞\s*応募/.test(lt) || /^応募用紙$/.test(lt) ||
+                 /^(次頁に続く|次のページへ)$/.test(lt);
+        };
+
+        let fullTextWithMarkers = '';
+        const pageMap = {};
+        let lineIndex = 0;
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          if (content.items.length === 0) continue;
+
+          const pageWidth = (await page.getViewport({scale:1})).width;
+          let pageLines = isVerticalDoc
+            ? extractVerticalPage(content.items, pageWidth)
+            : extractHorizontalPage(content.items);
+
+          pageLines = pageLines.filter(l => !isNoiseLine(l));
+
+          if (pageLines.length > 0) {
+            pageMap[i] = lineIndex;
+            fullTextWithMarkers += `\u0000PAGE:${i}\u0000` + pageLines.join('\n') + '\n';
+            lineIndex += pageLines.length + 1;
+          }
+        }
+
+        const displayText = fullTextWithMarkers.replace(/\u0000PAGE:\d+\u0000/g, '');
+        setTitle(file.name.replace(/\.pdf$/i, ''));
+
+        if (displayText.trim().length > 20) {
+          const charCount = displayText.replace(/[\s\n\r]/g,'').length;
+          const layoutType = isVerticalDoc ? '縦書き' : '横書き';
+          if (!window._srPdfBytesCache) window._srPdfBytesCache = {};
+          window._srPdfBytesCache[sessionId] = bytes;
+          window._srPdfLibCache = pdfjsLib;
+          saveToSession({
+            scriptText: displayText,
+            scriptTextWithPageMap: fullTextWithMarkers,
+            pdfPageCount: pdf.numPages,
+            pdfIsVertical: isVerticalDoc,
+            _pdfArrayBuffer: true,
+            attachedFileMeta: {
+              name: file.name, size: file.size, type: 'pdf',
+              uploadedAt: Date.now(), pageMap, isVertical: isVerticalDoc,
+              extractedBy: 'pdfjs-v23-fallback',
+            }
+          });
+          toast(`✅ PDF ${pdf.numPages}ページ / ${charCount.toLocaleString()}字を抽出（${layoutType}）v23 標準`, 'success');
+          render();
+          setTimeout(() => {
+            const btn = document.getElementById(`staffroom-submit-btn-${sessionId}`);
+            if (btn) { btn.disabled = false; btn.style.opacity = '1'; btn.style.cursor = 'pointer'; }
+          }, 100);
+        } else {
+          toast('⚠️ PDFからテキストを抽出できませんでした（スキャン画像PDFの可能性）', 'warning');
+          if (progressEl) progressEl.textContent = '⚠️ テキスト抽出失敗（スキャン画像PDF？）';
+        }
       }
     } catch(e) {
       console.error('PDF extraction error:', e);
@@ -18351,7 +18405,7 @@ function staffRoomGenerateAnnotatedScript(sessionId) {
             </div>` : ''}
             ${ar && ar.judgesComments && ar.judgesComments.length > 0 ? `
             <div style="margin-top:10px;border-top:1px solid rgba(255,255,255,.08);padding-top:8px">
-              <div style="font-size:9.5px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:6px"><i class="fas fa-gavel" style="margin-right:4px;color:#c4b5fd"></i>審査員コメント (${ar.judgesComments.length}名 · v22精密版)</div>
+              <div style="font-size:9.5px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:6px"><i class="fas fa-gavel" style="margin-right:4px;color:#c4b5fd"></i>審査員コメント (${ar.judgesComments.length}名 · v23精密版)</div>
               <div style="display:flex;flex-direction:column;gap:5px">
                 ${ar.judgesComments.slice(0,5).map(j =>
                   '<div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 10px">' +
@@ -18615,7 +18669,7 @@ function staffRoomDownloadAnnotated(sessionId) {
       if (st.commercialScoreRaw !== undefined) out += `  商業適合: ${st.commercialScoreRaw}/5\n`;
     }
   }
-  out += `\n${bar}\n  ■ 審査員コメント（${ar && ar.judgesComments ? ar.judgesComments.length : 0}名 · v22精密版）\n${bar}\n`;
+  out += `\n${bar}\n  ■ 審査員コメント（${ar && ar.judgesComments ? ar.judgesComments.length : 0}名 · v23精密版）\n${bar}\n`;
   if (ar && ar.judgesComments && ar.judgesComments.length > 0) {
     ar.judgesComments.forEach((j, ji) => {
       const scoreBar = '█'.repeat(j.score||0) + '░'.repeat(5-(j.score||0));
@@ -18766,7 +18820,7 @@ function staffRoomExport(sessionId) {
   const exportJudges = (ar && ar.judgesComments && ar.judgesComments.length > 0) ? ar.judgesComments :
                        (ar && ar.analysisStats && ar.analysisStats.judgesComments) ? ar.analysisStats.judgesComments : [];
   if (exportJudges.length > 0) {
-    text += `\n${line}\n審査員コメント（${exportJudges.length}名 · v22精密版）\n${line}\n`;
+    text += `\n${line}\n審査員コメント（${exportJudges.length}名 · v23精密版）\n${line}\n`;
     exportJudges.forEach((jc, ji) => {
       const scoreBar = '█'.repeat(jc.score||0) + '░'.repeat(5-(jc.score||0));
       text += `\n[${ji+1}] 【${jc.judge}】 ${scoreBar} ${jc.score}/5点\n${jc.comment}\n`;
