@@ -12773,7 +12773,7 @@ function renderLearnStaffRoom(hero, subnav) {
             <i class="fas fa-gavel" style="color:rgba(255,255,255,.5);font-size:12px"></i>
             <span style="font-size:11px;letter-spacing:.12em;color:rgba(255,255,255,.45);font-weight:600;text-transform:uppercase">SCENARIO LAB ─ 審査員採点レポート v14</span>
             <span style="font-size:9px;background:rgba(168,85,247,.25);color:rgba(200,160,255,.9);border:1px solid rgba(168,85,247,.4);border-radius:4px;padding:1px 6px;font-weight:700;letter-spacing:.05em">21項目・8軸・脚本タイプ対応 v14</span>
-            <span class="sr-engine-badge"><i class="fas fa-microchip" style="font-size:7px"></i>精密解析エンジン v24</span>
+            <span class="sr-engine-badge"><i class="fas fa-microchip" style="font-size:7px"></i>精密解析エンジン v25</span>
             ${autoResult.analysisStats && autoResult.analysisStats.scriptType ? `<span class="sr-type-badge"><i class="fas fa-tag" style="font-size:7px"></i>${{'tv-drama':'TVドラマ','film':'映画','stage':'舞台','web':'WEB/配信','competition':'コンクール自由','short':'短編','anime':'アニメ','radio':'ラジオ/音声'}[autoResult.analysisStats.scriptType]||autoResult.analysisStats.scriptType}</span>` : ''}
             <div style="margin-left:auto;display:flex;align-items:center;gap:6px">
               ${autoResult.analysisStats ? `<span style="font-size:10px;color:rgba(255,255,255,.3)">${new Date(autoResult.scoredAt||Date.now()).toLocaleString('ja-JP',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'})}採点</span>` : ''}
@@ -13344,7 +13344,7 @@ function renderLearnStaffRoom(hero, subnav) {
             <i class="fas fa-file-lines" style="color:#2563eb;font-size:14px"></i>
             アノテーション添削（行単位・Before/After付き）
           </div>
-          <span style="font-size:10.5px;color:#3b82f6;background:#dbeafe;border-radius:6px;padding:2px 8px;font-weight:600">v24精密版</span>
+          <span style="font-size:10.5px;color:#3b82f6;background:#dbeafe;border-radius:6px;padding:2px 8px;font-weight:600">v25精密版</span>
           <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
             ${s.autoScoreResult ? `
             <button onclick="staffRoomGenerateAnnotatedScript('${s.id}')" style="background:linear-gradient(135deg,#1e3a8a,#2563eb);color:#fff;border:none;border-radius:7px;padding:7px 14px;font-size:11px;cursor:pointer;font-weight:700;box-shadow:0 2px 8px rgba(37,99,235,.3);display:flex;align-items:center;gap:5px" onmouseover="this.style.transform='translateY(-1px)'" onmouseout="this.style.transform=''">
@@ -14185,7 +14185,7 @@ function staffRoomFbTab(sessionId, tab) {
 // 応募フォーマットのヘッダー・ページ番号・用紙情報を除去し
 // 純粋な「脚本本文」だけを抽出する
 function cleanScriptText(rawText) {
-  // v22: ページマーカーを除去してから処理
+  // v25: ページマーカーを除去してから処理
   const textWithoutMarkers = rawText.replace(/\u0000PAGE:\d+\u0000/g, '');
   const lines = textWithoutMarkers.split('\n');
   let metaHeaderDone = false;
@@ -14200,9 +14200,8 @@ function cleanScriptText(rawText) {
     /^.{0,20}(作者|著者|原作|脚本|作品名|タイトル|連絡先|住所|電話|メール|学校|組|クラス|氏名|提出者)[:：]/,
   ];
 
-  // v22: 縦書きPDFノイズ（行末に混入した応募用紙フッター文字列）を除去
+  // v25: 縦書きPDFノイズ（行末に混入した応募用紙フッター文字列）を除去
   const removeVerticalFooterNoise = (l) => {
-    // 末尾に2文字以上のノイズ文字列が付着している場合に除去
     return l
       .replace(/[大応募シナリヤング賞用紙オ]{2,}$/, '')
       .trim();
@@ -14324,9 +14323,9 @@ function cleanScriptText(rawText) {
 // ── 脚本テキスト解析エンジン（ルールベース高精度） ──────────────
 function staffRoomRunAnalysis(text, evalMode, scriptType) {
   // ══════════════════════════════════════════════════════════════════
-  //  シナリオラボ 職員室 — 精密採点エンジン v22.0
+  //  シナリオラボ 職員室 — 精密採点エンジン v25.0
   //  8カテゴリ・24項目・評価モード対応多軸モデル
-  //  v22: 縦書きPDF対応強化・分割台詞行再結合・シーン番号重複除去
+  //  v25: pdf_server v4連携・クロスページ分断行修正・台詞認識精度向上
   //  v21: 縦書き/横書き自動判定・精密テキスト抽出
   //  v20: textarea廃止・ファイル直接処理・cleanScriptText過剰削除修正
   //  v19: 前処理クリーナー導入・応募用紙ノイズ除去
@@ -14345,10 +14344,8 @@ function staffRoomRunAnalysis(text, evalMode, scriptType) {
   // 例: "小出「二年間、教育現場を離れていたんです" + "ね？」" → "小出「二年間…ね？」"
   // 判定: 「で始まり」が閉じられていない行 + 次行が続きと思われる行
   const rejoinSplitLines = (txt) => {
-    // v23: 縦書きPDFの列区切りによる途中改行を再結合
-    // 縦書きPDFでは1列=1テキストボックスなので、
-    // 文の途中で切れている行（句点・感嘆符・疑問符・閉じ括弧で終わっていない）を
-    // 次の行と結合する
+    // v25: サーバー抽出後の残存分割行を再結合（サーバー側でほぼ処理済み）
+    // 主にフォールバック（PDF.js）使用時の残存分割に対応
     const ls = txt.split('\n');
     const out = [];
     let i = 0;
@@ -14359,7 +14356,7 @@ function staffRoomRunAnalysis(text, evalMode, scriptType) {
       return /[。！？」』）\uff01\uff1f\u300d\u300f\uff09×＊]/.test(last) || last === '×';
     };
     const isSceneLine = (s) => /^[○◎●０-９0-9]|^【|^INT\.|^EXT\./i.test(s);
-    const isCharDialogueLine = (s) => /^[ぁ-ん一-龯ァ-ヶＡ-Ｚa-zA-Z]{1,12}[「『]/.test(s);
+    const isCharDialogueLine = (s) => /^[ぁ-ん一-龯ァ-ヶＡ-Ｚａ-ｚa-zA-Z　ー]{1,12}[「『]/.test(s);
     const isCharNameOnly = (s) => /^[ぁ-ん一-龯ァ-ヶ]{1,8}[　\s]*$/.test(s);
 
     while (i < ls.length) {
@@ -14377,24 +14374,57 @@ function staffRoomRunAnalysis(text, evalMode, scriptType) {
         const nextLt = ls[i + 1].trim();
         if (nextLt.length > 0 &&
             !isSceneLine(nextLt) &&
-            !isCharNameOnly(nextLt)) {
+            !isCharNameOnly(nextLt) &&
+            !isCharDialogueLine(nextLt)) {
 
           // 台詞の続き：「を含むが」を含まない
           const openCount = (lt.match(/「|『/g) || []).length;
           const closeCount = (lt.match(/」|』/g) || []).length;
           if (openCount > closeCount) {
-            out.push(lt + nextLt);
-            i += 2;
-            continue;
+            // 次行が続きと見なせる（短い行、または続き文字で始まる）
+            if (nextLt.length <= 40 || /^[ぁ-ん一-龯ァ-ヶＡ-Ｚａ-ｚ０-９]/.test(nextLt)) {
+              let merged = lt + nextLt;
+              i += 2;
+              // さらに続く行があれば連続結合
+              while (i < ls.length) {
+                const mOpen = (merged.match(/「|『/g) || []).length;
+                const mClose = (merged.match(/」|』/g) || []).length;
+                if (mOpen <= mClose) break;
+                const further = ls[i].trim();
+                if (!further || isSceneLine(further) || isCharDialogueLine(further)) break;
+                if (further.length <= 40 || /^[ぁ-ん一-龯ァ-ヶＡ-Ｚａ-ｚ０-９]/.test(further)) {
+                  merged += further;
+                  i++;
+                } else break;
+              }
+              out.push(merged);
+              continue;
+            }
           }
 
-          // ト書きの続き：短い行で次行も短くシーン行・台詞行でない
-          if (!isCharDialogueLine(lt) && !isCharDialogueLine(nextLt) &&
-              lt.length <= 35 && nextLt.length <= 35) {
-            out.push(lt + nextLt);
-            i += 2;
-            continue;
+          // ト書きの続き：1-3文字の孤立断片を前後の行に吸収
+          if (lt.length <= 3 && !lt.match(/^[×＊○◎●]/) && out.length > 0) {
+            const prevLine = out[out.length - 1];
+            const prevTerminated = /[。！？」』×＊）]$/.test(prevLine.trim());
+            if (!prevTerminated) {
+              out[out.length - 1] = prevLine + lt;
+              i++;
+              continue;
+            }
           }
+        }
+      }
+
+      // 1-2文字の孤立断片（台詞でなく記号でもない）は前行に結合
+      if (lt.length <= 2 && lt.length >= 1 && !lt.match(/^[×＊○◎●×]/) && !lt.match(/[「」]/) && out.length > 0) {
+        const prevLine = out[out.length - 1];
+        const prevTerminated = /[。！？」』×＊）]$/.test(prevLine.trim());
+        const nextLt2 = i + 1 < ls.length ? ls[i + 1].trim() : '';
+        const nextIsDialogue = isCharDialogueLine(nextLt2) || isSceneLine(nextLt2);
+        if (!prevTerminated && !nextIsDialogue) {
+          out[out.length - 1] = prevLine + lt;
+          i++;
+          continue;
         }
       }
 
@@ -14504,7 +14534,9 @@ function staffRoomRunAnalysis(text, evalMode, scriptType) {
   const sceneLocationVariety = new Set(sceneLines.map(l => l.slice(0, 20))).size;
 
   // ── セリフ検出（精密版）
-  const charDialoguePatternA = /^([ぁ-んァ-ヶーｱ-ﾝﾞﾟ一-龯Ａ-Ｚａ-ｚA-Za-z\s　ーＡ-Ｚ]{1,16})「(.*)」?\s*$/;
+  // v25: 台詞検出パターン強化 - 「キャラ名Ｍ「」「×舞子「」形式も対応
+  // 例: 舞子Ｍ「…」, 舞子M「…」, ×舞子「…」 → 舞子として認識
+  const charDialoguePatternA = /^[×＊]?([ぁ-んァ-ヶーｱ-ﾝﾞﾟ一-龯Ａ-Ｚａ-ｚA-Za-z\s　ーＡ-Ｚ]{1,16})[ＭM]?「(.*)」?\s*$/;
   const charNameOnlyPattern = /^([ぁ-んァ-ヶーｱ-ﾝﾞﾟ一-龯Ａ-Ｚａ-ｚA-Za-z　ー]{1,16})\s*$/;
 
   const narrPattern = /^（[^）]{1,60}）$|^（[^）]{1,60}）「|^N[・.]「|^M[・.]「|^\[N\]|^\[M\]|^ナレーション[「：]|^ＮＡＲ[「：]|^OFF「/;
@@ -17493,7 +17525,7 @@ async function staffRoomReadFile(file, sessionId) {
   };
 
   if (ext === 'pdf') {
-    toast('📄 PDFを解析中…（高精度サーバー抽出エンジン v24）', 'info');
+    toast('📄 PDFを解析中…（高精度サーバー抽出エンジン v25）', 'info');
     try {
       const arrayBuffer = await file.arrayBuffer();
       const bytes = new Uint8Array(arrayBuffer);
@@ -17592,10 +17624,10 @@ async function staffRoomReadFile(file, sessionId) {
             uploadedAt: Date.now(),
             pageMap: pageMap,
             isVertical: isVerticalDoc,
-            extractedBy: 'pdfminer-v23',
+            extractedBy: 'pdfminer-v25',
           }
         });
-        toast(`✅ PDF ${totalPages}ページ / ${charCount.toLocaleString()}字を抽出（${layoutType}）v24 高精度`, 'success');
+        toast(`✅ PDF ${totalPages}ページ / ${charCount.toLocaleString()}字を抽出（${layoutType}）v25 高精度`, 'success');
         render();
         setTimeout(() => {
           const btn = document.getElementById(`staffroom-submit-btn-${sessionId}`);
@@ -17734,7 +17766,7 @@ async function staffRoomReadFile(file, sessionId) {
               extractedBy: 'pdfjs-v23-fallback',
             }
           });
-          toast(`✅ PDF ${pdf.numPages}ページ / ${charCount.toLocaleString()}字を抽出（${layoutType}）v24 標準`, 'success');
+          toast(`✅ PDF ${pdf.numPages}ページ / ${charCount.toLocaleString()}字を抽出（${layoutType}）v25 標準`, 'success');
           render();
           setTimeout(() => {
             const btn = document.getElementById(`staffroom-submit-btn-${sessionId}`);
@@ -18407,7 +18439,7 @@ function staffRoomGenerateAnnotatedScript(sessionId) {
             </div>` : ''}
             ${ar && ar.judgesComments && ar.judgesComments.length > 0 ? `
             <div style="margin-top:10px;border-top:1px solid rgba(255,255,255,.08);padding-top:8px">
-              <div style="font-size:9.5px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:6px"><i class="fas fa-gavel" style="margin-right:4px;color:#c4b5fd"></i>審査員コメント (${ar.judgesComments.length}名 · v24精密版)</div>
+              <div style="font-size:9.5px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:6px"><i class="fas fa-gavel" style="margin-right:4px;color:#c4b5fd"></i>審査員コメント (${ar.judgesComments.length}名 · v25精密版)</div>
               <div style="display:flex;flex-direction:column;gap:5px">
                 ${ar.judgesComments.slice(0,5).map(j =>
                   '<div style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:6px 10px">' +
@@ -18671,7 +18703,7 @@ function staffRoomDownloadAnnotated(sessionId) {
       if (st.commercialScoreRaw !== undefined) out += `  商業適合: ${st.commercialScoreRaw}/5\n`;
     }
   }
-  out += `\n${bar}\n  ■ 審査員コメント（${ar && ar.judgesComments ? ar.judgesComments.length : 0}名 · v24精密版）\n${bar}\n`;
+  out += `\n${bar}\n  ■ 審査員コメント（${ar && ar.judgesComments ? ar.judgesComments.length : 0}名 · v25精密版）\n${bar}\n`;
   if (ar && ar.judgesComments && ar.judgesComments.length > 0) {
     ar.judgesComments.forEach((j, ji) => {
       const scoreBar = '█'.repeat(j.score||0) + '░'.repeat(5-(j.score||0));
@@ -18822,7 +18854,7 @@ function staffRoomExport(sessionId) {
   const exportJudges = (ar && ar.judgesComments && ar.judgesComments.length > 0) ? ar.judgesComments :
                        (ar && ar.analysisStats && ar.analysisStats.judgesComments) ? ar.analysisStats.judgesComments : [];
   if (exportJudges.length > 0) {
-    text += `\n${line}\n審査員コメント（${exportJudges.length}名 · v24精密版）\n${line}\n`;
+    text += `\n${line}\n審査員コメント（${exportJudges.length}名 · v25精密版）\n${line}\n`;
     exportJudges.forEach((jc, ji) => {
       const scoreBar = '█'.repeat(jc.score||0) + '░'.repeat(5-(jc.score||0));
       text += `\n[${ji+1}] 【${jc.judge}】 ${scoreBar} ${jc.score}/5点\n${jc.comment}\n`;
