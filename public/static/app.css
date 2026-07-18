@@ -9403,6 +9403,85 @@ body {
 .study-input-card-memo { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
 .study-input-card-source { font-size: 10.5px; color: var(--text-light); }
 .study-input-card-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+.study-input-card-fav { color: var(--text-light); font-size: 12px; cursor: pointer; padding: 2px 4px; }
+.study-input-card-fav:hover { color: var(--kogane); }
+.study-input-card-fav.active { color: var(--kogane); }
+
+/* ── タグクラウド ── */
+.study-tagcloud { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.study-tagcloud-item { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--text-muted); background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius-full); padding: 4px 10px; cursor: pointer; transition: all .15s; }
+.study-tagcloud-item:hover { border-color: var(--fuji-border); color: var(--fuji); }
+.study-tagcloud-item.active { background: var(--fuji-bg); color: var(--fuji); border-color: var(--fuji-border); font-weight: 700; }
+.study-tagcloud-count { font-size: 9.5px; opacity: .7; }
+.study-tagfilter-active { font-size: 11.5px; color: var(--text-muted); margin-bottom: 12px; }
+
+/* ── バックアップボタン ── */
+.study-backup-btn { width: 34px; height: 34px; border: 1px solid var(--border); background: var(--bg-card); border-radius: var(--radius-md); color: var(--text-muted); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; transition: all .15s; flex-shrink: 0; }
+.study-backup-btn:hover { color: var(--fuji); border-color: var(--fuji-border); }
+
+/* ── ダッシュボード統計・チャート ── */
+.study-dash-toggle { border: 1px solid var(--border); background: var(--bg-card); border-radius: var(--radius-full); padding: 6px 14px; font-size: 12px; font-weight: 600; color: var(--text-muted); cursor: pointer; transition: all .15s; display: inline-flex; align-items: center; gap: 6px; }
+.study-dash-toggle:hover { color: var(--fuji); border-color: var(--fuji-border); }
+.study-dash-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px 18px; margin-bottom: 16px; }
+.study-dash-chart-head { margin-bottom: 10px; }
+.study-dash-chart-title { font-size: 12.5px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 7px; }
+
+/* ── ギャラリーツールバー拡張（並び替え・複数選択） ── */
+.study-sort-select { font-size: 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px; background: var(--bg-card); color: var(--text-secondary); flex-shrink: 0; }
+.study-select-bar { display: flex; align-items: center; gap: 10px; background: var(--fuji-bg); border: 1px solid var(--fuji-border); border-radius: var(--radius-md); padding: 10px 14px; margin-bottom: 14px; font-size: 12.5px; color: var(--fuji); font-weight: 600; flex-wrap: wrap; }
+.study-gcard { position: relative; }
+.study-gcard.pinned { border-color: var(--fuji-border); box-shadow: 0 0 0 1px var(--fuji-border); }
+.study-gcard.selected { border-color: var(--fuji); box-shadow: 0 0 0 2px var(--fuji-border); }
+.study-gcard-checkbox { position: absolute; top: 10px; right: 10px; font-size: 16px; color: var(--fuji); background: var(--bg-card); border-radius: 50%; }
+
+/* ── 目標文字数プログレスバー（ギャラリーカード内） ── */
+.study-gcard-goal { display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--text-muted); }
+.study-gcard-goal-bar { flex: 1; height: 5px; background: var(--bg-hover); border-radius: var(--radius-full); overflow: hidden; }
+.study-gcard-goal-fill { height: 100%; background: linear-gradient(90deg, var(--fuji), var(--momo)); border-radius: var(--radius-full); transition: width .3s; }
+
+/* ── エディタ内目標バー ── */
+.study-goal-row { display: flex; align-items: center; gap: 10px; padding: 8px 16px; border-bottom: 1px solid var(--border); font-size: 11px; color: var(--text-muted); }
+.study-goal-row-empty { cursor: pointer; color: var(--text-light); justify-content: flex-start; }
+.study-goal-row-empty:hover { color: var(--fuji); }
+
+/* ── テンプレート選択モーダル ── */
+.study-tpl-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.study-tpl-card { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; cursor: pointer; transition: all .15s; text-align: center; }
+.study-tpl-card:hover { border-color: var(--fuji-border); background: var(--fuji-bg); transform: translateY(-2px); }
+.study-tpl-icon { font-size: 22px; color: var(--fuji); margin-bottom: 8px; }
+.study-tpl-label { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 4px; }
+.study-tpl-desc { font-size: 10.5px; color: var(--text-muted); line-height: 1.5; }
+
+/* ── エディタ サイドパネル タブ切替（添削／インプット／履歴） ── */
+.study-side-tabbar { display: flex; gap: 4px; margin-bottom: 12px; background: var(--bg-hover); border-radius: var(--radius-md); padding: 3px; }
+.study-side-tab-btn { flex: 1; border: none; background: transparent; padding: 7px 6px; font-size: 11px; font-weight: 600; color: var(--text-muted); border-radius: var(--radius-sm); cursor: pointer; transition: all .15s; display: flex; align-items: center; justify-content: center; gap: 5px; }
+.study-side-tab-btn.active { background: var(--bg-card); color: var(--fuji); box-shadow: var(--shadow-sm); }
+
+/* ── 関連インプットパネル ── */
+.study-linked-input-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.study-linked-input-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; }
+.study-linked-input-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.study-linked-input-unlink { color: var(--text-light); font-size: 11px; cursor: pointer; padding: 2px 4px; }
+.study-linked-input-unlink:hover { color: var(--accent); }
+.study-linked-input-actions { margin-top: 6px; display: flex; gap: 6px; }
+.study-link-picker-list { display: flex; flex-direction: column; gap: 8px; max-height: 360px; overflow-y: auto; }
+.study-link-picker-item { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; cursor: pointer; transition: all .15s; }
+.study-link-picker-item:hover { border-color: var(--fuji-border); background: var(--fuji-bg); }
+
+/* ── バージョン履歴パネル ── */
+.study-version-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; max-height: 420px; overflow-y: auto; }
+.study-version-item { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; }
+.study-version-top { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-muted); margin-bottom: 5px; }
+.study-version-date { font-weight: 700; color: var(--text-secondary); }
+.study-version-preview { font-size: 11px; color: var(--text-muted); line-height: 1.5; margin-bottom: 8px; }
+.study-version-actions { display: flex; gap: 5px; flex-wrap: wrap; }
+.study-version-preview-full { white-space: pre-wrap; font-size: 13.5px; line-height: 1.9; color: var(--text-primary); max-height: 500px; overflow-y: auto; padding: 4px; }
+
+/* ── エクスポートモーダル ── */
+.study-export-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.study-export-fmt-card { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px 10px; text-align: center; cursor: pointer; transition: all .15s; font-size: 12px; color: var(--text-secondary); }
+.study-export-fmt-card:hover { border-color: var(--fuji-border); background: var(--fuji-bg); color: var(--fuji); }
+.study-export-fmt-card i { display: block; font-size: 22px; margin-bottom: 8px; color: var(--fuji); }
 
 /* ── モバイル最適化（書斎） ── */
 @media (max-width: 900px) {
@@ -9425,6 +9504,12 @@ body {
   .study-editor-toolbar { padding: 10px 12px; flex-wrap: wrap; }
   .study-cat-row { gap: 6px; }
   .study-cat-chip { font-size: 10.5px; padding: 5px 10px; }
+  .study-tpl-grid { grid-template-columns: 1fr; }
+  .study-export-grid { grid-template-columns: 1fr; }
+  .study-tagcloud { gap: 4px; }
+  .study-tagcloud-item { font-size: 10px; padding: 3px 8px; }
+  .study-select-bar { padding: 8px 10px; font-size: 11px; }
+  .study-sort-select { width: 100%; }
 }
 
 /* ================================================================
