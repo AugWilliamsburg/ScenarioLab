@@ -9426,3 +9426,94 @@ body {
   .study-cat-row { gap: 6px; }
   .study-cat-chip { font-size: 10.5px; padding: 5px 10px; }
 }
+
+/* ================================================================
+   サイト全体モバイル最適化（追加分）
+   方針: PC版のCSSは一切変更せず、@media (max-width) のみで追加調整。
+   既存の @media ブレークポイント（900px / 700px / 600px / 480px）に揃える。
+   ================================================================ */
+
+/* ── 脚本エディタ（メイン執筆画面） ── */
+@media (max-width: 900px) {
+  .editor-layout {
+    grid-template-columns: 1fr;
+    height: auto;
+    min-height: 0;
+  }
+  .editor-main { min-height: 70vh; }
+  .editor-sidebar { max-height: none; }
+  .editor-toolbar { padding: 6px 8px; gap: 4px; }
+  .editor-toolbar-group { gap: 3px; }
+}
+@media (max-width: 480px) {
+  .editor-toolbar-group .btn-sm span { display: none; }
+  .editor-autosave-ind span { display: none; }
+}
+
+/* ── モーダル内フォーム（2カラム→1カラム） ── */
+@media (max-width: 600px) {
+  .grid-2, .grid-3 {
+    grid-template-columns: 1fr;
+  }
+  .modal-body { padding: 14px 16px; }
+  .modal-header { padding: 13px 16px; }
+  .modal-footer { padding: 11px 16px; flex-wrap: wrap; }
+  .modal-overlay { padding: 10px; }
+  .modal { max-height: 92vh; }
+}
+
+/* ── ムードボード ── */
+@media (max-width: 480px) {
+  .mood-board { grid-template-columns: 1fr; }
+}
+
+/* ── ストーリーサークル（cycle-grid） ── */
+@media (max-width: 700px) {
+  .cycle-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── カレンダー（ジャーナル） ── */
+@media (max-width: 600px) {
+  .cal-cell { min-height: 40px; padding: 2px; }
+  .cal-day-num { font-size: 10.5px; }
+  .cal-task-dot { width: 5px; height: 5px; }
+}
+@media (max-width: 420px) {
+  .cal-cell { min-height: 34px; }
+}
+
+/* ── プロジェクト詳細（pdv3）リンクグリッド ── */
+@media (max-width: 480px) {
+  .pdv3-links-grid { grid-template-columns: 1fr; }
+}
+
+/* ── トップ画面（top-links-grid） ── */
+@media (max-width: 480px) {
+  .top-links-grid { grid-template-columns: 1fr; }
+}
+
+/* ── タイマー（BGM/アンビエント選択） ── */
+@media (max-width: 480px) {
+  .timer-ambient-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* ── Save the Cat ビートアイテム ── */
+@media (max-width: 600px) {
+  .stc-beat-item {
+    grid-template-columns: 16px 1fr;
+    font-size: 11px;
+  }
+  .stc-beat-item > *:last-child { grid-column: 1 / -1; }
+}
+
+/* ── サイドバー幅・タップ領域の微調整（既存の幅指定を上書きせず補完） ── */
+@media (max-width: 480px) {
+  .sidebar-toggle-btn { width: 32px; height: 32px; }
+  .nav-item { padding: 9px 12px; }
+}
+
+/* ── フォーム全般：モバイルでのタップしやすさ改善 ── */
+@media (max-width: 600px) {
+  .form-input, .form-select, .form-textarea { font-size: 13.5px; padding: 9px 10px; }
+  .btn { padding: 9px 14px; }
+}
