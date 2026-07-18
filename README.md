@@ -1,21 +1,71 @@
-```txt
-npm install
-npm run dev
-```
+# シナリオラボ (Scenario Lab)
 
-```txt
-npm run deploy
-```
+## Project Overview
+- **Name**: シナリオラボ（脚本執筆支援ツール）
+- **Goal**: 脚本・シナリオ執筆の全フェーズ（着想 → 構成 → 執筆 → 添削 → 管理）を一元的に支援するWebアプリケーション
+- **Main Features**:
+  - プロジェクト管理（作品ごとのアイデア・キャラクター・世界観・タスク管理）
+  - 職員室：AI風の精密採点エンジンによる脚本添削（8カテゴリ・24項目、複数審査員視点でのフィードバック）
+  - 執筆サポート：学習センター／ツール／テンプレート／**書斎（NEW）**
+  - PDFファイルからの脚本テキスト自動抽出（縦書き・横書き対応、pdfminerベースの専用サーバー）
+  - ジャーナル、名前辞典、世界観設定、インスピレーションボード、ストーリーマップ等の設計支援機能
+  - PWA対応（ホーム画面への追加、専用アイコン）
 
-[For generating/synchronizing types based on your Worker configuration run](https://developers.cloudflare.com/workers/wrangler/commands/#types):
+## URLs
+- **開発環境（サンドボックス）**: PM2にて `scenario-lab`（ポート3000）と `pdf-extractor`（ポート3001）が稼働
+- **GitHub**: （未設定 — 必要に応じて `setup_github_environment` 実行後にpushしてください）
 
-```txt
-npm run cf-typegen
-```
+## 書斎（Study Room）— 新機能
+「執筆サポート」セクションに追加された、インプットとアウトプットの集積・執筆空間。
 
-Pass the `CloudflareBindings` as generics when instantiation `Hono`:
+### アウトプットモード（自由執筆）
+- ブラウザのタブのような複数原稿管理（タブバーで開閉・切替）
+- ギャラリー表示：保存済み原稿をカード形式でコンパクトに一覧化、検索対応
+- 高度なエディタ：フォント切替（ゴシック／明朝／タイプ）、タグ付け、Tabキーでの字下げ、集中執筆モード（Zenモード）
+- 自動保存（900ms デバウンス）＋手動保存
+- **添削機能**：「この原稿を添削する」ボタンから、既存の「職員室」の精密採点エンジン（`staffRoomRunAnalysis`）を再利用してスコアリング・フィードバックを取得
+  - サイドパネルにスコア・グレード・カテゴリ別採点を表示
+  - 「詳細」ボタンで総評・良い点・課題点・改稿提案・審査員コメントをモーダル表示
 
-```ts
-// src/index.ts
-const app = new Hono<{ Bindings: CloudflareBindings }>()
-```
+### インプットモード（学び・引用の集積）
+- トグルボタンでアウトプットモードから切替
+- 作家名・作品名・引用・気づき・タグを自由記録できるメモカード
+- 5カテゴリ分類（名文・引用／技法・手法／気づき・発見／語彙・表現／構成メモ）
+- 検索・カテゴリフィルタ対応
+
+## Data Architecture
+- **Data Models**:
+  - `study_drafts`（書斎の原稿：id, title, content, tags, font, scoreResult, createdAt/updatedAt 等）
+  - `study_inputs`（書斎のインプットメモ：id, category, author, workTitle, quote, memo, tags 等）
+  - 既存モデル：projects, characters, ideas, journal entries, staffroom sessions 等
+- **Storage Services**: ブラウザ `localStorage`（`sl_` プレフィックス付きキー、`DB.get/set` ラッパー経由）。サーバー側でのデータ永続化は行っていません。
+- **Data Flow**: クライアントサイドSPA（`State.currentPage` による画面切替 + `render()` による再描画）。バックエンド（Hono）はHTML/静的アセット配信とPDF抽出プロキシのみを担当。
+
+## User Guide
+1. サイドバー「執筆サポート」セクションの「書斎」をクリックして書斎ページへ移動
+2. 右上のトグルで「アウトプット」（執筆）と「インプット」（学びの収集）を切替
+3. アウトプット：「新しい原稿」で執筆開始 → 自動保存 → 「この原稿を添削する」でAI添削 → ギャラリーで一覧管理
+4. インプット：「インプットを追加」で好きな作家・作品からの学びを記録・分類・検索
+
+## Favicon / PWA アイコン
+- ブラウザタブのファビコン、および「ホーム画面に追加」時のアイコンを、ユーザー提供の羽根ペン(赤)ロゴに変更
+- `public/static/icons/` に各サイズ（16/32/48/180/192/512/maskable-512）を生成し配置
+- `public/static/manifest.json` でPWAアイコンを定義、`src/index.tsx` の `<head>` にfavicon/apple-touch-icon/manifestのメタタグを追加
+- サイト内のロゴ・デザインはこの変更の対象外（変更なし）
+
+## Deployment
+- **Platform**: Cloudflare Pages（Hono + Vite + Wrangler）
+- **Status**: 開発中（サンドボックス環境で稼働確認済み、本番デプロイは未実施）
+- **Tech Stack**: Hono (backend/static配信) + Vanilla JS SPA (`public/static/app.js`) + Python/Flask（PDF抽出専用サーバー、`pdf_server.py`）
+- **Local Dev**:
+  ```bash
+  npm run build
+  pm2 start ecosystem.config.cjs       # メインアプリ (port 3000)
+  pm2 start pdf_ecosystem.config.cjs   # PDF抽出サーバー (port 3001)
+  ```
+- **Last Updated**: 2026-07-18
+
+## 今後の開発候補（未実装）
+- PC版を変更せず、サイト全体（書斎以外の既存ページ）のモバイル表示最適化（@media クエリのみで対応）
+- 書斎の原稿を既存プロジェクトのシーン/アイデアへ取り込む連携機能
+- インプットメモから執筆エディタへのドラッグ＆ドロップ的な参照挿入

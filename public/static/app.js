@@ -222,6 +222,13 @@ function render() {
     return;
   }
 
+  // 書斎ページ
+  if (p === 'study' || (p && p.startsWith('study-'))) {
+    app.innerHTML = renderLayout(renderStudyPage());
+    bindStudyPage();
+    return;
+  }
+
   // 設定ページ
   if (p === 'settings') {
     app.innerHTML = renderLayout(renderSettingsPage());
@@ -322,6 +329,7 @@ function renderLayout(content, proj = null) {
   const isLearnPage = cp === 'learn' || cp === 'learn-guide' || cp === 'learn-articles' || cp === 'learn-exercises' || cp === 'learn-glossary' || cp === 'learn-notes' || cp === 'learn-staffroom' || (cp && (cp.startsWith('article-') || cp.startsWith('exercise-')));
   const isToolsPage = cp === 'tools' || cp === 'tool-logline' || cp === 'tool-char-diag' || cp === 'tool-scene' || cp === 'tool-timer' || cp === 'tool-pitch' || cp === 'tool-tension' || cp === 'tool-name-gen' || cp === 'tool-structure' || cp === 'tool-emotion-arc' || cp === 'tool-world-notes' || cp === 'tool-dialogue-check' || cp === 'tool-plot-holes' || cp === 'tool-beat-counter';
   const isTemplatesPage = cp === 'templates' || (cp && cp.startsWith('template-'));
+  const isStudyPage = cp === 'study' || (cp && cp.startsWith('study-'));
   const isSettingsPage = cp === 'settings';
   const isJournalPage = cp === 'journal';
   const isNameDictPage = cp === 'namedict';
@@ -330,7 +338,7 @@ function renderLayout(content, proj = null) {
   const isBoardPage = cp === 'board' || cp === 'storymap';
   const isTasksPage = cp === 'tasks';
   const isStorymapPage = cp === 'storymap';
-  const isSpecialPage = isLearnPage || isToolsPage || isTemplatesPage || isSettingsPage || isJournalPage || isNameDictPage || isWorldPage || isInspirationPage || isBoardPage || isTasksPage || isStorymapPage;
+  const isSpecialPage = isLearnPage || isToolsPage || isTemplatesPage || isStudyPage || isSettingsPage || isJournalPage || isNameDictPage || isWorldPage || isInspirationPage || isBoardPage || isTasksPage || isStorymapPage;
 
   const projectFooter = proj ? `
     <div class="sidebar-footer">
@@ -358,6 +366,7 @@ function renderLayout(content, proj = null) {
     'tool-tension':   { icon:'fa-chart-line',color:'var(--momo)',   title:'テンションカーブ分析',sub:'物語の緊張度を可視化' },
     'tool-name-gen':  { icon:'fa-signature', color:'var(--kon-lt)', title:'キャラクター名ジェネレーター', sub:'和・洋・古風な名前を生成' },
     templates:        { icon:'fa-copy',      color:'var(--kogane)', title:'テンプレート集',     sub:'すぐに使えるフォーマット' },
+    study:            { icon:'fa-feather-pointed', color:'var(--fuji)', title:'書斎',          sub:'自由に書き、学びを集め、磨き上げる執筆空間' },
     settings:         { icon:'fa-gear',      color:'var(--text-muted)', title:'設定',           sub:'アプリの設定' },
     journal:          { icon:'fa-book',      color:'var(--matcha)', title:'執筆日誌',           sub:'毎日の執筆記録・進捗管理' },
     namedict:         { icon:'fa-spell-check',color:'var(--kon-lt)',title:'キャラクター名辞典', sub:'登場人物の名前・読みを管理' },
@@ -367,7 +376,7 @@ function renderLayout(content, proj = null) {
     tasks:            { icon:'fa-calendar-check',   color:'var(--matcha)', title:'タスク管理',        sub:'執筆タスク・スケジュール・習慣管理' },
     storymap:         { icon:'fa-film',              color:'var(--fuji)',   title:'ストーリーボード',  sub:'カンバンボード＆シーンマップで物語を視覚設計' },
   };
-  const cpKey = TOPBAR_PAGES[cp] ? cp : (cp && cp.startsWith('article-') ? 'learn' : null);
+  const cpKey = TOPBAR_PAGES[cp] ? cp : (cp && cp.startsWith('article-') ? 'learn' : (cp && cp.startsWith('study-') ? 'study' : null));
   const tbData = cpKey ? TOPBAR_PAGES[cpKey] : null;
 
   // ── サイドバー折り畳み状態 ── デフォルトは閉じた状態
@@ -530,6 +539,9 @@ function renderLayout(content, proj = null) {
           <div class="sidebar-section-items">
             <div class="nav-item ${isLearnPage?'active':''}" onclick="navigate('learn')">
               <span class="nav-icon"><i class="fas fa-graduation-cap" style="color:#c0b8ff"></i></span><span class="nav-label">学習センター</span>
+            </div>
+            <div class="nav-item ${isStudyPage?'active':''}" onclick="navigate('study')">
+              <span class="nav-icon"><i class="fas fa-feather-pointed" style="color:#e0a8ff"></i></span><span class="nav-label">書斎</span>
             </div>
             <div class="nav-item ${isToolsPage?'active':''}" onclick="navigate('tools')">
               <span class="nav-icon"><i class="fas fa-toolbox" style="color:#6ddede"></i></span><span class="nav-label">ツール</span>
@@ -32632,6 +32644,662 @@ document.addEventListener('keydown', (e) => {
     }
   }
 });
+
+// ================================================================
+//  書斎 — 執筆・インプット集積の場
+//  アウトプットモード：自由執筆＋タブ管理＋ギャラリー＋職員室添削連携
+//  インプットモード：あらゆる学び・引用・メモを自由に集積
+// ================================================================
+
+// ── データモデル ────────────────────────────────────────────
+const StudyDB = {
+  getDrafts()      { return DB.get('study_drafts', []); },
+  saveDrafts(d)    { DB.set('study_drafts', d); },
+  getDraft(id)     { return this.getDrafts().find(d => d.id === id) || null; },
+  saveDraft(draft) {
+    const ds = this.getDrafts();
+    const idx = ds.findIndex(d => d.id === draft.id);
+    if (idx >= 0) ds[idx] = draft; else ds.unshift(draft);
+    this.saveDrafts(ds);
+  },
+  deleteDraft(id) {
+    this.saveDrafts(this.getDrafts().filter(d => d.id !== id));
+    // 開いているタブからも除去
+    const tabs = DB.get('study_open_tabs', []).filter(t => t !== id);
+    DB.set('study_open_tabs', tabs);
+  },
+
+  getInputs()      { return DB.get('study_inputs', []); },
+  saveInputs(d)    { DB.set('study_inputs', d); },
+  getInput(id)     { return this.getInputs().find(d => d.id === id) || null; },
+  saveInput(item) {
+    const ds = this.getInputs();
+    const idx = ds.findIndex(d => d.id === item.id);
+    if (idx >= 0) ds[idx] = item; else ds.unshift(item);
+    this.saveInputs(ds);
+  },
+  deleteInput(id) {
+    this.saveInputs(this.getInputs().filter(d => d.id !== id));
+  },
+};
+
+function newStudyDraft(data = {}) {
+  return {
+    id: 'sd-' + uid(),
+    title: data.title || '無題の原稿',
+    content: data.content || '',
+    tags: data.tags || [],
+    font: data.font || 'sans',
+    createdAt: now(),
+    updatedAt: now(),
+    scoreResult: null,
+    scoredAt: null,
+  };
+}
+
+function newStudyInput(data = {}) {
+  return {
+    id: 'si-' + uid(),
+    title: data.title || '',
+    author: data.author || '',
+    workTitle: data.workTitle || '',
+    category: data.category || 'quote', // quote(引用) / technique(技法) / observation(気づき) / vocabulary(語彙) / structure(構成メモ)
+    quote: data.quote || '',
+    memo: data.memo || '',
+    tags: data.tags || [],
+    color: data.color || 'fuji',
+    createdAt: now(),
+    updatedAt: now(),
+  };
+}
+
+const STUDY_INPUT_CATEGORIES = [
+  { id: 'quote',       label: '名文・引用',   icon: 'fa-quote-right',       color: 'fuji' },
+  { id: 'technique',   label: '技法・手法',   icon: 'fa-wand-magic-sparkles', color: 'momo' },
+  { id: 'observation', label: '気づき・発見', icon: 'fa-lightbulb',         color: 'kogane' },
+  { id: 'vocabulary',  label: '語彙・表現',   icon: 'fa-language',          color: 'asagi' },
+  { id: 'structure',   label: '構成メモ',     icon: 'fa-diagram-project',   color: 'matcha' },
+];
+
+// ── 状態初期化ヘルパー ─────────────────────────────────────
+function studyGetMode() { return DB.get('study_mode', 'output'); }
+function studySetMode(m) { DB.set('study_mode', m); render(); }
+function studyGetOpenTabs() { return DB.get('study_open_tabs', []); }
+function studyGetActiveTab() { return DB.get('study_active_tab', null); }
+function studySetActiveTab(id) { DB.set('study_active_tab', id); }
+
+function studyOpenDraftTab(draftId) {
+  let tabs = studyGetOpenTabs();
+  if (!tabs.includes(draftId)) { tabs.push(draftId); DB.set('study_open_tabs', tabs); }
+  studySetActiveTab(draftId);
+  DB.set('study_view', 'editor');
+  render();
+}
+
+function studyCloseTab(draftId, evt) {
+  if (evt) evt.stopPropagation();
+  let tabs = studyGetOpenTabs().filter(t => t !== draftId);
+  DB.set('study_open_tabs', tabs);
+  const active = studyGetActiveTab();
+  if (active === draftId) {
+    if (tabs.length > 0) { studySetActiveTab(tabs[tabs.length - 1]); DB.set('study_view', 'editor'); }
+    else { studySetActiveTab(null); DB.set('study_view', 'gallery'); }
+  }
+  render();
+}
+
+function studyNewDraft() {
+  const draft = newStudyDraft();
+  StudyDB.saveDraft(draft);
+  studyOpenDraftTab(draft.id);
+  setTimeout(() => { const t = $('#study-title-input'); if (t) { t.focus(); t.select(); } }, 60);
+}
+
+function studyShowGallery() {
+  DB.set('study_view', 'gallery');
+  render();
+}
+
+// ── メインレンダー ─────────────────────────────────────────
+function renderStudyPage() {
+  const mode = studyGetMode();
+  if (mode === 'input') return renderStudyInputMode();
+  return renderStudyOutputMode();
+}
+
+function bindStudyPage() {
+  // オートセーブ：エディタ本文
+  const ta = $('#study-editor-textarea');
+  if (ta) {
+    ta.addEventListener('input', studyScheduleAutoSave);
+    // タブキーで字下げ（脚本らしい執筆感を出す）
+    ta.addEventListener('keydown', (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const start = ta.selectionStart, end = ta.selectionEnd;
+        ta.value = ta.value.slice(0, start) + '　' + ta.value.slice(end);
+        ta.selectionStart = ta.selectionEnd = start + 1;
+        studyScheduleAutoSave();
+      }
+    });
+  }
+}
+
+let _studyAutoSaveTimer = null;
+function studyScheduleAutoSave() {
+  clearTimeout(_studyAutoSaveTimer);
+  const indicator = $('#study-save-indicator');
+  if (indicator) { indicator.textContent = '編集中…'; indicator.style.color = 'var(--kogane)'; }
+  _studyAutoSaveTimer = setTimeout(() => {
+    studySaveCurrentDraft(true);
+  }, 900);
+}
+
+function studySaveCurrentDraft(silent = false) {
+  const activeId = studyGetActiveTab();
+  if (!activeId) return;
+  const draft = StudyDB.getDraft(activeId);
+  if (!draft) return;
+  const ta = $('#study-editor-textarea');
+  const titleEl = $('#study-title-input');
+  if (ta) draft.content = ta.value;
+  if (titleEl) draft.title = titleEl.value || '無題の原稿';
+  draft.updatedAt = now();
+  StudyDB.saveDraft(draft);
+
+  // 文字数などをライブ更新（全体re-renderせず軽量更新）
+  const wc = countWords(draft.content);
+  const wcEl = $('#study-wordcount-live');
+  if (wcEl) wcEl.textContent = wc.toLocaleString() + '字';
+  const indicator = $('#study-save-indicator');
+  if (indicator) { indicator.textContent = '✓ 保存済み ' + fmtDatetime(draft.updatedAt).slice(11); indicator.style.color = 'var(--matcha)'; }
+
+  // タブのタイトルも更新
+  const tabTitleEl = document.querySelector(`.study-tab[data-id="${activeId}"] .study-tab-title`);
+  if (tabTitleEl) tabTitleEl.textContent = draft.title;
+
+  if (!silent) toast('保存しました', 'success');
+}
+
+function studyDeleteDraft(draftId) {
+  if (!confirm('この原稿を削除しますか？この操作は取り消せません。')) return;
+  StudyDB.deleteDraft(draftId);
+  toast('削除しました', 'info');
+  render();
+}
+
+function studyRenameDraft(draftId) {
+  const draft = StudyDB.getDraft(draftId);
+  if (!draft) return;
+  const newTitle = prompt('新しいタイトル：', draft.title);
+  if (newTitle === null) return;
+  draft.title = newTitle.trim() || '無題の原稿';
+  draft.updatedAt = now();
+  StudyDB.saveDraft(draft);
+  render();
+}
+
+function studyDuplicateDraft(draftId) {
+  const draft = StudyDB.getDraft(draftId);
+  if (!draft) return;
+  const copy = newStudyDraft({ title: draft.title + '（コピー）', content: draft.content, tags: [...(draft.tags||[])], font: draft.font });
+  StudyDB.saveDraft(copy);
+  toast('複製しました', 'success');
+  render();
+}
+
+// ── アウトプットモード：タブ型エディタ + ギャラリー ─────────
+function renderStudyOutputMode() {
+  const drafts = StudyDB.getDrafts();
+  const openTabIds = studyGetOpenTabs();
+  const activeId = studyGetActiveTab();
+  const view = DB.get('study_view', drafts.length === 0 ? 'gallery' : (openTabIds.length > 0 ? 'editor' : 'gallery'));
+
+  const modeSwitch = renderStudyModeSwitch('output');
+
+  if (view === 'editor' && activeId && StudyDB.getDraft(activeId)) {
+    return `${modeSwitch}${renderStudyTabBar(openTabIds, activeId)}${renderStudyEditor(activeId)}`;
+  }
+  return `${modeSwitch}${openTabIds.length > 0 ? renderStudyTabBar(openTabIds, activeId) : ''}${renderStudyGallery(drafts)}`;
+}
+
+function renderStudyModeSwitch(current) {
+  return `
+  <div class="study-hero">
+    <div class="study-hero-line"></div>
+    <div class="study-hero-top">
+      <div>
+        <div class="study-hero-title"><i class="fas fa-feather-pointed" style="color:var(--fuji);margin-right:9px"></i>書斎</div>
+        <div class="study-hero-sub">自由に書き、あらゆる学びを集め、磨き上げる — あなただけの執筆空間</div>
+      </div>
+      <div class="study-mode-toggle">
+        <button class="study-mode-btn ${current==='output'?'active':''}" onclick="studySetMode('output')">
+          <i class="fas fa-pen-nib"></i> アウトプット
+        </button>
+        <button class="study-mode-btn ${current==='input'?'active':''}" onclick="studySetMode('input')">
+          <i class="fas fa-inbox"></i> インプット
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderStudyTabBar(tabIds, activeId) {
+  const tabs = tabIds.map(id => {
+    const d = StudyDB.getDraft(id);
+    if (!d) return '';
+    const isActive = id === activeId;
+    return `
+    <div class="study-tab ${isActive?'active':''}" data-id="${id}" onclick="studyOpenDraftTab('${id}')">
+      <i class="fas fa-file-lines study-tab-icon"></i>
+      <span class="study-tab-title">${esc(d.title || '無題の原稿')}</span>
+      <span class="study-tab-close" onclick="studyCloseTab('${id}', event)"><i class="fas fa-xmark"></i></span>
+    </div>`;
+  }).join('');
+  return `
+  <div class="study-tabbar">
+    <div class="study-tabbar-scroll">${tabs}</div>
+    <div class="study-tabbar-actions">
+      <button class="study-tab-newbtn" onclick="studyNewDraft()" title="新しい原稿"><i class="fas fa-plus"></i></button>
+      <button class="study-tab-gallerybtn ${!activeId?'active':''}" onclick="studyShowGallery()" title="ギャラリーを見る"><i class="fas fa-grip"></i></button>
+    </div>
+  </div>`;
+}
+
+function renderStudyGallery(drafts) {
+  const search = State.currentTab['study-gallery-search'] || '';
+  let filtered = drafts;
+  if (search) {
+    const q = search.toLowerCase();
+    filtered = filtered.filter(d => (d.title||'').toLowerCase().includes(q) || (d.content||'').toLowerCase().includes(q) || (d.tags||[]).some(t=>t.toLowerCase().includes(q)));
+  }
+  const totalWords = drafts.reduce((a,d) => a + countWords(d.content||''), 0);
+  const scoredCount = drafts.filter(d => d.scoreResult).length;
+  const avgScore = scoredCount > 0 ? Math.round(drafts.filter(d=>d.scoreResult).reduce((a,d)=>a+(d.scoreResult.totalScore||0),0) / scoredCount) : null;
+
+  const cards = filtered.length === 0 ? `
+    <div class="study-empty">
+      <div class="study-empty-icon"><i class="fas fa-scroll"></i></div>
+      <div class="study-empty-title">${search ? '条件に一致する原稿がありません' : 'まだ原稿がありません'}</div>
+      <div class="study-empty-sub">${search ? '検索条件を変えてお試しください' : '思いついたシーンや台詞を、自由に書き始めましょう'}</div>
+      ${!search ? `<button class="btn btn-primary" onclick="studyNewDraft()"><i class="fas fa-plus"></i> 新しい原稿を書く</button>` : ''}
+    </div>`
+    : `<div class="study-gallery-grid">${filtered.map(renderStudyGalleryCard).join('')}</div>`;
+
+  return `
+  <div class="study-stat-row">
+    <div class="study-stat-chip"><i class="fas fa-scroll"></i> ${drafts.length}稿</div>
+    <div class="study-stat-chip"><i class="fas fa-font"></i> ${totalWords.toLocaleString()}字</div>
+    <div class="study-stat-chip"><i class="fas fa-chalkboard-teacher"></i> ${scoredCount}稿 添削済み</div>
+    ${avgScore!==null ? `<div class="study-stat-chip highlight"><i class="fas fa-star"></i> 平均${avgScore}点</div>` : ''}
+  </div>
+  <div class="study-toolbar">
+    <div class="study-search-wrap">
+      <i class="fas fa-search"></i>
+      <input class="form-input" placeholder="原稿を検索…" value="${esc(search)}" oninput="setStudyGallerySearch(this.value)" style="padding-left:30px">
+    </div>
+    <button class="btn btn-primary" onclick="studyNewDraft()"><i class="fas fa-plus"></i> 新しい原稿</button>
+  </div>
+  ${cards}`;
+}
+
+function setStudyGallerySearch(v) {
+  State.currentTab['study-gallery-search'] = v;
+  const grid = $('.study-gallery-grid')?.parentElement;
+  render();
+  setTimeout(() => { const inp = document.querySelector('.study-search-wrap input'); if (inp) { inp.focus(); inp.setSelectionRange(v.length, v.length); } }, 0);
+}
+
+function renderStudyGalleryCard(d) {
+  const wc = countWords(d.content || '');
+  const preview = (d.content || '').replace(/\n+/g,' ').slice(0, 90);
+  const score = d.scoreResult;
+  const gradeColors = { 'S':'#c8402a','A':'#b87e00','B':'#3d7035','C':'#624fa0','D':'#706254' };
+  return `
+  <div class="study-gcard" onclick="studyOpenDraftTab('${d.id}')">
+    <div class="study-gcard-top">
+      <div class="study-gcard-title">${esc(d.title || '無題の原稿')}</div>
+      <div class="study-gcard-menu" onclick="event.stopPropagation();studyGcardMenu(event,'${d.id}')"><i class="fas fa-ellipsis-vertical"></i></div>
+    </div>
+    <div class="study-gcard-preview">${esc(preview) || '（まだ本文がありません）'}${preview.length>=90?'…':''}</div>
+    <div class="study-gcard-tags">
+      ${(d.tags||[]).slice(0,3).map(t=>`<span class="tag tag-fuji" style="font-size:9.5px">${esc(t)}</span>`).join('')}
+    </div>
+    <div class="study-gcard-foot">
+      <span class="study-gcard-meta"><i class="fas fa-font"></i> ${wc.toLocaleString()}字</span>
+      <span class="study-gcard-meta"><i class="fas fa-clock"></i> ${fmtDate(d.updatedAt)}</span>
+      ${score ? `<span class="study-gcard-score" style="color:${gradeColors[score.grade]||'var(--fuji)'}"><i class="fas fa-chalkboard-teacher"></i> ${score.grade} / ${score.totalScore}点</span>` : ''}
+    </div>
+  </div>`;
+}
+
+function studyGcardMenu(evt, draftId) {
+  const rect = evt.currentTarget.getBoundingClientRect();
+  closeModal();
+  openModal(
+    `<i class="fas fa-file-lines" style="color:var(--fuji)"></i> 原稿の操作`,
+    `<div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-secondary" style="justify-content:flex-start" onclick="closeModal();studyOpenDraftTab('${draftId}')"><i class="fas fa-pen"></i> 開いて編集する</button>
+      <button class="btn btn-secondary" style="justify-content:flex-start" onclick="closeModal();studyRenameDraft('${draftId}')"><i class="fas fa-i-cursor"></i> タイトルを変更</button>
+      <button class="btn btn-secondary" style="justify-content:flex-start" onclick="closeModal();studyDuplicateDraft('${draftId}')"><i class="fas fa-copy"></i> 複製する</button>
+      <button class="btn btn-danger" style="justify-content:flex-start" onclick="closeModal();studyDeleteDraft('${draftId}')"><i class="fas fa-trash"></i> 削除する</button>
+    </div>`
+  );
+}
+
+// ── 高度エディタ本体 ───────────────────────────────────────
+const STUDY_FONTS = {
+  sans:   { label: 'ゴシック', css: "'Noto Sans JP', sans-serif" },
+  serif:  { label: '明朝',     css: "'Noto Serif JP', serif" },
+  mono:   { label: 'タイプ',   css: "'Courier Prime', monospace" },
+};
+
+function renderStudyEditor(draftId) {
+  const d = StudyDB.getDraft(draftId);
+  if (!d) return renderStudyGallery(StudyDB.getDrafts());
+  const wc = countWords(d.content || '');
+  const focusMode = State.currentTab['study-focus'] === true;
+  const font = STUDY_FONTS[d.font || 'sans'] || STUDY_FONTS.sans;
+  const zenMode = State.currentTab['study-zen'] === true;
+
+  const scorePanel = renderStudyScorePanel(d);
+
+  return `
+  <div class="study-editor-wrap ${zenMode?'study-zen':''}">
+    <div class="study-editor-main">
+      <div class="study-editor-toolbar">
+        <input class="study-title-input" id="study-title-input" value="${esc(d.title)}" placeholder="無題の原稿"
+          oninput="studyScheduleAutoSave()" onblur="studySaveCurrentDraft(true)">
+        <div class="study-editor-toolbar-actions">
+          <select class="study-font-select" onchange="studySetDraftFont('${draftId}', this.value)" title="フォント">
+            ${Object.entries(STUDY_FONTS).map(([k,v]) => `<option value="${k}" ${d.font===k?'selected':''}>${v.label}</option>`).join('')}
+          </select>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="studyToggleZen()" title="集中執筆モード"><i class="fas fa-expand"></i></button>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="studySaveCurrentDraft(false)" title="今すぐ保存"><i class="fas fa-floppy-disk"></i></button>
+        </div>
+      </div>
+      <div class="study-tag-row">
+        <div class="study-tag-list" id="study-tag-list">
+          ${(d.tags||[]).map(t => `<span class="tag tag-fuji study-tag-chip">${esc(t)} <i class="fas fa-xmark" onclick="studyRemoveTag('${draftId}','${esc(t)}')"></i></span>`).join('')}
+        </div>
+        <input class="study-tag-input" placeholder="+ タグ追加（Enter）" onkeydown="if(event.key==='Enter'){studyAddTag('${draftId}',this.value);this.value='';}">
+      </div>
+      <textarea id="study-editor-textarea" class="study-editor-textarea" style="font-family:${font.css}"
+        placeholder="ここに自由に書いてください。シーン、シークエンス、台詞、断片——何でも構いません。&#10;&#10;思いついたままに書き、後で磨き上げましょう。">${esc(d.content)}</textarea>
+      <div class="study-editor-statusbar">
+        <span id="study-wordcount-live"><i class="fas fa-font"></i> ${wc.toLocaleString()}字</span>
+        <span id="study-save-indicator" style="color:var(--matcha)">✓ 保存済み</span>
+        <span style="flex:1"></span>
+        <button class="btn btn-ghost btn-sm" onclick="studyShowGallery()"><i class="fas fa-grip"></i> ギャラリーへ</button>
+      </div>
+    </div>
+    ${zenMode ? '' : `<div class="study-editor-side">${scorePanel}</div>`}
+  </div>`;
+}
+
+function studySetDraftFont(draftId, font) {
+  const d = StudyDB.getDraft(draftId);
+  if (!d) return;
+  d.font = font;
+  StudyDB.saveDraft(d);
+  render();
+}
+
+function studyToggleZen() {
+  State.currentTab['study-zen'] = !State.currentTab['study-zen'];
+  render();
+  setTimeout(() => { const ta = $('#study-editor-textarea'); if (ta) ta.focus(); }, 0);
+}
+
+function studyAddTag(draftId, val) {
+  const v = (val||'').trim();
+  if (!v) return;
+  const d = StudyDB.getDraft(draftId);
+  if (!d) return;
+  d.tags = d.tags || [];
+  if (!d.tags.includes(v)) d.tags.push(v);
+  StudyDB.saveDraft(d);
+  render();
+  setTimeout(() => $('.study-tag-input')?.focus(), 0);
+}
+
+function studyRemoveTag(draftId, tag) {
+  const d = StudyDB.getDraft(draftId);
+  if (!d) return;
+  d.tags = (d.tags||[]).filter(t => t !== tag);
+  StudyDB.saveDraft(d);
+  render();
+}
+
+// ── 添削（職員室エンジン連携） ─────────────────────────────
+function renderStudyScorePanel(d) {
+  const score = d.scoreResult;
+  if (!score) {
+    return `
+    <div class="card study-side-card">
+      <div class="study-side-card-title"><i class="fas fa-chalkboard-teacher" style="color:var(--fuji)"></i> 添削・評価</div>
+      <div class="study-side-card-desc">職員室の精密採点エンジンで、この原稿を客観的に評価・添削できます。24項目・複数審査員視点でのフィードバックが得られます。</div>
+      <button class="btn btn-primary" style="width:100%;margin-top:10px" onclick="studyRunScoring('${d.id}')" id="study-score-btn">
+        <i class="fas fa-wand-magic-sparkles"></i> この原稿を添削する
+      </button>
+    </div>`;
+  }
+  const gradeColors = { 'S':'#c8402a','A':'#b87e00','B':'#3d7035','C':'#624fa0','D':'#706254' };
+  const gc = gradeColors[score.grade] || 'var(--fuji)';
+  const catRows = (score.categoryScores || []).slice(0, 6).map(c => `
+    <div class="meter-row" style="margin-bottom:6px">
+      <div class="meter-label" style="font-size:11px">${esc(c.name||c.category||'')}</div>
+      <div class="meter-bar" style="height:5px"><div class="meter-fill" style="width:${Math.round((c.score/(c.max||100))*100)}%;background:${gc}"></div></div>
+      <div class="meter-value" style="font-size:10.5px">${c.score}${c.max?'/'+c.max:''}</div>
+    </div>`).join('');
+
+  return `
+  <div class="card study-side-card">
+    <div class="study-side-card-title"><i class="fas fa-chalkboard-teacher" style="color:var(--fuji)"></i> 添削・評価</div>
+    <div class="study-score-badge" style="border-color:${gc}">
+      <div class="study-score-grade" style="color:${gc}">${esc(score.grade||'-')}</div>
+      <div class="study-score-num">${score.totalScore||0}<span style="font-size:11px;color:var(--text-muted)">点</span></div>
+    </div>
+    <div style="font-size:10.5px;color:var(--text-muted);text-align:center;margin-bottom:10px">${fmtDatetime(d.scoredAt)} 採点</div>
+    ${score.summary ? `<div class="study-score-summary">${esc(score.summary)}</div>` : ''}
+    ${catRows ? `<div style="margin-top:10px">${catRows}</div>` : ''}
+    <div style="display:flex;gap:6px;margin-top:10px">
+      <button class="btn btn-secondary btn-sm" style="flex:1" onclick="studyShowFullFeedback('${d.id}')"><i class="fas fa-file-lines"></i> 詳細</button>
+      <button class="btn btn-primary btn-sm" style="flex:1" onclick="studyRunScoring('${d.id}')" id="study-score-btn"><i class="fas fa-rotate"></i> 再添削</button>
+    </div>
+  </div>`;
+}
+
+function studyRunScoring(draftId) {
+  const d = StudyDB.getDraft(draftId);
+  if (!d) return;
+  const text = (d.content || '').trim();
+  const rawLen = text.replace(/[\s\n\r]/g, '').length;
+  if (rawLen < 30) { toast('本文が短すぎます（30字以上書いてから添削してください）', 'error'); return; }
+
+  const btn = $('#study-score-btn');
+  if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> 添削中…'; }
+
+  setTimeout(() => {
+    try {
+      const result = staffRoomRunAnalysis(text, 'general', 'competition');
+      const fresh = StudyDB.getDraft(draftId);
+      if (!fresh) return;
+      fresh.scoreResult = {
+        totalScore: result.totalScore,
+        grade: result.grade,
+        gradeLabel: result.gradeLabel,
+        summary: result.summary || '',
+        categoryScores: result.categoryScores || [],
+        strengths: result.strengths || '',
+        weaknesses: result.weaknesses || '',
+        suggestions: result.suggestions || '',
+        priority: result.priority || '',
+        judgesComments: (result.analysisStats && result.analysisStats.judgesComments) || result.judgesComments || [],
+        detailNotes: result.detailNotes || [],
+      };
+      fresh.scoredAt = now();
+      StudyDB.saveDraft(fresh);
+      toast('添削が完了しました', 'success');
+      render();
+    } catch (err) {
+      console.error('書斎添削エラー:', err);
+      toast('添削中にエラーが発生しました', 'error');
+      if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-wand-magic-sparkles"></i> この原稿を添削する'; }
+    }
+  }, 30);
+}
+
+function studyShowFullFeedback(draftId) {
+  const d = StudyDB.getDraft(draftId);
+  if (!d || !d.scoreResult) return;
+  const s = d.scoreResult;
+  const gradeColors = { 'S':'#c8402a','A':'#b87e00','B':'#3d7035','C':'#624fa0','D':'#706254' };
+  const gc = gradeColors[s.grade] || 'var(--fuji)';
+  const jc = (s.judgesComments || []).slice(0, 5).map(j => `
+    <div class="study-judge-comment">
+      <div class="study-judge-name">${esc(j.name || j.judge || '審査員')}</div>
+      <div class="study-judge-text">${esc(j.comment || j.text || '')}</div>
+    </div>`).join('');
+
+  openModal(
+    `<i class="fas fa-chalkboard-teacher" style="color:var(--fuji)"></i> 添削レポート — ${esc(d.title)}`,
+    `<div style="text-align:center;margin-bottom:16px">
+      <div style="font-size:40px;font-weight:800;color:${gc};font-family:'Noto Serif JP',serif">${esc(s.grade||'-')}</div>
+      <div style="font-size:14px;color:var(--text-muted)">${s.totalScore||0}点 ／ ${esc(s.gradeLabel||'')}</div>
+    </div>
+    ${s.summary ? `<div class="study-modal-block"><div class="study-modal-block-title"><i class="fas fa-align-left"></i> 総評</div><div class="study-modal-block-body">${esc(s.summary)}</div></div>` : ''}
+    ${s.strengths ? `<div class="study-modal-block"><div class="study-modal-block-title" style="color:var(--matcha)"><i class="fas fa-circle-check"></i> 良い点</div><div class="study-modal-block-body">${esc(s.strengths)}</div></div>` : ''}
+    ${s.weaknesses ? `<div class="study-modal-block"><div class="study-modal-block-title" style="color:var(--accent)"><i class="fas fa-circle-exclamation"></i> 課題点</div><div class="study-modal-block-body">${esc(s.weaknesses)}</div></div>` : ''}
+    ${s.suggestions ? `<div class="study-modal-block"><div class="study-modal-block-title" style="color:var(--kon-lt)"><i class="fas fa-lightbulb"></i> 改稿の提案</div><div class="study-modal-block-body">${esc(s.suggestions)}</div></div>` : ''}
+    ${s.priority ? `<div class="study-modal-block"><div class="study-modal-block-title" style="color:var(--kogane)"><i class="fas fa-flag"></i> 優先改善事項</div><div class="study-modal-block-body">${esc(s.priority)}</div></div>` : ''}
+    ${jc ? `<div class="study-modal-block"><div class="study-modal-block-title" style="color:var(--fuji)"><i class="fas fa-comments"></i> 審査員コメント</div>${jc}</div>` : ''}`,
+    `<button class="btn btn-secondary" onclick="closeModal()">閉じる</button>
+     <button class="btn btn-primary" onclick="closeModal();studyRunScoring('${draftId}')"><i class="fas fa-rotate"></i> 再添削する</button>`,
+    { size: 'modal-lg' }
+  );
+}
+
+// ── インプットモード：学び・引用・メモの自由集積 ─────────────
+function renderStudyInputMode() {
+  const items = StudyDB.getInputs();
+  const search = State.currentTab['study-input-search'] || '';
+  const catFilter = State.currentTab['study-input-cat'] || '';
+  let filtered = items;
+  if (catFilter) filtered = filtered.filter(i => i.category === catFilter);
+  if (search) {
+    const q = search.toLowerCase();
+    filtered = filtered.filter(i =>
+      (i.title||'').toLowerCase().includes(q) || (i.author||'').toLowerCase().includes(q) ||
+      (i.workTitle||'').toLowerCase().includes(q) || (i.quote||'').toLowerCase().includes(q) ||
+      (i.memo||'').toLowerCase().includes(q) || (i.tags||[]).some(t=>t.toLowerCase().includes(q)));
+  }
+
+  const catChips = STUDY_INPUT_CATEGORIES.map(c => `
+    <button class="study-cat-chip ${catFilter===c.id?'active':''}" style="${catFilter===c.id?`background:var(--${c.color}-bg);color:var(--${c.color});border-color:var(--${c.color}-border)`:''}" onclick="setStudyInputCat('${catFilter===c.id?'':c.id}')">
+      <i class="fas ${c.icon}"></i> ${c.label}
+    </button>`).join('');
+
+  const cards = filtered.length === 0 ? `
+    <div class="study-empty">
+      <div class="study-empty-icon"><i class="fas fa-inbox"></i></div>
+      <div class="study-empty-title">${search||catFilter ? '条件に一致するメモがありません' : 'まだインプットがありません'}</div>
+      <div class="study-empty-sub">${search||catFilter ? '検索条件を変えてお試しください' : '好きな作家・作品からの学びや気づきを、自由に集めましょう'}</div>
+      ${!search && !catFilter ? `<button class="btn btn-primary" onclick="studyNewInput()"><i class="fas fa-plus"></i> 最初のメモを追加</button>` : ''}
+    </div>`
+    : `<div class="study-input-grid">${filtered.map(renderStudyInputCard).join('')}</div>`;
+
+  return `${renderStudyModeSwitch('input')}
+  <div class="study-stat-row">
+    <div class="study-stat-chip"><i class="fas fa-inbox"></i> ${items.length}件のインプット</div>
+    ${STUDY_INPUT_CATEGORIES.map(c => {
+      const cnt = items.filter(i=>i.category===c.id).length;
+      return cnt>0 ? `<div class="study-stat-chip"><i class="fas ${c.icon}"></i> ${c.label} ${cnt}</div>` : '';
+    }).join('')}
+  </div>
+  <div class="study-toolbar">
+    <div class="study-search-wrap">
+      <i class="fas fa-search"></i>
+      <input class="form-input" placeholder="作家名・作品名・引用・メモを検索…" value="${esc(search)}" oninput="setStudyInputSearch(this.value)" style="padding-left:30px">
+    </div>
+    <button class="btn btn-primary" onclick="studyNewInput()"><i class="fas fa-plus"></i> インプットを追加</button>
+  </div>
+  <div class="study-cat-row">${catChips}</div>
+  ${cards}`;
+}
+
+function setStudyInputSearch(v) { State.currentTab['study-input-search'] = v; render(); setTimeout(()=>{const i=document.querySelector('.study-search-wrap input');if(i){i.focus();i.setSelectionRange(v.length,v.length);}},0); }
+function setStudyInputCat(c) { State.currentTab['study-input-cat'] = c; render(); }
+
+function renderStudyInputCard(item) {
+  const cat = STUDY_INPUT_CATEGORIES.find(c => c.id === item.category) || STUDY_INPUT_CATEGORIES[0];
+  return `
+  <div class="study-input-card" style="border-left:3px solid var(--${cat.color})" onclick="studyEditInput('${item.id}')">
+    <div class="study-input-card-top">
+      <span class="tag tag-${cat.color}" style="font-size:9.5px"><i class="fas ${cat.icon}"></i> ${cat.label}</span>
+      <span class="study-input-card-menu" onclick="event.stopPropagation();studyDeleteInputConfirm('${item.id}')"><i class="fas fa-trash"></i></span>
+    </div>
+    ${item.quote ? `<div class="study-input-card-quote">"${esc(item.quote)}"</div>` : ''}
+    ${item.memo ? `<div class="study-input-card-memo">${esc(item.memo).slice(0,140)}${item.memo.length>140?'…':''}</div>` : ''}
+    <div class="study-input-card-source">
+      ${item.author ? `<i class="fas fa-user" style="font-size:9px"></i> ${esc(item.author)}` : ''}
+      ${item.workTitle ? ` ／ <i class="fas fa-book" style="font-size:9px"></i> ${esc(item.workTitle)}` : ''}
+    </div>
+    <div class="study-input-card-tags">${(item.tags||[]).slice(0,4).map(t=>`<span class="tag tag-gray" style="font-size:9px">${esc(t)}</span>`).join('')}</div>
+  </div>`;
+}
+
+function studyDeleteInputConfirm(id) {
+  if (!confirm('このメモを削除しますか？')) return;
+  StudyDB.deleteInput(id);
+  toast('削除しました', 'info');
+  render();
+}
+
+function studyNewInput() { studyEditInput(null); }
+
+function studyEditInput(id) {
+  const item = id ? StudyDB.getInput(id) : newStudyInput();
+  if (!item) return;
+  const catOpts = STUDY_INPUT_CATEGORIES.map(c => `<option value="${c.id}" ${item.category===c.id?'selected':''}>${c.label}</option>`).join('');
+  openModal(
+    `<i class="fas fa-inbox" style="color:var(--fuji)"></i> ${id ? 'インプットを編集' : '新しいインプットを追加'}`,
+    `<div class="form-group"><label class="form-label">カテゴリー</label>
+      <select class="form-select" id="si-category">${catOpts}</select></div>
+    <div class="grid-2">
+      <div class="form-group"><label class="form-label">作家名</label>
+        <input class="form-input" id="si-author" value="${esc(item.author)}" placeholder="例：向田邦子"></div>
+      <div class="form-group"><label class="form-label">作品名</label>
+        <input class="form-input" id="si-worktitle" value="${esc(item.workTitle)}" placeholder="例：阿修羅のごとく"></div>
+    </div>
+    <div class="form-group"><label class="form-label">引用・原文（任意）</label>
+      <textarea class="form-textarea" id="si-quote" rows="3" placeholder="印象に残ったセリフ・文章をそのまま">${esc(item.quote)}</textarea></div>
+    <div class="form-group"><label class="form-label">気づき・メモ</label>
+      <textarea class="form-textarea" id="si-memo" rows="4" placeholder="なぜ印象的だったか、どう自分の執筆に活かせるか…">${esc(item.memo)}</textarea></div>
+    <div class="form-group"><label class="form-label">タグ（カンマ区切り）</label>
+      <input class="form-input" id="si-tags" value="${esc((item.tags||[]).join(', '))}" placeholder="例：伏線, 対話劇, ラストシーン"></div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     ${id ? `<button class="btn btn-danger" onclick="StudyDB.deleteInput('${id}');closeModal();toast('削除しました','info');render()"><i class="fas fa-trash"></i> 削除</button>` : ''}
+     <button class="btn btn-primary" onclick="studySaveInputModal('${item.id}')"><i class="fas fa-save"></i> 保存</button>`
+  );
+}
+
+function studySaveInputModal(itemId) {
+  const existing = StudyDB.getInput(itemId) || newStudyInput({ });
+  existing.id = itemId;
+  existing.category = $('#si-category')?.value || 'quote';
+  existing.author = $('#si-author')?.value?.trim() || '';
+  existing.workTitle = $('#si-worktitle')?.value?.trim() || '';
+  existing.quote = $('#si-quote')?.value?.trim() || '';
+  existing.memo = $('#si-memo')?.value?.trim() || '';
+  existing.tags = ($('#si-tags')?.value || '').split(',').map(s=>s.trim()).filter(Boolean);
+  existing.updatedAt = now();
+  if (!existing.createdAt) existing.createdAt = now();
+  StudyDB.saveInput(existing);
+  closeModal();
+  toast('保存しました', 'success');
+  render();
+}
 
 // Start
 init();
