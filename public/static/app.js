@@ -64,6 +64,146 @@ const DB = {
   },
 };
 
+// ── FolderDB：メモ/カード類の共通フォルダ分類システム ──────────────
+// scopeKey ごとに独立したフォルダ一覧を localStorage に保存する。
+// 既存のカテゴリ/タイプ分類は変更せず、その上位にフォルダ層を追加するだけ。
+const FOLDER_COLORS = ['#d94f2a','#6a5aaa','#d44d7a','#c48a00','#4a7c3f','#2a8080','#2e5fa0','#7a6e5e'];
+const FolderDB = {
+  getFolders(scopeKey) { return DB.get('folders_' + scopeKey, []); },
+  saveFolders(scopeKey, folders) { DB.set('folders_' + scopeKey, folders); },
+  addFolder(scopeKey, name, color) {
+    const folders = this.getFolders(scopeKey);
+    const f = { id: uid(), name: name.trim(), color: color || FOLDER_COLORS[folders.length % FOLDER_COLORS.length], createdAt: now() };
+    folders.push(f);
+    this.saveFolders(scopeKey, folders);
+    return f;
+  },
+  renameFolder(scopeKey, folderId, name) {
+    const folders = this.getFolders(scopeKey);
+    const f = folders.find(x => x.id === folderId);
+    if (f) { f.name = name.trim(); this.saveFolders(scopeKey, folders); }
+  },
+  recolorFolder(scopeKey, folderId, color) {
+    const folders = this.getFolders(scopeKey);
+    const f = folders.find(x => x.id === folderId);
+    if (f) { f.color = color; this.saveFolders(scopeKey, folders); }
+  },
+  deleteFolder(scopeKey, folderId) {
+    this.saveFolders(scopeKey, this.getFolders(scopeKey).filter(f => f.id !== folderId));
+  },
+  getActiveFolder(scopeKey) { return DB.get('active_folder_' + scopeKey, ''); },
+  setActiveFolder(scopeKey, folderId) { DB.set('active_folder_' + scopeKey, folderId || ''); },
+};
+
+// フォルダフィルターチップ（一覧上部）：すべて / 未分類 / 各フォルダ / 管理ボタン
+function renderFolderBar(scopeKey, refreshFnCall) {
+  const folders = FolderDB.getFolders(scopeKey);
+  const active = FolderDB.getActiveFolder(scopeKey);
+  const chip = (id, label, color) => `<button class="folder-chip ${active===id?'active':''}" style="${active===id&&color?`background:${color};border-color:${color};color:#fff`:''}" onclick="FolderDB.setActiveFolder('${scopeKey}','${id}');${refreshFnCall}">${label}</button>`;
+  return `
+  <div class="folder-bar">
+    ${chip('', 'すべて')}
+    ${chip('__none__', '未分類')}
+    ${folders.map(f => chip(f.id, esc(f.name), f.color)).join('')}
+    <button class="folder-chip folder-chip-manage" onclick="openManageFoldersModal('${scopeKey}', function(){${refreshFnCall}})" title="フォルダを管理"><i class="fas fa-folder-gear"></i> 管理</button>
+  </div>`;
+}
+
+// アイテムの folderId 配列を、現在のアクティブフォルダでフィルタする
+function filterByActiveFolder(scopeKey, items) {
+  const active = FolderDB.getActiveFolder(scopeKey);
+  if (!active) return items;
+  if (active === '__none__') return items.filter(i => !i.folderId);
+  return items.filter(i => i.folderId === active);
+}
+
+// フォルダ選択用の <option> リスト（追加/編集モーダルで使用）
+function folderOptionsHtml(scopeKey, selectedId) {
+  const folders = FolderDB.getFolders(scopeKey);
+  return `<option value="">未分類</option>` +
+    folders.map(f => `<option value="${f.id}" ${f.id===selectedId?'selected':''}>${esc(f.name)}</option>`).join('');
+}
+
+// フォルダ管理モーダル（追加・改名・色変更・削除）
+function openManageFoldersModal(scopeKey, onChangeCb) {
+  window._folderManageCb = onChangeCb;
+  const render = () => {
+    const folders = FolderDB.getFolders(scopeKey);
+    const rows = folders.length === 0
+      ? `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12.5px">フォルダがまだありません</div>`
+      : folders.map(f => `
+      <div class="folder-manage-row">
+        <div class="folder-manage-color" style="background:${f.color}" onclick="cycleFolderColor('${scopeKey}','${f.id}')" title="色を変更"></div>
+        <input class="form-input" style="flex:1;font-size:12.5px;height:32px" value="${esc(f.name)}" onchange="FolderDB.renameFolder('${scopeKey}','${f.id}',this.value);refreshFolderManageModal('${scopeKey}')">
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDeleteFolder('${scopeKey}','${f.id}')" title="削除"><i class="fas fa-trash" style="font-size:11px;color:var(--accent)"></i></button>
+      </div>`).join('');
+    return `
+    <div id="folder-manage-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;max-height:320px;overflow-y:auto">${rows}</div>
+    <div style="display:flex;gap:8px">
+      <input class="form-input" id="new-folder-name" placeholder="新しいフォルダ名…" style="flex:1" onkeydown="if(event.key==='Enter')addFolderFromModal('${scopeKey}')">
+      <button class="btn btn-primary btn-sm" onclick="addFolderFromModal('${scopeKey}')"><i class="fas fa-plus"></i> 作成</button>
+    </div>`;
+  };
+  openModal(
+    `<i class="fas fa-folder-gear" style="color:var(--fuji)"></i> フォルダを管理`,
+    render(),
+    `<button class="btn btn-secondary" onclick="closeModal();if(window._folderManageCb)window._folderManageCb()">閉じる</button>`
+  );
+  window._folderManageRender = render;
+}
+function refreshFolderManageModal(scopeKey) {
+  const body = document.querySelector('#modal-overlay .modal-body');
+  if (body && window._folderManageRender) body.innerHTML = window._folderManageRender();
+}
+function addFolderFromModal(scopeKey) {
+  const input = document.getElementById('new-folder-name');
+  const name = input?.value?.trim();
+  if (!name) return;
+  FolderDB.addFolder(scopeKey, name);
+  if (input) input.value = '';
+  refreshFolderManageModal(scopeKey);
+  toast('フォルダを作成しました', 'success');
+}
+function cycleFolderColor(scopeKey, folderId) {
+  const folders = FolderDB.getFolders(scopeKey);
+  const f = folders.find(x => x.id === folderId);
+  if (!f) return;
+  const idx = FOLDER_COLORS.indexOf(f.color);
+  const next = FOLDER_COLORS[(idx + 1 + FOLDER_COLORS.length) % FOLDER_COLORS.length];
+  FolderDB.recolorFolder(scopeKey, folderId, next);
+  refreshFolderManageModal(scopeKey);
+}
+function confirmDeleteFolder(scopeKey, folderId) {
+  const f = FolderDB.getFolders(scopeKey).find(x => x.id === folderId);
+  if (!f) return;
+  openModal(
+    `<i class="fas fa-trash" style="color:var(--red)"></i> フォルダを削除`,
+    `<p style="color:var(--text-secondary);font-size:14px">「<strong style="color:var(--text-primary)">${esc(f.name)}</strong>」を削除しますか？<br><small style="color:var(--text-muted)">フォルダ内のメモは削除されず「未分類」に戻ります。</small></p>`,
+    `<button class="btn btn-secondary" onclick="reopenFolderManageModal('${scopeKey}')">キャンセル</button>
+     <button class="btn btn-danger" onclick="doDeleteFolder('${scopeKey}','${folderId}')"><i class="fas fa-trash"></i> 削除する</button>`
+  );
+}
+function reopenFolderManageModal(scopeKey) {
+  openManageFoldersModal(scopeKey, window._folderManageCb);
+}
+function doDeleteFolder(scopeKey, folderId) {
+  FolderDB.deleteFolder(scopeKey, folderId);
+  if (FolderDB.getActiveFolder(scopeKey) === folderId) FolderDB.setActiveFolder(scopeKey, '');
+  toast('フォルダを削除しました', 'info');
+  reopenFolderManageModal(scopeKey);
+}
+
+// ── 汎用削除確認モーダル ────────────────────────────────────────
+// title: モーダルタイトル文言／message: 本文HTML／confirmCall: 削除を実行するJS式文字列（onclick に埋め込む）
+function confirmDeleteGeneric(title, message, confirmCall) {
+  openModal(
+    `<i class="fas fa-trash" style="color:var(--red)"></i> ${esc(title)}`,
+    `<p style="color:var(--text-secondary);font-size:14px;line-height:1.7">${message}</p>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-danger" onclick="${confirmCall}"><i class="fas fa-trash"></i> 削除する</button>`
+  );
+}
+
 // ── Utils ──────────────────────────────────────────────────────
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
 const now = () => new Date().toISOString();
@@ -1863,20 +2003,25 @@ function renderIdeas(proj) {
     '設定':       { tag:'tag-asagi',  icon:'fa-map',         hex:'#2a8080', bg:'#eef7f7' },
   };
 
-  const ideaCards = ideas.length === 0
+  const ideaFolderScope = 'ideas_' + proj.id;
+  const ideaFolders = FolderDB.getFolders(ideaFolderScope);
+  const visibleIdeas = filterByActiveFolder(ideaFolderScope, ideas);
+
+  const ideaCards = visibleIdeas.length === 0
     ? `<div style="grid-column:1/-1;text-align:center;padding:48px 20px;color:var(--text-muted)">
         <div style="font-size:44px;margin-bottom:12px;opacity:0.30">💡</div>
-        <div style="font-size:14px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">アイデアがまだありません</div>
+        <div style="font-size:14px;font-weight:600;color:var(--text-secondary);margin-bottom:6px">${ideas.length===0?'アイデアがまだありません':'このフォルダにはアイデアがありません'}</div>
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px">浮かんだことを何でも書き留めましょう</div>
         <button class="btn btn-primary btn-sm" onclick="openAddIdeaModal('${proj.id}')"><i class="fas fa-plus"></i> 最初のアイデアを追加</button>
        </div>`
-    : ideas.map(idea => {
+    : visibleIdeas.map(idea => {
         const tc = IDEA_TYPE_COLORS[idea.type] || IDEA_TYPE_COLORS['メモ'];
+        const fld = ideaFolders.find(f => f.id === idea.folderId);
         return `
       <div class="idea-card" id="idea-${idea.id}" style="border-top:3px solid ${tc.hex}">
         <div class="idea-card-actions">
-          <button class="btn btn-ghost btn-icon btn-sm" onclick="editIdea('${proj.id}','${idea.id}')"><i class="fas fa-pen" style="font-size:10px"></i></button>
-          <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteIdea('${proj.id}','${idea.id}')"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="editIdea('${proj.id}','${idea.id}')" title="編集"><i class="fas fa-pen" style="font-size:10px"></i></button>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDeleteIdea('${proj.id}','${idea.id}')" title="削除"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>
         </div>
         <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
           <div style="width:22px;height:22px;border-radius:4px;background:${tc.bg};border:1px solid ${tc.hex}44;display:flex;align-items:center;justify-content:center;flex-shrink:0">
@@ -1889,6 +2034,7 @@ function renderIdeas(proj) {
           <span class="tag ${tc.tag}" style="font-size:10px">${esc(idea.type||'メモ')}</span>
           ${idea.priority==='高' ? '<span class="tag tag-beni" style="font-size:10px"><i class="fas fa-fire" style="font-size:9px"></i> 高優先</span>' : ''}
           ${idea.priority==='低' ? '<span class="tag tag-gray" style="font-size:10px">低優先</span>' : ''}
+          ${fld ? `<span class="tag" style="font-size:10px;background:${fld.color}22;color:${fld.color};border:1px solid ${fld.color}55"><i class="fas fa-folder" style="font-size:9px"></i> ${esc(fld.name)}</span>` : ''}
           <span class="tag tag-gray" style="margin-left:auto;font-size:10px">${fmtDate(idea.createdAt)}</span>
         </div>
       </div>`;
@@ -1902,7 +2048,7 @@ function renderIdeas(proj) {
   }).join('');
 
   const keywordTags = keywords.map(k => `
-    <span style="display:inline-flex;align-items:center;gap:5px;background:var(--fuji-bg);color:var(--fuji);border:1px solid var(--fuji-border);border-radius:20px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:500" onclick="deleteKeyword('${proj.id}','${esc(k)}')">
+    <span style="display:inline-flex;align-items:center;gap:5px;background:var(--fuji-bg);color:var(--fuji);border:1px solid var(--fuji-border);border-radius:20px;padding:4px 10px;font-size:12px;cursor:pointer;font-weight:500" onclick="confirmDeleteKeyword('${proj.id}','${esc(k).replace(/'/g,"\\'")}')">
       # ${esc(k)} <i class="fas fa-xmark" style="font-size:9px;opacity:0.7"></i>
     </span>`).join('');
 
@@ -2001,6 +2147,7 @@ function renderIdeas(proj) {
         <button class="btn btn-ghost btn-sm idea-sort" data-sort="priority" onclick="sortIdeas('${proj.id}','priority',this)">優先度</button>
         <button class="btn btn-ghost btn-sm idea-sort" data-sort="type" onclick="sortIdeas('${proj.id}','type',this)">タイプ別</button>
       </div>` : ''}
+      ${renderFolderBar(ideaFolderScope, "navigate('" + State.currentPage + "','" + proj.id + "')")}
       <div class="idea-grid" id="idea-grid-${proj.id}">${ideaCards}</div>
     </div>
 
@@ -2076,7 +2223,7 @@ function sortIdeas(projId, by, btn) {
     return `<div class="idea-card" id="idea-${idea.id}" style="border-top:3px solid ${tc.hex}">
       <div class="idea-card-actions">
         <button class="btn btn-ghost btn-icon btn-sm" onclick="editIdea('${projId}','${idea.id}')"><i class="fas fa-pen" style="font-size:10px"></i></button>
-        <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteIdea('${projId}','${idea.id}')"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDeleteIdea('${projId}','${idea.id}')"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>
       </div>
       <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
         <div style="width:22px;height:22px;border-radius:4px;background:${tc.bg};border:1px solid ${tc.hex}44;display:flex;align-items:center;justify-content:center;flex-shrink:0">
@@ -2193,6 +2340,10 @@ function openAddIdeaModal(projId) {
           <option>普通</option><option>高</option><option>低</option>
         </select>
       </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">フォルダ</label>
+      <select class="form-select" id="idea-folder">${folderOptionsHtml('ideas_'+projId, '')}</select>
     </div>`,
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
      <button class="btn btn-primary" onclick="addIdea('${projId}')"><i class="fas fa-plus"></i> 追加</button>`
@@ -2210,6 +2361,7 @@ function addIdea(projId) {
     id: uid(), title: $('#idea-title')?.value?.trim() || '',
     body, type: $('#idea-type')?.value || 'メモ',
     priority: $('#idea-priority')?.value || '普通',
+    folderId: $('#idea-folder')?.value || '',
     createdAt: now(),
   });
   proj.updatedAt = now();
@@ -2246,6 +2398,10 @@ function editIdea(projId, ideaId) {
           ${['普通','高','低'].map(t=>`<option ${t===idea.priority?'selected':''}>${t}</option>`).join('')}
         </select>
       </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">フォルダ</label>
+      <select class="form-select" id="ei-folder">${folderOptionsHtml('ideas_'+projId, idea.folderId||'')}</select>
     </div>`,
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
      <button class="btn btn-primary" onclick="saveEditIdea('${projId}','${ideaId}')">保存</button>`
@@ -2260,9 +2416,18 @@ function saveEditIdea(projId, ideaId) {
   idea.body  = $('#ei-body')?.value?.trim() || '';
   idea.type  = $('#ei-type')?.value || 'メモ';
   idea.priority = $('#ei-priority')?.value || '普通';
+  idea.folderId = $('#ei-folder')?.value || '';
   proj.updatedAt = now();
   DB.saveProject(proj);
   closeModal(); toast('更新しました', 'success'); render();
+}
+
+function confirmDeleteIdea(projId, ideaId) {
+  const proj = DB.getProject(projId);
+  const idea = (proj?.ideas||[]).find(i => i.id === ideaId);
+  const label = idea ? (idea.title || (idea.body||'').slice(0,30) || '無題') : 'このアイデア';
+  confirmDeleteGeneric('アイデアを削除', `「<strong style="color:var(--text-primary)">${esc(label)}</strong>」を削除しますか？<br><small style="color:var(--text-muted)">この操作は取り消せません。</small>`,
+    `deleteIdea('${projId}','${ideaId}')`);
 }
 
 function deleteIdea(projId, ideaId) {
@@ -2271,6 +2436,7 @@ function deleteIdea(projId, ideaId) {
   proj.ideas = (proj.ideas||[]).filter(i => i.id !== ideaId);
   proj.updatedAt = now();
   DB.saveProject(proj);
+  closeModal();
   toast('削除しました', 'info'); render();
 }
 
@@ -2288,12 +2454,18 @@ function addKeyword(projId) {
   render();
 }
 
+function confirmDeleteKeyword(projId, kw) {
+  confirmDeleteGeneric('キーワードを削除', `「<strong style="color:var(--text-primary)">#${esc(kw)}</strong>」を削除しますか？`,
+    `deleteKeyword('${projId}','${kw.replace(/'/g,"\\'")}')`);
+}
+
 function deleteKeyword(projId, kw) {
   const proj = DB.getProject(projId);
   if (!proj) return;
   proj.keywords = (proj.keywords||[]).filter(k => k !== kw);
   proj.updatedAt = now();
   DB.saveProject(proj);
+  closeModal();
   render();
 }
 
@@ -2343,32 +2515,46 @@ function renderResearch(proj) {
     'その他':        { color: '#7a6e5e', bg: '#f0ece4', border: '#e4ddd3' },
   };
 
-  const noteCards = notes.map(n => {
+  const noteFolderScope = 'researchnotes_' + proj.id;
+  const noteFolders = FolderDB.getFolders(noteFolderScope);
+  const visibleNotes = filterByActiveFolder(noteFolderScope, notes);
+
+  const noteCards = visibleNotes.map(n => {
     const cat = NOTE_CAT_COLORS[n.category] || NOTE_CAT_COLORS['その他'];
+    const fld = noteFolders.find(f => f.id === n.folderId);
     return `
     <div class="idea-card" style="border-left:3px solid ${cat.color};position:relative">
       <div class="idea-card-actions">
-        <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteResearchNote('${proj.id}','${n.id}')"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="editResearchNote('${proj.id}','${n.id}')" title="編集"><i class="fas fa-pen" style="font-size:10px"></i></button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDeleteResearchNote('${proj.id}','${n.id}')" title="削除"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>
       </div>
       <div style="display:inline-flex;align-items:center;gap:4px;background:${cat.bg};color:${cat.color};border:1px solid ${cat.border};border-radius:10px;padding:2px 8px;font-size:10px;font-weight:600;margin-bottom:7px">
         ${esc(n.category||'その他')}
       </div>
       <div class="idea-card-title">${esc(n.title||'無題')}</div>
       <div class="idea-card-body">${esc(n.body||'').replace(/\n/g,'<br>')}</div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:right">${fmtDate(n.createdAt)}</div>
+      <div style="display:flex;align-items:center;gap:6px;margin-top:8px">
+        ${fld ? `<span class="tag" style="font-size:10px;background:${fld.color}22;color:${fld.color};border:1px solid ${fld.color}55"><i class="fas fa-folder" style="font-size:9px"></i> ${esc(fld.name)}</span>` : ''}
+        <span style="font-size:11px;color:var(--text-muted);margin-left:auto">${fmtDate(n.createdAt)}</span>
+      </div>
     </div>`;
   }).join('') || `<div style="grid-column:1/-1;text-align:center;padding:36px 20px;color:var(--text-muted)">
     <div style="font-size:36px;margin-bottom:10px;opacity:0.3">📚</div>
-    <div style="font-size:13px">リサーチノートを追加しましょう</div>
+    <div style="font-size:13px">${notes.length===0?'リサーチノートを追加しましょう':'このフォルダにはノートがありません'}</div>
   </div>`;
 
-  const linkItems = links.map(l => {
+  const linkFolderScope = 'researchlinks_' + proj.id;
+  const linkFolders = FolderDB.getFolders(linkFolderScope);
+  const visibleLinks = filterByActiveFolder(linkFolderScope, links);
+
+  const linkItems = visibleLinks.map(l => {
     const isFile = l.type === 'file';
     const icon = isFile ? (l.icon||'fa-file') : 'fa-link';
     const iconColor = isFile ? (l.color||'#7f8c8d') : 'var(--kon-lt)';
     const iconBg = isFile ? (l.color||'#7f8c8d')+'18' : 'var(--kon-bg)';
     const sizeLabel = isFile && l.size ? (l.size < 1024*1024 ? (l.size/1024).toFixed(0)+'KB' : (l.size/1024/1024).toFixed(1)+'MB') : '';
     const subtitle = isFile ? `<span style="font-size:10px;color:var(--text-muted);background:var(--bg-subtle);padding:1px 6px;border-radius:4px;text-transform:uppercase">${l.ext||'FILE'}</span>${sizeLabel?`<span style="font-size:10px;color:var(--text-muted);margin-left:4px">${sizeLabel}</span>`:''}` : `<div style="font-size:11px;color:var(--kon-lt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.url||'')}</div>`;
+    const lfld = linkFolders.find(f => f.id === l.folderId);
     return `
     <div class="research-source-card" style="cursor:pointer" onclick="openResearchFile(${JSON.stringify(l).replace(/"/g,'&quot;')})">
       <div style="width:34px;height:34px;border-radius:var(--radius-sm);background:${iconBg};color:${iconColor};display:flex;align-items:center;justify-content:center;flex-shrink:0">
@@ -2378,13 +2564,15 @@ function renderResearch(proj) {
         <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.title||l.url||'')}</div>
         <div style="display:flex;align-items:center;gap:6px">${subtitle}</div>
         ${l.memo ? `<div style="font-size:11px;color:var(--text-muted);margin-top:3px">${esc(l.memo)}</div>` : ''}
+        ${lfld ? `<span class="tag" style="font-size:10px;background:${lfld.color}22;color:${lfld.color};border:1px solid ${lfld.color}55;margin-top:4px;display:inline-block"><i class="fas fa-folder" style="font-size:9px"></i> ${esc(lfld.name)}</span>` : ''}
       </div>
-      <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();deleteResearchLink('${proj.id}','${l.id}')"><i class="fas fa-xmark" style="color:var(--accent);font-size:10px"></i></button>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();editResearchLink('${proj.id}','${l.id}')" title="編集"><i class="fas fa-pen" style="font-size:10px"></i></button>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();confirmDeleteResearchLink('${proj.id}','${l.id}')" title="削除"><i class="fas fa-xmark" style="color:var(--accent);font-size:10px"></i></button>
     </div>`;
   }).join('') || `
   <div style="text-align:center;padding:24px 16px;color:var(--text-muted)">
     <i class="fas fa-paperclip" style="font-size:28px;opacity:0.25;margin-bottom:8px;display:block"></i>
-    <div style="font-size:12px">URLやPDFを追加しましょう</div>
+    <div style="font-size:12px">${links.length===0?'URLやPDFを追加しましょう':'このフォルダには資料がありません'}</div>
   </div>`;
 
   // カテゴリ別ノート数の集計
@@ -2432,6 +2620,7 @@ function renderResearch(proj) {
           </div>
           <button class="btn btn-primary btn-sm" onclick="openAddResearchNote('${proj.id}')"><i class="fas fa-plus"></i> 追加</button>
         </div>
+        ${renderFolderBar(noteFolderScope, "navigate('" + State.currentPage + "','" + proj.id + "')")}
         <div class="idea-grid" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">${noteCards}</div>
       </div>
       <div class="card">
@@ -2439,6 +2628,7 @@ function renderResearch(proj) {
           <div class="card-title"><i class="fas fa-link icon" style="color:var(--asagi)"></i> 参考リンク・資料</div>
           <button class="btn btn-secondary btn-sm" onclick="openAddResearchLink('${proj.id}')"><i class="fas fa-plus"></i> 追加</button>
         </div>
+        ${renderFolderBar(linkFolderScope, "navigate('" + State.currentPage + "','" + proj.id + "')")}
         <div>${linkItems}</div>
       </div>
     </div>
@@ -2518,6 +2708,10 @@ function openAddResearchNote(projId) {
     <div class="form-group">
       <label class="form-label">内容</label>
       <textarea class="form-textarea" id="rn-body" rows="6" placeholder="調べた内容を書いてください…"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">フォルダ</label>
+      <select class="form-select" id="rn-folder">${folderOptionsHtml('researchnotes_'+projId, '')}</select>
     </div>`,
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
      <button class="btn btn-primary" onclick="addResearchNote('${projId}')"><i class="fas fa-plus"></i> 追加</button>`
@@ -2533,11 +2727,62 @@ function addResearchNote(projId) {
   proj.research.notes = proj.research.notes || [];
   proj.research.notes.unshift({
     id: uid(), title: $('#rn-title')?.value?.trim()||'',
-    category: $('#rn-cat')?.value||'その他', body, createdAt: now()
+    category: $('#rn-cat')?.value||'その他', body,
+    folderId: $('#rn-folder')?.value || '', createdAt: now()
   });
   proj.updatedAt = now();
   DB.saveProject(proj);
   closeModal(); toast('追加しました','success'); render();
+}
+
+function editResearchNote(projId, id) {
+  const proj = DB.getProject(projId);
+  const n = (proj?.research?.notes||[]).find(x => x.id === id);
+  if (!n) return;
+  openModal(
+    `<i class="fas fa-pen" style="color:var(--accent)"></i> リサーチノートを編集`,
+    `<div class="form-group">
+      <label class="form-label">タイトル</label>
+      <input class="form-input" id="ern-title" value="${esc(n.title||'')}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">カテギリ</label>
+      <select class="form-select" id="ern-cat">
+        ${['職業・専門知識','時代・歴割','地理・場所','人物・実在モデル','法律・制度','文化・慣修','その他'].map(c=>`<option ${c===n.category?'selected':''}>${c}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">内容</label>
+      <textarea class="form-textarea" id="ern-body" rows="6">${esc(n.body||'')}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">フォルダ</label>
+      <select class="form-select" id="ern-folder">${folderOptionsHtml('researchnotes_'+projId, n.folderId||'')}</select>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveEditResearchNote('${projId}','${id}')">保存</button>`
+  );
+}
+
+function saveEditResearchNote(projId, id) {
+  const proj = DB.getProject(projId);
+  const n = (proj?.research?.notes||[]).find(x => x.id === id);
+  if (!n) return;
+  n.title = $('#ern-title')?.value?.trim() || '';
+  n.category = $('#ern-cat')?.value || 'その他';
+  n.body = $('#ern-body')?.value?.trim() || '';
+  n.folderId = $('#ern-folder')?.value || '';
+  proj.updatedAt = now();
+  DB.saveProject(proj);
+  closeModal(); toast('更新しました','success'); render();
+}
+
+function confirmDeleteResearchNote(projId, id) {
+  const proj = DB.getProject(projId);
+  const n = (proj?.research?.notes||[]).find(x => x.id === id);
+  const label = n ? (n.title || (n.body||'').slice(0,30) || '無題') : 'このノート';
+  confirmDeleteGeneric('リサーチノートを削除', `「<strong style="color:var(--text-primary)">${esc(label)}</strong>」を削除しますか？`,
+    `deleteResearchNote('${projId}','${id}')`);
 }
 
 function deleteResearchNote(projId, id) {
@@ -2546,6 +2791,7 @@ function deleteResearchNote(projId, id) {
   proj.research.notes = (proj.research.notes||[]).filter(n => n.id !== id);
   proj.updatedAt = now();
   DB.saveProject(proj);
+  closeModal();
   toast('削除しました','info'); render();
 }
 
@@ -2579,6 +2825,10 @@ function openAddResearchLink(projId) {
        <label class="form-label">メモ <span style="color:var(--text-muted);font-weight:400">（任意）</span></label>
        <input class="form-input" id="rl-memo" placeholder="参照ポイント・重要箇所など">
      </div>
+     <div class="form-group">
+       <label class="form-label">フォルダ</label>
+       <select class="form-select" id="rl-folder">${folderOptionsHtml('researchlinks_'+projId, '')}</select>
+     </div>
    </div>
    <!-- ファイル タブ（重複表示問題修正済み） -->
    <div id="rl-panel-file" style="display:none">
@@ -2604,6 +2854,10 @@ function openAddResearchLink(projId) {
      <div class="form-group">
        <label class="form-label">メモ <span style="color:var(--text-muted);font-weight:400">（任意）</span></label>
        <input class="form-input" id="rl-file-memo" placeholder="このファイルの利用目的・参照箇所など">
+     </div>
+     <div class="form-group">
+       <label class="form-label">フォルダ</label>
+       <select class="form-select" id="rl-file-folder">${folderOptionsHtml('researchlinks_'+projId, '')}</select>
      </div>
    </div>`,
   `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
@@ -2721,7 +2975,7 @@ function addResearchLink(projId) {
   if (!proj) return;
   proj.research = proj.research || {};
   proj.research.links = proj.research.links || [];
-  proj.research.links.unshift({ id: uid(), type:'url', url, title: $('#rl-title')?.value?.trim()||url, memo: $('#rl-memo')?.value?.trim()||'', createdAt: now() });
+  proj.research.links.unshift({ id: uid(), type:'url', url, title: $('#rl-title')?.value?.trim()||url, memo: $('#rl-memo')?.value?.trim()||'', folderId: $('#rl-folder')?.value||'', createdAt: now() });
   proj.updatedAt = now();
   DB.saveProject(proj);
   closeModal(); toast('リンクを追加しました','success'); render();
@@ -2738,6 +2992,7 @@ function addResearchFiles(projId) {
     toast('ファイルの読み込み中です。少し待ってから再試行してください','warning'); return;
   }
   const memo = $('#rl-file-memo')?.value?.trim() || '';
+  const folderId = $('#rl-file-folder')?.value || '';
   const proj = DB.getProject(projId);
   if (!proj) return;
   proj.research = proj.research || {};
@@ -2746,7 +3001,7 @@ function addResearchFiles(projId) {
     proj.research.links.unshift({
       id: uid(), type:'file', title: f.name, ext: f.ext,
       icon: f.icon, color: f.color, size: f.size,
-      dataUrl: f.dataUrl, memo, createdAt: now()
+      dataUrl: f.dataUrl, memo, folderId, createdAt: now()
     });
   });
   window._pendingResearchFiles = [];
@@ -3006,12 +3261,62 @@ async function previewPdfShowText() {
   }
 }
 
+function editResearchLink(projId, id) {
+  const proj = DB.getProject(projId);
+  const l = (proj?.research?.links||[]).find(x => x.id === id);
+  if (!l) return;
+  const isFile = l.type === 'file';
+  openModal(
+    `<i class="fas fa-pen" style="color:var(--accent)"></i> ${isFile ? '資料' : 'リンク'}を編集`,
+    `<div class="form-group">
+      <label class="form-label">タイトル</label>
+      <input class="form-input" id="erl-title" value="${esc(l.title||'')}">
+    </div>
+    ${!isFile ? `<div class="form-group">
+      <label class="form-label">URL</label>
+      <input class="form-input" id="erl-url" value="${esc(l.url||'')}">
+    </div>` : ''}
+    <div class="form-group">
+      <label class="form-label">メモ</label>
+      <input class="form-input" id="erl-memo" value="${esc(l.memo||'')}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">フォルダ</label>
+      <select class="form-select" id="erl-folder">${folderOptionsHtml('researchlinks_'+projId, l.folderId||'')}</select>
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveEditResearchLink('${projId}','${id}')">保存</button>`
+  );
+}
+
+function saveEditResearchLink(projId, id) {
+  const proj = DB.getProject(projId);
+  const l = (proj?.research?.links||[]).find(x => x.id === id);
+  if (!l) return;
+  l.title = $('#erl-title')?.value?.trim() || l.title;
+  if (l.type !== 'file') l.url = $('#erl-url')?.value?.trim() || l.url;
+  l.memo = $('#erl-memo')?.value?.trim() || '';
+  l.folderId = $('#erl-folder')?.value || '';
+  proj.updatedAt = now();
+  DB.saveProject(proj);
+  closeModal(); toast('更新しました','success'); render();
+}
+
+function confirmDeleteResearchLink(projId, id) {
+  const proj = DB.getProject(projId);
+  const l = (proj?.research?.links||[]).find(x => x.id === id);
+  const label = l ? (l.title || l.url || '無題') : 'この資料';
+  confirmDeleteGeneric('資料を削除', `「<strong style="color:var(--text-primary)">${esc(label)}</strong>」を削除しますか？`,
+    `deleteResearchLink('${projId}','${id}')`);
+}
+
 function deleteResearchLink(projId, id) {
   const proj = DB.getProject(projId);
   if (!proj) return;
   proj.research.links = (proj.research.links||[]).filter(l => l.id !== id);
   proj.updatedAt = now();
   DB.saveProject(proj);
+  closeModal();
   render();
 }
 
@@ -12182,7 +12487,7 @@ function renderLearnNotes(hero, subnav) {
           <button onclick="event.stopPropagation();toggleNotePin('${n.id}')" style="background:none;border:none;color:${n.pinned?'var(--kogane)':'var(--text-muted)'};cursor:pointer;font-size:11px;padding:3px 5px" title="${n.pinned?'ピン解除':'ピン留め'}">
             <i class="fas fa-thumbtack"></i>
           </button>
-          <button onclick="event.stopPropagation();deleteLearnNote('${n.id}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:11px;padding:3px 5px" title="削除">
+          <button onclick="event.stopPropagation();confirmDeleteLearnNote('${n.id}')" style="background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:11px;padding:3px 5px" title="削除">
             <i class="fas fa-trash-can"></i>
           </button>
         </div>
@@ -12366,11 +12671,16 @@ function cancelEditNote() {
   render();
 }
 
+function confirmDeleteLearnNote(noteId) {
+  confirmDeleteGeneric('ノートを削除', 'このノートを削除しますか？この操作は取り消せません。',
+    `deleteLearnNote('${noteId}')`);
+}
+
 function deleteLearnNote(noteId) {
-  if (!confirm('このノートを削除しますか？')) return;
   const notes = DB.get('learn_notes', []).filter(n => n.id !== noteId);
   DB.set('learn_notes', notes);
   DB.set('note_editing_id', null);
+  closeModal();
   toast('ノートを削除しました', 'success');
   render();
 }
@@ -23722,7 +24032,9 @@ function renderToolWorldNotes() {
   const WORLD_CATS = ['設定・ルール','地名・場所','用語・専門語','キャラ設定メモ','時代・時系列','その他'];
   const filterCat = localStorage.getItem('sl_world_filter') || '';
   const searchQ = localStorage.getItem('sl_world_search') || '';
-  let filtered = notes;
+  const worldFolderScope = 'world_notes';
+  const worldFolders = FolderDB.getFolders(worldFolderScope);
+  let filtered = filterByActiveFolder(worldFolderScope, notes);
   if (filterCat) filtered = filtered.filter(n => n.category === filterCat);
   if (searchQ) filtered = filtered.filter(n => n.title.includes(searchQ) || n.body.includes(searchQ));
 
@@ -23744,6 +24056,7 @@ function renderToolWorldNotes() {
           </select>
         </div>
         <div class="form-group"><label class="form-label">内容</label><textarea class="form-textarea" id="wn-body" rows="4" placeholder="詳細を記入…"></textarea></div>
+        <div class="form-group"><label class="form-label">フォルダ</label><select class="form-select" id="wn-folder">${folderOptionsHtml(worldFolderScope, '')}</select></div>
         <button class="btn btn-primary" style="width:100%" onclick="addWorldNote()"><i class="fas fa-plus"></i> 追加する</button>
       </div>
       <div class="card">
@@ -23764,21 +24077,27 @@ function renderToolWorldNotes() {
           <input class="form-input" style="padding-left:32px" placeholder="メモを検索…" value="${esc(searchQ)}" oninput="setWorldSearch(this.value)">
         </div>
       </div>
+      ${renderFolderBar(worldFolderScope, "navigate('tool-world-notes')")}
       <div style="display:flex;flex-direction:column;gap:10px" id="wn-list">
         ${filtered.length === 0 ? `<div style="text-align:center;padding:60px 20px;color:var(--text-muted)"><i class="fas fa-globe" style="font-size:40px;display:block;margin-bottom:14px;opacity:0.2"></i><div style="font-size:13px">メモがありません<br>左のフォームから追加してください</div></div>` :
           filtered.map((n,i)=>{
             const realIdx = notes.indexOf(n);
+            const fld = worldFolders.find(f => f.id === n.folderId);
             return `<div class="card" style="padding:14px">
               <div style="display:flex;align-items:flex-start;gap:10px">
                 <div style="flex:1">
                   <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
                     <div style="font-size:13.5px;font-weight:700;color:var(--text-primary)">${esc(n.title)}</div>
                     <span style="font-size:10px;padding:2px 7px;background:var(--asagi-bg);color:var(--asagi);border:1px solid var(--asagi-border);border-radius:10px;font-weight:600">${esc(n.category)}</span>
+                    ${fld ? `<span class="tag" style="font-size:10px;background:${fld.color}22;color:${fld.color};border:1px solid ${fld.color}55"><i class="fas fa-folder" style="font-size:9px"></i> ${esc(fld.name)}</span>` : ''}
                   </div>
                   <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.7;white-space:pre-wrap">${esc(n.body)}</div>
                   <div style="font-size:10px;color:var(--text-muted);margin-top:6px">${n.createdAt?.slice(0,10)||''}</div>
                 </div>
-                <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteWorldNote(${realIdx})"><i class="fas fa-trash" style="font-size:11px;color:var(--text-muted)"></i></button>
+                <div style="display:flex;gap:2px">
+                  <button class="btn btn-ghost btn-icon btn-sm" onclick="editWorldNote(${realIdx})" title="編集"><i class="fas fa-pen" style="font-size:11px;color:var(--text-muted)"></i></button>
+                  <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDeleteWorldNote(${realIdx})" title="削除"><i class="fas fa-trash" style="font-size:11px;color:var(--text-muted)"></i></button>
+                </div>
               </div>
             </div>`;
           }).join('')}
@@ -23791,18 +24110,56 @@ function addWorldNote() {
   const title = document.getElementById('wn-title')?.value.trim();
   const category = document.getElementById('wn-category')?.value;
   const body = document.getElementById('wn-body')?.value.trim();
+  const folderId = document.getElementById('wn-folder')?.value || '';
   if (!title) { toast('タイトルを入力してください', 'error'); return; }
   const notes = JSON.parse(localStorage.getItem('sl_world_notes') || '[]');
-  notes.unshift({ title, category, body, createdAt: new Date().toISOString() });
+  notes.unshift({ title, category, body, folderId, createdAt: new Date().toISOString() });
   localStorage.setItem('sl_world_notes', JSON.stringify(notes));
   toast('メモを追加しました', 'success');
   render();
+}
+
+function editWorldNote(idx) {
+  const notes = JSON.parse(localStorage.getItem('sl_world_notes') || '[]');
+  const n = notes[idx];
+  if (!n) return;
+  const WORLD_CATS = ['設定・ルール','地名・場所','用語・専門語','キャラ設定メモ','時代・時系列','その他'];
+  openModal(
+    `<i class="fas fa-pen" style="color:var(--accent)"></i> メモを編集`,
+    `<div class="form-group"><label class="form-label">タイトル</label><input class="form-input" id="ewn-title" value="${esc(n.title||'')}"></div>
+     <div class="form-group"><label class="form-label">カテゴリ</label><select class="form-select" id="ewn-category">${WORLD_CATS.map(c=>`<option ${c===n.category?'selected':''}>${c}</option>`).join('')}</select></div>
+     <div class="form-group"><label class="form-label">内容</label><textarea class="form-textarea" id="ewn-body" rows="4">${esc(n.body||'')}</textarea></div>
+     <div class="form-group"><label class="form-label">フォルダ</label><select class="form-select" id="ewn-folder">${folderOptionsHtml('world_notes', n.folderId||'')}</select></div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveEditWorldNote(${idx})">保存</button>`
+  );
+}
+
+function saveEditWorldNote(idx) {
+  const notes = JSON.parse(localStorage.getItem('sl_world_notes') || '[]');
+  const n = notes[idx];
+  if (!n) return;
+  n.title = document.getElementById('ewn-title')?.value.trim() || n.title;
+  n.category = document.getElementById('ewn-category')?.value || n.category;
+  n.body = document.getElementById('ewn-body')?.value.trim() || '';
+  n.folderId = document.getElementById('ewn-folder')?.value || '';
+  localStorage.setItem('sl_world_notes', JSON.stringify(notes));
+  closeModal(); toast('更新しました', 'success'); render();
+}
+
+function confirmDeleteWorldNote(idx) {
+  const notes = JSON.parse(localStorage.getItem('sl_world_notes') || '[]');
+  const n = notes[idx];
+  const label = n ? (n.title || 'このメモ') : 'このメモ';
+  confirmDeleteGeneric('メモを削除', `「<strong style="color:var(--text-primary)">${esc(label)}</strong>」を削除しますか？`,
+    `deleteWorldNote(${idx})`);
 }
 
 function deleteWorldNote(idx) {
   const notes = JSON.parse(localStorage.getItem('sl_world_notes') || '[]');
   notes.splice(idx, 1);
   localStorage.setItem('sl_world_notes', JSON.stringify(notes));
+  closeModal();
   render();
 }
 
@@ -27275,9 +27632,11 @@ function renderInspirationScratch(scratches) {
   const filterType = State.currentTab['insp-type'] || '';
   const sortMode = State.currentTab['insp-sort'] || 'newest';
   const filterPeriod = State.currentTab['insp-period'] || 'all';
+  const scratchFolderScope = 'inspiration_scratches';
+  const scratchFolders = FolderDB.getFolders(scratchFolderScope);
 
   // 複合フィルタリング
-  let filtered = scratches.slice();
+  let filtered = filterByActiveFolder(scratchFolderScope, scratches.slice());
   if (filterTag) filtered = filtered.filter(s => (s.tags||[]).includes(filterTag));
   if (filterType) filtered = filtered.filter(s => (s.type||'その他') === filterType);
   if (searchQ) {
@@ -27322,12 +27681,14 @@ function renderInspirationScratch(scratches) {
           const q = searchQ.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
           return esc(text).replace(new RegExp(q, 'gi'), m => `<mark style="background:var(--kogane-bg);color:var(--kogane);border-radius:2px">${m}</mark>`);
         };
+        const sfld = scratchFolders.find(f => f.id === s.folderId);
         return `
         <div class="insp-scratch-card ${s.pinned?'pinned':''}" id="sc-${s.id}">
           <div class="insp-scratch-top">
             <div style="display:flex;align-items:center;gap:6px">
               <span style="font-size:10px;font-weight:700;color:${tc};padding:2px 8px;background:white;border:1px solid ${tc};border-radius:var(--radius-full)">${s.type||'その他'}</span>
               ${s.pinned?`<i class="fas fa-thumbtack" style="font-size:9px;color:var(--kogane)"></i>`:''}
+              ${sfld ? `<span class="tag" style="font-size:10px;background:${sfld.color}22;color:${sfld.color};border:1px solid ${sfld.color}55"><i class="fas fa-folder" style="font-size:9px"></i> ${esc(sfld.name)}</span>` : ''}
             </div>
             <div style="display:flex;gap:4px;align-items:center">
               <span style="font-size:10px;color:var(--text-light)">${s.createdAt ? s.createdAt.slice(0,10) : ''}</span>
@@ -27335,7 +27696,7 @@ function renderInspirationScratch(scratches) {
                 <i class="fas fa-thumbtack" style="font-size:10px;color:${s.pinned?'var(--kogane)':'var(--text-muted)'}"></i>
               </button>
               <button class="btn btn-ghost btn-icon btn-sm" onclick="openEditScratch('${s.id}')"><i class="fas fa-pen" style="font-size:10px"></i></button>
-              <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteScratch('${s.id}')"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDeleteScratch('${s.id}')"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
             </div>
           </div>
           ${s.title ? `<div style="font-size:13px;font-weight:700;color:var(--text-primary);margin:6px 0 4px;font-family:'Noto Serif JP',serif">${highlightText(s.title)}</div>` : ''}
@@ -27362,8 +27723,11 @@ function renderInspirationScratch(scratches) {
           </select>
         </div>
         <textarea class="form-textarea" id="sc-body" rows="3" placeholder="思いついたことを何でも…キーワード1個でも、一文でも、長文でもOK。" style="font-size:13px;resize:vertical"></textarea>
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px">
-          <input class="form-input" id="sc-tags-input" placeholder="タグ（カンマ区切り）例: 主人公, 終盤" style="font-size:12px;max-width:220px">
+        <div class="grid-2" style="gap:8px;margin-top:8px">
+          <input class="form-input" id="sc-tags-input" placeholder="タグ（カンマ区切り）例: 主人公, 終盤" style="font-size:12px">
+          <select class="form-select" id="sc-folder" style="font-size:12px">${folderOptionsHtml(scratchFolderScope, '')}</select>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;margin-top:8px">
           <div style="display:flex;gap:6px">
             <button class="btn btn-ghost btn-sm" onclick="addScratch(true)"><i class="fas fa-thumbtack"></i> ピン</button>
             <button class="btn btn-primary" onclick="addScratch(false)"><i class="fas fa-plus"></i> 追加</button>
@@ -27435,6 +27799,7 @@ function renderInspirationScratch(scratches) {
         </div>` : ''}
       </div>
 
+      ${renderFolderBar(scratchFolderScope, "navigate('inspiration')")}
       <!-- カード一覧 -->
       <div id="scratch-list" style="display:flex;flex-direction:column;gap:10px">
         ${scratchCards}
@@ -27773,24 +28138,31 @@ function renderInspirationNotes() {
   const selectedProj = State.currentTab['insp-notes-proj'] || (projects[0]?.id || '');
   const proj = projects.find(p => p.id === selectedProj);
   const notes = DB.get('project_notes_' + selectedProj, []);
+  const pnoteFolderScope = 'projectnotes_' + selectedProj;
+  const pnoteFolders = FolderDB.getFolders(pnoteFolderScope);
+  const visibleNotes = filterByActiveFolder(pnoteFolderScope, notes);
 
   const projOptions = projects.map(p =>
     `<option value="${p.id}" ${p.id === selectedProj ? 'selected' : ''}>${esc(p.title)}</option>`
   ).join('');
 
-  const noteCards = notes.length === 0
-    ? `<div class="insp-empty"><i class="fas fa-notebook" style="font-size:28px;display:block;margin-bottom:8px;opacity:.2"></i>ノートがありません。追加してください。</div>`
-    : notes.map((n, i) => `
+  const noteCards = visibleNotes.length === 0
+    ? `<div class="insp-empty"><i class="fas fa-notebook" style="font-size:28px;display:block;margin-bottom:8px;opacity:.2"></i>${notes.length===0?'ノートがありません。追加してください。':'このフォルダにはノートがありません'}</div>`
+    : visibleNotes.map((n) => {
+        const i = notes.indexOf(n);
+        const fld = pnoteFolders.find(f => f.id === n.folderId);
+        return `
       <div class="insp-note-card ${n.pinned?'pinned':''}" id="pn-${i}">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px">
           <div style="display:flex;align-items:center;gap:6px">
             <span style="font-size:10px;padding:2px 8px;background:${n.color||'var(--bg-hover)'};border-radius:12px;font-weight:700;color:var(--text-secondary)">${esc(n.category||'一般')}</span>
             ${n.pinned?`<i class="fas fa-thumbtack" style="color:var(--kogane);font-size:10px"></i>`:''}
+            ${fld ? `<span class="tag" style="font-size:10px;background:${fld.color}22;color:${fld.color};border:1px solid ${fld.color}55"><i class="fas fa-folder" style="font-size:9px"></i> ${esc(fld.name)}</span>` : ''}
           </div>
           <div style="display:flex;gap:3px">
             <button class="btn btn-ghost btn-icon btn-sm" onclick="editProjectNote('${selectedProj}',${i})" title="編集"><i class="fas fa-pen" style="font-size:9px"></i></button>
             <button class="btn btn-ghost btn-icon btn-sm" onclick="togglePinProjectNote('${selectedProj}',${i})" title="ピン"><i class="fas fa-thumbtack" style="font-size:9px;color:${n.pinned?'var(--kogane)':'var(--text-muted)'}"></i></button>
-            <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteProjectNote('${selectedProj}',${i})" title="削除"><i class="fas fa-trash" style="font-size:9px;color:var(--accent)"></i></button>
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDeleteProjectNote('${selectedProj}',${i})" title="削除"><i class="fas fa-trash" style="font-size:9px;color:var(--accent)"></i></button>
           </div>
         </div>
         ${n.title ? `<div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:5px;font-family:'Noto Serif JP',serif">${esc(n.title)}</div>` : ''}
@@ -27799,8 +28171,8 @@ function renderInspirationNotes() {
           ${(n.tags||[]).map(t=>`<span class="insp-tag">#${esc(t)}</span>`).join('')}
         </div>
         <div style="font-size:10px;color:var(--text-muted);margin-top:8px">${fmtDate(n.updatedAt||n.createdAt)}</div>
-      </div>`
-    ).join('');
+      </div>`;
+      }).join('');
 
   return `
   <div style="display:grid;grid-template-columns:1fr 300px;gap:20px">
@@ -27818,6 +28190,7 @@ function renderInspirationNotes() {
         </div>` : ''}
       </div>
 
+      ${renderFolderBar(pnoteFolderScope, "navigate('inspiration')")}
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px">
         ${noteCards}
       </div>
@@ -28027,6 +28400,12 @@ function openAddProjectNote(projId) {
         <label class="form-label">タグ（スペース区切り）</label>
         <input class="form-input" id="pn-tags" placeholder="例: 重要 第2幕">
       </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">フォルダ</label>
+      <select class="form-select" id="pn-folder">
+        ${folderOptionsHtml('projectnotes_' + projId, '')}
+      </select>
     </div>`,
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
      <button class="btn btn-primary" onclick="saveProjectNote('${projId}')"><i class="fas fa-save"></i> 保存</button>`
@@ -28040,8 +28419,9 @@ function saveProjectNote(projId) {
   const tagsRaw = $('#pn-tags')?.value?.trim() || '';
   if (!body) { toast('内容を入力してください', 'error'); return; }
   const tags = tagsRaw ? tagsRaw.split(/\s+/).filter(Boolean) : [];
+  const folderId = $('#pn-folder')?.value || '';
   const notes = DB.get('project_notes_' + projId, []);
-  const n = { id: genId(), title, body, category: cat, tags, pinned: false, createdAt: now(), updatedAt: now() };
+  const n = { id: genId(), title, body, category: cat, tags, folderId, pinned: false, createdAt: now(), updatedAt: now() };
   notes.unshift(n);
   DB.set('project_notes_' + projId, notes);
   closeModal();
@@ -28075,6 +28455,12 @@ function editProjectNote(projId, idx) {
         <label class="form-label">タグ</label>
         <input class="form-input" id="pn-tags" value="${esc((n.tags||[]).join(' '))}">
       </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">フォルダ</label>
+      <select class="form-select" id="pn-folder">
+        ${folderOptionsHtml('projectnotes_' + projId, n.folderId || '')}
+      </select>
     </div>`,
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
      <button class="btn btn-primary" onclick="updateProjectNote('${projId}',${idx})">保存</button>`
@@ -28091,6 +28477,7 @@ function updateProjectNote(projId, idx) {
     body: $('#pn-body')?.value?.trim() || '',
     category: $('#pn-cat')?.value || '一般',
     tags: tagsRaw ? tagsRaw.split(/\s+/).filter(Boolean) : [],
+    folderId: $('#pn-folder')?.value || '',
     updatedAt: now(),
   };
   DB.set('project_notes_' + projId, notes);
@@ -28100,11 +28487,16 @@ function updateProjectNote(projId, idx) {
   if (el) el.innerHTML = renderInspirationNotes();
 }
 
+function confirmDeleteProjectNote(projId, idx) {
+  confirmDeleteGeneric('ノートを削除', 'このプロジェクトノートを削除しますか？この操作は取り消せません。',
+    `deleteProjectNote('${projId}',${idx})`);
+}
+
 function deleteProjectNote(projId, idx) {
-  if (!confirm('このノートを削除しますか？')) return;
   const notes = DB.get('project_notes_' + projId, []);
   notes.splice(idx, 1);
   DB.set('project_notes_' + projId, notes);
+  closeModal();
   toast('ノートを削除しました', 'info');
   const el = document.getElementById('insp-tab-content');
   if (el) el.innerHTML = renderInspirationNotes();
@@ -28343,9 +28735,10 @@ function addScratch(pinned = false) {
   const body  = $('#sc-body')?.value?.trim()  || '';
   const type  = $('#sc-type')?.value           || 'その他';
   const tags  = ($('#sc-tags-input')?.value || '').split(',').map(t=>t.trim()).filter(Boolean);
+  const folderId = $('#sc-folder')?.value || '';
   if (!body) { toast('本文を入力してください', 'error'); return; }
   const scratches = DB.get('inspiration_scratches', []);
-  scratches.unshift({ id: uid(), title, body, type, tags, pinned, createdAt: new Date().toISOString() });
+  scratches.unshift({ id: uid(), title, body, type, tags, pinned, folderId, createdAt: new Date().toISOString() });
   DB.set('inspiration_scratches', scratches);
   toast(pinned ? 'ピン留めして追加しました' : '追加しました', 'success');
   navigate('inspiration');
@@ -28385,6 +28778,10 @@ function openEditScratch(id) {
      <div class="form-group">
        <label class="form-label">本文</label>
        <textarea class="form-textarea" id="es-body" rows="5">${esc(s.body||'')}</textarea>
+     </div>
+     <div class="form-group">
+       <label class="form-label">フォルダ</label>
+       <select class="form-select" id="es-folder">${folderOptionsHtml('inspiration_scratches', s.folderId||'')}</select>
      </div>`,
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
      <button class="btn btn-primary" onclick="saveEditScratch('${id}')"><i class="fas fa-floppy-disk"></i> 保存</button>`
@@ -28399,16 +28796,26 @@ function saveEditScratch(id) {
   scratches[idx].body  = $('#es-body')?.value?.trim()  || '';
   scratches[idx].type  = $('#es-type')?.value           || 'その他';
   scratches[idx].tags  = ($('#es-tags')?.value||'').split(',').map(t=>t.trim()).filter(Boolean);
+  scratches[idx].folderId = $('#es-folder')?.value || '';
   DB.set('inspiration_scratches', scratches);
   closeModal();
   toast('保存しました', 'success');
   navigate('inspiration');
 }
 
+function confirmDeleteScratch(id) {
+  const scratches = DB.get('inspiration_scratches', []);
+  const s = scratches.find(x => x.id === id);
+  const label = s ? (s.title || (s.body||'').slice(0,30) || '無題') : 'このメモ';
+  confirmDeleteGeneric('メモを削除', `「<strong style="color:var(--text-primary)">${esc(label)}</strong>」を削除しますか？`,
+    `deleteScratch('${id}')`);
+}
+
 function deleteScratch(id) {
   let scratches = DB.get('inspiration_scratches', []);
   scratches = scratches.filter(s => s.id !== id);
   DB.set('inspiration_scratches', scratches);
+  closeModal();
   toast('削除しました', 'info');
   navigate('inspiration');
 }
@@ -29167,7 +29574,7 @@ function renderTaskItem(task) {
     <!-- アクションボタン -->
     <div class="task-item-actions">
       <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();openEditTaskModal('${task.id}')" title="編集"><i class="fas fa-pen" style="font-size:10px"></i></button>
-      <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();deleteTask('${task.id}')" title="削除"><i class="fas fa-trash" style="font-size:10px;color:var(--text-light)"></i></button>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();confirmDeleteTask('${task.id}')" title="削除"><i class="fas fa-trash" style="font-size:10px;color:var(--text-light)"></i></button>
       <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();expandTask('${task.id}')" title="${isExpanded?'折りたたむ':'詳細を表示'}">
         <i class="fas fa-chevron-${isExpanded?'up':'down'}" style="font-size:9px;color:var(--text-muted)"></i>
       </button>
@@ -29514,8 +29921,14 @@ function toggleTaskDone(taskId) {
   toast(task.done ? '✅ タスク完了！' : 'タスクを未完了に戻しました', task.done ? 'success' : 'info');
 }
 
+function confirmDeleteTask(taskId) {
+  confirmDeleteGeneric('タスクを削除', 'このタスクを削除しますか？この操作は取り消せません。',
+    `deleteTask('${taskId}')`);
+}
+
 function deleteTask(taskId) {
   TASK_DB.deleteTask(taskId);
+  closeModal();
   const el2 = document.getElementById('task-' + taskId);
   if (el2) el2.remove();
   toast('タスクを削除しました', 'info');
@@ -29785,7 +30198,7 @@ function openEditTaskModal(taskId) {
       <div id="nt-subtasks">${subtasksHtml}</div>
     </div>`,
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     <button class="btn btn-danger btn-sm" onclick="deleteTask('${taskId}');closeModal();render()" title="削除"><i class="fas fa-trash"></i></button>
+     <button class="btn btn-danger btn-sm" onclick="confirmDeleteGeneric('タスクを削除','このタスクを削除しますか？この操作は取り消せません。','deleteTask(\'${taskId}\');render()')" title="削除"><i class="fas fa-trash"></i></button>
      <button class="btn btn-primary" onclick="saveEditTask('${taskId}')"><i class="fas fa-floppy-disk"></i> 保存</button>`,
     { size: 'modal-lg' }
   );
@@ -31122,7 +31535,7 @@ function renderBoardCard(card, boardId) {
         <button class="btn btn-ghost btn-icon" style="width:22px;height:22px;padding:0" onclick="openCardEditModal('${card.id}','${boardId}')" title="編集">
           <i class="fas fa-pen" style="font-size:10px"></i>
         </button>
-        <button class="btn btn-ghost btn-icon" style="width:22px;height:22px;padding:0" onclick="deleteCard('${card.id}','${boardId}')" title="削除">
+        <button class="btn btn-ghost btn-icon" style="width:22px;height:22px;padding:0" onclick="confirmDeleteCard('${card.id}','${boardId}')" title="削除">
           <i class="fas fa-xmark" style="font-size:10px;color:var(--text-light)"></i>
         </button>
       </div>
@@ -31274,12 +31687,18 @@ function togglePinCard(cardId, boardId) {
   if (el2) el2.outerHTML = renderBoardCard(card, boardId);
 }
 
+function confirmDeleteCard(cardId, boardId) {
+  confirmDeleteGeneric('カードを削除', 'このカードを削除しますか？この操作は取り消せません。',
+    `deleteCard('${cardId}','${boardId}')`);
+}
+
 function deleteCard(cardId, boardId) {
   const board = BOARD_DB.getBoard(boardId);
   if (!board) return;
   board.cards = (board.cards || []).filter(c => c.id !== cardId);
   board.updatedAt = now();
   BOARD_DB.saveBoard(board);
+  closeModal();
   const el2 = document.getElementById('bc-' + cardId);
   if (el2) el2.remove();
   toast('カードを削除しました', 'info');
@@ -33736,8 +34155,13 @@ function renderStudyInputCard(item) {
 }
 
 function studyDeleteInputConfirm(id) {
-  if (!confirm('このメモを削除しますか？')) return;
+  confirmDeleteGeneric('メモを削除', 'このメモを削除しますか？この操作は取り消せません。',
+    `studyDeleteInput('${id}')`);
+}
+
+function studyDeleteInput(id) {
   StudyDB.deleteInput(id);
+  closeModal();
   toast('削除しました', 'info');
   render();
 }
