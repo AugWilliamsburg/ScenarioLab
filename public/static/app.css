@@ -9767,6 +9767,124 @@ body {
   .tool-fav-btn { top: 8px; right: 8px; font-size: 13px; }
 }
 
+/* ── ツール/テンプレート抜本改良：カードアクセントストライプ ── */
+.toolx-card { overflow: hidden; }
+.toolx-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 100%;
+  background: var(--toolx-accent, var(--asagi));
+  opacity: .5;
+  transition: opacity .15s, width .15s;
+}
+.toolx-card:hover::before { opacity: 1; width: 4px; }
+
+/* ── 使用回数バッジ ── */
+.toolx-usage-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-light);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  padding: 2px 8px;
+  margin-top: 4px;
+}
+.toolx-usage-inline { margin-top: 0; padding: 1px 6px; }
+
+/* ── 統計チップバー（ツール/テンプレートページヘッダー） ── */
+.toolx-stats-bar { display: flex; gap: 10px; flex-wrap: wrap; }
+.toolx-stat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  padding: 5px 12px;
+}
+.toolx-stat-chip strong { color: var(--text-primary); font-size: 13px; }
+
+/* ── よく使うランキング ── */
+.toolx-rank-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-secondary);
+  transition: background .15s;
+}
+.toolx-rank-row:hover { background: var(--bg-hover); color: var(--text-primary); }
+.toolx-rank-num {
+  width: 18px; height: 18px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  font-size: 9.5px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.toolx-rank-num.toolx-rank-1 { background: var(--kogane); color: #fff; }
+.toolx-rank-num.toolx-rank-2 { background: var(--asagi); color: #fff; }
+.toolx-rank-num.toolx-rank-3 { background: var(--momo); color: #fff; }
+.toolx-rank-count { font-size: 10px; color: var(--text-light); flex-shrink: 0; }
+
+/* ── 今日のツール：ランダム提案バナー ── */
+.toolx-today-pick {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: linear-gradient(135deg, var(--fuji-bg), var(--bg-card));
+  border: 1px solid var(--fuji-border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  margin-bottom: 18px;
+  cursor: pointer;
+  transition: all .15s;
+  position: relative;
+}
+.toolx-today-pick:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.toolx-today-icon {
+  width: 42px; height: 42px;
+  flex-shrink: 0;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+.toolx-today-label { font-size: 10px; font-weight: 700; color: var(--fuji); text-transform: uppercase; letter-spacing: .03em; margin-bottom: 2px; }
+.toolx-today-title { font-size: 14px; font-weight: 700; color: var(--text-primary); font-family: 'Noto Serif JP', serif; margin-bottom: 2px; }
+.toolx-today-desc { font-size: 11.5px; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toolx-today-dismiss {
+  background: none; border: none; color: var(--text-light);
+  cursor: pointer; padding: 6px; flex-shrink: 0; font-size: 12px;
+  transition: color .15s;
+}
+.toolx-today-dismiss:hover { color: var(--accent); }
+
+/* ── カテゴリのアコーディオン折りたたみ ── */
+.toolx-cat-head:hover { background: var(--bg-hover) !important; }
+.toolx-cat-chevron { margin-left: 4px; font-size: 11px; color: var(--text-muted); transition: transform .15s; }
+
+@media (max-width: 600px) {
+  .toolx-today-pick { padding: 12px; gap: 10px; }
+  .toolx-today-icon { width: 36px; height: 36px; font-size: 15px; }
+  .toolx-stats-bar { gap: 6px; }
+  .toolx-stat-chip { font-size: 11px; padding: 4px 9px; }
+}
+
 /* ── テンプレートフォーム入力欄 ── */
 #modal-overlay textarea.form-input {
   resize: vertical;

@@ -216,6 +216,42 @@ const ToolHistoryDB = {
     hist.unshift(id);
     if (hist.length > this.MAX) hist = hist.slice(0, this.MAX);
     DB.set('history_' + kind, hist);
+    ToolUsageDB.increment(kind, id);
+  },
+};
+
+// ── ToolUsageDB：ツール／テンプレートの「使用回数」トラッキング ─────
+// kind: 'tool' | 'template' で名前空間を分ける。ToolHistoryDB.record() から自動増加。
+const ToolUsageDB = {
+  getCounts(kind) { return DB.get('usage_count_' + kind, {}); },
+  increment(kind, id) {
+    const counts = this.getCounts(kind);
+    counts[id] = (counts[id] || 0) + 1;
+    DB.set('usage_count_' + kind, counts);
+  },
+  getCount(kind, id) { return this.getCounts(kind)[id] || 0; },
+  getTotalUses(kind) {
+    const counts = this.getCounts(kind);
+    return Object.values(counts).reduce((a, b) => a + b, 0);
+  },
+  getTopUsed(kind, n = 5) {
+    const counts = this.getCounts(kind);
+    return Object.entries(counts)
+      .filter(([, c]) => c > 0)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, n)
+      .map(([id, count]) => ({ id, count }));
+  },
+};
+
+// ── ToolCategoryCollapseDB：ツールページのカテゴリ開閉状態を保持 ────
+const ToolCategoryCollapseDB = {
+  getState() { return DB.get('tool_cat_collapsed', {}); },
+  isCollapsed(catId) { return !!this.getState()[catId]; },
+  toggle(catId) {
+    const st = this.getState();
+    st[catId] = !st[catId];
+    DB.set('tool_cat_collapsed', st);
   },
 };
 
@@ -23585,13 +23621,15 @@ function toolsFlatList() {
 
 function renderToolCardHtml(t, colorMap, bgMap) {
   const isFav = ToolFavDB.isFav('tool', t.id);
+  const useCount = ToolUsageDB.getCount('tool', t.id);
+  const accentColor = colorMap[t.color] || 'var(--text-muted)';
   return `
-  <div class="guide-card tool-card" style="cursor:pointer;margin-bottom:0;position:relative" onclick="openToolFromCard('${t.id}')">
+  <div class="guide-card tool-card toolx-card" style="cursor:pointer;margin-bottom:0;position:relative;--toolx-accent:${accentColor}" onclick="openToolFromCard('${t.id}')">
     <button class="tool-fav-btn ${isFav?'active':''}" onclick="event.stopPropagation();toggleToolFav('${t.id}')" title="お気に入り${isFav?'解除':'登録'}">
       <i class="fa${isFav?'s':'r'} fa-star"></i>
     </button>
     <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:8px">
-      <div style="width:42px;height:42px;border-radius:var(--radius-md);background:${bgMap[t.color]||'var(--bg-hover)'};color:${colorMap[t.color]||'var(--text-muted)'};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
+      <div style="width:42px;height:42px;border-radius:var(--radius-md);background:${bgMap[t.color]||'var(--bg-hover)'};color:${accentColor};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
         <i class="fas ${t.icon}"></i>
       </div>
       <div style="flex:1;padding-right:20px">
@@ -23602,6 +23640,7 @@ function renderToolCardHtml(t, colorMap, bgMap) {
         <div class="guide-card-desc" style="font-size:11.5px">${esc(t.desc)}</div>
       </div>
     </div>
+    ${useCount > 0 ? `<div class="toolx-usage-badge"><i class="fas fa-arrow-rotate-right"></i> ${useCount}回使用</div>` : ''}
   </div>`;
 }
 
@@ -23683,10 +23722,11 @@ function renderToolsPage() {
   </div>` : '';
 
   const categorySections = TOOL_CATEGORIES.map(cat => {
+    const collapsed = ToolCategoryCollapseDB.isCollapsed(cat.id);
     const toolCards = cat.tools.map(t => renderToolCardHtml(t, colorMap, bgMap)).join('');
     return `
-    <div class="card" style="padding:0;overflow:hidden;border-top:3px solid ${cat.color}">
-      <div style="padding:14px 16px;border-bottom:1px solid var(--border);background:var(--bg-subtle);display:flex;align-items:center;gap:10px">
+    <div class="card toolx-cat-card" style="padding:0;overflow:hidden;border-top:3px solid ${cat.color}">
+      <div class="toolx-cat-head" style="padding:14px 16px;border-bottom:${collapsed?'none':'1px solid var(--border)'};background:var(--bg-subtle);display:flex;align-items:center;gap:10px;cursor:pointer" onclick="toggleToolCategoryCollapse('${cat.id}')">
         <div style="width:36px;height:36px;border-radius:var(--radius-sm);background:${cat.bg};border:1px solid ${cat.border};display:flex;align-items:center;justify-content:center;flex-shrink:0">
           <i class="fas ${cat.icon}" style="color:${cat.color};font-size:15px"></i>
         </div>
@@ -23695,12 +23735,41 @@ function renderToolsPage() {
           <div style="font-size:11.5px;color:var(--text-muted)">${cat.desc}</div>
         </div>
         <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">${cat.tools.length}ツール</span>
+        <i class="fas fa-chevron-${collapsed?'down':'up'} toolx-cat-chevron"></i>
       </div>
-      <div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
+      ${collapsed ? '' : `<div style="padding:12px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
         ${toolCards}
-      </div>
+      </div>`}
     </div>`;
   }).join('');
+
+  const totalTools = flatList.length;
+  const totalFavs = favIds.length;
+  const totalUses = ToolUsageDB.getTotalUses('tool');
+  const topUsed = ToolUsageDB.getTopUsed('tool', 5).map(u => ({ ...flatList.find(t=>t.id===u.id), count: u.count })).filter(t=>t.id);
+
+  const statsHeader = `
+  <div class="toolx-stats-bar">
+    <div class="toolx-stat-chip"><i class="fas fa-layer-group" style="color:var(--asagi)"></i><span><strong>${totalTools}</strong> ツール</span></div>
+    <div class="toolx-stat-chip"><i class="fas fa-star" style="color:var(--kogane)"></i><span><strong>${totalFavs}</strong> お気に入り</span></div>
+    <div class="toolx-stat-chip"><i class="fas fa-arrow-rotate-right" style="color:var(--fuji)"></i><span><strong>${totalUses}</strong> 回利用</span></div>
+  </div>`;
+
+  const todayToolSection = renderTodayToolPick(flatList, colorMap, bgMap);
+
+  const rankingSection = topUsed.length ? `
+  <div class="card toolx-ranking-card">
+    <div style="font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:10px"><i class="fas fa-ranking-star" style="color:var(--momo);margin-right:6px"></i>よく使うツールランキング</div>
+    <div style="display:flex;flex-direction:column;gap:5px">
+      ${topUsed.map((t,i) => `
+      <div class="toolx-rank-row" onclick="openToolFromCard('${t.id}')">
+        <span class="toolx-rank-num toolx-rank-${i+1}">${i+1}</span>
+        <i class="fas ${t.icon}" style="color:${colorMap[t.color]||'var(--text-muted)'};width:16px"></i>
+        <span style="flex:1">${esc(t.title)}</span>
+        <span class="toolx-rank-count">${t.count}回</span>
+      </div>`).join('')}
+    </div>
+  </div>` : '';
 
   return `
   <div style="background:linear-gradient(135deg,var(--asagi-bg) 0%,var(--bg-subtle) 60%);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:20px;position:relative;overflow:hidden">
@@ -23709,13 +23778,51 @@ function renderToolsPage() {
     <div style="font-size:22px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:6px">
       <i class="fas fa-toolbox" style="color:var(--asagi);margin-right:8px"></i>ライターズツール
     </div>
-    <div style="font-size:13px;color:var(--text-muted);margin-bottom:14px">執筆プロセスを加速する専用ツール集。カテゴリごとに整理された${TOOL_CATEGORIES.reduce((a,c)=>a+c.tools.length,0)}つのツールで、アイデア出しから推敲まで完全サポート。</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:14px">執筆プロセスを加速する専用ツール集。カテゴリごとに整理された${totalTools}つのツールで、アイデア出しから推敲まで完全サポート。</div>
+    ${statsHeader}
     ${renderToolSearchBar(searchQuery)}
   </div>
-  ${quickSection}
+  ${todayToolSection}
+  <div style="display:grid;grid-template-columns:${rankingSection?'2fr 1fr':'1fr'};gap:16px;margin-bottom:20px;align-items:start">
+    <div>${quickSection}</div>
+    ${rankingSection}
+  </div>
   <div style="display:flex;flex-direction:column;gap:20px">
     ${categorySections}
   </div>`;
+}
+
+function toggleToolCategoryCollapse(catId) {
+  ToolCategoryCollapseDB.toggle(catId);
+  render();
+}
+
+// ── 「今日のツール」：ランダム提案（日替わりでシード固定、毎日同じ提案） ─
+function renderTodayToolPick(flatList, colorMap, bgMap) {
+  if (!flatList.length) return '';
+  const dayKey = new Date().toISOString().slice(0, 10);
+  const dismissed = DB.get('tool_today_dismissed', '');
+  if (dismissed === dayKey) return '';
+  // 日付文字列からシンプルなハッシュを作り、その日固有のインデックスを決定
+  let hash = 0;
+  for (let i = 0; i < dayKey.length; i++) hash = (hash * 31 + dayKey.charCodeAt(i)) >>> 0;
+  const t = flatList[hash % flatList.length];
+  const col = colorMap[t.color] || 'var(--text-muted)';
+  const bg = bgMap[t.color] || 'var(--bg-hover)';
+  return `
+  <div class="toolx-today-pick" onclick="openToolFromCard('${t.id}')">
+    <div class="toolx-today-icon" style="background:${bg};color:${col}"><i class="fas ${t.icon}"></i></div>
+    <div style="flex:1;min-width:0">
+      <div class="toolx-today-label"><i class="fas fa-dice"></i> 今日のツール</div>
+      <div class="toolx-today-title">${esc(t.title)}</div>
+      <div class="toolx-today-desc">${esc(t.desc)}</div>
+    </div>
+    <button class="toolx-today-dismiss" onclick="event.stopPropagation();dismissTodayToolPick('${dayKey}')" title="今日は表示しない"><i class="fas fa-xmark"></i></button>
+  </div>`;
+}
+function dismissTodayToolPick(dayKey) {
+  DB.set('tool_today_dismissed', dayKey);
+  render();
 }
 
 function renderToolSearchBar(value) {
@@ -27214,6 +27321,15 @@ const CustomTemplateDB = {
   delete(id) {
     this.save(this.getAll().filter(x => x.id !== id));
   },
+  duplicate(id) {
+    const t = this.get(id);
+    if (!t) return null;
+    const copy = { ...t, id: 'custom_' + uid(), name: t.name + '（コピー）', createdAt: now(), updatedAt: now() };
+    const list = this.getAll();
+    list.unshift(copy);
+    this.save(list);
+    return copy;
+  },
 };
 
 function renderTemplateCardHtml(item, colorMap, bgMap, borderMap) {
@@ -27221,8 +27337,9 @@ function renderTemplateCardHtml(item, colorMap, bgMap, borderMap) {
   const bg = bgMap[item.catColor] || 'var(--bg-hover)';
   const bdr = borderMap[item.catColor] || 'var(--border)';
   const isFav = ToolFavDB.isFav('template', item.id);
+  const useCount = ToolUsageDB.getCount('template', item.id);
   return `
-  <div class="card tool-card" style="cursor:pointer;padding:14px 16px;transition:all .18s;border-top:2px solid ${col};position:relative" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(0,0,0,.09)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+  <div class="card tool-card toolx-card" style="cursor:pointer;padding:14px 16px;transition:all .18s;border-top:2px solid ${col};position:relative;--toolx-accent:${col}" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(0,0,0,.09)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
     <button class="tool-fav-btn ${isFav?'active':''}" onclick="event.stopPropagation();toggleTemplateFav('${item.id}')" title="お気に入り${isFav?'解除':'登録'}">
       <i class="fa${isFav?'s':'r'} fa-star"></i>
     </button>
@@ -27235,13 +27352,14 @@ function renderTemplateCardHtml(item, colorMap, bgMap, borderMap) {
           <div style="font-size:13px;font-weight:700;color:var(--text-primary);line-height:1.4">${esc(item.name)}</div>
           ${item.badge ? `<span class="tag tag-beni" style="font-size:9px">${item.badge}</span>` : ''}
           ${item.hasForm ? `<span class="tag" style="font-size:9px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border)"><i class="fas fa-table-list" style="font-size:8px"></i> フォーム対応</span>` : ''}
+          ${useCount > 0 ? `<span class="toolx-usage-badge toolx-usage-inline"><i class="fas fa-arrow-rotate-right"></i> ${useCount}</span>` : ''}
         </div>
         <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.5">${esc(item.desc||'')}</div>
       </div>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
       <div style="display:flex;flex-wrap:wrap;gap:4px">
-        ${(item.tags||[]).map(t=>`<span style="font-size:10px;padding:1px 7px;background:${bg};color:${col};border:1px solid ${bdr};border-radius:var(--radius-full)">${t}</span>`).join('')}
+        ${(item.tags||[]).map(t=>`<span style="font-size:10px;padding:1px 7px;background:${bg};color:${col};border:1px solid ${bdr};border-radius:var(--radius-full);cursor:pointer" onclick="event.stopPropagation();setTemplateTagFilter('${esc(t)}')">${t}</span>`).join('')}
       </div>
       <div style="display:flex;gap:5px">
         <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:${col}" onclick="event.stopPropagation();saveTemplateToNoteFromCard('${item.id}','${esc(item.name).replace(/'/g,'&#39;')}')" title="学習ノートに保存">
@@ -27305,11 +27423,66 @@ function renderCustomTemplateCardHtml(t) {
         ${(t.tags||[]).map(tag=>`<span style="font-size:10px;padding:1px 7px;background:var(--fuji-bg);color:var(--fuji);border:1px solid var(--fuji-border);border-radius:var(--radius-full)">${esc(tag)}</span>`).join('')}
       </div>
       <div style="display:flex;gap:5px">
+        <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:var(--matcha)" onclick="event.stopPropagation();duplicateCustomTemplate('${t.id}')" title="複製"><i class="fas fa-copy" style="font-size:9px"></i></button>
         <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:var(--fuji)" onclick="event.stopPropagation();editCustomTemplate('${t.id}')" title="編集"><i class="fas fa-pen" style="font-size:9px"></i></button>
         <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:var(--accent)" onclick="event.stopPropagation();confirmDeleteCustomTemplate('${t.id}')" title="削除"><i class="fas fa-trash" style="font-size:9px"></i></button>
       </div>
     </div>
   </div>`;
+}
+function duplicateCustomTemplate(id) {
+  const copy = CustomTemplateDB.duplicate(id);
+  if (!copy) { toast('複製に失敗しました', 'error'); return; }
+  toast(`「${copy.name}」として複製しました`, 'success');
+  render();
+}
+function exportCustomTemplates() {
+  const list = CustomTemplateDB.getAll();
+  if (!list.length) { toast('自作テンプレートがありません', 'info'); return; }
+  const data = { version: 1, type: 'scenariolab_custom_templates', exportedAt: new Date().toISOString(), templates: list };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `custom_templates_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`自作テンプレート${list.length}件をエクスポートしました`, 'success');
+}
+function triggerImportCustomTemplates() {
+  const input = $('#custom-template-import-input');
+  if (input) input.click();
+}
+function importCustomTemplatesFile(fileInput) {
+  const file = fileInput.files && fileInput.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      const items = Array.isArray(data) ? data : (data.templates || []);
+      if (!Array.isArray(items) || !items.length) { toast('有効なテンプレートデータが見つかりません', 'error'); return; }
+      const list = CustomTemplateDB.getAll();
+      let count = 0;
+      items.forEach(it => {
+        if (!it || !it.name || !it.content) return;
+        list.unshift({
+          id: 'custom_' + uid(),
+          name: it.name, desc: it.desc || '', content: it.content,
+          tags: Array.isArray(it.tags) ? it.tags : [], folderId: '',
+          createdAt: now(), updatedAt: now(),
+        });
+        count++;
+      });
+      CustomTemplateDB.save(list);
+      toast(`${count}件のテンプレートを取り込みました`, 'success');
+      render();
+    } catch (e) {
+      toast('ファイルの読み込みに失敗しました（JSON形式を確認してください）', 'error');
+    }
+  };
+  reader.readAsText(file);
+  fileInput.value = '';
 }
 function renderCustomTemplateSection() {
   const list = CustomTemplateDB.getAll();
@@ -27326,7 +27499,12 @@ function renderCustomTemplateSection() {
           <div style="font-size:11px;color:var(--text-muted)">${list.length}件 — 自分だけのテンプレートを作成・フォルダ分類できます</div>
         </div>
       </div>
-      <button class="btn btn-primary btn-sm" onclick="openAddCustomTemplate()"><i class="fas fa-plus"></i> 新規作成</button>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <input type="file" id="custom-template-import-input" accept="application/json" style="display:none" onchange="importCustomTemplatesFile(this)">
+        <button class="btn btn-ghost btn-sm" onclick="triggerImportCustomTemplates()" title="JSONファイルから取り込み"><i class="fas fa-file-import"></i> 取り込み</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportCustomTemplates()" title="JSONファイルへ書き出し"><i class="fas fa-file-export"></i> 書き出し</button>
+        <button class="btn btn-primary btn-sm" onclick="openAddCustomTemplate()"><i class="fas fa-plus"></i> 新規作成</button>
+      </div>
     </div>
     ${renderFolderBar(TEMPLATE_CUSTOM_SCOPE, "navigate('templates')")}
     ${filtered.length === 0 ? `<div style="text-align:center;padding:50px 20px;color:var(--text-muted)"><i class="fas fa-user-pen" style="font-size:36px;display:block;margin-bottom:12px;opacity:.25"></i><div style="font-size:13px">まだ自作テンプレートがありません<br>「新規作成」から自分だけのテンプレートを作りましょう</div></div>` :
@@ -27403,10 +27581,30 @@ function deleteCustomTemplate(id) {
   render();
 }
 
+function setTemplateTagFilter(tag) {
+  const cur = DB.get('template_tag_filter', '');
+  DB.set('template_tag_filter', cur === tag ? '' : tag);
+  DB.set('template_search', '');
+  render();
+}
+
+function renderTemplateTagCloud(tagFilter) {
+  const counts = {};
+  templatesFlatList().forEach(t => (t.tags||[]).forEach(tag => { counts[tag] = (counts[tag]||0) + 1; }));
+  const tags = Object.entries(counts).sort((a,b) => b[1]-a[1]).slice(0, 30);
+  if (!tags.length) return '';
+  return `
+  <div class="study-tagcloud" style="margin-bottom:18px">
+    ${tags.map(([t,c]) => `<span class="study-tagcloud-item ${tagFilter===t?'active':''}" onclick="setTemplateTagFilter('${esc(t)}')">${esc(t)} <span class="study-tagcloud-count">${c}</span></span>`).join('')}
+    ${tagFilter ? `<span class="study-tagcloud-item" style="color:var(--accent)" onclick="setTemplateTagFilter('')"><i class="fas fa-xmark"></i> クリア</span>` : ''}
+  </div>`;
+}
+
 function renderTemplatesPage() {
   const activeFilter = DB.get('template_filter', 'all');
   const { colorMap, bgMap, borderMap } = templatesColorMaps();
   const searchQuery = (DB.get('template_search', '') || '').trim();
+  const tagFilter = DB.get('template_tag_filter', '');
   const customList = CustomTemplateDB.getAll();
 
   // 検索モード（既存テンプレート＋自作テンプレートを横断検索）
@@ -27424,6 +27622,19 @@ function renderTemplatesPage() {
     </div>`;
   }
 
+  // タグ絞り込みモード（既存テンプレートのみ対象）
+  if (tagFilter) {
+    const flat = templatesFlatList();
+    const matched = flat.filter(t => (t.tags||[]).includes(tagFilter));
+    return `
+    <div style="margin-bottom:16px">${renderTemplateSearchBar(searchQuery)}</div>
+    ${renderTemplateTagCloud(tagFilter)}
+    <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:12px">タグ「<strong style="color:var(--fuji)">${esc(tagFilter)}</strong>」のテンプレート：${matched.length}件</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
+      ${matched.map(t=>renderTemplateCardHtml(t,colorMap,bgMap,borderMap)).join('')}
+    </div>`;
+  }
+
   // お気に入り／最近使ったセクション
   const favIds = ToolFavDB.getFavs('template');
   const histIds = ToolHistoryDB.getHistory('template').filter(id => !favIds.includes(id));
@@ -27432,7 +27643,24 @@ function renderTemplatesPage() {
   const favTs = favIds.map(findT).filter(Boolean);
   const histTs = histIds.map(findT).filter(Boolean);
 
-  const quickSection = (favTs.length || histTs.length) ? `
+  const totalUses = ToolUsageDB.getTotalUses('template');
+  const topUsed = ToolUsageDB.getTopUsed('template', 5).map(u => ({ ...findT(u.id), count: u.count })).filter(t=>t && t.id);
+
+  const rankingCard = topUsed.length ? `
+  <div class="card" style="padding:14px;border-top:3px solid var(--momo)">
+    <div style="font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:10px"><i class="fas fa-ranking-star" style="color:var(--momo);margin-right:6px"></i>よく使うランキング</div>
+    <div style="display:flex;flex-direction:column;gap:5px">
+      ${topUsed.map((t,i) => `
+      <div class="toolx-rank-row" onclick="showTemplate('${t.id}')">
+        <span class="toolx-rank-num toolx-rank-${i+1}">${i+1}</span>
+        <i class="fas ${t.catIcon||'fa-layer-group'}" style="color:${colorMap[t.catColor]||'var(--text-muted)'};width:16px"></i>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.name)}</span>
+        <span class="toolx-rank-count">${t.count}回</span>
+      </div>`).join('')}
+    </div>
+  </div>` : '';
+
+  const quickSection = (favTs.length || histTs.length || rankingCard) ? `
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:20px">
     ${favTs.length ? `
     <div class="card" style="padding:14px;border-top:3px solid var(--kogane)">
@@ -27448,11 +27676,12 @@ function renderTemplatesPage() {
         ${histTs.map(t=>`<div class="tool-quick-row" onclick="showTemplate('${t.id}')"><i class="fas ${t.catIcon||'fa-layer-group'}" style="color:${colorMap[t.catColor]||'var(--text-muted)'};width:16px"></i><span>${esc(t.name)}</span><i class="fas fa-arrow-right" style="margin-left:auto;font-size:9px;color:var(--text-muted)"></i></div>`).join('')}
       </div>
     </div>` : ''}
+    ${rankingCard}
   </div>` : '';
 
   // フィルタータブ（既存カテゴリ＋自作）
   const filterTabs = `
-  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px">
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">
     <button class="btn btn-sm ${activeFilter==='all'?'btn-primary':'btn-ghost'}" onclick="DB.set('template_filter','all');render()">すべて</button>
     ${TEMPLATE_CATS_DATA.map(c=>`<button class="btn btn-sm ${activeFilter===c.id?'btn-primary':'btn-ghost'}" onclick="DB.set('template_filter','${c.id}');render()" style="${activeFilter===c.id?'':'border-color:'+borderMap[c.color]+';color:'+colorMap[c.color]}">
       <i class="fas ${c.icon}" style="font-size:10px"></i> ${c.badge}
@@ -27499,13 +27728,17 @@ function renderTemplatesPage() {
       <i class="fas fa-layer-group" style="color:var(--kogane);margin-right:8px"></i>テンプレート集
     </div>
     <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">プロが使う設計シート・チェックリスト${totalTemplates}種＋自作${customList.length}件 — コピー、フォーム入力、学習ノート保存に対応</div>
-    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px">
-      ${TEMPLATE_CATS_DATA.map(c=>`<span style="font-size:12px;color:${colorMap[c.color]};font-weight:600"><i class="fas ${c.icon}" style="margin-right:4px;font-size:10px"></i>${c.title} ${c.items.length}件</span>`).join('')}
+    <div class="toolx-stats-bar" style="margin-bottom:14px">
+      ${TEMPLATE_CATS_DATA.map(c=>`<div class="toolx-stat-chip"><i class="fas ${c.icon}" style="color:${colorMap[c.color]}"></i><span><strong>${c.items.length}</strong> ${c.title}</span></div>`).join('')}
+      <div class="toolx-stat-chip"><i class="fas fa-arrow-rotate-right" style="color:var(--fuji)"></i><span><strong>${totalUses}</strong> 回利用</span></div>
     </div>
     ${renderTemplateSearchBar(searchQuery)}
   </div>
 
   ${quickSection}
+
+  <!-- タグクラウド -->
+  ${activeFilter === 'custom' ? '' : renderTemplateTagCloud(tagFilter)}
 
   <!-- フィルター -->
   ${filterTabs}
@@ -27516,7 +27749,7 @@ function renderTemplatesPage() {
   <!-- ヒント -->
   <div style="padding:12px 16px;background:var(--asagi-bg);border:1px solid var(--asagi-border);border-radius:var(--radius-md);font-size:12.5px;color:var(--text-secondary);line-height:1.7">
     <i class="fas fa-lightbulb" style="color:var(--asagi);margin-right:6px"></i>
-    <strong>使い方のコツ：</strong>テンプレートはコピー後、お使いのエディタ（Word・Google Docs等）に貼り付けて使います。「フォーム対応」バッジ付きテンプレートは項目を入力するだけで自動整形できます。「自作」タブから独自のテンプレートを作成・フォルダ分類できます。
+    <strong>使い方のコツ：</strong>テンプレートはコピー後、お使いのエディタ（Word・Google Docs等）に貼り付けて使います。「フォーム対応」バッジ付きテンプレートは項目を入力するだけで自動整形できます。「自作」タブから独自のテンプレートを作成・フォルダ分類できます。タグをクリックすると同じタグのテンプレートに絞り込めます。
   </div>`;
 }
 
