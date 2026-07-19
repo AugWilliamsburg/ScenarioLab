@@ -50,8 +50,12 @@
   - `study_drafts`（書斎の原稿：id, title, content, tags, font, scoreResult, createdAt/updatedAt 等）
   - `study_inputs`（書斎のインプットメモ：id, category, author, workTitle, quote, memo, tags 等）
   - 既存モデル：projects, characters, ideas, journal entries, staffroom sessions 等
-  - `sl_folders_<scopeKey>`（フォルダ定義：id, name, color。スコープキー例: `ideas_<projId>`, `researchnotes_<projId>`, `researchlinks_<projId>`, `world_notes`, `inspiration_scratches`, `projectnotes_<projId>`）
+  - `sl_folders_<scopeKey>`（フォルダ定義：id, name, color。スコープキー例: `ideas_<projId>`, `researchnotes_<projId>`, `researchlinks_<projId>`, `world_notes`, `inspiration_scratches`, `projectnotes_<projId>`, `templates_custom`）
   - 各メモ・カードには任意項目 `folderId` を追加（未設定時は「未分類」として扱われ、既存データとの後方互換性を維持）
+  - `sl_fav_tool` / `sl_fav_template`（お気に入りIDリスト）、`sl_history_tool` / `sl_history_template`（最近使ったIDリスト、最大8件）
+  - `sl_custom_templates`（自作テンプレート：id, name, desc, content, tags, folderId, createdAt/updatedAt）
+  - `sl_foreshadowing_<projId>`（伏線トラッカーのデータ）、`sl_motifs_<projId>`（モチーフ・シンボルDBのデータ）、`sl_title_gen_saved`（保存済み生成タイトル）
+  - `sl_template_form_<templateId>`（インタラクティブフォームの入力値、three-act/logline-sheet/char-basic対応）
 - **Storage Services**: ブラウザ `localStorage`（`sl_` プレフィックス付きキー、`DB.get/set` ラッパー経由）。サーバー側でのデータ永続化は行っていません。
 - **Data Flow**: クライアントサイドSPA（`State.currentPage` による画面切替 + `render()` による再描画）。バックエンド（Hono）はHTML/静的アセット配信とPDF抽出プロキシのみを担当。
 
@@ -77,7 +81,7 @@
   pm2 start ecosystem.config.cjs       # メインアプリ (port 3000)
   pm2 start pdf_ecosystem.config.cjs   # PDF抽出サーバー (port 3001)
   ```
-- **Last Updated**: 2026-07-18（書斎機能抜本強化を反映）
+- **Last Updated**: 2026-07-19（ライターズツール・テンプレート集の抜本進化を反映）
 
 ## モバイル最適化（PC版は無変更）
 既存のCSSはPC版を含め一切変更せず、`@media (max-width: ...)` の追加のみでモバイル表示を改善しました。
@@ -114,3 +118,29 @@
 ### 対応状況
 - JS構文チェック・ビルド（`vite build`）・PM2再起動・稼働確認（200 OK）まで完了済み
 - フォルダチップ・管理モーダル用のCSSも追加済み
+
+## ライターズツール・テンプレート集 — 抜本進化（完了）
+「ライターズツール」ページと「テンプレート集」ページに対し、UI/UXの抜本改良・機能強化・機能拡充を実施しました。既存データ構造・既存UIパターンは変更せず、上位層として拡張しています。
+
+### 共通基盤（新規）
+- **`ToolFavDB`**：ツール／テンプレート共通の「お気に入り」管理（`kind`パラメータで名前空間を分離、`fav_tool` / `fav_template` キー）
+- **`ToolHistoryDB`**：ツール／テンプレート共通の「最近使った」履歴管理（最大8件、`history_tool` / `history_template` キー）
+
+### UI/UXの抜本改良
+- ツール一覧・テンプレート集の両ページにデバウンス検索バーを追加（200ms遅延、フォーカス位置保持）
+- 「お気に入り」「最近使った」のクイックアクセスセクションをページ上部に追加
+- ツールカード／テンプレートカードのデザインを刷新し、カード上に★お気に入りボタンを統一配置
+
+### ライターズツール：新規ツール追加（3種）
+- **伏線トラッカー**：仕込んだ伏線をプロジェクトごとに一覧管理。4状態（仕込み中／強化中／回収済み／放棄）のステータス管理、進捗バー、ステータスフィルタ
+- **タイトルジェネレーター**：ジャンル・キーワードを選ぶだけで作品タイトル案を大量生成（12パターンのテンプレート×6ジャンルの単語群）。生成結果は保存可能
+- **モチーフ・シンボル管理**：反復モチーフ・象徴・小道具をプロジェクトごとに一覧管理し、作中の出現箇所（シーン等）を追跡記録
+
+### テンプレート集：機能強化・機能拡充
+- **自作テンプレート機能（新規）**：ユーザー自身がテンプレートを作成・編集・削除できる専用タブを追加（`CustomTemplateDB`）。`FolderDB`によるフォルダ分類にも対応
+- **インタラクティブフォーム化**：主要テンプレート3種（三幕構成シート／ログライン＆企画書シート／キャラクター基本シート）をフォーム入力対応に改修。項目ごとに入力するだけで自動整形されたテンプレート本文を生成し、入力内容は自動保存、プレビュー・コピー・ノート保存が可能
+- **新規テンプレート追加（10種）**：非線形構成シート、複数視点構成シート、キャラクターボイス設計シート、バックストーリー設計シート、アクションシーン設計シート、オープニングシーンチェックリスト、ペーシング診断シート、整合性チェックリスト、シリーズバイブルシート、想定読者分析シート（既存5カテゴリに各2種を追加）
+
+### 対応状況
+- JS構文チェック・ビルド（`vite build`）・PM2再起動・稼働確認（200 OK）まで完了済み
+- お気に入りボタン・クイックアクセス行用のCSSも追加済み

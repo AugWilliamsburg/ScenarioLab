@@ -193,6 +193,32 @@ function doDeleteFolder(scopeKey, folderId) {
   reopenFolderManageModal(scopeKey);
 }
 
+// ── ToolFavDB：ツール／テンプレートの「お気に入り」共通管理 ─────────
+// kind: 'tool' | 'template' で名前空間を分ける
+const ToolFavDB = {
+  getFavs(kind) { return DB.get('fav_' + kind, []); },
+  isFav(kind, id) { return this.getFavs(kind).includes(id); },
+  toggle(kind, id) {
+    const favs = this.getFavs(kind);
+    const idx = favs.indexOf(id);
+    if (idx >= 0) favs.splice(idx, 1); else favs.unshift(id);
+    DB.set('fav_' + kind, favs);
+    return idx < 0;
+  },
+};
+
+// ── ToolHistoryDB：ツール／テンプレートの「最近使った」履歴管理 ─────
+const ToolHistoryDB = {
+  MAX: 8,
+  getHistory(kind) { return DB.get('history_' + kind, []); },
+  record(kind, id) {
+    let hist = this.getHistory(kind).filter(x => x !== id);
+    hist.unshift(id);
+    if (hist.length > this.MAX) hist = hist.slice(0, this.MAX);
+    DB.set('history_' + kind, hist);
+  },
+};
+
 // ── 汎用削除確認モーダル ────────────────────────────────────────
 // title: モーダルタイトル文言／message: 本文HTML／confirmCall: 削除を実行するJS式文字列（onclick に埋め込む）
 function confirmDeleteGeneric(title, message, confirmCall) {
@@ -350,7 +376,7 @@ function render() {
   }
 
   // ツールページ
-  if (p === 'tools' || p === 'tool-logline' || p === 'tool-char-diag' || p === 'tool-scene' || p === 'tool-timer' || p === 'tool-pitch' || p === 'tool-tension' || p === 'tool-name-gen' || p === 'tool-structure' || p === 'tool-emotion-arc' || p === 'tool-world-notes' || p === 'tool-dialogue-check' || p === 'tool-plot-holes' || p === 'tool-beat-counter' || p === 'tool-conflict-escalation' || p === 'tool-subtext-rewriter' || p === 'tool-act-health') {
+  if (p === 'tools' || (p && p.startsWith('tool-'))) {
     app.innerHTML = renderLayout(renderToolsPage());
     bindToolsPage();
     return;
@@ -22068,6 +22094,107 @@ function renderGuideTheme() {
 // ================================================================
 //  PAGE: ツール
 // ================================================================
+const TOOL_CATEGORIES_DATA = [
+  {
+    id: 'planning',
+    label: '企画・構成',
+    icon: 'fa-lightbulb',
+    color: 'var(--accent)',
+    bg: 'var(--accent-bg)',
+    border: 'var(--accent-border)',
+    desc: 'アイデアから物語の骨格を作るツール',
+    tools: [
+      { id:'tool-logline', title:'ログラインメーカー', icon:'fa-quote-left', color:'beni', desc:'4要素入力でプロ品質のログラインを複数生成', badge:'おすすめ' },
+      { id:'tool-pitch', title:'ピッチドック・メーカー', icon:'fa-bullhorn', color:'beni', desc:'企画書・あらすじ・ピッチ文書を自動生成' },
+      { id:'tool-title-gen', title:'タイトルジェネレーター', icon:'fa-heading', color:'kogane', desc:'ジャンル・キーワードから作品タイトル案を大量生成', badge:'新機能' },
+      { id:'tool-tension', title:'テンションカーブ設計', icon:'fa-chart-line', color:'momo', desc:'物語全体の緊張度を視覚化・設計' },
+      { id:'tool-structure', title:'構成チェッカー', icon:'fa-diagram-project', color:'kon', desc:'三幕構成・Save the Cat など複数フレームで物語を検証' },
+      { id:'tool-act-health', title:'幕バランス健康診断', icon:'fa-stethoscope', color:'kogane', desc:'ページ数・分数から三幕バランスを分析し問題点を指摘', badge:'新機能' },
+      { id:'tool-conflict-escalation', title:'葛藤エスカレーションプランナー', icon:'fa-fire', color:'accent', desc:'主人公の葛藤を段階的に強化するプランを設計', badge:'新機能' },
+      { id:'tool-foreshadowing', title:'伏線トラッカー', icon:'fa-map-pin', color:'fuji', desc:'仕込んだ伏線を一覧管理し、回収済み/未回収を可視化', badge:'新機能' },
+    ],
+  },
+  {
+    id: 'character',
+    label: 'キャラクター',
+    icon: 'fa-users',
+    color: 'var(--fuji)',
+    bg: 'var(--fuji-bg)',
+    border: 'var(--fuji-border)',
+    desc: 'キャラクターを深く設計・管理するツール',
+    tools: [
+      { id:'tool-char-diag', title:'キャラクター診断シート', icon:'fa-user-check', color:'fuji', desc:'Want/Need・ウーンド・ライ/トゥルース・ボイスを完全診断', badge:'強化版' },
+      { id:'tool-name-gen', title:'キャラクター名ジェネレーター', icon:'fa-signature', color:'kon', desc:'和風・洋風・古風・SF系の名前を自動生成' },
+      { id:'tool-emotion-arc', title:'感情アーク設計', icon:'fa-heart-pulse', color:'momo', desc:'キャラクターの感情変化曲線を視覚的に設計' },
+    ],
+  },
+  {
+    id: 'writing',
+    label: '執筆・シーン',
+    icon: 'fa-pen-nib',
+    color: 'var(--momo)',
+    bg: 'var(--momo-bg)',
+    border: 'var(--momo-border)',
+    desc: 'シーンの構成や執筆作業を助けるツール',
+    tools: [
+      { id:'tool-scene', title:'シーン構造チェッカー', icon:'fa-film', color:'momo', desc:'入口・目的・対立・出口の4要素を診断' },
+      { id:'tool-dialogue-check', title:'セリフ磨き診断', icon:'fa-comments', color:'fuji', desc:'台詞を8項目で採点・改善提案（強化版）', badge:'強化版' },
+      { id:'tool-subtext-rewriter', title:'サブテキスト変換ツール', icon:'fa-comment-slash', color:'asagi', desc:'直接的なセリフをサブテキスト表現に変換', badge:'新機能' },
+      { id:'tool-timer', title:'執筆タイマー（ポモドーロ）', icon:'fa-stopwatch', color:'kogane', desc:'25分集中＋5分休憩で生産性アップ' },
+      { id:'tool-world-notes', title:'世界観メモパッド', icon:'fa-globe', color:'asagi', desc:'設定・ルール・用語・地名などを素早くメモ' },
+      { id:'tool-motif-db', title:'モチーフ・シンボル管理', icon:'fa-icons', color:'kon', desc:'反復モチーフ・象徴・小道具を一覧管理し出現箇所を追跡', badge:'新機能' },
+      { id:'tool-plot-holes', title:'プロット穴探し', icon:'fa-magnifying-glass', color:'beni', desc:'論理矛盾・伏線未回収・動機不備を検出' },
+      { id:'tool-beat-counter', title:'ビートカウンター', icon:'fa-list-ol', color:'kogane', desc:'Save the Cat 15ビートを脚本に対応付け進捗トラッキング' },
+    ],
+  },
+];
+
+function toolsColorMaps() {
+  return {
+    colorMap: { beni:'var(--accent)', fuji:'var(--fuji)', momo:'var(--momo)', kogane:'var(--kogane)', asagi:'var(--asagi)', kon:'var(--kon-lt)' },
+    bgMap: { beni:'var(--accent-bg)', fuji:'var(--fuji-bg)', momo:'var(--momo-bg)', kogane:'var(--kogane-bg)', asagi:'var(--asagi-bg)', kon:'var(--kon-bg)' },
+  };
+}
+
+function toolsFlatList() {
+  const list = [];
+  TOOL_CATEGORIES_DATA.forEach(cat => cat.tools.forEach(t => list.push({ ...t, catId: cat.id, catLabel: cat.label })));
+  return list;
+}
+
+function renderToolCardHtml(t, colorMap, bgMap) {
+  const isFav = ToolFavDB.isFav('tool', t.id);
+  return `
+  <div class="guide-card tool-card" style="cursor:pointer;margin-bottom:0;position:relative" onclick="openToolFromCard('${t.id}')">
+    <button class="tool-fav-btn ${isFav?'active':''}" onclick="event.stopPropagation();toggleToolFav('${t.id}')" title="お気に入り${isFav?'解除':'登録'}">
+      <i class="fa${isFav?'s':'r'} fa-star"></i>
+    </button>
+    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:8px">
+      <div style="width:42px;height:42px;border-radius:var(--radius-md);background:${bgMap[t.color]||'var(--bg-hover)'};color:${colorMap[t.color]||'var(--text-muted)'};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
+        <i class="fas ${t.icon}"></i>
+      </div>
+      <div style="flex:1;padding-right:20px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+          <div class="guide-card-title" style="margin-bottom:0;font-size:13.5px">${esc(t.title)}</div>
+          ${t.badge ? `<span class="tag tag-beni" style="font-size:9px">${t.badge}</span>` : ''}
+        </div>
+        <div class="guide-card-desc" style="font-size:11.5px">${esc(t.desc)}</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function openToolFromCard(id) {
+  ToolHistoryDB.record('tool', id);
+  navigate(id);
+}
+function toggleToolFav(id) {
+  const nowFav = ToolFavDB.toggle('tool', id);
+  toast(nowFav ? 'お気に入りに登録しました' : 'お気に入りを解除しました', 'success');
+  const p = State.currentPage;
+  if (p === 'tools') { const app = $('#app-content') || $('#app'); render(); }
+}
+
 function renderToolsPage() {
   const cp = State.currentPage;
 
@@ -22087,81 +22214,55 @@ function renderToolsPage() {
   if (cp === 'tool-conflict-escalation') return renderToolConflictEscalation();
   if (cp === 'tool-subtext-rewriter') return renderToolSubtextRewriter();
   if (cp === 'tool-act-health') return renderToolActHealth();
+  if (cp === 'tool-foreshadowing') return renderToolForeshadowing();
+  if (cp === 'tool-title-gen') return renderToolTitleGen();
+  if (cp === 'tool-motif-db') return renderToolMotifDB();
 
-  // カテゴリ分けされたツール一覧
-  const TOOL_CATEGORIES = [
-    {
-      id: 'planning',
-      label: '企画・構成',
-      icon: 'fa-lightbulb',
-      color: 'var(--accent)',
-      bg: 'var(--accent-bg)',
-      border: 'var(--accent-border)',
-      desc: 'アイデアから物語の骨格を作るツール',
-      tools: [
-        { id:'tool-logline', title:'ログラインメーカー', icon:'fa-quote-left', color:'beni', desc:'4要素入力でプロ品質のログラインを複数生成', badge:'おすすめ' },
-        { id:'tool-pitch', title:'ピッチドック・メーカー', icon:'fa-bullhorn', color:'beni', desc:'企画書・あらすじ・ピッチ文書を自動生成' },
-        { id:'tool-tension', title:'テンションカーブ設計', icon:'fa-chart-line', color:'momo', desc:'物語全体の緊張度を視覚化・設計' },
-        { id:'tool-structure', title:'構成チェッカー', icon:'fa-diagram-project', color:'kon', desc:'三幕構成・Save the Cat など複数フレームで物語を検証' },
-        { id:'tool-act-health', title:'幕バランス健康診断', icon:'fa-stethoscope', color:'kogane', desc:'ページ数・分数から三幕バランスを分析し問題点を指摘', badge:'新機能' },
-        { id:'tool-conflict-escalation', title:'葛藤エスカレーションプランナー', icon:'fa-fire', color:'accent', desc:'主人公の葛藤を段階的に強化するプランを設計', badge:'新機能' },
-      ],
-    },
-    {
-      id: 'character',
-      label: 'キャラクター',
-      icon: 'fa-users',
-      color: 'var(--fuji)',
-      bg: 'var(--fuji-bg)',
-      border: 'var(--fuji-border)',
-      desc: 'キャラクターを深く設計・管理するツール',
-      tools: [
-        { id:'tool-char-diag', title:'キャラクター診断シート', icon:'fa-user-check', color:'fuji', desc:'Want/Need・ウーンド・ライ/トゥルース・ボイスを完全診断', badge:'強化版' },
-        { id:'tool-name-gen', title:'キャラクター名ジェネレーター', icon:'fa-signature', color:'kon', desc:'和風・洋風・古風・SF系の名前を自動生成' },
-        { id:'tool-emotion-arc', title:'感情アーク設計', icon:'fa-heart-pulse', color:'momo', desc:'キャラクターの感情変化曲線を視覚的に設計' },
-      ],
-    },
-    {
-      id: 'writing',
-      label: '執筆・シーン',
-      icon: 'fa-pen-nib',
-      color: 'var(--momo)',
-      bg: 'var(--momo-bg)',
-      border: 'var(--momo-border)',
-      desc: 'シーンの構成や執筆作業を助けるツール',
-      tools: [
-        { id:'tool-scene', title:'シーン構造チェッカー', icon:'fa-film', color:'momo', desc:'入口・目的・対立・出口の4要素を診断' },
-        { id:'tool-dialogue-check', title:'セリフ磨き診断', icon:'fa-comments', color:'fuji', desc:'台詞を8項目で採点・改善提案（強化版）', badge:'強化版' },
-        { id:'tool-subtext-rewriter', title:'サブテキスト変換ツール', icon:'fa-comment-slash', color:'asagi', desc:'直接的なセリフをサブテキスト表現に変換', badge:'新機能' },
-        { id:'tool-timer', title:'執筆タイマー（ポモドーロ）', icon:'fa-stopwatch', color:'kogane', desc:'25分集中＋5分休憩で生産性アップ' },
-        { id:'tool-world-notes', title:'世界観メモパッド', icon:'fa-globe', color:'asagi', desc:'設定・ルール・用語・地名などを素早くメモ' },
-        { id:'tool-plot-holes', title:'プロット穴探し', icon:'fa-magnifying-glass', color:'beni', desc:'論理矛盾・伏線未回収・動機不備を検出' },
-        { id:'tool-beat-counter', title:'ビートカウンター', icon:'fa-list-ol', color:'kogane', desc:'Save the Cat 15ビートを脚本に対応付け進捗トラッキング' },
-      ],
-    },
-  ];
+  const TOOL_CATEGORIES = TOOL_CATEGORIES_DATA;
+  const { colorMap, bgMap } = toolsColorMaps();
+  const searchQuery = (DB.get('tool_search', '') || '').trim();
+  const flatList = toolsFlatList();
 
-  const colorMap = { beni:'var(--accent)', fuji:'var(--fuji)', momo:'var(--momo)', kogane:'var(--kogane)', asagi:'var(--asagi)', kon:'var(--kon-lt)' };
-  const bgMap = { beni:'var(--accent-bg)', fuji:'var(--fuji-bg)', momo:'var(--momo-bg)', kogane:'var(--kogane-bg)', asagi:'var(--asagi-bg)', kon:'var(--kon-bg)' };
+  // 検索モード
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    const matched = flatList.filter(t => t.title.toLowerCase().includes(q) || t.desc.toLowerCase().includes(q) || t.catLabel.toLowerCase().includes(q));
+    return `
+    <div style="margin-bottom:20px">
+      ${renderToolSearchBar(searchQuery)}
+    </div>
+    <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:12px">「<strong style="color:var(--text-primary)">${esc(searchQuery)}</strong>」の検索結果：${matched.length}件</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">
+      ${matched.length ? matched.map(t=>renderToolCardHtml(t,colorMap,bgMap)).join('') : `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-magnifying-glass" style="font-size:24px;opacity:.3;display:block;margin-bottom:8px"></i>該当するツールが見つかりません</div>`}
+    </div>`;
+  }
+
+  // お気に入り／最近使ったセクション
+  const favIds = ToolFavDB.getFavs('tool');
+  const histIds = ToolHistoryDB.getHistory('tool').filter(id => !favIds.includes(id));
+  const favTools = favIds.map(id => flatList.find(t=>t.id===id)).filter(Boolean);
+  const histTools = histIds.map(id => flatList.find(t=>t.id===id)).filter(Boolean);
+
+  const quickSection = (favTools.length || histTools.length) ? `
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:20px">
+    ${favTools.length ? `
+    <div class="card" style="padding:14px;border-top:3px solid var(--kogane)">
+      <div style="font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:10px"><i class="fas fa-star" style="color:var(--kogane);margin-right:6px"></i>お気に入り</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${favTools.map(t=>`<div class="tool-quick-row" onclick="openToolFromCard('${t.id}')"><i class="fas ${t.icon}" style="color:${colorMap[t.color]||'var(--text-muted)'};width:16px"></i><span>${esc(t.title)}</span><i class="fas fa-arrow-right" style="margin-left:auto;font-size:9px;color:var(--text-muted)"></i></div>`).join('')}
+      </div>
+    </div>` : ''}
+    ${histTools.length ? `
+    <div class="card" style="padding:14px;border-top:3px solid var(--asagi)">
+      <div style="font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:10px"><i class="fas fa-clock-rotate-left" style="color:var(--asagi);margin-right:6px"></i>最近使った</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${histTools.map(t=>`<div class="tool-quick-row" onclick="openToolFromCard('${t.id}')"><i class="fas ${t.icon}" style="color:${colorMap[t.color]||'var(--text-muted)'};width:16px"></i><span>${esc(t.title)}</span><i class="fas fa-arrow-right" style="margin-left:auto;font-size:9px;color:var(--text-muted)"></i></div>`).join('')}
+      </div>
+    </div>` : ''}
+  </div>` : '';
 
   const categorySections = TOOL_CATEGORIES.map(cat => {
-    const toolCards = cat.tools.map(t => `
-    <div class="guide-card" style="cursor:pointer;margin-bottom:0" onclick="navigate('${t.id}')">
-      <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:8px">
-        <div style="width:42px;height:42px;border-radius:var(--radius-md);background:${bgMap[t.color]||'var(--bg-hover)'};color:${colorMap[t.color]||'var(--text-muted)'};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
-          <i class="fas ${t.icon}"></i>
-        </div>
-        <div style="flex:1">
-          <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
-            <div class="guide-card-title" style="margin-bottom:0;font-size:13.5px">${esc(t.title)}</div>
-            ${t.badge ? `<span class="tag tag-beni" style="font-size:9px">${t.badge}</span>` : ''}
-          </div>
-          <div class="guide-card-desc" style="font-size:11.5px">${esc(t.desc)}</div>
-        </div>
-        <i class="fas fa-arrow-right" style="font-size:10px;color:${colorMap[t.color]||'var(--text-muted)'};flex-shrink:0;margin-top:4px"></i>
-      </div>
-    </div>`).join('');
-
+    const toolCards = cat.tools.map(t => renderToolCardHtml(t, colorMap, bgMap)).join('');
     return `
     <div class="card" style="padding:0;overflow:hidden;border-top:3px solid ${cat.color}">
       <div style="padding:14px 16px;border-bottom:1px solid var(--border);background:var(--bg-subtle);display:flex;align-items:center;gap:10px">
@@ -22181,17 +22282,37 @@ function renderToolsPage() {
   }).join('');
 
   return `
-  <div style="background:linear-gradient(135deg,var(--asagi-bg) 0%,var(--bg-subtle) 60%);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:24px;position:relative;overflow:hidden">
+  <div style="background:linear-gradient(135deg,var(--asagi-bg) 0%,var(--bg-subtle) 60%);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px 28px;margin-bottom:20px;position:relative;overflow:hidden">
     <div style="position:absolute;right:24px;top:50%;transform:translateY(-50%);font-size:80px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--asagi);opacity:0.05;pointer-events:none">道具</div>
     <div style="width:28px;height:2.5px;background:linear-gradient(90deg,var(--asagi),var(--kon-lt));border-radius:2px;margin-bottom:10px"></div>
     <div style="font-size:22px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:6px">
       <i class="fas fa-toolbox" style="color:var(--asagi);margin-right:8px"></i>ライターズツール
     </div>
-    <div style="font-size:13px;color:var(--text-muted)">執筆プロセスを加速する専用ツール集。カテゴリごとに整理された${TOOL_CATEGORIES.reduce((a,c)=>a+c.tools.length,0)}つのツールで、アイデア出しから推敲まで完全サポート。</div>
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:14px">執筆プロセスを加速する専用ツール集。カテゴリごとに整理された${TOOL_CATEGORIES.reduce((a,c)=>a+c.tools.length,0)}つのツールで、アイデア出しから推敲まで完全サポート。</div>
+    ${renderToolSearchBar(searchQuery)}
   </div>
+  ${quickSection}
   <div style="display:flex;flex-direction:column;gap:20px">
     ${categorySections}
   </div>`;
+}
+
+function renderToolSearchBar(value) {
+  return `
+  <div style="position:relative;max-width:420px">
+    <i class="fas fa-magnifying-glass" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:13px"></i>
+    <input class="form-input" id="tool-search-input" value="${esc(value)}" placeholder="ツールを検索…（例: セリフ、構成、名前）" style="padding-left:36px" oninput="onToolSearchInput(this.value)">
+    ${value ? `<button style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px" onclick="onToolSearchInput('')"><i class="fas fa-xmark"></i></button>` : ''}
+  </div>`;
+}
+let _toolSearchTimer = null;
+function onToolSearchInput(value) {
+  clearTimeout(_toolSearchTimer);
+  _toolSearchTimer = setTimeout(() => {
+    DB.set('tool_search', value);
+    render();
+    setTimeout(() => { const i = $('#tool-search-input'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 0);
+  }, 200);
 }
 
 function renderToolLogline() {
@@ -25087,144 +25208,866 @@ function rewriteSubtext() {
 }
 
 // ================================================================
+//  新ツール: 伏線トラッカー
+// ================================================================
+const FORESHADOW_STATUS = [
+  { id: 'planted', label: '仕込み済み', color: 'var(--kogane)', bg: 'var(--kogane-bg)', border: 'var(--kogane-border)', icon: 'fa-seedling' },
+  { id: 'reinforced', label: '補強中', color: 'var(--asagi)', bg: 'var(--asagi-bg)', border: 'var(--asagi-border)', icon: 'fa-layer-group' },
+  { id: 'resolved', label: '回収済み', color: 'var(--matcha)', bg: 'var(--matcha-bg)', border: 'var(--matcha-border)', icon: 'fa-circle-check' },
+  { id: 'abandoned', label: '保留/放棄', color: 'var(--text-muted)', bg: 'var(--bg-hover)', border: 'var(--border)', icon: 'fa-pause' },
+];
+function fsColor(id) { return FORESHADOW_STATUS.find(s=>s.id===id) || FORESHADOW_STATUS[0]; }
+
+function renderToolForeshadowing() {
+  const projects = DB.getProjects();
+  const selectedProj = State.currentTab['fs-proj'] || (projects[0]?.id || '');
+  const items = DB.get('foreshadowing_' + selectedProj, []);
+  const filterStatus = State.currentTab['fs-filter'] || '';
+  const filtered = filterStatus ? items.filter(i => i.status === filterStatus) : items;
+
+  const statusCounts = FORESHADOW_STATUS.map(s => ({ ...s, count: items.filter(i=>i.status===s.id).length }));
+  const resolvedCount = items.filter(i=>i.status==='resolved').length;
+  const pct = items.length ? Math.round(resolvedCount / items.length * 100) : 0;
+
+  const projOptions = projects.map(p => `<option value="${p.id}" ${p.id===selectedProj?'selected':''}>${esc(p.title)}</option>`).join('');
+
+  const cards = filtered.length === 0
+    ? `<div style="text-align:center;padding:50px 20px;color:var(--text-muted)"><i class="fas fa-map-pin" style="font-size:36px;display:block;margin-bottom:12px;opacity:.2"></i>伏線がまだ登録されていません<br>「伏線を追加」から仕込んだ設定・小道具・発言を記録しましょう</div>`
+    : filtered.map((it) => {
+        const i = items.indexOf(it);
+        const st = fsColor(it.status);
+        return `
+        <div class="card" style="padding:14px 16px;border-left:3px solid ${st.color}">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px">
+            <div style="flex:1">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap">
+                <span style="font-size:13.5px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${esc(it.title)}</span>
+                <span style="font-size:10px;padding:2px 8px;background:${st.bg};color:${st.color};border:1px solid ${st.border};border-radius:var(--radius-full);font-weight:700"><i class="fas ${st.icon}" style="font-size:8px;margin-right:3px"></i>${st.label}</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:3px;flex-shrink:0">
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="editForeshadow('${selectedProj}',${i})" title="編集"><i class="fas fa-pen" style="font-size:10px"></i></button>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDeleteForeshadow('${selectedProj}',${i})" title="削除"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:11.5px;color:var(--text-secondary);margin-top:8px">
+            <div><span style="color:var(--text-muted);font-weight:600">仕込み場所：</span>${esc(it.plantLoc||'—')}</div>
+            <div><span style="color:var(--text-muted);font-weight:600">回収場所：</span>${esc(it.payoffLoc||'—')}</div>
+          </div>
+          ${it.note ? `<div style="font-size:12px;color:var(--text-secondary);line-height:1.6;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);white-space:pre-wrap">${esc(it.note)}</div>` : ''}
+          <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+            ${FORESHADOW_STATUS.map(s=>`<button class="btn btn-sm ${it.status===s.id?'btn-primary':'btn-ghost'}" style="font-size:10px;padding:3px 9px" onclick="setForeshadowStatus('${selectedProj}',${i},'${s.id}')">${s.label}</button>`).join('')}
+          </div>
+        </div>`;
+      }).join('');
+
+  return `
+  <div class="article-back-btn" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</div>
+  <div style="background:linear-gradient(135deg,var(--fuji-bg),var(--bg-subtle));border:1px solid var(--fuji-border);border-radius:var(--radius-lg);padding:22px 26px;margin-bottom:20px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:70px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--fuji);opacity:0.07;pointer-events:none">伏</div>
+    <div style="width:28px;height:2.5px;background:linear-gradient(90deg,var(--fuji),var(--momo));border-radius:2px;margin-bottom:10px"></div>
+    <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:5px">
+      <i class="fas fa-map-pin" style="color:var(--fuji);margin-right:8px"></i>伏線トラッカー
+    </div>
+    <div style="font-size:13px;color:var(--text-muted)">仕込んだ伏線・小道具・発言を一覧管理し、回収済み/未回収を可視化します。「未回収の伏線」を残さないための必携ツール。</div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <label style="font-size:12px;font-weight:600;color:var(--text-secondary)">作品:</label>
+    <select class="form-select" style="max-width:240px" onchange="switchForeshadowProj(this.value)">
+      ${projects.length===0?'<option>作品がありません</option>':projOptions}
+    </select>
+    <button class="btn btn-primary btn-sm" onclick="openAddForeshadow('${selectedProj}')" style="margin-left:auto"><i class="fas fa-plus"></i> 伏線を追加</button>
+  </div>
+
+  ${items.length > 0 ? `
+  <div class="card" style="margin-bottom:16px;padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:10px">
+      <div style="flex:1">
+        <div style="font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:5px">回収率: ${resolvedCount}/${items.length}件 (${pct}%)</div>
+        <div style="height:8px;background:var(--bg-hover);border-radius:4px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:${pct>=100?'var(--matcha)':'linear-gradient(90deg,var(--fuji),var(--matcha))'};border-radius:4px;transition:width .5s ease"></div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-sm ${!filterStatus?'btn-primary':'btn-ghost'}" onclick="setForeshadowFilter('')">すべて (${items.length})</button>
+      ${statusCounts.map(s=>s.count>0?`<button class="btn btn-sm ${filterStatus===s.id?'btn-primary':'btn-ghost'}" onclick="setForeshadowFilter('${s.id}')" style="font-size:11px"><i class="fas ${s.icon}" style="font-size:9px"></i> ${s.label} (${s.count})</button>`:'').join('')}
+    </div>
+  </div>` : ''}
+
+  <div style="display:flex;flex-direction:column;gap:10px">
+    ${cards}
+  </div>`;
+}
+
+function switchForeshadowProj(projId) {
+  State.currentTab['fs-proj'] = projId;
+  render();
+}
+function setForeshadowFilter(status) {
+  State.currentTab['fs-filter'] = status;
+  render();
+}
+function openAddForeshadow(projId) {
+  if (!projId) { toast('作品を選択してください', 'error'); return; }
+  openModal(
+    '<i class="fas fa-map-pin" style="color:var(--fuji)"></i> 伏線を追加',
+    `<div class="form-group">
+      <label class="form-label">伏線の名前 <span style="color:var(--accent)">*</span></label>
+      <input class="form-input" id="fs-title" placeholder="例: 主人公の傷跡、亡き母の指輪">
+    </div>
+    <div class="grid-2">
+      <div class="form-group"><label class="form-label">仕込み場所（第何話・シーン等）</label><input class="form-input" id="fs-plant" placeholder="例: 第1話 冒頭"></div>
+      <div class="form-group"><label class="form-label">回収予定/実際の場所</label><input class="form-input" id="fs-payoff" placeholder="例: 第8話 クライマックス"></div>
+    </div>
+    <div class="form-group"><label class="form-label">メモ・詳細</label><textarea class="form-textarea" id="fs-note" rows="3" placeholder="この伏線の意味・回収時にどう効かせるか等"></textarea></div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="addForeshadow('${projId}')"><i class="fas fa-save"></i> 追加</button>`
+  );
+}
+function addForeshadow(projId) {
+  const title = $('#fs-title')?.value?.trim();
+  if (!title) { toast('伏線の名前を入力してください', 'error'); return; }
+  const items = DB.get('foreshadowing_' + projId, []);
+  items.unshift({
+    id: uid(), title,
+    plantLoc: $('#fs-plant')?.value?.trim() || '',
+    payoffLoc: $('#fs-payoff')?.value?.trim() || '',
+    note: $('#fs-note')?.value?.trim() || '',
+    status: 'planted',
+    createdAt: now(), updatedAt: now(),
+  });
+  DB.set('foreshadowing_' + projId, items);
+  closeModal();
+  toast('伏線を追加しました', 'success');
+  render();
+}
+function editForeshadow(projId, idx) {
+  const items = DB.get('foreshadowing_' + projId, []);
+  const it = items[idx];
+  if (!it) return;
+  openModal(
+    '<i class="fas fa-pen" style="color:var(--fuji)"></i> 伏線を編集',
+    `<div class="form-group">
+      <label class="form-label">伏線の名前</label>
+      <input class="form-input" id="fs-title" value="${esc(it.title||'')}">
+    </div>
+    <div class="grid-2">
+      <div class="form-group"><label class="form-label">仕込み場所</label><input class="form-input" id="fs-plant" value="${esc(it.plantLoc||'')}"></div>
+      <div class="form-group"><label class="form-label">回収場所</label><input class="form-input" id="fs-payoff" value="${esc(it.payoffLoc||'')}"></div>
+    </div>
+    <div class="form-group"><label class="form-label">メモ・詳細</label><textarea class="form-textarea" id="fs-note" rows="3">${esc(it.note||'')}</textarea></div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveEditForeshadow('${projId}',${idx})">保存</button>`
+  );
+}
+function saveEditForeshadow(projId, idx) {
+  const items = DB.get('foreshadowing_' + projId, []);
+  if (!items[idx]) return;
+  items[idx] = {
+    ...items[idx],
+    title: $('#fs-title')?.value?.trim() || items[idx].title,
+    plantLoc: $('#fs-plant')?.value?.trim() || '',
+    payoffLoc: $('#fs-payoff')?.value?.trim() || '',
+    note: $('#fs-note')?.value?.trim() || '',
+    updatedAt: now(),
+  };
+  DB.set('foreshadowing_' + projId, items);
+  closeModal();
+  toast('更新しました', 'success');
+  render();
+}
+function setForeshadowStatus(projId, idx, status) {
+  const items = DB.get('foreshadowing_' + projId, []);
+  if (!items[idx]) return;
+  items[idx].status = status;
+  items[idx].updatedAt = now();
+  DB.set('foreshadowing_' + projId, items);
+  render();
+}
+function confirmDeleteForeshadow(projId, idx) {
+  const items = DB.get('foreshadowing_' + projId, []);
+  const it = items[idx];
+  confirmDeleteGeneric('伏線を削除', `「<strong style="color:var(--text-primary)">${esc(it?.title||'この伏線')}</strong>」を削除しますか？`,
+    `deleteForeshadow('${projId}',${idx})`);
+}
+function deleteForeshadow(projId, idx) {
+  const items = DB.get('foreshadowing_' + projId, []);
+  items.splice(idx, 1);
+  DB.set('foreshadowing_' + projId, items);
+  closeModal();
+  toast('削除しました', 'info');
+  render();
+}
+
+// ================================================================
+//  新ツール: タイトルジェネレーター
+// ================================================================
+const TITLE_GEN_DATA = {
+  genres: {
+    'drama': { label:'ヒューマンドラマ', words:['約束','記憶','明日','光','声','歩幅','余白','境界線','午後','手紙','季節','足跡','静寂','余韻','距離'] },
+    'mystery': { label:'ミステリー・サスペンス', words:['真実','沈黙','嘘','告白','影','罪','境界','秘密','痣','記録','消失','証言','闇','裁き','疑惑'] },
+    'romance': { label:'恋愛', words:['恋','距離','季節','約束','初恋','片想い','夜','鼓動','手紙','余白','再会','告白','雨','花','記憶'] },
+    'scifi': { label:'SF・ファンタジー', words:['星','境界','記憶','機械','楽園','終焉','子ら','世界','刻印','虚空','異界','循環','眠り','領域','蒼穹'] },
+    'comedy': { label:'コメディ', words:['ドタバタ','家族会議','逆襲','一大事','大作戦','珍道中','事情','決意','奮闘記','出動','宣戦布告'] },
+    'youth': { label:'青春', words:['夏','放課後','約束','明日','部活','記憶','あの日','青','季節','教室','放課後','制服','汗','涙','グラウンド'] },
+  },
+  patterns: [
+    (a,b)=>`${a}と${b}`, (a,b)=>`${a}の${b}`, (a,b)=>`${a}、${b}`, (a,b)=>`${b}の${a}`,
+    (a,b)=>`${a}に${b}を`, (a,b)=>`${a}、${b}のこと`, (a,b)=>`${a}のあとで、${b}`, (a,b)=>`さよなら、${a}`,
+    (a,b)=>`${a}になる日まで`, (a,b)=>`${b}の中の${a}`, (a,b)=>`${a}という名の${b}`, (a,b)=>`${a}を、あなたに`,
+  ],
+};
+
+function renderToolTitleGen() {
+  const genre = State.currentTab['tg-genre'] || 'drama';
+  const keyword = State.currentTab['tg-keyword'] || '';
+  const results = State.currentTab['tg-results'] || [];
+  const saved = DB.get('title_gen_saved', []);
+
+  const genreOptions = Object.entries(TITLE_GEN_DATA.genres).map(([k,v])=>`<option value="${k}" ${genre===k?'selected':''}>${v.label}</option>`).join('');
+
+  return `
+  <div class="article-back-btn" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</div>
+  <div style="background:linear-gradient(135deg,var(--kogane-bg),var(--bg-subtle));border:1px solid var(--kogane-border);border-radius:var(--radius-lg);padding:22px 26px;margin-bottom:20px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:70px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--kogane);opacity:0.07;pointer-events:none">題</div>
+    <div style="width:28px;height:2.5px;background:linear-gradient(90deg,var(--kogane),var(--accent));border-radius:2px;margin-bottom:10px"></div>
+    <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:5px">
+      <i class="fas fa-heading" style="color:var(--kogane);margin-right:8px"></i>タイトルジェネレーター
+    </div>
+    <div style="font-size:13px;color:var(--text-muted)">ジャンルとキーワードから作品タイトル案を自動生成します。気に入った案はワンクリックで保存できます。</div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div class="grid-2" style="margin-bottom:12px">
+      <div class="form-group">
+        <label class="form-label">ジャンル</label>
+        <select class="form-select" id="tg-genre-input" onchange="State.currentTab['tg-genre']=this.value">
+          ${genreOptions}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">キーワード（任意・作品の核となる言葉）</label>
+        <input class="form-input" id="tg-keyword-input" value="${esc(keyword)}" placeholder="例: 家族、海、再生">
+      </div>
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="generateTitles()"><i class="fas fa-wand-magic-sparkles"></i> タイトルを生成する</button>
+  </div>
+
+  ${results.length > 0 ? `
+  <div class="card" style="margin-bottom:16px">
+    <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:12px"><i class="fas fa-list" style="color:var(--kogane);margin-right:6px"></i>生成結果（${results.length}件）</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      ${results.map((t,i)=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md)">
+        <span style="font-size:14px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif;flex:1">${esc(t)}</span>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="saveTitleGen('${esc(t).replace(/'/g,"&#39;")}')" title="保存"><i class="fas fa-bookmark" style="font-size:11px;color:var(--kogane)"></i></button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="copyToClipboard('${esc(t).replace(/'/g,"&#39;")}');toast('コピーしました','success')" title="コピー"><i class="fas fa-copy" style="font-size:11px"></i></button>
+      </div>`).join('')}
+    </div>
+  </div>` : ''}
+
+  ${saved.length > 0 ? `
+  <div class="card">
+    <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:12px"><i class="fas fa-bookmark" style="color:var(--kogane);margin-right:6px"></i>保存済みタイトル（${saved.length}件）</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px">
+      ${saved.map((t,i)=>`<span class="tag" style="font-size:12px;padding:5px 10px;background:var(--kogane-bg);color:var(--kogane);border:1px solid var(--kogane-border)">${esc(t)} <i class="fas fa-xmark" style="cursor:pointer;margin-left:5px;opacity:.6" onclick="removeSavedTitle(${i})"></i></span>`).join('')}
+    </div>
+  </div>` : ''}`;
+}
+
+function generateTitles() {
+  const genre = $('#tg-genre-input')?.value || 'drama';
+  const keyword = $('#tg-keyword-input')?.value?.trim() || '';
+  State.currentTab['tg-genre'] = genre;
+  State.currentTab['tg-keyword'] = keyword;
+  const data = TITLE_GEN_DATA.genres[genre] || TITLE_GEN_DATA.genres.drama;
+  const words = data.words;
+  const results = new Set();
+  let attempts = 0;
+  while (results.size < 10 && attempts < 100) {
+    attempts++;
+    const w1 = keyword || words[Math.floor(Math.random()*words.length)];
+    const w2 = words[Math.floor(Math.random()*words.length)];
+    if (w1 === w2 && !keyword) continue;
+    const pattern = TITLE_GEN_DATA.patterns[Math.floor(Math.random()*TITLE_GEN_DATA.patterns.length)];
+    const title = pattern(w1, w2);
+    results.add(title);
+  }
+  State.currentTab['tg-results'] = [...results];
+  render();
+  toast('タイトル案を10件生成しました', 'success');
+}
+function saveTitleGen(title) {
+  const saved = DB.get('title_gen_saved', []);
+  if (!saved.includes(title)) saved.unshift(title);
+  DB.set('title_gen_saved', saved);
+  toast('保存しました', 'success');
+  render();
+}
+function removeSavedTitle(idx) {
+  const saved = DB.get('title_gen_saved', []);
+  saved.splice(idx, 1);
+  DB.set('title_gen_saved', saved);
+  render();
+}
+
+// ================================================================
+//  新ツール: モチーフ・シンボル管理
+// ================================================================
+const MOTIF_CATS = ['視覚モチーフ','小道具','色彩','音・音楽','言葉・フレーズ','場所','その他'];
+function renderToolMotifDB() {
+  const projects = DB.getProjects();
+  const selectedProj = State.currentTab['motif-proj'] || (projects[0]?.id || '');
+  const items = DB.get('motifs_' + selectedProj, []);
+  const filterCat = State.currentTab['motif-filter'] || '';
+  const filtered = filterCat ? items.filter(i=>i.category===filterCat) : items;
+
+  const projOptions = projects.map(p => `<option value="${p.id}" ${p.id===selectedProj?'selected':''}>${esc(p.title)}</option>`).join('');
+
+  const cards = filtered.length === 0
+    ? `<div style="text-align:center;padding:50px 20px;color:var(--text-muted)"><i class="fas fa-icons" style="font-size:36px;display:block;margin-bottom:12px;opacity:.2"></i>モチーフ・シンボルがまだ登録されていません</div>`
+    : filtered.map((it) => {
+        const i = items.indexOf(it);
+        return `
+        <div class="card" style="padding:14px 16px">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+              <span style="font-size:13.5px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${esc(it.name)}</span>
+              <span style="font-size:10px;padding:2px 8px;background:var(--kon-bg);color:var(--kon-lt);border:1px solid var(--kon-border);border-radius:var(--radius-full);font-weight:600">${esc(it.category)}</span>
+            </div>
+            <div style="display:flex;gap:3px;flex-shrink:0">
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="editMotif('${selectedProj}',${i})" title="編集"><i class="fas fa-pen" style="font-size:10px"></i></button>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDeleteMotif('${selectedProj}',${i})" title="削除"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+            </div>
+          </div>
+          ${it.meaning ? `<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px"><span style="color:var(--text-muted);font-weight:600">象徴する意味：</span>${esc(it.meaning)}</div>` : ''}
+          <div style="font-size:12px;color:var(--text-muted);font-weight:600;margin-bottom:4px">出現箇所（${(it.occurrences||[]).length}件）</div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            ${(it.occurrences||[]).map((o,oi)=>`
+            <div style="display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg-subtle);border-radius:var(--radius-sm);font-size:11.5px">
+              <span style="flex:1;color:var(--text-secondary)">${esc(o)}</span>
+              <i class="fas fa-xmark" style="cursor:pointer;color:var(--text-muted);font-size:10px" onclick="removeMotifOccurrence('${selectedProj}',${i},${oi})"></i>
+            </div>`).join('')}
+            <div style="display:flex;gap:6px;margin-top:4px">
+              <input class="form-input" id="motif-occ-${i}" placeholder="出現箇所を追加（例: 第3話 桜の木の下）" style="font-size:11.5px;height:30px">
+              <button class="btn btn-ghost btn-sm" onclick="addMotifOccurrence('${selectedProj}',${i})"><i class="fas fa-plus"></i></button>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+
+  return `
+  <div class="article-back-btn" onclick="navigate('tools')"><i class="fas fa-arrow-left"></i> ツール一覧</div>
+  <div style="background:linear-gradient(135deg,var(--kon-bg),var(--bg-subtle));border:1px solid var(--kon-border);border-radius:var(--radius-lg);padding:22px 26px;margin-bottom:20px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:70px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--kon-lt);opacity:0.07;pointer-events:none">象</div>
+    <div style="width:28px;height:2.5px;background:linear-gradient(90deg,var(--kon-lt),var(--asagi));border-radius:2px;margin-bottom:10px"></div>
+    <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:5px">
+      <i class="fas fa-icons" style="color:var(--kon-lt);margin-right:8px"></i>モチーフ・シンボル管理
+    </div>
+    <div style="font-size:13px;color:var(--text-muted)">反復モチーフ・象徴・小道具を一覧管理し、出現箇所を追跡します。物語全体の一貫性チェックに。</div>
+  </div>
+
+  <div class="card" style="margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+    <label style="font-size:12px;font-weight:600;color:var(--text-secondary)">作品:</label>
+    <select class="form-select" style="max-width:240px" onchange="switchMotifProj(this.value)">
+      ${projects.length===0?'<option>作品がありません</option>':projOptions}
+    </select>
+    <button class="btn btn-primary btn-sm" onclick="openAddMotif('${selectedProj}')" style="margin-left:auto"><i class="fas fa-plus"></i> モチーフを追加</button>
+  </div>
+
+  ${items.length>0 ? `
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+    <button class="btn btn-sm ${!filterCat?'btn-primary':'btn-ghost'}" onclick="setMotifFilter('')">すべて (${items.length})</button>
+    ${MOTIF_CATS.map(c=>{
+      const cnt = items.filter(i=>i.category===c).length;
+      return cnt>0?`<button class="btn btn-sm ${filterCat===c?'btn-primary':'btn-ghost'}" onclick="setMotifFilter('${c}')" style="font-size:11px">${c} (${cnt})</button>`:'';
+    }).join('')}
+  </div>` : ''}
+
+  <div style="display:flex;flex-direction:column;gap:10px">
+    ${cards}
+  </div>`;
+}
+function switchMotifProj(projId) { State.currentTab['motif-proj'] = projId; render(); }
+function setMotifFilter(cat) { State.currentTab['motif-filter'] = cat; render(); }
+function openAddMotif(projId) {
+  if (!projId) { toast('作品を選択してください', 'error'); return; }
+  openModal(
+    '<i class="fas fa-icons" style="color:var(--kon-lt)"></i> モチーフ・シンボルを追加',
+    `<div class="form-group">
+      <label class="form-label">名前 <span style="color:var(--accent)">*</span></label>
+      <input class="form-input" id="motif-name" placeholder="例: 赤い傘、時計の音">
+    </div>
+    <div class="form-group">
+      <label class="form-label">カテゴリ</label>
+      <select class="form-select" id="motif-cat">${MOTIF_CATS.map(c=>`<option>${c}</option>`).join('')}</select>
+    </div>
+    <div class="form-group"><label class="form-label">象徴する意味</label><textarea class="form-textarea" id="motif-meaning" rows="2" placeholder="このモチーフが物語で象徴すること"></textarea></div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="addMotif('${projId}')">追加</button>`
+  );
+}
+function addMotif(projId) {
+  const name = $('#motif-name')?.value?.trim();
+  if (!name) { toast('名前を入力してください', 'error'); return; }
+  const items = DB.get('motifs_' + projId, []);
+  items.unshift({ id: uid(), name, category: $('#motif-cat')?.value || 'その他', meaning: $('#motif-meaning')?.value?.trim() || '', occurrences: [], createdAt: now() });
+  DB.set('motifs_' + projId, items);
+  closeModal();
+  toast('追加しました', 'success');
+  render();
+}
+function editMotif(projId, idx) {
+  const items = DB.get('motifs_' + projId, []);
+  const it = items[idx];
+  if (!it) return;
+  openModal(
+    '<i class="fas fa-pen" style="color:var(--kon-lt)"></i> モチーフを編集',
+    `<div class="form-group"><label class="form-label">名前</label><input class="form-input" id="motif-name" value="${esc(it.name||'')}"></div>
+     <div class="form-group"><label class="form-label">カテゴリ</label><select class="form-select" id="motif-cat">${MOTIF_CATS.map(c=>`<option ${c===it.category?'selected':''}>${c}</option>`).join('')}</select></div>
+     <div class="form-group"><label class="form-label">象徴する意味</label><textarea class="form-textarea" id="motif-meaning" rows="2">${esc(it.meaning||'')}</textarea></div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveEditMotif('${projId}',${idx})">保存</button>`
+  );
+}
+function saveEditMotif(projId, idx) {
+  const items = DB.get('motifs_' + projId, []);
+  if (!items[idx]) return;
+  items[idx].name = $('#motif-name')?.value?.trim() || items[idx].name;
+  items[idx].category = $('#motif-cat')?.value || items[idx].category;
+  items[idx].meaning = $('#motif-meaning')?.value?.trim() || '';
+  DB.set('motifs_' + projId, items);
+  closeModal();
+  toast('更新しました', 'success');
+  render();
+}
+function confirmDeleteMotif(projId, idx) {
+  const items = DB.get('motifs_' + projId, []);
+  const it = items[idx];
+  confirmDeleteGeneric('モチーフを削除', `「<strong style="color:var(--text-primary)">${esc(it?.name||'これ')}</strong>」を削除しますか？`,
+    `deleteMotif('${projId}',${idx})`);
+}
+function deleteMotif(projId, idx) {
+  const items = DB.get('motifs_' + projId, []);
+  items.splice(idx, 1);
+  DB.set('motifs_' + projId, items);
+  closeModal();
+  toast('削除しました', 'info');
+  render();
+}
+function addMotifOccurrence(projId, idx) {
+  const input = $('#motif-occ-' + idx);
+  const val = input?.value?.trim();
+  if (!val) return;
+  const items = DB.get('motifs_' + projId, []);
+  if (!items[idx]) return;
+  if (!items[idx].occurrences) items[idx].occurrences = [];
+  items[idx].occurrences.push(val);
+  DB.set('motifs_' + projId, items);
+  render();
+}
+function removeMotifOccurrence(projId, idx, occIdx) {
+  const items = DB.get('motifs_' + projId, []);
+  if (!items[idx] || !items[idx].occurrences) return;
+  items[idx].occurrences.splice(occIdx, 1);
+  DB.set('motifs_' + projId, items);
+  render();
+}
+
+// ================================================================
 //  PAGE: テンプレート
 // ================================================================
+const TEMPLATE_CATS_DATA = [
+  {
+    id: 'structure',
+    title: '構成テンプレート',
+    icon: 'fa-diagram-project',
+    color: 'beni',
+    badge: '構成',
+    items: [
+      { id:'three-act', name:'三幕構成シート', desc:'Act1/Act2/Act3の主要ビートを埋めるだけ', tags:['構成','定番'], hasForm:true },
+      { id:'save-cat', name:'Save the Cat 15ビートシート', desc:'ブレイク・スナイダー式の15ポイント完全版', tags:['構成','映画'] },
+      { id:'kishotenketsu', name:'起承転結設計シート', desc:'日本式四段構成の各フェーズを整理', tags:['構成','日本式'] },
+      { id:'story-circle', name:'ストーリーサークル設計', desc:'ダン・ハーモンの8ステップ円環構造', tags:['構成','サークル'] },
+      { id:'logline-sheet', name:'ログライン＆企画書シート', desc:'プレミス・ログライン・ピッチを一枚で完成させる', tags:['企画','ログライン'], hasForm:true },
+      { id:'nonlinear-structure', name:'非線形構成シート', desc:'回想・並行タイムラインを使う物語の時系列を整理', tags:['構成','非線形'], badge:'新規' },
+      { id:'multi-pov-structure', name:'複数視点構成シート', desc:'POVごとの担当パート・情報開示タイミングを設計', tags:['構成','視点'], badge:'新規' },
+    ]
+  },
+  {
+    id: 'character',
+    title: 'キャラクターシート',
+    icon: 'fa-users',
+    color: 'fuji',
+    badge: 'キャラ',
+    items: [
+      { id:'char-basic', name:'キャラクター基本シート', desc:'名前・年齢・役割・外見・性格の基礎情報', tags:['キャラクター','基礎'], hasForm:true },
+      { id:'char-deep', name:'キャラクター深掘りシート', desc:'Want/Need/ウーンド/Lie/Truthの内面設計', tags:['キャラクター','深掘り'] },
+      { id:'char-arc', name:'キャラクターアーク設計', desc:'ポジティブ/ネガティブ/フラットアーク', tags:['キャラクター','アーク'] },
+      { id:'antagonist-sheet', name:'アンタゴニスト設計シート', desc:'強い敵役の信念・動機・対立軸を設計する', tags:['キャラクター','敵役'] },
+      { id:'relationship-map', name:'人物関係マップ', desc:'主要登場人物の関係性と対立構図を整理', tags:['キャラクター','関係性'] },
+      { id:'char-voice-sheet', name:'キャラクターボイス設計シート', desc:'口調・語彙・話速など「声」の個性を作り分ける', tags:['キャラクター','セリフ'], badge:'新規' },
+      { id:'char-backstory', name:'バックストーリー設計シート', desc:'現在の行動に繋がる過去の出来事を整理する', tags:['キャラクター','過去'], badge:'新規' },
+    ]
+  },
+  {
+    id: 'scene',
+    title: 'シーン・セリフ',
+    icon: 'fa-film',
+    color: 'momo',
+    badge: 'シーン',
+    items: [
+      { id:'scene-check', name:'シーンチェックリスト', desc:'目的・対立・変化の1シーン4要素確認', tags:['シーン','チェック'] },
+      { id:'dialogue-check', name:'セリフ診断リスト', desc:'サブテキスト・キャラクターの声・オンザノーズ確認', tags:['セリフ','診断'] },
+      { id:'format-sample', name:'脚本フォーマット見本', desc:'日本式フォーマットの完全記述例付き', tags:['フォーマット','見本'] },
+      { id:'scene-sequence', name:'シーンシーケンス設計', desc:'5〜8シーンのシーケンス構造を設計する', tags:['シーン','構成'] },
+      { id:'subtext-guide', name:'サブテキスト変換ガイド', desc:'直接的なセリフを間接的に変換するための指針', tags:['セリフ','サブテキスト'] },
+      { id:'action-scene-sheet', name:'アクションシーン設計シート', desc:'空間・障害物・段取りを整理してアクションを設計', tags:['シーン','アクション'], badge:'新規' },
+      { id:'opening-scene-check', name:'オープニングシーンチェックリスト', desc:'冒頭シーンで必要な要素を漏れなく確認', tags:['シーン','冒頭'], badge:'新規' },
+    ]
+  },
+  {
+    id: 'revision',
+    title: '改稿・推敲',
+    icon: 'fa-rotate',
+    color: 'kogane',
+    badge: '改稿',
+    items: [
+      { id:'revision-sheet', name:'大改稿チェックシート', desc:'構造・シーン・キャラクター全レベルの確認', tags:['改稿','チェック'] },
+      { id:'polish-sheet', name:'精密推敲チェックシート', desc:'セリフ・ト書きの細部磨き方', tags:['推敲','仕上げ'] },
+      { id:'feedback-form', name:'フィードバック記録フォーム', desc:'読み合わせ後のフィードバックを整理して改稿に活かす', tags:['フィードバック','記録'] },
+      { id:'draft-log', name:'改稿ログシート', desc:'稿ごとの変更内容・目的・結果を記録する', tags:['改稿','管理'] },
+      { id:'pacing-check', name:'ペーシング診断シート', desc:'展開の速さ・間延び・急ぎすぎを章ごとに診断', tags:['改稿','ペース'], badge:'新規' },
+      { id:'consistency-check', name:'整合性チェックリスト', desc:'設定・時系列・呼称のブレを洗い出す', tags:['改稿','整合性'], badge:'新規' },
+    ]
+  },
+  {
+    id: 'planning',
+    title: '企画・開発',
+    icon: 'fa-lightbulb',
+    color: 'matcha',
+    badge: '企画',
+    items: [
+      { id:'pitch-sheet', name:'ピッチドックシート', desc:'タイトル・ジャンル・ログライン・世界観・キャスト', tags:['企画','ピッチ'] },
+      { id:'theme-sheet', name:'テーマ設計シート', desc:'テーマ・モラル・プレミスを物語に埋め込む方法', tags:['テーマ','設計'] },
+      { id:'genre-check', name:'ジャンルお約束チェック', desc:'ジャンル別の必須要素と期待を外さないためのリスト', tags:['ジャンル','チェック'] },
+      { id:'world-building', name:'世界観設計シート', desc:'時代・場所・ルール・社会構造の設定整理', tags:['世界観','設定'] },
+      { id:'series-bible', name:'シリーズバイブルシート', desc:'続編・シリーズ化を前提にした設定の一元管理', tags:['企画','シリーズ'], badge:'新規' },
+      { id:'audience-analysis', name:'想定読者分析シート', desc:'誰に向けて書くか・何を期待されているかを明確化', tags:['企画','読者'], badge:'新規' },
+    ]
+  },
+];
+
+function templatesColorMaps() {
+  return {
+    colorMap: { beni:'var(--accent)', fuji:'var(--fuji)', momo:'var(--momo)', kogane:'var(--kogane)', matcha:'var(--matcha)', asagi:'var(--asagi)', kon:'var(--kon-lt)' },
+    bgMap: { beni:'var(--accent-bg)', fuji:'var(--fuji-bg)', momo:'var(--momo-bg)', kogane:'var(--kogane-bg)', matcha:'var(--matcha-bg)', asagi:'var(--asagi-bg)', kon:'var(--kon-bg)' },
+    borderMap: { beni:'var(--accent-border)', fuji:'var(--fuji-border)', momo:'var(--momo-border)', kogane:'var(--kogane-border)', matcha:'var(--matcha-border)', asagi:'var(--asagi-border)', kon:'var(--kon-border)' },
+  };
+}
+function templatesFlatList() {
+  const list = [];
+  TEMPLATE_CATS_DATA.forEach(cat => cat.items.forEach(it => list.push({ ...it, catId: cat.id, catTitle: cat.title, catIcon: cat.icon, catColor: cat.color })));
+  return list;
+}
+
+// ── CustomTemplateDB：ユーザー自作テンプレートの管理 ──────────────
+const CustomTemplateDB = {
+  getAll() { return DB.get('custom_templates', []); },
+  save(list) { DB.set('custom_templates', list); },
+  get(id) { return this.getAll().find(x => x.id === id); },
+  add(data) {
+    const list = this.getAll();
+    const t = { id: 'custom_' + uid(), name: (data.name||'').trim(), desc: data.desc||'', content: data.content||'', tags: data.tags||[], folderId: data.folderId||'', createdAt: now(), updatedAt: now() };
+    list.unshift(t);
+    this.save(list);
+    return t;
+  },
+  update(id, data) {
+    const list = this.getAll();
+    const t = list.find(x => x.id === id);
+    if (t) { Object.assign(t, data, { updatedAt: now() }); this.save(list); }
+  },
+  delete(id) {
+    this.save(this.getAll().filter(x => x.id !== id));
+  },
+};
+
+function renderTemplateCardHtml(item, colorMap, bgMap, borderMap) {
+  const col = colorMap[item.catColor] || 'var(--text-muted)';
+  const bg = bgMap[item.catColor] || 'var(--bg-hover)';
+  const bdr = borderMap[item.catColor] || 'var(--border)';
+  const isFav = ToolFavDB.isFav('template', item.id);
+  return `
+  <div class="card tool-card" style="cursor:pointer;padding:14px 16px;transition:all .18s;border-top:2px solid ${col};position:relative" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(0,0,0,.09)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
+    <button class="tool-fav-btn ${isFav?'active':''}" onclick="event.stopPropagation();toggleTemplateFav('${item.id}')" title="お気に入り${isFav?'解除':'登録'}">
+      <i class="fa${isFav?'s':'r'} fa-star"></i>
+    </button>
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding-right:20px" onclick="showTemplate('${item.id}')">
+      <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:${bg};border:1px solid ${bdr};display:flex;align-items:center;justify-content:center;font-size:13px;color:${col};flex-shrink:0">
+        <i class="fas ${item.catIcon||'fa-layer-group'}"></i>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
+          <div style="font-size:13px;font-weight:700;color:var(--text-primary);line-height:1.4">${esc(item.name)}</div>
+          ${item.badge ? `<span class="tag tag-beni" style="font-size:9px">${item.badge}</span>` : ''}
+          ${item.hasForm ? `<span class="tag" style="font-size:9px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border)"><i class="fas fa-table-list" style="font-size:8px"></i> フォーム対応</span>` : ''}
+        </div>
+        <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.5">${esc(item.desc||'')}</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        ${(item.tags||[]).map(t=>`<span style="font-size:10px;padding:1px 7px;background:${bg};color:${col};border:1px solid ${bdr};border-radius:var(--radius-full)">${t}</span>`).join('')}
+      </div>
+      <div style="display:flex;gap:5px">
+        <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:${col}" onclick="event.stopPropagation();saveTemplateToNoteFromCard('${item.id}','${esc(item.name).replace(/'/g,'&#39;')}')" title="学習ノートに保存">
+          <i class="fas fa-note-sticky" style="font-size:9px"></i> ノート
+        </button>
+        <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:${col}" onclick="event.stopPropagation();showTemplate('${item.id}')" title="コピー">
+          <i class="fas fa-copy" style="font-size:9px"></i> コピー
+        </button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleTemplateFav(id) {
+  const nowFav = ToolFavDB.toggle('template', id);
+  toast(nowFav ? 'お気に入りに登録しました' : 'お気に入りを解除しました', 'success');
+  render();
+}
+
+function renderTemplateSearchBar(value) {
+  return `
+  <div style="position:relative;max-width:420px">
+    <i class="fas fa-magnifying-glass" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:13px"></i>
+    <input class="form-input" id="template-search-input" value="${esc(value)}" placeholder="テンプレートを検索…（例: 三幕、キャラクター、改稿）" style="padding-left:36px" oninput="onTemplateSearchInput(this.value)">
+    ${value ? `<button style="position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-muted);cursor:pointer;padding:4px" onclick="onTemplateSearchInput('')"><i class="fas fa-xmark"></i></button>` : ''}
+  </div>`;
+}
+let _templateSearchTimer = null;
+function onTemplateSearchInput(value) {
+  clearTimeout(_templateSearchTimer);
+  _templateSearchTimer = setTimeout(() => {
+    DB.set('template_search', value);
+    render();
+    setTimeout(() => { const i = $('#template-search-input'); if (i) { i.focus(); i.setSelectionRange(i.value.length, i.value.length); } }, 0);
+  }, 200);
+}
+
+// ── 自作テンプレートセクション ───────────────────────────────
+const TEMPLATE_CUSTOM_SCOPE = 'templates_custom';
+function renderCustomTemplateCardHtml(t) {
+  const isFav = ToolFavDB.isFav('template', t.id);
+  const folders = FolderDB.getFolders(TEMPLATE_CUSTOM_SCOPE);
+  const fld = folders.find(f => f.id === t.folderId);
+  return `
+  <div class="card tool-card" style="cursor:pointer;padding:14px 16px;border-top:2px solid var(--fuji);position:relative" onclick="showTemplate('${t.id}')">
+    <button class="tool-fav-btn ${isFav?'active':''}" onclick="event.stopPropagation();toggleTemplateFav('${t.id}')" title="お気に入り${isFav?'解除':'登録'}">
+      <i class="fa${isFav?'s':'r'} fa-star"></i>
+    </button>
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px;padding-right:20px">
+      <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:var(--fuji-bg);border:1px solid var(--fuji-border);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--fuji);flex-shrink:0">
+        <i class="fas fa-user-pen"></i>
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:4px;line-height:1.4">${esc(t.name)}</div>
+        <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.5">${esc(t.desc||'')}</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
+      <div style="display:flex;flex-wrap:wrap;gap:4px">
+        ${fld ? `<span class="folder-tag" style="background:${fld.color}22;color:${fld.color};border:1px solid ${fld.color}55"><i class="fas fa-folder" style="font-size:8px"></i> ${esc(fld.name)}</span>` : ''}
+        ${(t.tags||[]).map(tag=>`<span style="font-size:10px;padding:1px 7px;background:var(--fuji-bg);color:var(--fuji);border:1px solid var(--fuji-border);border-radius:var(--radius-full)">${esc(tag)}</span>`).join('')}
+      </div>
+      <div style="display:flex;gap:5px">
+        <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:var(--fuji)" onclick="event.stopPropagation();editCustomTemplate('${t.id}')" title="編集"><i class="fas fa-pen" style="font-size:9px"></i></button>
+        <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:var(--accent)" onclick="event.stopPropagation();confirmDeleteCustomTemplate('${t.id}')" title="削除"><i class="fas fa-trash" style="font-size:9px"></i></button>
+      </div>
+    </div>
+  </div>`;
+}
+function renderCustomTemplateSection() {
+  const list = CustomTemplateDB.getAll();
+  const filtered = filterByActiveFolder(TEMPLATE_CUSTOM_SCOPE, list);
+  return `
+  <div style="margin-bottom:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;border-radius:var(--radius-md);background:var(--fuji-bg);border:1px solid var(--fuji-border);color:var(--fuji);display:flex;align-items:center;justify-content:center;font-size:15px">
+          <i class="fas fa-user-pen"></i>
+        </div>
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">自作テンプレート</div>
+          <div style="font-size:11px;color:var(--text-muted)">${list.length}件 — 自分だけのテンプレートを作成・フォルダ分類できます</div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="openAddCustomTemplate()"><i class="fas fa-plus"></i> 新規作成</button>
+    </div>
+    ${renderFolderBar(TEMPLATE_CUSTOM_SCOPE, "navigate('templates')")}
+    ${filtered.length === 0 ? `<div style="text-align:center;padding:50px 20px;color:var(--text-muted)"><i class="fas fa-user-pen" style="font-size:36px;display:block;margin-bottom:12px;opacity:.25"></i><div style="font-size:13px">まだ自作テンプレートがありません<br>「新規作成」から自分だけのテンプレートを作りましょう</div></div>` :
+    `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">${filtered.map(renderCustomTemplateCardHtml).join('')}</div>`}
+  </div>`;
+}
+function openAddCustomTemplate() {
+  openModal(
+    `<i class="fas fa-user-pen" style="color:var(--fuji)"></i> 自作テンプレートを作成`,
+    `<div class="form-group"><label class="form-label">テンプレート名 <span style="color:var(--accent)">*</span></label><input class="form-input" id="ct-name" placeholder="例：私だけの三幕構成シート"></div>
+     <div class="form-group"><label class="form-label">説明（任意）</label><input class="form-input" id="ct-desc" placeholder="どんな用途のテンプレートか"></div>
+     <div class="form-group"><label class="form-label">フォルダ</label><select class="form-select" id="ct-folder">${folderOptionsHtml(TEMPLATE_CUSTOM_SCOPE, '')}</select></div>
+     <div class="form-group"><label class="form-label">タグ（カンマ区切り・任意）</label><input class="form-input" id="ct-tags" placeholder="例：構成, 自作"></div>
+     <div class="form-group"><label class="form-label">テンプレート本文 <span style="color:var(--accent)">*</span></label><textarea class="form-input" id="ct-content" rows="10" style="font-family:'Noto Serif JP',serif;line-height:1.7" placeholder="■ 見出し1：
+・項目：
+
+■ 見出し2：
+・項目："></textarea></div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="addCustomTemplate()"><i class="fas fa-plus"></i> 作成する</button>`,
+    { size: 'modal-lg' }
+  );
+}
+function addCustomTemplate() {
+  const name = $('#ct-name')?.value?.trim();
+  const desc = $('#ct-desc')?.value?.trim();
+  const folderId = $('#ct-folder')?.value || '';
+  const tagsRaw = $('#ct-tags')?.value?.trim();
+  const content = $('#ct-content')?.value?.trim();
+  if (!name || !content) { toast('テンプレート名と本文は必須です', 'error'); return; }
+  const tags = tagsRaw ? tagsRaw.split(',').map(t=>t.trim()).filter(Boolean) : [];
+  CustomTemplateDB.add({ name, desc, content, tags, folderId });
+  closeModal();
+  toast('自作テンプレートを作成しました', 'success');
+  render();
+}
+function editCustomTemplate(id) {
+  const t = CustomTemplateDB.get(id);
+  if (!t) return;
+  openModal(
+    `<i class="fas fa-pen" style="color:var(--fuji)"></i> 自作テンプレートを編集`,
+    `<div class="form-group"><label class="form-label">テンプレート名 <span style="color:var(--accent)">*</span></label><input class="form-input" id="ect-name" value="${esc(t.name)}"></div>
+     <div class="form-group"><label class="form-label">説明（任意）</label><input class="form-input" id="ect-desc" value="${esc(t.desc||'')}"></div>
+     <div class="form-group"><label class="form-label">フォルダ</label><select class="form-select" id="ect-folder">${folderOptionsHtml(TEMPLATE_CUSTOM_SCOPE, t.folderId||'')}</select></div>
+     <div class="form-group"><label class="form-label">タグ（カンマ区切り・任意）</label><input class="form-input" id="ect-tags" value="${esc((t.tags||[]).join(', '))}"></div>
+     <div class="form-group"><label class="form-label">テンプレート本文 <span style="color:var(--accent)">*</span></label><textarea class="form-input" id="ect-content" rows="10" style="font-family:'Noto Serif JP',serif;line-height:1.7">${esc(t.content)}</textarea></div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveEditCustomTemplate('${id}')"><i class="fas fa-check"></i> 保存する</button>`,
+    { size: 'modal-lg' }
+  );
+}
+function saveEditCustomTemplate(id) {
+  const name = $('#ect-name')?.value?.trim();
+  const desc = $('#ect-desc')?.value?.trim();
+  const folderId = $('#ect-folder')?.value || '';
+  const tagsRaw = $('#ect-tags')?.value?.trim();
+  const content = $('#ect-content')?.value?.trim();
+  if (!name || !content) { toast('テンプレート名と本文は必須です', 'error'); return; }
+  const tags = tagsRaw ? tagsRaw.split(',').map(t=>t.trim()).filter(Boolean) : [];
+  CustomTemplateDB.update(id, { name, desc, content, tags, folderId });
+  closeModal();
+  toast('自作テンプレートを更新しました', 'success');
+  render();
+}
+function confirmDeleteCustomTemplate(id) {
+  const t = CustomTemplateDB.get(id);
+  confirmDeleteGeneric('自作テンプレートを削除', `「<strong style="color:var(--text-primary)">${esc(t?.name||'これ')}</strong>」を削除しますか？`,
+    `deleteCustomTemplate('${id}')`);
+}
+function deleteCustomTemplate(id) {
+  CustomTemplateDB.delete(id);
+  closeModal();
+  toast('自作テンプレートを削除しました', 'info');
+  render();
+}
+
 function renderTemplatesPage() {
-  const cp = State.currentPage;
   const activeFilter = DB.get('template_filter', 'all');
+  const { colorMap, bgMap, borderMap } = templatesColorMaps();
+  const searchQuery = (DB.get('template_search', '') || '').trim();
+  const customList = CustomTemplateDB.getAll();
 
-  const TEMPLATE_CATS = [
-    {
-      id: 'structure',
-      title: '構成テンプレート',
-      icon: 'fa-diagram-project',
-      color: 'beni',
-      badge: '構成',
-      items: [
-        { id:'three-act', name:'三幕構成シート', desc:'Act1/Act2/Act3の主要ビートを埋めるだけ', tags:['構成','定番'] },
-        { id:'save-cat', name:'Save the Cat 15ビートシート', desc:'ブレイク・スナイダー式の15ポイント完全版', tags:['構成','映画'] },
-        { id:'kishotenketsu', name:'起承転結設計シート', desc:'日本式四段構成の各フェーズを整理', tags:['構成','日本式'] },
-        { id:'story-circle', name:'ストーリーサークル設計', desc:'ダン・ハーモンの8ステップ円環構造', tags:['構成','サークル'] },
-        { id:'logline-sheet', name:'ログライン＆企画書シート', desc:'プレミス・ログライン・ピッチを一枚で完成させる', tags:['企画','ログライン'] },
-      ]
-    },
-    {
-      id: 'character',
-      title: 'キャラクターシート',
-      icon: 'fa-users',
-      color: 'fuji',
-      badge: 'キャラ',
-      items: [
-        { id:'char-basic', name:'キャラクター基本シート', desc:'名前・年齢・役割・外見・性格の基礎情報', tags:['キャラクター','基礎'] },
-        { id:'char-deep', name:'キャラクター深掘りシート', desc:'Want/Need/ウーンド/Lie/Truthの内面設計', tags:['キャラクター','深掘り'] },
-        { id:'char-arc', name:'キャラクターアーク設計', desc:'ポジティブ/ネガティブ/フラットアーク', tags:['キャラクター','アーク'] },
-        { id:'antagonist-sheet', name:'アンタゴニスト設計シート', desc:'強い敵役の信念・動機・対立軸を設計する', tags:['キャラクター','敵役'] },
-        { id:'relationship-map', name:'人物関係マップ', desc:'主要登場人物の関係性と対立構図を整理', tags:['キャラクター','関係性'] },
-      ]
-    },
-    {
-      id: 'scene',
-      title: 'シーン・セリフ',
-      icon: 'fa-film',
-      color: 'momo',
-      badge: 'シーン',
-      items: [
-        { id:'scene-check', name:'シーンチェックリスト', desc:'目的・対立・変化の1シーン4要素確認', tags:['シーン','チェック'] },
-        { id:'dialogue-check', name:'セリフ診断リスト', desc:'サブテキスト・キャラクターの声・オンザノーズ確認', tags:['セリフ','診断'] },
-        { id:'format-sample', name:'脚本フォーマット見本', desc:'日本式フォーマットの完全記述例付き', tags:['フォーマット','見本'] },
-        { id:'scene-sequence', name:'シーンシーケンス設計', desc:'5〜8シーンのシーケンス構造を設計する', tags:['シーン','構成'] },
-        { id:'subtext-guide', name:'サブテキスト変換ガイド', desc:'直接的なセリフを間接的に変換するための指針', tags:['セリフ','サブテキスト'] },
-      ]
-    },
-    {
-      id: 'revision',
-      title: '改稿・推敲',
-      icon: 'fa-rotate',
-      color: 'kogane',
-      badge: '改稿',
-      items: [
-        { id:'revision-sheet', name:'大改稿チェックシート', desc:'構造・シーン・キャラクター全レベルの確認', tags:['改稿','チェック'] },
-        { id:'polish-sheet', name:'精密推敲チェックシート', desc:'セリフ・ト書きの細部磨き方', tags:['推敲','仕上げ'] },
-        { id:'feedback-form', name:'フィードバック記録フォーム', desc:'読み合わせ後のフィードバックを整理して改稿に活かす', tags:['フィードバック','記録'] },
-        { id:'draft-log', name:'改稿ログシート', desc:'稿ごとの変更内容・目的・結果を記録する', tags:['改稿','管理'] },
-      ]
-    },
-    {
-      id: 'planning',
-      title: '企画・開発',
-      icon: 'fa-lightbulb',
-      color: 'matcha',
-      badge: '企画',
-      items: [
-        { id:'pitch-sheet', name:'ピッチドックシート', desc:'タイトル・ジャンル・ログライン・世界観・キャスト', tags:['企画','ピッチ'] },
-        { id:'theme-sheet', name:'テーマ設計シート', desc:'テーマ・モラル・プレミスを物語に埋め込む方法', tags:['テーマ','設計'] },
-        { id:'genre-check', name:'ジャンルお約束チェック', desc:'ジャンル別の必須要素と期待を外さないためのリスト', tags:['ジャンル','チェック'] },
-        { id:'world-building', name:'世界観設計シート', desc:'時代・場所・ルール・社会構造の設定整理', tags:['世界観','設定'] },
-      ]
-    },
-  ];
+  // 検索モード（既存テンプレート＋自作テンプレートを横断検索）
+  if (searchQuery) {
+    const q = searchQuery.toLowerCase();
+    const flat = templatesFlatList();
+    const customFlat = customList.map(t => ({ id:t.id, name:t.name, desc:t.desc, tags:t.tags||[], catIcon:'fa-user-pen', catColor:'fuji', isCustom:true }));
+    const all = [...flat, ...customFlat];
+    const matched = all.filter(t => t.name.toLowerCase().includes(q) || (t.desc||'').toLowerCase().includes(q) || (t.tags||[]).some(tag=>tag.toLowerCase().includes(q)));
+    return `
+    <div style="margin-bottom:20px">${renderTemplateSearchBar(searchQuery)}</div>
+    <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:12px">「<strong style="color:var(--text-primary)">${esc(searchQuery)}</strong>」の検索結果：${matched.length}件</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">
+      ${matched.length ? matched.map(t=>renderTemplateCardHtml(t,colorMap,bgMap,borderMap)).join('') : `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-magnifying-glass" style="font-size:24px;opacity:.3;display:block;margin-bottom:8px"></i>該当するテンプレートが見つかりません</div>`}
+    </div>`;
+  }
 
-  const colorMap = { beni:'var(--accent)', fuji:'var(--fuji)', momo:'var(--momo)', kogane:'var(--kogane)', matcha:'var(--matcha)', asagi:'var(--asagi)', kon:'var(--kon-lt)' };
-  const bgMap    = { beni:'var(--accent-bg)', fuji:'var(--fuji-bg)', momo:'var(--momo-bg)', kogane:'var(--kogane-bg)', matcha:'var(--matcha-bg)', asagi:'var(--asagi-bg)', kon:'var(--kon-bg)' };
-  const borderMap = { beni:'var(--accent-border)', fuji:'var(--fuji-border)', momo:'var(--momo-border)', kogane:'var(--kogane-border)', matcha:'var(--matcha-border)', asagi:'var(--asagi-border)', kon:'var(--kon-border)' };
+  // お気に入り／最近使ったセクション
+  const favIds = ToolFavDB.getFavs('template');
+  const histIds = ToolHistoryDB.getHistory('template').filter(id => !favIds.includes(id));
+  const flatAll = [...templatesFlatList(), ...customList.map(t=>({ id:t.id, name:t.name, catIcon:'fa-user-pen', catColor:'fuji' }))];
+  const findT = id => flatAll.find(t=>t.id===id);
+  const favTs = favIds.map(findT).filter(Boolean);
+  const histTs = histIds.map(findT).filter(Boolean);
 
-  // フィルタータブ
+  const quickSection = (favTs.length || histTs.length) ? `
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-bottom:20px">
+    ${favTs.length ? `
+    <div class="card" style="padding:14px;border-top:3px solid var(--kogane)">
+      <div style="font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:10px"><i class="fas fa-star" style="color:var(--kogane);margin-right:6px"></i>お気に入り</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${favTs.map(t=>`<div class="tool-quick-row" onclick="showTemplate('${t.id}')"><i class="fas ${t.catIcon||'fa-layer-group'}" style="color:${colorMap[t.catColor]||'var(--text-muted)'};width:16px"></i><span>${esc(t.name)}</span><i class="fas fa-arrow-right" style="margin-left:auto;font-size:9px;color:var(--text-muted)"></i></div>`).join('')}
+      </div>
+    </div>` : ''}
+    ${histTs.length ? `
+    <div class="card" style="padding:14px;border-top:3px solid var(--asagi)">
+      <div style="font-size:12.5px;font-weight:700;color:var(--text-primary);margin-bottom:10px"><i class="fas fa-clock-rotate-left" style="color:var(--asagi);margin-right:6px"></i>最近使った</div>
+      <div style="display:flex;flex-direction:column;gap:6px">
+        ${histTs.map(t=>`<div class="tool-quick-row" onclick="showTemplate('${t.id}')"><i class="fas ${t.catIcon||'fa-layer-group'}" style="color:${colorMap[t.catColor]||'var(--text-muted)'};width:16px"></i><span>${esc(t.name)}</span><i class="fas fa-arrow-right" style="margin-left:auto;font-size:9px;color:var(--text-muted)"></i></div>`).join('')}
+      </div>
+    </div>` : ''}
+  </div>` : '';
+
+  // フィルタータブ（既存カテゴリ＋自作）
   const filterTabs = `
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px">
     <button class="btn btn-sm ${activeFilter==='all'?'btn-primary':'btn-ghost'}" onclick="DB.set('template_filter','all');render()">すべて</button>
-    ${TEMPLATE_CATS.map(c=>`<button class="btn btn-sm ${activeFilter===c.id?'btn-primary':'btn-ghost'}" onclick="DB.set('template_filter','${c.id}');render()" style="${activeFilter===c.id?'':'border-color:'+borderMap[c.color]+';color:'+colorMap[c.color]}">
+    ${TEMPLATE_CATS_DATA.map(c=>`<button class="btn btn-sm ${activeFilter===c.id?'btn-primary':'btn-ghost'}" onclick="DB.set('template_filter','${c.id}');render()" style="${activeFilter===c.id?'':'border-color:'+borderMap[c.color]+';color:'+colorMap[c.color]}">
       <i class="fas ${c.icon}" style="font-size:10px"></i> ${c.badge}
     </button>`).join('')}
+    <button class="btn btn-sm ${activeFilter==='custom'?'btn-primary':'btn-ghost'}" onclick="DB.set('template_filter','custom');render()" style="${activeFilter==='custom'?'':'border-color:var(--fuji-border);color:var(--fuji)'}">
+      <i class="fas fa-user-pen" style="font-size:10px"></i> 自作 (${customList.length})
+    </button>
   </div>`;
 
-  const filteredCats = activeFilter === 'all' ? TEMPLATE_CATS : TEMPLATE_CATS.filter(c => c.id === activeFilter);
-
-  const sections = filteredCats.map(cat => {
-    const col = colorMap[cat.color] || 'var(--text-muted)';
-    const bg = bgMap[cat.color] || 'var(--bg-hover)';
-    const bdr = borderMap[cat.color] || 'var(--border)';
-    const cards = cat.items.map(item => `
-      <div class="card" style="cursor:pointer;padding:14px 16px;transition:all .18s;border-top:2px solid ${col};position:relative" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 16px rgba(0,0,0,.09)'" onmouseout="this.style.transform='';this.style.boxShadow=''">
-        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px" onclick="showTemplate('${item.id}')">
-          <div style="width:32px;height:32px;border-radius:var(--radius-sm);background:${bg};border:1px solid ${bdr};display:flex;align-items:center;justify-content:center;font-size:13px;color:${col};flex-shrink:0">
+  let bodySection;
+  if (activeFilter === 'custom') {
+    bodySection = renderCustomTemplateSection();
+  } else {
+    const filteredCats = activeFilter === 'all' ? TEMPLATE_CATS_DATA : TEMPLATE_CATS_DATA.filter(c => c.id === activeFilter);
+    bodySection = filteredCats.map(cat => {
+      const col = colorMap[cat.color] || 'var(--text-muted)';
+      const bg = bgMap[cat.color] || 'var(--bg-hover)';
+      const bdr = borderMap[cat.color] || 'var(--border)';
+      const cards = cat.items.map(item => renderTemplateCardHtml({ ...item, catIcon: cat.icon, catColor: cat.color }, colorMap, bgMap, borderMap)).join('');
+      return `
+      <div style="margin-bottom:28px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">
+          <div style="width:36px;height:36px;border-radius:var(--radius-md);background:${bg};border:1px solid ${bdr};color:${col};display:flex;align-items:center;justify-content:center;font-size:15px">
             <i class="fas ${cat.icon}"></i>
           </div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:4px;line-height:1.4">${esc(item.name)}</div>
-            <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.5">${esc(item.desc)}</div>
+          <div>
+            <div style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${esc(cat.title)}</div>
+            <div style="font-size:11px;color:var(--text-muted)">${cat.items.length}テンプレート</div>
           </div>
         </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">
-          <div style="display:flex;flex-wrap:wrap;gap:4px">
-            ${(item.tags||[]).map(t=>`<span style="font-size:10px;padding:1px 7px;background:${bg};color:${col};border:1px solid ${bdr};border-radius:var(--radius-full)">${t}</span>`).join('')}
-          </div>
-          <div style="display:flex;gap:5px">
-            <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:${col}" onclick="event.stopPropagation();saveTemplateToNoteFromCard('${item.id}','${esc(item.name).replace(/'/g,'&#39;')}')" title="学習ノートに保存">
-              <i class="fas fa-note-sticky" style="font-size:9px"></i> ノート
-            </button>
-            <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 8px;color:${col}" onclick="event.stopPropagation();showTemplate('${item.id}')" title="コピー">
-              <i class="fas fa-copy" style="font-size:9px"></i> コピー
-            </button>
-          </div>
-        </div>
-      </div>`).join('');
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">${cards}</div>
+      </div>`;
+    }).join('');
+  }
 
-    return `
-    <div style="margin-bottom:28px">
-      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)">
-        <div style="width:36px;height:36px;border-radius:var(--radius-md);background:${bg};border:1px solid ${bdr};color:${col};display:flex;align-items:center;justify-content:center;font-size:15px">
-          <i class="fas ${cat.icon}"></i>
-        </div>
-        <div>
-          <div style="font-size:15px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">${esc(cat.title)}</div>
-          <div style="font-size:11px;color:var(--text-muted)">${cat.items.length}テンプレート</div>
-        </div>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px">${cards}</div>
-    </div>`;
-  }).join('');
-
-  const totalTemplates = TEMPLATE_CATS.reduce((a, c) => a + c.items.length, 0);
+  const totalTemplates = TEMPLATE_CATS_DATA.reduce((a, c) => a + c.items.length, 0);
 
   return `
   <!-- ヘッダー -->
@@ -25234,22 +26077,25 @@ function renderTemplatesPage() {
     <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:5px">
       <i class="fas fa-layer-group" style="color:var(--kogane);margin-right:8px"></i>テンプレート集
     </div>
-    <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">プロが使う設計シート・チェックリスト${totalTemplates}種 — コピーしてすぐに使えます</div>
-    <div style="display:flex;gap:16px;flex-wrap:wrap">
-      ${TEMPLATE_CATS.map(c=>`<span style="font-size:12px;color:${colorMap[c.color]};font-weight:600"><i class="fas ${c.icon}" style="margin-right:4px;font-size:10px"></i>${c.title} ${c.items.length}件</span>`).join('')}
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px">プロが使う設計シート・チェックリスト${totalTemplates}種＋自作${customList.length}件 — コピー、フォーム入力、学習ノート保存に対応</div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:14px">
+      ${TEMPLATE_CATS_DATA.map(c=>`<span style="font-size:12px;color:${colorMap[c.color]};font-weight:600"><i class="fas ${c.icon}" style="margin-right:4px;font-size:10px"></i>${c.title} ${c.items.length}件</span>`).join('')}
     </div>
+    ${renderTemplateSearchBar(searchQuery)}
   </div>
+
+  ${quickSection}
 
   <!-- フィルター -->
   ${filterTabs}
 
-  <!-- テンプレートカテゴリ -->
-  ${sections}
+  <!-- 本体 -->
+  ${bodySection}
 
   <!-- ヒント -->
   <div style="padding:12px 16px;background:var(--asagi-bg);border:1px solid var(--asagi-border);border-radius:var(--radius-md);font-size:12.5px;color:var(--text-secondary);line-height:1.7">
     <i class="fas fa-lightbulb" style="color:var(--asagi);margin-right:6px"></i>
-    <strong>使い方のコツ：</strong>テンプレートはコピー後、お使いのエディタ（Word・Google Docs等）に貼り付けて使います。「ノートに保存」でアプリ内学習ノートにも記録できます。
+    <strong>使い方のコツ：</strong>テンプレートはコピー後、お使いのエディタ（Word・Google Docs等）に貼り付けて使います。「フォーム対応」バッジ付きテンプレートは項目を入力するだけで自動整形できます。「自作」タブから独自のテンプレートを作成・フォルダ分類できます。
   </div>`;
 }
 
@@ -25271,7 +26117,34 @@ function saveTemplateToNoteFromCard(id, name) {
   toast(`「${name}」を学習ノートに保存しました`, 'success');
 }
 
+const TEMPLATE_FORM_IDS = ['three-act', 'logline-sheet', 'char-basic'];
 function showTemplate(id) {
+  ToolHistoryDB.record('template', id);
+
+  // 自作テンプレートの場合
+  if (id.startsWith('custom_')) {
+    const t = CustomTemplateDB.get(id);
+    if (!t) { toast('テンプレートが見つかりません', 'error'); return; }
+    window._currentTemplate = t.content;
+    window._currentTemplateName = t.name;
+    openModal(
+      `<i class="fas fa-user-pen" style="color:var(--fuji)"></i> ${esc(t.name)}`,
+      `<div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap">
+         <span style="font-size:11px;padding:2px 10px;background:var(--fuji-bg);color:var(--fuji);border:1px solid var(--fuji-border);border-radius:var(--radius-full)"><i class="fas fa-user-pen" style="font-size:9px;margin-right:3px"></i>自作テンプレート</span>
+       </div>
+       <div style="white-space:pre-wrap;font-family:'Noto Serif JP',serif;font-size:12.5px;color:var(--text-secondary);line-height:1.9;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;max-height:440px;overflow-y:auto">${esc(t.content)}</div>`,
+      `<button class="btn btn-secondary" onclick="closeModal()">閉じる</button>
+       <button class="btn btn-ghost" onclick="closeModal();editCustomTemplate('${id}')"><i class="fas fa-pen"></i> 編集</button>
+       <button class="btn btn-ghost" onclick="saveTemplateToNote('${id}')"><i class="fas fa-note-sticky"></i> ノートに保存</button>
+       <button class="btn btn-primary" onclick="copyTemplate()"><i class="fas fa-copy"></i> クリップボードにコピー</button>`,
+      { size: 'modal-lg' }
+    );
+    return;
+  }
+
+  // インタラクティブフォーム対応テンプレート
+  if (TEMPLATE_FORM_IDS.includes(id)) { openTemplateForm(id); return; }
+
   const TEMPLATE_NAMES = {
     'three-act': '三幕構成シート',
     'save-cat': 'Save the Cat 15ビートシート',
@@ -25296,6 +26169,16 @@ function showTemplate(id) {
     'theme-sheet': 'テーマ設計シート',
     'genre-check': 'ジャンルお約束チェック',
     'world-building': '世界観設計シート',
+    'nonlinear-structure': '非線形構成シート',
+    'multi-pov-structure': '複数視点構成シート',
+    'char-voice-sheet': 'キャラクターボイス設計シート',
+    'char-backstory': 'バックストーリー設計シート',
+    'action-scene-sheet': 'アクションシーン設計シート',
+    'opening-scene-check': 'オープニングシーンチェックリスト',
+    'pacing-check': 'ペーシング診断シート',
+    'consistency-check': '整合性チェックリスト',
+    'series-bible': 'シリーズバイブルシート',
+    'audience-analysis': '想定読者分析シート',
   };
 
   const TEMPLATES = {
@@ -26319,6 +27202,275 @@ function showTemplate(id) {
 □ 世界観は「見せる（Show）」で伝えているか？
 □ 知らせすぎ（情報過多）になっていないか？
 □ 観客が「なぜ？」と思い、次のシーンを見たくなるか？`,
+
+    'nonlinear-structure': `【非線形構成シート】
+作品タイトル：
+
+■ 採用する非線形手法（回想／並行タイムライン／逆順／円環構造 等）：
+
+■ 「現在」の時系列（メインライン）：
+  シーン1：
+  シーン2：
+  シーン3：
+
+■ 「過去／別ライン」の時系列（サブライン）：
+  シーン1：
+  シーン2：
+  シーン3：
+
+■ 交差ポイント（メイン×サブが接続・対比される箇所）：
+  1. どこで交差するか：　　　　　何を明らかにするか：
+  2. どこで交差するか：　　　　　何を明らかにするか：
+
+■ 観客の混乱を防ぐための工夫（時制表示・色調・字幕等）：
+
+■ この構成にする狙い（なぜ順番通りに語らないのか）：
+
+■ チェック
+□ 時系列がバラバラでも、観客は「今どこにいるか」を常に把握できるか？
+□ 非線形にすることで生まれる驚き・伏線回収があるか？
+□ 単純に時系列順に並べ直しても成立してしまう話になっていないか？`,
+
+    'multi-pov-structure': `【複数視点構成シート】
+作品タイトル：
+
+■ POVキャラクター一覧
+  1. 名前：　　役割：　　担当パート（章／シーン）：
+  2. 名前：　　役割：　　担当パート（章／シーン）：
+  3. 名前：　　役割：　　担当パート（章／シーン）：
+
+■ 各POVが「知っていること／知らないこと」（情報の非対称性）
+  POV1が知らない重要な事実：
+  POV2が知らない重要な事実：
+  POV3が知らない重要な事実：
+
+■ POV切り替えのタイミングと理由（なぜこの場面で視点を変えるか）：
+  切替1：
+  切替2：
+
+■ 全POVが収束する場面（クライマックス／全員が揃う場面）：
+
+■ 各POVの声・文体の差別化ポイント：
+
+■ チェック
+□ POVを増やすことで生まれる「観客だけが知る真実（ドラマティック・アイロニー）」があるか？
+□ 各視点が単なる情報の重複になっていないか？
+□ 読者/観客が「今誰の視点か」を混乱しないか？`,
+
+    'char-voice-sheet': `【キャラクターボイス設計シート】
+キャラクター名：
+
+■ 話し方の基本パターン
+・一人称（私／俺／僕／あたし 等）：
+・二人称（相手の呼び方）：
+・文末の癖（〜だよね／〜であります／〜さ 等）：
+・話すスピード・リズム（早口／間を置く／もったりetc）：
+
+■ 語彙レベル・専門性
+・使う言葉のレベル（学術的／俗語／方言／古語）：
+・よく使うフレーズ・口癖：
+・絶対に使わない言葉（キャラクターらしくない表現）：
+
+■ 感情の表れ方
+・喜びの表現方法：
+・怒りの表現方法：
+・動揺した時の口調変化：
+
+■ 他キャラクターとの会話での違い
+・上司/目上の人に対して：
+・友人に対して：
+・敵対者に対して：
+
+■ ボイスチェック用サンプルセリフ（同じ内容を3パターンで書く）
+1. 状況「遅刻を注意された」への反応：
+2. 状況「褒められた」への反応：
+3. 状況「予想外の事態」への反応：
+
+■ チェック
+□ セリフだけ読んで、誰の発言か判別できるか？
+□ 他キャラクターと語尾・語彙が似すぎていないか？`,
+
+    'char-backstory': `【バックストーリー設計シート】
+キャラクター名：
+
+■ 生い立ちの基本情報
+・出身・生まれた環境：
+・家族構成・育った家庭環境：
+・幼少期の重要な出来事：
+
+■ 転機となった出来事（キャラクターを形成した事件）
+・出来事の内容：
+・その時の年齢：
+・この出来事が残した「傷（ウーンド）」：
+・そこから生まれた「思い込み（Lie）」：
+
+■ 現在の行動とのつながり
+・このバックストーリーが現在の「欠如」にどう繋がるか：
+・このバックストーリーが現在の「目標」にどう繋がるか：
+・物語中でこの過去がどう明かされるか（どのタイミングで、誰に）：
+
+■ 隠している/話したくない過去はあるか：
+
+■ チェック
+□ バックストーリーは物語本編の行動選択に直接影響しているか？
+□ 単なる「かわいそうな過去」の説明になっていないか（Show don't tellで機能させる）？
+□ 過去の全てを一度に見せず、小出しにする計画があるか？`,
+
+    'action-scene-sheet': `【アクションシーン設計シート】
+シーン名：
+
+■ 空間設定
+・場所（地形・構造・広さ）：
+・障害物・使える道具：
+・視界・光の状態（暗い／狭い／高所等）：
+
+■ 参加者
+・主人公側：　　能力・強み：
+・敵側：　　能力・強み：
+・力関係（誰が優位に見えるか、開始時点）：
+
+■ ビート（段取り）分割
+  1. 開始のきっかけ：
+  2. 最初の攻防：
+  3. 状況の変化（優位が入れ替わる）：
+  4. ピンチ（主人公が追い詰められる）：
+  5. 転換点（アイデア・環境利用での逆転）：
+  6. 決着：
+
+■ アクションに込める感情・意味（単なる殴り合いで終わらせない要素）：
+
+■ チェック
+□ アクションの間、主人公の「内的な葛藤」も同時に進行しているか？
+□ 決着の付け方は、それまでの伏線・キャラクター性を活かしているか？
+□ 地形・道具が一度使われたら二度は同じ手を使っていないか？`,
+
+    'opening-scene-check': `【オープニングシーンチェックリスト】
+作品タイトル：
+
+■ 最初の3行/3カットで伝えていること
+・ジャンル・トーンは伝わるか：
+・時代・場所は伝わるか：
+・主人公は誰か（明示 or 匂わせ）：
+
+■ オープニングイメージの機能
+・提示している「変化前の世界」：
+・後のクロージングイメージとどう対になるか：
+
+■ フック（続きを読みたくなる要素）
+・興味を引く謎・違和感：
+・提示する問い：
+
+■ 情報の出し方
+・説明的すぎるセリフ・ナレーションはないか：
+・「見せる」ことで伝えている情報は何か：
+
+■ チェック
+□ 最初の1ページ/1分でジャンルと約束が伝わるか？
+□ 説明過多で観客を置いてけぼりにしていないか？
+□ 冒頭で「この物語を読み続ける理由」が生まれているか？
+□ 主人公への感情移入ポイント（同情・興味・共感）があるか？`,
+
+    'pacing-check': `【ペーシング診断シート】
+作品タイトル：
+
+■ 章・シーンごとのペース評価（各シーンを「速い／普通／遅い」で分類）
+  シーン1：　　評価：　　理由：
+  シーン2：　　評価：　　理由：
+  シーン3：　　評価：　　理由：
+  シーン4：　　評価：　　理由：
+
+■ 停滞ポイント（読者が飽きる可能性のある箇所）
+・箇所：　　　原因（説明過多／進展がない／同じ情報の繰り返し）：
+
+■ 急ぎすぎポイント（感情が追いつかない箇所）
+・箇所：　　　原因（重要な決断が説明不足／感情描写が飛んでいる）：
+
+■ 緩急のリズム設計
+・盛り上がり（速い）シーンの直後に配置する「息継ぎ」シーン：
+・クライマックス前の「静寂」の使い方：
+
+■ チェック
+□ 同じテンポのシーンが3つ以上連続していないか？
+□ 重要な感情の変化点にきちんと「間」があるか？
+□ 中弛み（第二幕）に停滞ポイントが集中していないか？`,
+
+    'consistency-check': `【整合性チェックリスト】
+作品タイトル：
+
+■ 時系列の整合性
+・登場人物の年齢は物語全体を通して一貫しているか：
+・季節・日数・移動時間に矛盾はないか：
+
+■ 設定の整合性
+・世界観のルールを後半で破っていないか：
+・一度確立した「できないこと」を都合よく解決していないか：
+
+■ キャラクターの整合性
+・性格・価値観が急に変化する場面に、納得できる理由があるか：
+・話し方（口調・語彙）が章によってブレていないか：
+・名前・呼称・関係性の表記が統一されているか：
+
+■ 伏線の整合性
+・張った伏線は全て回収されているか（未回収リスト）：
+  1.
+  2.
+・回収済みだが張っていた場所が曖昧なものはあるか：
+
+■ チェック
+□ 通し読みで「あれ？」と引っかかる箇所を全てリストアップしたか？
+□ 固有名詞（地名・人名・組織名）の表記は統一されているか？`,
+
+    'series-bible': `【シリーズバイブルシート】
+シリーズ名：
+
+■ シリーズ全体の骨格
+・全体の完結までの巻数／話数（予定）：
+・シリーズ全体を通しての大きな謎・目標：
+・各巻/各シーズンごとの中目標：
+  第1巻/シーズン：
+  第2巻/シーズン：
+  第3巻/シーズン：
+
+■ 変わらない設定（絶対に矛盾させてはいけないルール）
+・世界観の基本ルール：
+・キャラクターの基本設定（生年月日・出身等）：
+・組織・地名・固有名詞の正式表記一覧：
+
+■ キャラクターの成長軌道（シリーズを通した変化）
+・主人公の変化：
+・主要脇役の変化：
+
+■ 伏線管理（シリーズ全体で仕込む長期伏線）
+  1. 仕込む話：　　回収予定の話：
+  2. 仕込む話：　　回収予定の話：
+
+■ チェック
+□ 各巻が独立して楽しめつつ、シリーズ全体の伏線も進んでいるか？
+□ 設定資料と本編で矛盾が生まれた場合の「正」をどちらにするか決めているか？`,
+
+    'audience-analysis': `【想定読者分析シート】
+作品タイトル：
+
+■ 想定読者層
+・年齢層・性別・ライフスタイル：
+・既読/既視の作品（好みの傾向が近い作品）：
+・この読者が普段求めている体験（癒し／興奮／驚き／共感等）：
+
+■ この作品が読者に提供する価値
+・読み終えた後に得られる感情：
+・読者が「自分ごと」として感じられる要素：
+
+■ 想定読者の期待とその外し方
+・ジャンルとして「絶対に外せない」お約束：
+・逆に「予想を裏切る」ことで驚きを生む部分：
+
+■ 訴求ポイント（宣伝文・紹介文に使える強み）
+・一言で言うと何が新しいか：
+・似た作品と比較した際の差別化ポイント：
+
+■ チェック
+□ 「誰のために書いているか」が一文で説明できるか？
+□ 想定読者が読み始めて最初の5分で離脱しない工夫があるか？`,
   };
 
   const content = TEMPLATES[id] || 'テンプレートが見つかりません';
@@ -26342,6 +27494,187 @@ function showTemplate(id) {
 function copyTemplate() {
   const content = window._currentTemplate || '';
   navigator.clipboard?.writeText(content).then(() => toast('テンプレートをコピーしました！', 'success'));
+}
+
+// ── インタラクティブフォーム対応テンプレート ─────────────────────
+const TEMPLATE_FORM_SCHEMAS = {
+  'three-act': {
+    name: '三幕構成シート',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'a1_open', label:'Act1｜オープニングイメージ', type:'textarea' },
+      { key:'a1_lack', label:'Act1｜主人公の日常・欠如', type:'textarea' },
+      { key:'a1_inciting', label:'Act1｜発端事件（Inciting Incident）', type:'textarea' },
+      { key:'a1_debate', label:'Act1｜議論（行くか行かないか）', type:'textarea' },
+      { key:'a1_tp1', label:'Act1｜ターニングポイント1', type:'textarea' },
+      { key:'a2a_adapt', label:'Act2a｜新世界への適応', type:'textarea' },
+      { key:'a2a_bstory', label:'Act2a｜Bストーリー開始', type:'textarea' },
+      { key:'a2a_fun', label:'Act2a｜楽しみと遊び', type:'textarea' },
+      { key:'a2a_mid', label:'Act2a｜ミッドポイント', type:'textarea' },
+      { key:'a2b_bad', label:'Act2b｜悪役の迫来・状況悪化', type:'textarea' },
+      { key:'a2b_lost', label:'Act2b｜すべてを失う', type:'textarea' },
+      { key:'a2b_dark', label:'Act2b｜暗闇の魂', type:'textarea' },
+      { key:'a2b_tp2', label:'Act2b｜ターニングポイント2', type:'textarea' },
+      { key:'a3_climb', label:'Act3｜クライマックスへの突入', type:'textarea' },
+      { key:'a3_climax', label:'Act3｜クライマックス', type:'textarea' },
+      { key:'a3_close', label:'Act3｜クロージングイメージ', type:'textarea' },
+      { key:'theme', label:'テーマ', type:'textarea' },
+      { key:'arc', label:'主人公のアーク', type:'textarea' },
+    ],
+    build: (v) => `【三幕構成シート】
+作品タイトル：${v.title||''}
+
+■ Act1 — 序幕（約25%）
+・オープニングイメージ（開幕の象徴的シーン）：${v.a1_open||''}
+・主人公の日常・欠如（何が足りないか）：${v.a1_lack||''}
+・発端事件（Inciting Incident）：${v.a1_inciting||''}
+・議論（行くか行かないかの葛藤）：${v.a1_debate||''}
+・ターニングポイント1（日常世界を離れる決断）：${v.a1_tp1||''}
+
+■ Act2a — 本幕前半（約25%）
+・新世界への適応：${v.a2a_adapt||''}
+・Bストーリー（サブプロット / テーマを体現するキャラクター）開始：${v.a2a_bstory||''}
+・楽しみと遊び（ジャンルの「お約束」を見せる）：${v.a2a_fun||''}
+・ミッドポイント（偽りの勝利 or 偽りの敗北）：${v.a2a_mid||''}
+
+■ Act2b — 本幕後半（約25%）
+・悪役の迫来・状況悪化：${v.a2b_bad||''}
+・すべてを失う（All is Lost）：${v.a2b_lost||''}
+・暗闇の魂（Dark Night of the Soul）：${v.a2b_dark||''}
+・ターニングポイント2（新しい計画・視点の転換）：${v.a2b_tp2||''}
+
+■ Act3 — 終幕（約25%）
+・クライマックスへの突入：${v.a3_climb||''}
+・クライマックス（主人公の変化した選択を証明するシーン）：${v.a3_climax||''}
+・クロージングイメージ（オープニングと対になる象徴的シーン）：${v.a3_close||''}
+
+■ テーマ（物語が言いたいこと）：${v.theme||''}
+■ 主人公のアーク（冒頭の信念 → クライマックスでの選択）：${v.arc||''}`,
+  },
+  'logline-sheet': {
+    name: 'ログライン＆企画書シート',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'genre', label:'ジャンル', type:'text' },
+      { key:'protagonist', label:'主人公', type:'textarea' },
+      { key:'goal', label:'外的ゴール', type:'textarea' },
+      { key:'obstacle', label:'障害・葛藤', type:'textarea' },
+      { key:'theme', label:'テーマ・問い', type:'textarea' },
+      { key:'logline', label:'ログライン（一文）', type:'textarea' },
+      { key:'synopsis', label:'あらすじ（200〜400字）', type:'textarea' },
+      { key:'pitch', label:'ピッチ文（なぜ今これを作るべきか）', type:'textarea' },
+    ],
+    build: (v) => `【ログライン＆企画書シート】
+作品タイトル：${v.title||''}　　ジャンル：${v.genre||''}
+
+■ 主人公：${v.protagonist||''}
+■ 外的ゴール：${v.goal||''}
+■ 障害・葛藤：${v.obstacle||''}
+■ テーマ・問い：${v.theme||''}
+
+■ ログライン：
+${v.logline||''}
+
+■ あらすじ：
+${v.synopsis||''}
+
+■ ピッチ文（なぜ今これを作るべきか）：
+${v.pitch||''}`,
+  },
+  'char-basic': {
+    name: 'キャラクター基本シート',
+    fields: [
+      { key:'name', label:'名前', type:'text' },
+      { key:'age', label:'年齢', type:'text' },
+      { key:'role', label:'役割（主人公／敵役／サブキャラ等）', type:'text' },
+      { key:'appearance', label:'外見の特徴', type:'textarea' },
+      { key:'personality', label:'性格', type:'textarea' },
+      { key:'occupation', label:'職業・立場', type:'textarea' },
+      { key:'want', label:'Want（表面的に欲しいもの）', type:'textarea' },
+      { key:'need', label:'Need（本当に必要なもの）', type:'textarea' },
+      { key:'flaw', label:'欠点・弱み', type:'textarea' },
+      { key:'notes', label:'その他メモ', type:'textarea' },
+    ],
+    build: (v) => `【キャラクター基本シート】
+名前：${v.name||''}　　年齢：${v.age||''}　　役割：${v.role||''}
+
+■ 外見の特徴：
+${v.appearance||''}
+
+■ 性格：
+${v.personality||''}
+
+■ 職業・立場：
+${v.occupation||''}
+
+■ Want（表面的に欲しいもの）：${v.want||''}
+■ Need（本当に必要なもの）：${v.need||''}
+■ 欠点・弱み：${v.flaw||''}
+
+■ その他メモ：
+${v.notes||''}`,
+  },
+};
+
+function openTemplateForm(id) {
+  const schema = TEMPLATE_FORM_SCHEMAS[id];
+  if (!schema) return;
+  const saved = DB.get('template_form_' + id, {});
+  const fieldsHtml = schema.fields.map(f => `
+    <div class="form-group">
+      <label class="form-label">${esc(f.label)}</label>
+      ${f.type === 'textarea'
+        ? `<textarea class="form-input" id="tf-${f.key}" rows="2" style="font-size:12.5px">${esc(saved[f.key]||'')}</textarea>`
+        : `<input class="form-input" id="tf-${f.key}" value="${esc(saved[f.key]||'')}">`}
+    </div>`).join('');
+  openModal(
+    `<i class="fas fa-table-list" style="color:var(--matcha)"></i> ${esc(schema.name)}（フォーム入力）`,
+    `<div style="margin-bottom:10px;font-size:11.5px;color:var(--text-muted)"><i class="fas fa-circle-info" style="margin-right:4px"></i>各項目を入力すると自動で整形されたテンプレートが生成されます。入力内容は自動保存されます。</div>
+     <div style="max-height:420px;overflow-y:auto;padding-right:6px">${fieldsHtml}</div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">閉じる</button>
+     <button class="btn btn-ghost" onclick="previewTemplateForm('${id}')"><i class="fas fa-eye"></i> プレビュー</button>
+     <button class="btn btn-primary" onclick="saveTemplateFormToNote('${id}')"><i class="fas fa-note-sticky"></i> ノートに保存</button>`,
+    { size: 'modal-lg' }
+  );
+}
+function collectTemplateFormValues(id) {
+  const schema = TEMPLATE_FORM_SCHEMAS[id];
+  const v = {};
+  schema.fields.forEach(f => { v[f.key] = $('#tf-' + f.key)?.value || ''; });
+  DB.set('template_form_' + id, v);
+  return v;
+}
+function previewTemplateForm(id) {
+  const schema = TEMPLATE_FORM_SCHEMAS[id];
+  const v = collectTemplateFormValues(id);
+  const content = schema.build(v);
+  window._currentTemplate = content;
+  window._currentTemplateName = schema.name;
+  openModal(
+    `<i class="fas fa-eye" style="color:var(--matcha)"></i> ${esc(schema.name)}（プレビュー）`,
+    `<div style="white-space:pre-wrap;font-family:'Noto Serif JP',serif;font-size:12.5px;color:var(--text-secondary);line-height:1.9;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;max-height:440px;overflow-y:auto">${esc(content)}</div>`,
+    `<button class="btn btn-secondary" onclick="openTemplateForm('${id}')"><i class="fas fa-arrow-left"></i> フォームに戻る</button>
+     <button class="btn btn-ghost" onclick="saveTemplateToNote('${id}')"><i class="fas fa-note-sticky"></i> ノートに保存</button>
+     <button class="btn btn-primary" onclick="copyTemplate()"><i class="fas fa-copy"></i> クリップボードにコピー</button>`,
+    { size: 'modal-lg' }
+  );
+}
+function saveTemplateFormToNote(id) {
+  const schema = TEMPLATE_FORM_SCHEMAS[id];
+  const v = collectTemplateFormValues(id);
+  const content = schema.build(v);
+  const notes = DB.get('learn_notes', []);
+  const newNote = {
+    id: 'note-' + Date.now(),
+    title: schema.name,
+    content,
+    tags: ['テンプレート'], color: 'kogane',
+    pinned: false, createdAt: Date.now(), updatedAt: Date.now(),
+  };
+  notes.unshift(newNote);
+  DB.set('learn_notes', notes);
+  closeModal();
+  toast(`「${schema.name}」を学習ノートに保存しました`, 'success');
 }
 
 function saveTemplateToNote(templateId) {

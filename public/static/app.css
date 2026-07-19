@@ -9696,3 +9696,45 @@ body {
   .folder-bar { gap: 5px; }
   .folder-chip { font-size: 11px; padding: 4px 10px; }
 }
+
+/* ── ツールカード：お気に入りボタン ── */
+.tool-card { position: relative; }
+.tool-fav-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 4px;
+  z-index: 2;
+  transition: transform .15s, color .15s;
+}
+.tool-fav-btn:hover { transform: scale(1.2); color: var(--kogane); }
+.tool-fav-btn.active { color: var(--kogane); }
+
+/* ── ツール/テンプレート：お気に入り・最近使ったクイック行 ── */
+.tool-quick-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  transition: background .15s;
+}
+.tool-quick-row:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+@media (max-width: 600px) {
+  .tool-fav-btn { top: 8px; right: 8px; font-size: 13px; }
+}
+
+/* ── テンプレートフォーム入力欄 ── */
+#modal-overlay textarea.form-input {
+  resize: vertical;
+  min-height: 44px;
+}
