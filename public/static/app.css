@@ -10142,3 +10142,49 @@ body {
   .dojo-banner { flex-direction: column; align-items: stretch; }
   .dojo-banner-trophy { display: none; }
 }
+
+/* ── 道場 成長ダッシュボード ── */
+.dojo-growth-panel {
+  margin-bottom: 16px; border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--bg-card); overflow: hidden;
+}
+.dojo-growth-head {
+  display: flex; align-items: center; gap: 9px; padding: 13px 16px; cursor: pointer;
+  background: var(--bg-subtle); transition: background .15s;
+}
+.dojo-growth-head:hover { background: var(--fuji-bg, #f8f4ff); }
+.dojo-growth-head-title { font-size: 13.5px; font-weight: 700; color: var(--text-primary); font-family: 'Noto Serif JP', serif; }
+.dojo-growth-head-sub { font-size: 11px; color: var(--text-muted); }
+.dojo-growth-body { padding: 16px 18px 18px; }
+.dojo-growth-stat-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.dojo-growth-stat-chip {
+  display: inline-flex; align-items: center; gap: 6px; background: var(--bg-subtle);
+  border: 1px solid var(--border); border-radius: var(--radius-full); padding: 6px 13px;
+  font-size: 11.5px; font-weight: 600; color: var(--text-secondary);
+}
+.dojo-growth-stat-chip.highlight { background: var(--fuji-bg, #f8f4ff); color: var(--fuji); border-color: var(--fuji-border); }
+.dojo-growth-delta {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 700;
+  padding: 6px 13px; border-radius: var(--radius-full);
+}
+.dojo-growth-delta.up { background: var(--matcha-bg); color: var(--matcha); border: 1px solid var(--matcha-border); }
+.dojo-growth-delta.down { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent-border); }
+.dojo-growth-delta.flat { background: var(--bg-subtle); color: var(--text-muted); border: 1px solid var(--border); }
+.dojo-growth-section-title {
+  font-size: 12px; font-weight: 700; color: var(--text-secondary); margin: 16px 0 10px;
+  display: flex; align-items: center; gap: 6px;
+}
+.dojo-growth-chart-box { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 12px 14px 6px; }
+.dojo-growth-bars { display: flex; flex-direction: column; gap: 9px; }
+.dojo-growth-bar-row { display: flex; align-items: center; gap: 10px; }
+.dojo-growth-bar-label { width: 108px; flex-shrink: 0; font-size: 11.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dojo-growth-bar-untouched { font-size: 9px; font-weight: 500; color: var(--text-muted); }
+.dojo-growth-bar-track { flex: 1; height: 9px; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius-full); overflow: hidden; }
+.dojo-growth-bar-fill { height: 100%; border-radius: var(--radius-full); transition: width .4s ease; }
+.dojo-growth-bar-value { width: 42px; flex-shrink: 0; text-align: right; font-size: 12.5px; font-weight: 800; color: var(--text-primary); }
+.dojo-growth-bar-unit { font-size: 9px; font-weight: 500; color: var(--text-muted); margin-left: 1px; }
+.dojo-growth-empty { text-align: center; padding: 24px; color: var(--text-muted); font-size: 12px; }
+
+@media (max-width: 768px) {
+  .dojo-growth-bar-label { width: 78px; font-size: 10.5px; }
+}

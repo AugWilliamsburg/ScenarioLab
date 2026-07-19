@@ -10442,6 +10442,149 @@ window._DOJO_ADVANCED_EVAL = {
 };
 
 // ── 道場ページ ─────────────────────────────────────────────
+
+// ── 道場 成長ダッシュボード ─────────────────────────────────────
+// DojoLibraryDB（全提出履歴）を横断集計し、カテゴリ別の実力・成長トレンドを可視化する。
+// 「あらゆる指標で厳密に成長を測るアルゴリズム」の可視化レイヤー。
+
+// カテゴリ別の平均点・提出数・自己ベストを集計（未提出カテゴリも0として表示）
+function dojoCategoryStats() {
+  const exercises = getAllExercises();
+  const entries = DojoLibraryDB.allEntries();
+  const categories = [...new Set(exercises.map(e => e.category))];
+  return categories.map(cat => {
+    const catEntries = entries.filter(e => e.category === cat);
+    const scores = catEntries.map(e => e.feedback?.score || 0);
+    const avg = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+    const best = scores.length ? Math.max(...scores) : 0;
+    const catExCount = exercises.filter(e => e.category === cat).length;
+    const sampleEx = exercises.find(e => e.category === cat);
+    const color = (COLOR_MAP[sampleEx?.color] || COLOR_MAP['beni']);
+    return { category: cat, avg, best, count: catEntries.length, exCount: catExCount, color };
+  }).sort((a, b) => b.avg - a.avg);
+}
+
+// 全体の成長トレンド（提出順、古い→新しい、直近N件）
+function dojoTrendData(limit = 20) {
+  const entries = DojoLibraryDB.allEntries(); // 新しい順
+  return entries.slice(0, limit).reverse().map(e => ({
+    score: e.feedback?.score || 0,
+    exTitle: e.exTitle,
+    submittedAt: e.submittedAt,
+  }));
+}
+
+// 総合統計（総提出数・平均点・最も得意/苦手なカテゴリ・直近の成長度）
+function dojoOverallStats() {
+  const entries = DojoLibraryDB.allEntries();
+  const catStats = dojoCategoryStats().filter(c => c.count > 0);
+  const scores = entries.map(e => e.feedback?.score || 0);
+  const totalSubmissions = entries.length;
+  const avgScore = scores.length ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+  const strongest = catStats.length ? catStats[0] : null;
+  const weakest = catStats.length ? catStats[catStats.length - 1] : null;
+  // 直近5件と、それ以前5件の平均を比べて成長度を出す
+  const recent5 = entries.slice(0, 5).map(e => e.feedback?.score || 0);
+  const prev5 = entries.slice(5, 10).map(e => e.feedback?.score || 0);
+  const recentAvg = recent5.length ? Math.round(recent5.reduce((a, b) => a + b, 0) / recent5.length) : null;
+  const prevAvg = prev5.length ? Math.round(prev5.reduce((a, b) => a + b, 0) / prev5.length) : null;
+  const growthDelta = (recentAvg !== null && prevAvg !== null) ? recentAvg - prevAvg : null;
+  return { totalSubmissions, avgScore, strongest, weakest, growthDelta, recentAvg };
+}
+
+function dojoToggleGrowthDashboard() {
+  State.currentTab['dojo-growth-open'] = State.currentTab['dojo-growth-open'] === false ? true : false;
+  render();
+}
+
+// カテゴリ別バーチャート
+function renderDojoCategoryBars(catStats) {
+  if (!catStats.length) return `<div class="dojo-growth-empty">まだ稽古の記録がありません。演習に取り組むとここに実力が可視化されます。</div>`;
+  return `
+  <div class="dojo-growth-bars">
+    ${catStats.map(c => `
+    <div class="dojo-growth-bar-row">
+      <div class="dojo-growth-bar-label" style="color:${c.color.color}">${esc(c.category)}${c.count === 0 ? ' <span class="dojo-growth-bar-untouched">未稽古</span>' : ''}</div>
+      <div class="dojo-growth-bar-track">
+        <div class="dojo-growth-bar-fill" style="width:${c.avg}%;background:${c.color.color}"></div>
+      </div>
+      <div class="dojo-growth-bar-value">${c.count > 0 ? `${c.avg}<span class="dojo-growth-bar-unit">点</span>` : '—'}</div>
+    </div>`).join('')}
+  </div>`;
+}
+
+// 成長トレンド折れ線（SVG、既存の renderStudyActivityChart と同様の手描きSVGパターンで軽量に実装）
+function renderDojoTrendChart(trend) {
+  if (trend.length < 2) return `<div class="dojo-growth-empty">2回以上稽古すると、成長トレンドの折れ線グラフが表示されます。</div>`;
+  const w = 640, h = 160, pad = { top: 16, right: 16, bottom: 22, left: 30 };
+  const iw = w - pad.left - pad.right, ih = h - pad.top - pad.bottom;
+  const minS = 0, maxS = 100;
+  const xStep = trend.length > 1 ? iw / (trend.length - 1) : iw;
+  const pts = trend.map((t, i) => {
+    const x = pad.left + i * xStep;
+    const y = pad.top + ih - ((t.score - minS) / (maxS - minS)) * ih;
+    return { x, y, ...t };
+  });
+  const linePath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+  const areaPath = `${linePath} L${pts[pts.length - 1].x.toFixed(1)},${pad.top + ih} L${pts[0].x.toFixed(1)},${pad.top + ih} Z`;
+  const yTicks = [0, 50, 80, 100];
+  const gridLines = yTicks.map(v => {
+    const y = pad.top + ih - (v / 100) * ih;
+    return `<line x1="${pad.left}" y1="${y}" x2="${w - pad.right}" y2="${y}" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,4" opacity="0.6"/>
+    <text x="${pad.left - 6}" y="${y + 3}" font-size="8" fill="var(--text-muted)" text-anchor="end">${v}</text>`;
+  }).join('');
+  const dots = pts.map((p, i) => `
+    <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${i === pts.length - 1 ? 4 : 2.5}" fill="${i === pts.length - 1 ? 'var(--accent)' : 'var(--fuji)'}" stroke="var(--bg-card)" stroke-width="1.5">
+      <title>${esc(p.exTitle)} — ${p.score}点</title>
+    </circle>`).join('');
+  return `
+  <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;overflow:visible">
+    ${gridLines}
+    <path d="${areaPath}" fill="var(--fuji)" opacity="0.08"/>
+    <path d="${linePath}" fill="none" stroke="var(--fuji)" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+    ${dots}
+  </svg>`;
+}
+
+// 成長ダッシュボード本体（道場トップに常設。開閉トグル付き）
+function renderDojoGrowthDashboard() {
+  const showChart = State.currentTab['dojo-growth-open'] !== false;
+  const overall = dojoOverallStats();
+  const catStats = dojoCategoryStats();
+  const trend = dojoTrendData(20);
+
+  const growthBadge = overall.growthDelta === null ? ''
+    : overall.growthDelta > 0
+      ? `<span class="dojo-growth-delta up"><i class="fas fa-arrow-trend-up"></i> 直近5稽古で+${overall.growthDelta}点</span>`
+      : overall.growthDelta < 0
+        ? `<span class="dojo-growth-delta down"><i class="fas fa-arrow-trend-down"></i> 直近5稽古で${overall.growthDelta}点</span>`
+        : `<span class="dojo-growth-delta flat"><i class="fas fa-minus"></i> 直近5稽古は横ばい</span>`;
+
+  return `
+  <div class="dojo-growth-panel">
+    <div class="dojo-growth-head" onclick="dojoToggleGrowthDashboard()">
+      <i class="fas fa-chart-simple" style="color:var(--fuji)"></i>
+      <span class="dojo-growth-head-title">成長ダッシュボード</span>
+      <span class="dojo-growth-head-sub">${overall.totalSubmissions}回の稽古・全カテゴリ横断分析</span>
+      <i class="fas fa-chevron-${showChart ? 'up' : 'down'}" style="margin-left:auto;font-size:11px;color:var(--text-muted)"></i>
+    </div>
+    ${showChart ? `
+    <div class="dojo-growth-body">
+      <div class="dojo-growth-stat-row">
+        <div class="dojo-growth-stat-chip"><i class="fas fa-scroll"></i> 総稽古数 ${overall.totalSubmissions}回</div>
+        <div class="dojo-growth-stat-chip highlight"><i class="fas fa-star"></i> 平均${overall.avgScore}点</div>
+        ${overall.strongest ? `<div class="dojo-growth-stat-chip" style="color:${overall.strongest.color.color};border-color:${overall.strongest.color.border}"><i class="fas fa-medal"></i> 得意: ${esc(overall.strongest.category)}(${overall.strongest.avg}点)</div>` : ''}
+        ${overall.weakest && overall.weakest.category !== overall.strongest?.category ? `<div class="dojo-growth-stat-chip"><i class="fas fa-seedling"></i> 伸びしろ: ${esc(overall.weakest.category)}(${overall.weakest.avg}点)</div>` : ''}
+        ${growthBadge}
+      </div>
+      <div class="dojo-growth-section-title"><i class="fas fa-chart-line" style="font-size:11px"></i> 成長トレンド（直近の稽古スコア）</div>
+      <div class="dojo-growth-chart-box">${renderDojoTrendChart(trend)}</div>
+      <div class="dojo-growth-section-title"><i class="fas fa-layer-group" style="font-size:11px"></i> カテゴリ別実力（全${catStats.length}カテゴリ）</div>
+      ${renderDojoCategoryBars(catStats)}
+    </div>` : ''}
+  </div>`;
+}
+
 // ── 道場 段位システム（達成率に応じた武道メタファーの段位） ──
 function getDojoRank(pct) {
   const ranks = [
@@ -10606,6 +10749,7 @@ function renderLearnExercises(hero, subnav) {
     <i class="fas fa-fire tip-fire"></i><strong>毎日1問</strong>続けると連続日数が積み上がり、段位が上がります。デイリーチャレンジで今日の課題に挑戦しましょう。
   </div>
   ${achievementBadges}
+  ${renderDojoGrowthDashboard()}
   ${dailyChallengeCard}
   ${filterBar}
   <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">${filtered.length}問（全${exercises.length}問）</div>
