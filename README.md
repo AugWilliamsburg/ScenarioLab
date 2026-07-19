@@ -23,19 +23,28 @@
 - 総原稿数・総文字数・添削済み数・平均スコア・連続執筆日数（ストリーク）を集計表示
 - 週間執筆アクティビティチャート
 - 執筆目標の設定と進捗バー表示
+- **デイリー執筆目標の達成リング（NEW）**：1日の目標文字数を設定すると、当日の増加文字数をSVGドーナツリングでリアルタイム表示（クリックで目標を編集、達成時はチェックマーク表示）。`renderStudyDailyGoalRing` / `study_daily_goal`
 
 ### アウトプットモード（自由執筆）
 - ブラウザのタブのような複数原稿管理（タブバーで開閉・切替）
 - ギャラリー表示：保存済み原稿をカード形式でコンパクトに一覧化、検索・複数選択対応
+  - **タグクラウド絞り込み（NEW）**：ギャラリー内の全タグを頻出順に表示し、クリックでそのタグの原稿だけに絞り込み（`renderStudyGalleryTagCloud`）
+  - **アクセントストライプ（NEW）**：カード左端に藤色〜桃色のグラデーションストライプを配置し、ホバー時に強調（UI/UX改良）
 - 原稿テンプレート（自由メモ、脚本フォーマット等）から新規作成
 - 高度なエディタ：フォント切替（ゴシック／明朝／タイプ）、タグ付け、Tabキーでの字下げ、集中執筆モード（Zenモード）
+  - **Zenモード強化（NEW）**：集中執筆モード中はセッションタイマー（経過時間）と、そのセッション開始からの文字数増減をリアルタイム表示（`studyStartZenTimer`）
+  - **読み上げ機能（NEW）**：Web Speech API（`SpeechSynthesisUtterance`）を用いてエディタ本文を音声で読み上げ（`studyToggleReadAloud`、日本語対応環境限定）
 - 自動保存（900ms デバウンス）＋手動保存
+- サイドパネルは4タブ構成：「添削」「**構成（NEW）**」「インプット」「履歴」
+  - **構成ナビゲーター（NEW）**：本文から見出し相当行（【】括り、〇/○始まり、#見出し、「第◯幕/場/話/章」「シーン◯」等）を自動抽出し、クリックでエディタ内の該当位置へジャンプ。本文中の相対位置（%）も表示（`studyExtractHeadings` / `renderStudyOutlinePanel` / `studyJumpToHeading`）
 - バージョン履歴（スナップショット保存・比較）
+  - **版間diff比較（NEW）**：任意の過去版を選択し「現在と比較」で行単位LCSアルゴリズムによる追加/削除/共通行のdiffをモーダル表示。追加・削除行数も集計表示（`studyComputeLineDiff` / `studyDiffVersion`）
 - キーボードショートカット対応
 - 書き出し機能：原稿単位・全データのエクスポート
 - **添削機能**：「この原稿を添削する」ボタンから、既存の「職員室」の精密採点エンジン（`staffRoomRunAnalysis`）を再利用してスコアリング・フィードバックを取得
-  - サイドパネルにスコア・グレード・カテゴリ別採点を表示
+  - サイドパネルにスコア・グレード・カテゴリ別採点を表示（バッジに光沢エフェクトを追加）
   - 「詳細」ボタンで総評・良い点・課題点・改稿提案・審査員コメントをモーダル表示
+  - **添削スコアの推移スパークライン（NEW）**：再添削するたびに前回のスコアを履歴として保持し、直近10回分の推移を手描き風SVGスパークラインで可視化。初回との点差（上昇／下降）も色分け表示（`renderStudyScoreTrend` / `scoreHistory`）
 - 削除操作にはブラウザ確認ダイアログを実装済み（`studyDeleteDraft`）
 
 ### インプットモード（学び・引用の集積）
@@ -48,7 +57,8 @@
 
 ## Data Architecture
 - **Data Models**:
-  - `study_drafts`（書斎の原稿：id, title, content, tags, font, scoreResult, linkedInputIds, createdAt/updatedAt 等）
+  - `study_drafts`（書斎の原稿：id, title, content, tags, font, scoreResult, scoredAt, **scoreHistory[]（NEW：再添削ごとの過去スコア履歴、直近20件保持）**, linkedInputIds, pinned, goalWords, versions[], createdAt/updatedAt 等）
+  - `study_daily_goal`（**NEW**：1日の執筆目標文字数。0で未設定）
   - `study_inputs`（書斎のインプットメモ：id, category, author, workTitle, quote, memo, tags, folderId 等）
   - `study_collections`（書斎インプットのコレクション：id, name, desc, inputIds[], color, createdAt/updatedAt）
   - `tasks`（タスク：id, title, body, done, priority, category, dueDate, folderId, estimatedMin, actualMin 等）

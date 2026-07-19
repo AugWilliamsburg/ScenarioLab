@@ -9329,8 +9329,10 @@ body {
 
 /* ── ギャラリー（アウトプット） ── */
 .study-gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
-.study-gcard { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; cursor: pointer; transition: all .16s; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--shadow-card); }
+.study-gcard { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 16px; padding-left: 19px; cursor: pointer; transition: all .16s; display: flex; flex-direction: column; gap: 8px; box-shadow: var(--shadow-card); position: relative; overflow: hidden; }
+.study-gcard::before { content: ''; position: absolute; top: 0; left: 0; width: 3px; height: 100%; background: linear-gradient(180deg, var(--fuji), var(--momo)); opacity: .55; transition: opacity .16s; }
 .study-gcard:hover { border-color: var(--fuji-border); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.study-gcard:hover::before { opacity: 1; }
 .study-gcard-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
 .study-gcard-title { font-size: 14px; font-weight: 700; color: var(--text-primary); font-family: 'Noto Serif JP', serif; line-height: 1.4; }
 .study-gcard-menu { color: var(--text-light); font-size: 12px; padding: 2px 4px; flex-shrink: 0; cursor: pointer; }
@@ -9380,9 +9382,10 @@ body {
 .study-side-card-title { font-size: 13px; font-weight: 700; color: var(--text-primary); font-family: 'Noto Serif JP', serif; margin-bottom: 8px; display: flex; align-items: center; gap: 7px; }
 .study-side-card-desc { font-size: 11.5px; color: var(--text-muted); line-height: 1.7; }
 
-.study-score-badge { display: flex; align-items: center; justify-content: center; gap: 10px; border: 2px solid var(--fuji-border); border-radius: var(--radius-md); padding: 12px; margin: 10px 0 4px; background: var(--bg-card); }
-.study-score-grade { font-size: 32px; font-weight: 800; font-family: 'Noto Serif JP', serif; }
-.study-score-num { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+.study-score-badge { display: flex; align-items: center; justify-content: center; gap: 10px; border: 2px solid var(--fuji-border); border-radius: var(--radius-md); padding: 12px; margin: 10px 0 4px; background: var(--bg-card); position: relative; overflow: hidden; }
+.study-score-badge::after { content: ''; position: absolute; top: -50%; left: -20%; width: 60%; height: 200%; background: linear-gradient(100deg, transparent, rgba(255,255,255,.35), transparent); transform: rotate(8deg); pointer-events: none; }
+.study-score-grade { font-size: 32px; font-weight: 800; font-family: 'Noto Serif JP', serif; position: relative; z-index: 1; }
+.study-score-num { font-size: 20px; font-weight: 700; color: var(--text-primary); position: relative; z-index: 1; }
 .study-score-summary { font-size: 11.5px; color: var(--text-secondary); line-height: 1.7; background: var(--bg-card); border-radius: var(--radius-sm); padding: 10px; margin-top: 8px; }
 
 .study-modal-block { margin-bottom: 14px; }
@@ -9483,6 +9486,34 @@ body {
 .study-export-fmt-card:hover { border-color: var(--fuji-border); background: var(--fuji-bg); color: var(--fuji); }
 .study-export-fmt-card i { display: block; font-size: 22px; margin-bottom: 8px; color: var(--fuji); }
 
+/* ── 添削スコア推移スパークライン ── */
+.study-score-trend { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 10px 4px; margin-top: 10px; }
+.study-score-trend-head { display: flex; align-items: center; justify-content: space-between; font-size: 10.5px; font-weight: 600; color: var(--text-secondary); margin-bottom: 2px; }
+
+/* ── 構成ナビゲーター（見出し自動抽出パネル） ── */
+.study-outline-list { display: flex; flex-direction: column; gap: 4px; margin-top: 10px; max-height: 420px; overflow-y: auto; }
+.study-outline-item { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: var(--radius-sm); cursor: pointer; transition: all .12s; font-size: 11.5px; }
+.study-outline-item:hover { background: var(--fuji-bg); }
+.study-outline-num { width: 18px; height: 18px; flex-shrink: 0; border-radius: 50%; background: var(--bg-hover); color: var(--fuji); font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.study-outline-text { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-primary); }
+.study-outline-pct { flex-shrink: 0; font-size: 9.5px; color: var(--text-light); }
+
+/* ── バージョン間diff表示 ── */
+.study-diff-view { max-height: 460px; overflow-y: auto; font-size: 12px; line-height: 1.8; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; }
+.study-diff-line { white-space: pre-wrap; padding: 1px 6px; border-radius: 3px; }
+.study-diff-line.study-diff-add { background: var(--matcha-bg); color: var(--matcha); }
+.study-diff-line.study-diff-del { background: var(--accent-bg); color: var(--accent); text-decoration: line-through; opacity: .85; }
+.study-diff-line.study-diff-same { color: var(--text-muted); }
+
+/* ── 集中執筆モード：セッションタイマー／文字数ライブ表示 ── */
+.study-zen-timer { display: inline-flex; align-items: center; gap: 5px; color: var(--fuji); font-weight: 700; }
+
+/* ── デイリー執筆目標の達成リング ── */
+.study-daily-ring-chip { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; padding: 4px 12px 4px 4px; }
+.study-daily-ring-chip:hover { border-color: var(--fuji-border); color: var(--fuji); }
+
+/* ── ギャラリータグクラウド（.study-tagcloud を書斎アウトプットでも再利用） ── */
+
 /* ── モバイル最適化（書斎） ── */
 @media (max-width: 900px) {
   .study-hero { padding: 16px; }
@@ -9510,6 +9541,9 @@ body {
   .study-tagcloud-item { font-size: 10px; padding: 3px 8px; }
   .study-select-bar { padding: 8px 10px; font-size: 11px; }
   .study-sort-select { width: 100%; }
+  .study-diff-view { font-size: 11px; max-height: 340px; }
+  .study-outline-list { max-height: 300px; }
+  .study-daily-ring-chip { padding: 3px 10px 3px 3px; }
 }
 
 /* ================================================================
