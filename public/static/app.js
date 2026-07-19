@@ -10442,6 +10442,20 @@ window._DOJO_ADVANCED_EVAL = {
 };
 
 // ── 道場ページ ─────────────────────────────────────────────
+// ── 道場 段位システム（達成率に応じた武道メタファーの段位） ──
+function getDojoRank(pct) {
+  const ranks = [
+    { min: 100, name: '師範',   color: '#e05a2c', icon: 'fa-crown' },
+    { min: 80,  name: '初段',   color: 'var(--accent)', icon: 'fa-medal' },
+    { min: 60,  name: '二級',   color: 'var(--kogane)', icon: 'fa-star' },
+    { min: 40,  name: '三級',   color: 'var(--fuji)', icon: 'fa-shield-halved' },
+    { min: 20,  name: '四級',   color: 'var(--asagi)', icon: 'fa-leaf' },
+    { min: 1,   name: '五級',   color: 'var(--matcha)', icon: 'fa-seedling' },
+    { min: 0,   name: '見習い', color: '#8a7a68', icon: 'fa-feather' },
+  ];
+  return ranks.find(r => pct >= r.min) || ranks[ranks.length - 1];
+}
+
 function renderLearnExercises(hero, subnav) {
   const exercises = getAllExercises();
   const doneExercises = DB.get('done_exercises', []);
@@ -10458,6 +10472,7 @@ function renderLearnExercises(hero, subnav) {
   const diffColor = { '初級':'var(--matcha)', '中級':'var(--kogane)', '上級':'var(--accent)' };
   const doneCount = doneExercises.filter(id => exercises.some(e => e.id === id)).length;
   const pct = Math.round(doneCount / Math.max(exercises.length, 1) * 100);
+  const rank = getDojoRank(pct);
 
   // ── ストリーク計算 ──
   const streakData = DB.get('ex_streak', { count: 0, lastDate: null, dates: [] });
@@ -10503,98 +10518,98 @@ function renderLearnExercises(hero, subnav) {
     const hasDraft = savedAnswer.length > 0;
     const isDaily = ex.id === dailyChallengeId;
     return `
-    <div class="card" style="cursor:pointer;padding:0;overflow:hidden;border-top:3px solid ${c.color}${isDaily?';box-shadow:0 0 0 2px var(--kogane)':''};position:relative" onclick="navigate('exercise-${ex.id}')">
-      ${isDaily && !dailyDone ? `<div style="background:var(--kogane);color:white;font-size:10px;font-weight:700;padding:3px 10px;display:flex;align-items:center;gap:5px"><i class="fas fa-star" style="font-size:9px"></i> 今日のデイリーチャレンジ</div>` : ''}
+    <div class="dojo-card${isDaily?' is-daily':''}" style="border-top-color:${c.color}" onclick="navigate('exercise-${ex.id}')">
+      ${isDaily && !dailyDone ? `<div class="dojo-card-daily-flag"><i class="fas fa-star" style="font-size:9px"></i> 今日のデイリーチャレンジ</div>` : ''}
       ${ex.isCustom ? `
-      <div style="position:absolute;right:10px;top:10px;display:flex;gap:4px;z-index:1">
+      <div class="dojo-card-actions">
         <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 7px;color:var(--fuji);background:var(--bg-card)" onclick="event.stopPropagation();editCustomExercise('${ex.id}')" title="編集"><i class="fas fa-pen" style="font-size:9px"></i></button>
         <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 7px;color:var(--accent);background:var(--bg-card)" onclick="event.stopPropagation();confirmDeleteCustomExercise('${ex.id}')" title="削除"><i class="fas fa-trash" style="font-size:9px"></i></button>
       </div>` : ''}
-      <div style="padding:16px 18px">
+      <div class="dojo-card-body">
         <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:10px">
-          <div style="width:44px;height:44px;border-radius:var(--radius-md);background:${c.bg};color:${c.color};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
+          <div class="dojo-card-icon" style="background:${c.bg};color:${c.color}">
             <i class="fas ${ex.icon}"></i>
           </div>
           <div style="flex:1">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:4px">
-              <span style="font-size:10px;padding:1px 7px;background:${diffColor[ex.difficulty]||'var(--text-muted)'}22;color:${diffColor[ex.difficulty]||'var(--text-muted)'};border:1px solid ${diffColor[ex.difficulty]||'var(--text-muted)'}44;border-radius:var(--radius-full);font-weight:700">${ex.difficulty}</span>
-              <span style="font-size:10px;padding:1px 7px;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:var(--radius-full);font-weight:600">${ex.category}</span>
-              ${done ? `<span style="font-size:10px;padding:1px 7px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border);border-radius:var(--radius-full);font-weight:700"><i class="fas fa-check" style="font-size:8px"></i> 提出済</span>` : hasDraft ? `<span style="font-size:10px;padding:1px 7px;background:var(--kogane-bg);color:var(--kogane);border:1px solid var(--kogane-border);border-radius:var(--radius-full);font-weight:700"><i class="fas fa-pencil" style="font-size:8px"></i> 下書き</span>` : ''}
-              ${ex.isCustom ? `<span style="font-size:10px;padding:1px 7px;background:var(--fuji-bg);color:var(--fuji);border:1px solid var(--fuji-border);border-radius:var(--radius-full);font-weight:700"><i class="fas fa-user-pen" style="font-size:8px"></i> 自作</span>` : ''}
+              <span class="dojo-pill" style="background:${diffColor[ex.difficulty]||'var(--text-muted)'}22;color:${diffColor[ex.difficulty]||'var(--text-muted)'};border:1px solid ${diffColor[ex.difficulty]||'var(--text-muted)'}44">${ex.difficulty}</span>
+              <span class="dojo-pill" style="background:${c.bg};color:${c.color};border:1px solid ${c.border};font-weight:600">${ex.category}</span>
+              ${done ? `<span class="dojo-pill" style="background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border)"><i class="fas fa-check" style="font-size:8px"></i> 提出済</span>` : hasDraft ? `<span class="dojo-pill" style="background:var(--kogane-bg);color:var(--kogane);border:1px solid var(--kogane-border)"><i class="fas fa-pencil" style="font-size:8px"></i> 下書き</span>` : ''}
+              ${ex.isCustom ? `<span class="dojo-pill" style="background:var(--fuji-bg);color:var(--fuji);border:1px solid var(--fuji-border)"><i class="fas fa-user-pen" style="font-size:8px"></i> 自作</span>` : ''}
             </div>
-            <div style="font-size:14px;font-weight:700;color:var(--text-primary);padding-right:${ex.isCustom?'40px':'0'}">${esc(ex.title)}</div>
+            <div class="dojo-card-title" style="padding-right:${ex.isCustom?'40px':'0'}">${esc(ex.title)}</div>
           </div>
         </div>
-        <div style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:12px">${esc(ex.overview)}</div>
-        <div style="display:flex;align-items:center;gap:12px;font-size:11.5px;color:var(--text-muted)">
+        <div class="dojo-card-overview">${esc(ex.overview)}</div>
+        <div class="dojo-card-meta">
           <span><i class="fas fa-clock" style="font-size:10px;margin-right:3px"></i>約${ex.estimatedTime}分</span>
           <span><i class="fas fa-list-check" style="font-size:10px;margin-right:3px"></i>${ex.rubric.length}項目採点</span>
-          <span style="margin-left:auto;font-size:12px;color:${c.color};font-weight:600">${done ? '再挑戦する' : hasDraft ? '稽古を続ける'  : '道場へ入門する'} <i class="fas fa-arrow-right" style="font-size:10px"></i></span>
+          <span class="dojo-card-cta" style="color:${c.color}">${done ? '再挑戦する' : hasDraft ? '稽古を続ける'  : '道場へ入門する'} <i class="fas fa-arrow-right" style="font-size:10px"></i></span>
         </div>
       </div>
     </div>`;
   }).join('');
 
   const achievementBadges = achievements.length > 0 ? `
-  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">
-    ${achievements.map(a=>`<div style="display:flex;align-items:center;gap:5px;padding:4px 10px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-full);font-size:11px;color:${a.color};font-weight:600"><i class="fas ${a.icon}" style="font-size:10px"></i>${a.label}</div>`).join('')}
+  <div class="dojo-achievements">
+    ${achievements.map(a=>`<div class="dojo-achievement" style="color:${a.color}"><span class="dojo-achievement-icon" style="background:${a.color}"><i class="fas ${a.icon}"></i></span>${a.label}</div>`).join('')}
   </div>` : '';
 
   const dailyChallengeCard = dailyEx ? `
-  <div style="margin-bottom:16px;border:2px solid var(--kogane);border-radius:var(--radius-lg);overflow:hidden">
-    <div style="background:linear-gradient(135deg,var(--kogane-bg),var(--bg-subtle));padding:10px 14px;display:flex;align-items:center;gap:8px;border-bottom:1px solid var(--kogane-border)">
+  <div class="dojo-daily">
+    <div class="dojo-daily-head">
       <i class="fas fa-calendar-star" style="color:var(--kogane);font-size:15px"></i>
-      <span style="font-size:13px;font-weight:700;color:var(--text-primary)">今日のデイリーチャレンジ</span>
-      <span style="font-size:10px;color:var(--text-muted);margin-left:auto">${new Date().toLocaleDateString('ja-JP',{month:'short',day:'numeric'})}</span>
+      <span class="dojo-daily-head-title">今日のデイリーチャレンジ</span>
+      <span class="dojo-daily-head-date">${new Date().toLocaleDateString('ja-JP',{month:'short',day:'numeric'})}</span>
     </div>
-    <div style="padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer;background:var(--bg-card)" onclick="navigate('exercise-${dailyEx.id}')">
-      <div style="width:40px;height:40px;border-radius:var(--radius-md);background:${(COLOR_MAP[dailyEx.color]||COLOR_MAP['beni']).bg};color:${(COLOR_MAP[dailyEx.color]||COLOR_MAP['beni']).color};display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">
+    <div class="dojo-daily-body" onclick="navigate('exercise-${dailyEx.id}')">
+      <div class="dojo-daily-icon" style="background:${(COLOR_MAP[dailyEx.color]||COLOR_MAP['beni']).bg};color:${(COLOR_MAP[dailyEx.color]||COLOR_MAP['beni']).color}">
         <i class="fas ${dailyEx.icon}"></i>
       </div>
       <div style="flex:1">
-        <div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-bottom:2px">${esc(dailyEx.title)}</div>
-        <div style="font-size:11.5px;color:var(--text-muted)">${esc(dailyEx.difficulty)} · 約${dailyEx.estimatedTime}分</div>
+        <div class="dojo-daily-title">${esc(dailyEx.title)}</div>
+        <div class="dojo-daily-meta">${esc(dailyEx.difficulty)} · 約${dailyEx.estimatedTime}分</div>
       </div>
       ${dailyDone
-        ? `<span style="font-size:11px;padding:3px 10px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border);border-radius:var(--radius-full);font-weight:700"><i class="fas fa-check"></i> 完了</span>`
-        : `<span style="font-size:12px;color:var(--kogane);font-weight:700">挑戦する <i class="fas fa-arrow-right" style="font-size:10px"></i></span>`}
+        ? `<span class="dojo-daily-status-done"><i class="fas fa-check"></i> 完了</span>`
+        : `<span class="dojo-daily-status-todo">挑戦する <i class="fas fa-arrow-right" style="font-size:10px"></i></span>`}
     </div>
   </div>` : '';
 
   return `${hero}${subnav}
-  <div style="padding:14px 16px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-    <div style="width:50px;height:50px;border-radius:50%;background:linear-gradient(135deg,#7a0000,#c0392b);display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 3px 10px #c0392b44">
-      <i class="fas fa-fist-raised" style="color:white;font-size:20px"></i>
-    </div>
-    <div style="flex:1;min-width:200px">
-      <div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-bottom:5px">道場: ${doneCount}/${exercises.length}問 修了 (${pct}%)</div>
-      <div style="height:8px;background:var(--bg-hover);border-radius:4px;overflow:hidden">
-        <div style="height:100%;width:${pct}%;background:${pct>=100?'var(--matcha)':'linear-gradient(90deg,#c0392b,#e67e22)'};border-radius:4px;transition:width .5s ease"></div>
+  <div class="dojo-banner">
+    <div class="dojo-emblem" title="現在の段位: ${rank.name}"><i class="fas ${rank.icon}"></i></div>
+    <div class="dojo-banner-info">
+      <div class="dojo-banner-title">
+        <span style="color:${rank.color}">${rank.name}</span> — 道場: ${doneCount}/${exercises.length}問 修了 (<span class="dojo-pct">${pct}%</span>)
+      </div>
+      <div class="dojo-banner-bar-track">
+        <div class="dojo-banner-bar-fill${pct>=100?' complete':''}" style="width:${pct}%"></div>
       </div>
     </div>
-    <div style="display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0">
-      <div style="font-size:20px;font-weight:900;color:${isActiveToday?'var(--accent)':'var(--text-muted)'};line-height:1">${streak}</div>
-      <div style="font-size:10px;color:var(--text-muted)">日連続</div>
-      <i class="fas fa-fire" style="font-size:12px;color:${streak>=1?'var(--accent)':'var(--border)'}"></i>
+    <div class="dojo-streak">
+      <div class="dojo-streak-num${isActiveToday?' active':''}">${streak}</div>
+      <div class="dojo-streak-label">日連続</div>
+      <i class="fas fa-fire${streak>=1?' active':''}"></i>
     </div>
-    <button class="btn btn-sm" onclick="rollDicePractice()" title="ランダム稽古" style="background:linear-gradient(135deg,#e67e22,#c0392b);color:white;border:none;border-radius:var(--radius-md);padding:10px 16px;font-size:13px;font-weight:700;box-shadow:0 2px 8px #c0392b44;cursor:pointer;display:flex;align-items:center;gap:6px">
+    <button class="dojo-btn dojo-btn-dice" onclick="rollDicePractice()" title="ランダム稽古">
       <i class="fas fa-dice" style="font-size:16px"></i> ランダム稽古
     </button>
-    <button class="btn btn-sm" onclick="openAddCustomExercise()" title="自分だけの演習を作る" style="background:var(--bg-card);border:1px solid var(--fuji-border);color:var(--fuji);border-radius:var(--radius-md);padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px">
+    <button class="dojo-btn dojo-btn-custom" onclick="openAddCustomExercise()" title="自分だけの演習を作る">
       <i class="fas fa-user-pen" style="font-size:15px"></i> 自作演習
     </button>
-    ${pct>=100?`<span style="font-size:18px">🏆</span>`:''}
+    ${pct>=100?`<span class="dojo-banner-trophy">🏆</span>`:''}
   </div>
-  <div style="padding:12px 14px;background:var(--asagi-bg);border:1px solid var(--asagi-border);border-radius:var(--radius-md);margin-bottom:16px;font-size:12.5px;color:var(--text-secondary);line-height:1.7">
-    <i class="fas fa-info-circle" style="color:var(--asagi);margin-right:6px"></i>
-    各稽古は専用ページで取り組みます。解答を書いて提出すると、採点基準に沿って<strong style="color:var(--text-primary)">師範添削</strong>を行います。ヒント・模範解答・関連記事もリンクされています。<br>
-    <i class="fas fa-fire" style="color:var(--accent);margin-right:4px;margin-top:4px"></i><strong>毎日1問</strong>続けると連続日数が積み上がります。デイリーチャレンジで今日の課題に挑戦しましょう。
+  <div class="dojo-tip">
+    <i class="fas fa-info-circle tip-main"></i>
+    各稽古は専用ページで取り組みます。解答を書いて提出すると、採点基準に沿って<strong>師範添削</strong>を行います。ヒント・模範解答・関連記事もリンクされています。<br>
+    <i class="fas fa-fire tip-fire"></i><strong>毎日1問</strong>続けると連続日数が積み上がり、段位が上がります。デイリーチャレンジで今日の課題に挑戦しましょう。
   </div>
   ${achievementBadges}
   ${dailyChallengeCard}
   ${filterBar}
   <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">${filtered.length}問（全${exercises.length}問）</div>
-  <div style="display:grid;gap:12px">${cards || '<div style="text-align:center;padding:40px;color:var(--text-muted)">条件に合う演習が見つかりません</div>'}</div>`;
+  <div class="dojo-grid">${cards || '<div style="text-align:center;padding:40px;color:var(--text-muted)">条件に合う演習が見つかりません</div>'}</div>`;
 }
 
 // ── 道場個別ページ ─────────────────────────────────────────────
@@ -10623,8 +10638,8 @@ function renderExercisePage(exId) {
   const historyList = DojoLibraryDB.getAll(ex.id);
   const historyBest = DojoLibraryDB.bestScore(ex.id);
   const historyHtml = `
-  <div id="ex-history-panel" style="display:none;margin-bottom:16px;padding:16px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:6px">
+  <div id="ex-history-panel" class="dojo-history-panel" style="display:none">
+    <div class="dojo-history-head">
       <div style="font-size:13px;font-weight:700;color:var(--text-primary)">
         <i class="fas fa-scroll" style="color:var(--fuji);margin-right:7px"></i>稽古履歴ライブラリ（全${historyList.length}回分）
       </div>
@@ -10632,22 +10647,22 @@ function renderExercisePage(exId) {
     </div>
     ${historyList.length === 0 ? `
     <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12.5px">まだ提出履歴がありません。提出するたびにここに記録が積み重なります。</div>` : `
-    <div style="display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto">
+    <div class="dojo-history-list">
       ${historyList.map(h => {
         const isBest = h.feedback.score === historyBest;
         const dt = new Date(h.submittedAt);
         const dtStr = `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
         return `
-        <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg-card);border:1px solid ${isBest?'var(--kogane-border)':'var(--border)'};border-radius:var(--radius-md);${isBest?'box-shadow:0 0 0 1px var(--kogane)':''}">
-          <div style="width:38px;height:38px;border-radius:50%;background:var(--bg-subtle);border:2px solid ${h.feedback.scoreColor};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:${h.feedback.scoreColor};flex-shrink:0">${h.feedback.score}</div>
-          <div style="flex:1;min-width:0">
-            <div style="font-size:12px;font-weight:700;color:var(--text-primary)">
+        <div class="dojo-history-item${isBest?' is-best':''}">
+          <div class="dojo-history-score" style="border:2px solid ${h.feedback.scoreColor};color:${h.feedback.scoreColor}">${h.feedback.score}</div>
+          <div class="dojo-history-body">
+            <div class="dojo-history-title">
               第${h.submissionNo || '?'}稽古 · ${h.feedback.grade}
-              ${isBest ? `<span style="font-size:9px;padding:1px 6px;background:var(--kogane-bg);color:var(--kogane);border-radius:var(--radius-full);margin-left:6px"><i class="fas fa-crown" style="font-size:8px"></i> 自己ベスト</span>` : ''}
+              ${isBest ? `<span class="dojo-history-crown"><i class="fas fa-crown" style="font-size:8px"></i> 自己ベスト</span>` : ''}
             </div>
-            <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px">${dtStr} · ${h.answer.length}字</div>
+            <div class="dojo-history-meta">${dtStr} · ${h.answer.length}字</div>
           </div>
-          <div style="display:flex;gap:5px;flex-shrink:0">
+          <div class="dojo-history-actions">
             <button class="btn btn-ghost btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="loadHistorySubmission('${ex.id}','${h.id}')" title="この提出を呼び出す"><i class="fas fa-rotate-left"></i></button>
             <button class="btn btn-ghost btn-sm" style="font-size:10.5px;padding:4px 8px;color:var(--accent)" onclick="deleteHistorySubmission('${ex.id}','${h.id}')" title="削除"><i class="fas fa-trash"></i></button>
           </div>
@@ -10668,58 +10683,58 @@ function renderExercisePage(exId) {
   }).join('');
 
   const feedbackHtml = feedback ? `
-  <div class="card" id="ex-feedback-panel" style="margin-top:20px;border-top:3px solid ${c.color}">
-    <div style="font-size:15px;font-weight:700;color:var(--text-primary);margin-bottom:14px;font-family:'Noto Serif JP',serif">
+  <div class="card dojo-feedback-panel" id="ex-feedback-panel" style="border-top:3px solid ${c.color}">
+    <div class="dojo-feedback-title">
       <i class="fas fa-robot" style="color:${c.color};margin-right:8px"></i>添削結果
     </div>
     <!-- スコアバー -->
-    <div style="display:flex;align-items:center;gap:16px;padding:14px 18px;background:var(--bg-subtle);border-radius:var(--radius-md);border:1px solid var(--border);margin-bottom:16px">
-      <div style="width:64px;height:64px;border-radius:50%;background:var(--bg-card);border:3px solid ${feedback.scoreColor};display:flex;align-items:center;justify-content:center;flex-direction:column;flex-shrink:0">
-        <div style="font-size:22px;font-weight:800;color:${feedback.scoreColor}">${feedback.score}</div>
-        <div style="font-size:9px;color:var(--text-muted)">点</div>
+    <div class="dojo-feedback-score-bar">
+      <div class="dojo-score-seal" style="border-color:${feedback.scoreColor}">
+        <div class="dojo-score-seal-num" style="color:${feedback.scoreColor}">${feedback.score}</div>
+        <div class="dojo-score-seal-unit">点</div>
       </div>
       <div style="flex:1">
-        <div style="font-size:16px;font-weight:700;color:${feedback.scoreColor};margin-bottom:4px">${feedback.grade}</div>
-        <div style="height:8px;background:var(--bg-hover);border-radius:4px;overflow:hidden">
-          <div style="height:100%;width:${feedback.score}%;background:${feedback.scoreColor};border-radius:4px;transition:width .7s ease"></div>
+        <div class="dojo-score-grade" style="color:${feedback.scoreColor}">${feedback.grade}</div>
+        <div class="dojo-score-track">
+          <div class="dojo-score-fill" style="width:${feedback.score}%;background:${feedback.scoreColor}"></div>
         </div>
       </div>
     </div>
     <!-- 項目別評価 -->
     <div style="margin-bottom:16px">
-      <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">採点基準別評価</div>
+      <div class="dojo-rubric-section-title">採点基準別評価</div>
       ${feedback.rubricFeedback.map((rf, i) => `
-      <div style="padding:10px 12px;background:${rf.pass?'var(--matcha-bg)':'var(--accent-bg)'};border:1px solid ${rf.pass?'var(--matcha-border)':'var(--accent-border)'};border-radius:var(--radius-md);margin-bottom:7px">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+      <div class="dojo-rubric-item" style="background:${rf.pass?'var(--matcha-bg)':'var(--accent-bg)'};border-color:${rf.pass?'var(--matcha-border)':'var(--accent-border)'}">
+        <div class="dojo-rubric-item-head">
           <i class="fas ${rf.pass?'fa-circle-check':'fa-circle-exclamation'}" style="color:${rf.pass?'var(--matcha)':'var(--accent)'};font-size:13px"></i>
           <span style="font-size:12.5px;font-weight:700;color:var(--text-primary)">${ex.rubric[i]?.point||''}</span>
           <span style="margin-left:auto;font-size:11px;color:var(--text-muted)">${ex.rubric[i]?.weight||0}点中${rf.earnedPoints}点</span>
         </div>
-        <div style="font-size:12px;color:var(--text-secondary);line-height:1.7;padding-left:20px">${rf.comment}</div>
+        <div class="dojo-rubric-item-comment">${rf.comment}</div>
       </div>`).join('')}
     </div>
     <!-- 総合コメント -->
-    <div style="padding:14px 16px;background:var(--fuji-bg);border:1px solid var(--fuji-border);border-radius:var(--radius-md);margin-bottom:16px">
-      <div style="font-size:12px;font-weight:700;color:var(--fuji);margin-bottom:7px"><i class="fas fa-comment-dots"></i> 総合コメント・改善アドバイス</div>
-      <div style="font-size:13px;color:var(--text-secondary);line-height:1.9;white-space:pre-line">${esc(feedback.overallComment)}</div>
+    <div class="dojo-comment-box">
+      <div class="dojo-comment-box-title"><i class="fas fa-comment-dots"></i> 総合コメント・改善アドバイス</div>
+      <div class="dojo-comment-box-body">${esc(feedback.overallComment)}</div>
     </div>
     <!-- 改善点 -->
     ${feedback.improvements.length ? `
-    <div style="padding:14px 16px;background:var(--kogane-bg);border:1px solid var(--kogane-border);border-radius:var(--radius-md);margin-bottom:16px">
-      <div style="font-size:12px;font-weight:700;color:var(--kogane);margin-bottom:8px"><i class="fas fa-lightbulb"></i> 具体的な改善提案</div>
-      ${feedback.improvements.map(imp=>`<div style="display:flex;gap:8px;margin-bottom:6px;font-size:12.5px;color:var(--text-secondary)"><i class="fas fa-arrow-right" style="color:var(--kogane);font-size:11px;margin-top:3px;flex-shrink:0"></i><div>${imp}</div></div>`).join('')}
+    <div class="dojo-improve-box">
+      <div class="dojo-improve-box-title"><i class="fas fa-lightbulb"></i> 具体的な改善提案</div>
+      ${feedback.improvements.map(imp=>`<div class="dojo-improve-item"><i class="fas fa-arrow-right" style="color:var(--kogane);font-size:11px;margin-top:3px;flex-shrink:0"></i><div>${imp}</div></div>`).join('')}
     </div>` : ''}
     <!-- 模範解答 -->
-    <details style="margin-top:12px">
-      <summary style="cursor:pointer;padding:10px 14px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);font-size:13px;font-weight:600;color:var(--text-primary);list-style:none;display:flex;align-items:center;gap:8px">
+    <details class="dojo-sample-details">
+      <summary class="dojo-sample-summary">
         <i class="fas fa-eye" style="color:var(--matcha)"></i> 模範解答を見る
         <i class="fas fa-chevron-down" style="margin-left:auto;font-size:10px;color:var(--text-muted)"></i>
       </summary>
-      <div style="padding:14px;border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius-md) var(--radius-md);background:var(--matcha-bg)">
+      <div class="dojo-sample-body">
         <div style="font-size:12.5px;color:var(--text-secondary);white-space:pre-line;line-height:1.9">${esc(ex.sampleAnswer)}</div>
       </div>
     </details>
-    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+    <div class="dojo-feedback-actions">
       <button class="btn btn-ghost btn-sm" onclick="resetExercise('${ex.id}')"><i class="fas fa-rotate-left"></i> やり直す</button>
       <button class="btn btn-ghost btn-sm" onclick="addExerciseToNote('${ex.id}')"><i class="fas fa-note-sticky"></i> ノートに追加</button>
     </div>
@@ -10727,13 +10742,13 @@ function renderExercisePage(exId) {
 
   return `
   <div class="article-page">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap">
+    <div class="dojo-page-toolbar">
       <button class="btn btn-ghost btn-sm" onclick="navigate('learn-exercises')"><i class="fas fa-arrow-left"></i> 道場</button>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <span style="font-size:10px;padding:2px 8px;background:${diffColor[ex.difficulty]||'#eee'}22;color:${diffColor[ex.difficulty]||'#999'};border:1px solid ${diffColor[ex.difficulty]||'#eee'}44;border-radius:var(--radius-full);font-weight:700">${ex.difficulty}</span>
-        <span style="font-size:10px;padding:2px 8px;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:var(--radius-full);font-weight:600">${ex.category}</span>
-        ${done?`<span style="font-size:10px;padding:2px 8px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border);border-radius:var(--radius-full);font-weight:700"><i class="fas fa-check" style="font-size:8px"></i> 提出済</span>`:''}
-        ${ex.isCustom?`<span style="font-size:10px;padding:2px 8px;background:var(--fuji-bg);color:var(--fuji);border:1px solid var(--fuji-border);border-radius:var(--radius-full);font-weight:700"><i class="fas fa-user-pen" style="font-size:8px"></i> 自作</span>`:''}
+        <span class="dojo-pill" style="background:${diffColor[ex.difficulty]||'#eee'}22;color:${diffColor[ex.difficulty]||'#999'};border:1px solid ${diffColor[ex.difficulty]||'#eee'}44">${ex.difficulty}</span>
+        <span class="dojo-pill" style="background:${c.bg};color:${c.color};border:1px solid ${c.border};font-weight:600">${ex.category}</span>
+        ${done?`<span class="dojo-pill" style="background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border)"><i class="fas fa-check" style="font-size:8px"></i> 提出済</span>`:''}
+        ${ex.isCustom?`<span class="dojo-pill" style="background:var(--fuji-bg);color:var(--fuji);border:1px solid var(--fuji-border)"><i class="fas fa-user-pen" style="font-size:8px"></i> 自作</span>`:''}
         ${ex.isCustom?`
         <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 8px;color:var(--fuji);margin-left:auto" onclick="editCustomExercise('${ex.id}')"><i class="fas fa-pen" style="font-size:9px"></i> 編集</button>
         <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 8px;color:var(--accent)" onclick="confirmDeleteCustomExercise('${ex.id}')"><i class="fas fa-trash" style="font-size:9px"></i> 削除</button>`:''}
@@ -10741,59 +10756,59 @@ function renderExercisePage(exId) {
     </div>
 
     <!-- ヘッダー -->
-    <div style="background:linear-gradient(135deg,${c.bg},var(--bg-subtle));border:1px solid ${c.border};border-radius:var(--radius-lg);padding:22px 26px;margin-bottom:22px;position:relative;overflow:hidden">
-      <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:70px;color:${c.color};opacity:0.07;pointer-events:none"><i class="fas ${ex.icon}"></i></div>
-      <div style="width:28px;height:2.5px;background:${c.color};border-radius:2px;margin-bottom:10px"></div>
-      <div style="font-size:21px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin-bottom:6px">
+    <div class="dojo-page-header" style="background:linear-gradient(135deg,${c.bg},var(--bg-subtle));border-color:${c.border}">
+      <div class="dojo-page-header-icon-bg" style="color:${c.color}"><i class="fas ${ex.icon}"></i></div>
+      <div class="dojo-page-header-bar" style="background:${c.color}"></div>
+      <div class="dojo-page-header-title">
         <i class="fas ${ex.icon}" style="color:${c.color};margin-right:8px"></i>${esc(ex.title)}
       </div>
-      <div style="font-size:13px;color:var(--text-muted)">${esc(ex.overview)}</div>
-      <div style="display:flex;gap:16px;margin-top:12px;font-size:12px;color:var(--text-muted)">
+      <div class="dojo-page-header-overview">${esc(ex.overview)}</div>
+      <div class="dojo-page-header-meta">
         <span><i class="fas fa-clock" style="margin-right:4px"></i>目安 ${ex.estimatedTime}分</span>
         <span><i class="fas fa-list-check" style="margin-right:4px"></i>${ex.rubric.length}項目採点</span>
       </div>
     </div>
 
-    <div style="display:grid;grid-template-columns:1fr 280px;gap:18px;align-items:start">
+    <div class="dojo-layout">
       <!-- メインコンテンツ -->
       <div>
         <!-- 問題文 -->
-        <div class="card" style="margin-bottom:16px;border-top:3px solid ${c.color};position:relative">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-            <div style="font-size:14px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">
+        <div class="card dojo-question-card" style="border-top:3px solid ${c.color}">
+          <div class="dojo-question-head">
+            <div class="dojo-question-head-title">
               <i class="fas fa-file-lines" style="color:${c.color};margin-right:8px"></i>問題
             </div>
-            <button onclick="rollDiceThisExercise('${ex.id}')" title="問題をランダムに変える" style="background:linear-gradient(135deg,#e67e22,#c0392b);color:white;border:none;border-radius:var(--radius-md);padding:7px 13px;font-size:12px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;box-shadow:0 2px 6px #c0392b33">
+            <button class="dojo-shuffle-btn" onclick="rollDiceThisExercise('${ex.id}')" title="問題をランダムに変える">
               <i class="fas fa-dice" style="font-size:14px"></i> シャッフル
             </button>
           </div>
-          <div id="ex-question-text" style="font-size:13px;color:var(--text-secondary);white-space:pre-line;line-height:1.9;background:var(--bg-subtle);border-radius:var(--radius-sm);padding:16px">${esc(ex.question)}</div>
+          <div id="ex-question-text" class="dojo-question-text">${esc(ex.question)}</div>
         </div>
 
         <!-- 解答入力 -->
-        <div class="card" style="margin-bottom:16px">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-            <div style="font-size:14px;font-weight:700;color:var(--text-primary);font-family:'Noto Serif JP',serif">
+        <div class="card dojo-answer-card">
+          <div class="dojo-answer-head">
+            <div class="dojo-answer-head-title">
               <i class="fas fa-pencil" style="color:var(--matcha);margin-right:8px"></i>あなたの解答
             </div>
             <div id="ex-autosave-label" style="font-size:11px;color:var(--text-muted)"></div>
           </div>
           <!-- テンプレート（穴埋め式入力台紙） -->
           ${window._EX_TEMPLATES && window._EX_TEMPLATES[ex.id] ? `
-          <div style="margin-bottom:10px;padding:8px 12px;background:var(--kogane-bg);border:1px solid var(--kogane-border);border-radius:var(--radius-sm);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <div class="dojo-template-hint">
             <span style="font-size:11.5px;color:var(--kogane);font-weight:700"><i class="fas fa-file-lines" style="margin-right:4px"></i>入力台紙あり</span>
             <span style="font-size:11px;color:var(--text-muted);flex:1">項目を埋めながら回答できます</span>
             <button class="btn btn-ghost btn-sm" style="font-size:11px;border-color:var(--kogane-border)" onclick="loadExTemplate('${ex.id}')">
               <i class="fas fa-paste"></i> 台紙を読み込む（白紙から）
             </button>
           </div>` : ''}
-          <textarea id="ex-answer-input" class="form-input" rows="16" placeholder="ここに解答を入力してください…&#10;&#10;問題文をよく読み、要件をすべて満たすように書きましょう。&#10;&#10;↑「台紙を読み込む」ボタンで穴埋め式のテンプレートを表示できます。&#10;完成したら「提出して添削を受ける」ボタンを押してください。" style="font-size:13px;line-height:1.9;resize:vertical;font-family:'Noto Serif JP',serif" oninput="autoSaveExAnswer('${ex.id}',this.value)">${esc(savedAnswer)}</textarea>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px;gap:8px;flex-wrap:wrap">
+          <textarea id="ex-answer-input" class="form-input dojo-answer-textarea" rows="16" placeholder="ここに解答を入力してください…&#10;&#10;問題文をよく読み、要件をすべて満たすように書きましょう。&#10;&#10;↑「台紙を読み込む」ボタンで穴埋め式のテンプレートを表示できます。&#10;完成したら「提出して添削を受ける」ボタンを押してください。" oninput="autoSaveExAnswer('${ex.id}',this.value)">${esc(savedAnswer)}</textarea>
+          <div class="dojo-answer-footer">
             <div style="font-size:11.5px;color:var(--text-muted)">
               <span id="ex-char-count">${savedAnswer.length}</span>字
               <span style="margin-left:8px;color:var(--text-muted)">目安: ${ex.estimatedTime * 40}字以上</span>
             </div>
-            <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <div class="dojo-answer-actions">
               <button class="btn btn-ghost btn-sm" onclick="showExHint('${ex.id}')"><i class="fas fa-lightbulb"></i> ヒント</button>
               <button class="btn btn-ghost btn-sm" onclick="togglePreSubmitCheck()" id="ex-precheck-btn"><i class="fas fa-clipboard-check"></i> 提出前確認</button>
               <button class="btn btn-ghost btn-sm" onclick="toggleHistoryPanel()"><i class="fas fa-scroll"></i> 稽古履歴${historyList.length?`(${historyList.length})`:''}</button>
@@ -10805,8 +10820,8 @@ function renderExercisePage(exId) {
         </div>
 
         <!-- 提出前チェックリスト -->
-        <div id="ex-precheck-panel" style="display:none;margin-bottom:16px;padding:16px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md)">
-          <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:12px"><i class="fas fa-clipboard-check" style="color:var(--matcha);margin-right:7px"></i>提出前セルフチェック</div>
+        <div id="ex-precheck-panel" class="dojo-panel" style="display:none">
+          <div class="dojo-panel-title"><i class="fas fa-clipboard-check" style="color:var(--matcha);margin-right:7px"></i>提出前セルフチェック</div>
           <div style="display:grid;gap:8px;font-size:12.5px;color:var(--text-secondary)">
             ${ex.rubric.map((r,i)=>`
             <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer">
@@ -10821,7 +10836,7 @@ function renderExercisePage(exId) {
         </div>
 
         <!-- ヒントパネル -->
-        <div id="ex-hint-panel" style="display:none;margin-bottom:16px;padding:14px 16px;background:var(--kogane-bg);border:1px solid var(--kogane-border);border-radius:var(--radius-md)">
+        <div id="ex-hint-panel" class="dojo-hint-panel" style="display:none">
           <div style="font-size:12px;font-weight:700;color:var(--kogane);margin-bottom:8px"><i class="fas fa-lightbulb"></i> ヒント</div>
           <div style="font-size:13px;color:var(--text-secondary);white-space:pre-line;line-height:1.8">${esc(ex.hint)}</div>
         </div>
@@ -10835,8 +10850,8 @@ function renderExercisePage(exId) {
       <!-- サイドバー -->
       <div>
         <!-- 採点基準 -->
-        <div class="card" style="margin-bottom:14px">
-          <div style="font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:10px;font-family:'Noto Serif JP',serif">
+        <div class="card dojo-sidebar-card">
+          <div class="dojo-sidebar-title">
             <i class="fas fa-list-check" style="color:${c.color};margin-right:7px"></i>採点基準 (100点満点)
           </div>
           ${rubricHtml}
@@ -10845,7 +10860,7 @@ function renderExercisePage(exId) {
 
         <!-- 関連記事 -->
         ${relatedHtml ? `
-        <div class="card" style="margin-bottom:14px">
+        <div class="card dojo-sidebar-card">
           <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:10px">
             <i class="fas fa-book-open" style="color:var(--fuji);margin-right:6px"></i>関連記事
           </div>
@@ -10861,13 +10876,13 @@ function renderExercisePage(exId) {
           if (!prev && !next) return '';
           const makeNav = (e, label, icon) => {
             const nc = COLOR_MAP[e.color] || COLOR_MAP['beni'];
-            return `<div style="padding:10px 12px;background:${nc.bg};border:1px solid ${nc.border};border-radius:var(--radius-md);cursor:pointer" onclick="navigate('exercise-${e.id}')">
+            return `<div class="dojo-nav-card" style="background:${nc.bg};border:1px solid ${nc.border}" onclick="navigate('exercise-${e.id}')">
               <div style="font-size:10px;color:${nc.color};font-weight:700;margin-bottom:3px"><i class="fas ${icon}" style="font-size:9px;margin-right:3px"></i>${label}</div>
               <div style="font-size:12px;font-weight:700;color:var(--text-primary)">${esc(e.title)}</div>
               <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${e.difficulty} · ${e.category}</div>
             </div>`;
           };
-          return `<div class="card" style="margin-bottom:14px">
+          return `<div class="card dojo-sidebar-card">
             <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:10px">
               <i class="fas fa-list-ol" style="color:var(--text-muted);margin-right:6px"></i>他の稽古
             </div>
@@ -10879,7 +10894,7 @@ function renderExercisePage(exId) {
         })()}
 
         <!-- タグ -->
-        <div style="padding:12px 14px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md)">
+        <div class="dojo-tag-box">
           <div style="font-size:11px;color:var(--text-muted);margin-bottom:7px">タグ</div>
           <div style="display:flex;flex-wrap:wrap;gap:5px">
             ${(ex.tags||[]).map(t=>`<span class="tag tag-gray">${t}</span>`).join('')}
