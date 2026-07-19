@@ -9738,3 +9738,103 @@ body {
   resize: vertical;
   min-height: 44px;
 }
+
+/* ── 書斎インプット：フェーズ3拡張（コレクション・選択モード・使用中バッジ） ── */
+.study-input-view-tabs { display: flex; gap: 6px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }
+.study-input-view-tab {
+  border: none; background: none; padding: 9px 16px; font-size: 13px; font-weight: 600;
+  color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.study-input-view-tab:hover { color: var(--fuji); }
+.study-input-view-tab.active { color: var(--fuji); border-bottom-color: var(--fuji); }
+.study-input-view-count { background: var(--fuji-bg); color: var(--fuji); border-radius: var(--radius-full); font-size: 10px; padding: 1px 6px; font-weight: 700; }
+
+.study-input-card.selectable { cursor: pointer; }
+.study-input-card.selected { outline: 2px solid var(--fuji); box-shadow: 0 0 0 3px var(--fuji-bg); }
+.study-select-check {
+  width: 18px; height: 18px; border-radius: 4px; border: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: center; font-size: 10px; color: white;
+  background: var(--bg-card); flex-shrink: 0;
+}
+.study-select-check.checked { background: var(--fuji); border-color: var(--fuji); }
+
+.study-select-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--fuji-bg); border: 1px solid var(--fuji-border); border-radius: var(--radius-md);
+  padding: 10px 14px; margin-bottom: 14px;
+}
+
+.study-input-card-footer {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-top: 4px; padding-top: 7px; border-top: 1px solid var(--border);
+}
+.study-input-card-folder { font-size: 10.5px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+.study-input-card-usage { font-size: 10.5px; color: var(--matcha); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+
+.study-collection-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.study-collection-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-md);
+  padding: 14px 16px; cursor: pointer; transition: all .15s; display: flex; flex-direction: column; gap: 8px;
+  box-shadow: var(--shadow-card);
+}
+.study-collection-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.study-collection-card-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.study-collection-card-name { font-size: 13.5px; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 7px; }
+.study-collection-card-preview { display: flex; flex-direction: column; gap: 4px; }
+.study-collection-mini-item {
+  font-size: 11px; color: var(--text-muted); background: var(--bg-subtle); border-radius: var(--radius-sm);
+  padding: 5px 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.study-collection-card-count { font-size: 10.5px; color: var(--text-light); display: inline-flex; align-items: center; gap: 5px; margin-top: 2px; }
+
+@media (max-width: 600px) {
+  .study-input-view-tab { padding: 8px 10px; font-size: 12px; }
+  .study-collection-grid { grid-template-columns: 1fr; }
+  .study-select-bar { padding: 8px 10px; }
+}
+
+/* ── タスク・スケジュール：フェーズ3拡張（かんばんD&D・ワンタップ再スケジュール・一括操作・フォーカスタイマー） ── */
+.tasks-next-card {
+  display: flex; align-items: center; gap: 12px; padding: 12px 16px; margin-bottom: 14px;
+  background: linear-gradient(135deg, var(--fuji-bg), var(--bg-card)); border: 1px solid var(--fuji-border);
+  border-radius: var(--radius-md); box-shadow: var(--shadow-card);
+}
+.tasks-next-card-icon { font-size: 18px; color: var(--fuji); flex-shrink: 0; }
+.tasks-next-card-body { flex: 1; min-width: 0; }
+.tasks-next-card-label { font-size: 10.5px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: .03em; }
+.tasks-next-card-title { font-size: 14px; font-weight: 700; color: var(--text-primary); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.task-reschedule-row { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+.task-reschedule-chip {
+  font-size: 10px; font-weight: 600; padding: 3px 9px; border-radius: var(--radius-full);
+  border: 1px solid var(--border); background: var(--bg-card); color: var(--text-muted);
+  cursor: pointer; transition: all .15s;
+}
+.task-reschedule-chip:hover { background: var(--matcha-bg); color: var(--matcha); border-color: var(--matcha); }
+
+.task-bulk-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--matcha-bg); border: 1px solid var(--matcha); border-radius: var(--radius-md);
+  padding: 9px 14px; margin-bottom: 10px;
+}
+.task-select-check {
+  width: 17px; height: 17px; border-radius: 4px; border: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: center; font-size: 9px; color: white;
+  background: var(--bg-card); flex-shrink: 0; cursor: pointer;
+}
+.task-select-check.checked { background: var(--matcha); border-color: var(--matcha); }
+
+.kanban-card[draggable="true"] { cursor: grab; }
+.kanban-card.dragging { opacity: .4; }
+.kanban-col.drag-over { background: var(--fuji-bg); border-radius: var(--radius-md); }
+
+.task-focus-timer-btn {
+  border: none; background: none; color: var(--text-muted); cursor: pointer; font-size: 10px;
+  padding: 2px 4px; transition: color .15s;
+}
+.task-focus-timer-btn:hover { color: var(--accent); }
+.focus-timer-display {
+  text-align: center; font-size: 46px; font-weight: 700; font-family: monospace;
+  color: var(--accent); margin: 18px 0 10px;
+}

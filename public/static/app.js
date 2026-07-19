@@ -30532,6 +30532,7 @@ function newTask(data = {}) {
     subtasks: data.subtasks || [],
     estimatedMin: data.estimatedMin || 0,  // 見積もり時間（分）
     actualMin: data.actualMin || 0,         // 実際にかかった時間
+    folderId: data.folderId || '',
     completedAt: null,
     createdAt: now(),
     updatedAt: now(),
@@ -30564,7 +30565,10 @@ const TasksState = {
   calendarMonth: null,  // null = current month
   weekOffset: 0,         // 0 = this week
   expandedTaskId: null,  // inline expansion
+  selecting: false,      // 複数選択モード
+  selectedIds: [],        // 選択中のタスクID
 };
+const tasksFolderScope = 'tasks';
 
 // ── Render Tasks Page ────────────────────────────────────────
 function renderTasksPage() {
@@ -30587,7 +30591,7 @@ function renderTasksPage() {
 
   // フィルター適用
   const f = TasksState.filter;
-  let filteredTasks = tasks.filter(t => {
+  let filteredTasks = filterByActiveFolder(tasksFolderScope, tasks).filter(t => {
     if (f.search && !t.title.toLowerCase().includes(f.search.toLowerCase()) && !(t.body||'').toLowerCase().includes(f.search.toLowerCase())) return false;
     if (f.category && t.category !== f.category) return false;
     if (f.priority && t.priority !== f.priority) return false;
@@ -30602,6 +30606,32 @@ function renderTasksPage() {
   });
 
   const projects = DB.getProjects();
+
+  // ── 「次にやること」スマート提案：緊急×今日 > 期限切れ > 今日期限 > 見積時間が短い順 ──
+  const nextTaskCandidates = tasks.filter(t => !t.done);
+  const nextTask = (() => {
+    const urgentToday = nextTaskCandidates.find(t => t.priority==='urgent' && t.dueDate===today);
+    if (urgentToday) return { task: urgentToday, reason: '緊急×今日期限' };
+    const overdue = [...nextTaskCandidates.filter(t=>t.dueDate && t.dueDate<today)].sort((a,b)=>a.dueDate.localeCompare(b.dueDate))[0];
+    if (overdue) return { task: overdue, reason: '期限切れ' };
+    const urgent = nextTaskCandidates.find(t => t.priority==='urgent');
+    if (urgent) return { task: urgent, reason: '緊急タスク' };
+    const dueToday = nextTaskCandidates.filter(t=>t.dueDate===today).sort((a,b)=>(a.estimatedMin||999)-(b.estimatedMin||999))[0];
+    if (dueToday) return { task: dueToday, reason: '今日期限' };
+    const quickWin = [...nextTaskCandidates.filter(t=>t.estimatedMin>0 && t.estimatedMin<=20)].sort((a,b)=>a.estimatedMin-b.estimatedMin)[0];
+    if (quickWin) return { task: quickWin, reason: 'すぐ終わる（20分以内）' };
+    return nextTaskCandidates.length > 0 ? { task: nextTaskCandidates[0], reason: '未着手のタスク' } : null;
+  })();
+  const nextTaskCard = nextTask ? `
+  <div class="tasks-next-card">
+    <i class="fas fa-crosshairs tasks-next-card-icon"></i>
+    <div class="tasks-next-card-body">
+      <div class="tasks-next-card-label"><i class="fas fa-wand-magic-sparkles" style="margin-right:4px"></i>次にやること — ${esc(nextTask.reason)}</div>
+      <div class="tasks-next-card-title">${esc(nextTask.task.title)}</div>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="startFocusTimer('${nextTask.task.id}')"><i class="fas fa-play"></i> 集中する</button>
+    <button class="btn btn-ghost btn-icon btn-sm" onclick="toggleTaskDone('${nextTask.task.id}');render()" title="完了にする"><i class="fas fa-check"></i></button>
+  </div>` : '';
 
   const viewTabs = `
   <div class="tasks-view-tabs">
@@ -30700,8 +30730,26 @@ function renderTasksPage() {
           ${projects.map(p=>`<option value="${p.id}" ${f.projectId===p.id?'selected':''}>${esc(p.title.slice(0,12))}</option>`).join('')}
         </select>
         ${(f.search||f.category||f.priority||f.projectId||f.dueFilter!=='all') ? `<button class="btn btn-ghost btn-sm" onclick="clearTaskFilters()" style="white-space:nowrap;font-size:11px"><i class="fas fa-rotate-left"></i> リセット</button>` : ''}
+        <button class="btn ${TasksState.selecting?'btn-primary':'btn-ghost'} btn-sm" onclick="toggleTaskSelectMode()" style="white-space:nowrap;font-size:11px"><i class="fas fa-check-square"></i> 複数選択</button>
       </div>
-    </div>`;
+    </div>
+    ${renderFolderBar(tasksFolderScope, "setTasksView('list')")}`;
+
+    const bulkBar = TasksState.selecting ? `
+    <div class="task-bulk-bar">
+      <span style="font-size:12px;font-weight:700;color:var(--matcha)"><i class="fas fa-check-square"></i> ${TasksState.selectedIds.length}件選択中</span>
+      <button class="btn btn-primary btn-sm" ${TasksState.selectedIds.length===0?'disabled':''} onclick="bulkCompleteSelectedTasks()"><i class="fas fa-check"></i> 完了にする</button>
+      <select class="form-select" style="width:auto;font-size:11px" ${TasksState.selectedIds.length===0?'disabled':''} onchange="bulkSetPrioritySelectedTasks(this.value)">
+        <option value="">優先度を変更…</option>
+        ${Object.entries(TASK_PRIORITIES).map(([k,v])=>`<option value="${k}">${v.label}に変更</option>`).join('')}
+      </select>
+      <select class="form-select" style="width:auto;font-size:11px" ${TasksState.selectedIds.length===0?'disabled':''} onchange="bulkSetFolderSelectedTasks(this.value)">
+        <option value="">フォルダへ移動…</option>
+        ${folderOptionsHtml(tasksFolderScope, '')}
+      </select>
+      <button class="btn btn-danger btn-sm" ${TasksState.selectedIds.length===0?'disabled':''} onclick="bulkDeleteSelectedTasksConfirm()"><i class="fas fa-trash"></i> 削除</button>
+      <button class="btn btn-ghost btn-sm" onclick="toggleTaskSelectMode()" style="margin-left:auto">キャンセル</button>
+    </div>` : '';
 
     // グループ分け
     const groups = [
@@ -30741,7 +30789,7 @@ function renderTasksPage() {
       <button class="btn btn-primary btn-sm" onclick="quickAddTask()" style="flex-shrink:0"><i class="fas fa-plus"></i></button>
     </div>`;
 
-    mainContent = filterBar + groupsHtml + quickAddBar;
+    mainContent = filterBar + bulkBar + groupsHtml + quickAddBar;
   }
 
   // 期限が迫るタスク（今後7日間）
@@ -30789,6 +30837,7 @@ function renderTasksPage() {
       </div>
     </div>
     ${summaryBar}
+    ${view === 'list' ? nextTaskCard : ''}
     ${(todayTasks.length > 0 || overdueTasks.length > 0 || urgentTasks.length > 0) && view === 'list' ? `
     <div class="tasks-focus-card">
       <div class="tasks-focus-header">
@@ -30870,14 +30919,31 @@ function renderTaskItem(task) {
   // 優先度カラーバー
   const priBarColor = isUrgent ? '#d01050' : isOverdue ? 'var(--momo)' : isToday ? 'var(--accent)' : pri.color;
 
+  const isSelecting = TasksState.selecting;
+  const isSelected = TasksState.selectedIds.includes(task.id);
+  const folder = task.folderId ? FolderDB.getFolders(tasksFolderScope).find(f=>f.id===task.folderId) : null;
+
+  const rescheduleExpanded = isExpanded ? `
+  <div class="task-reschedule-row">
+    <span style="font-size:10.5px;color:var(--text-light);align-self:center">再スケジュール:</span>
+    <button class="task-reschedule-chip" onclick="quickRescheduleTask('${task.id}','today',event)">今日</button>
+    <button class="task-reschedule-chip" onclick="quickRescheduleTask('${task.id}','tomorrow',event)">明日</button>
+    <button class="task-reschedule-chip" onclick="quickRescheduleTask('${task.id}','nextweek',event)">来週</button>
+    <button class="task-reschedule-chip" onclick="quickRescheduleTask('${task.id}','none',event)">なし</button>
+  </div>` : '';
+
   return `
   <div class="task-item ${task.done?'done':''} ${isOverdue?'overdue':''} ${isUrgent?'urgent':''} ${isExpanded?'expanded':''}" id="task-${task.id}" style="border-left:3px solid ${priBarColor}">
-    <!-- チェックボックス -->
+    <!-- チェックボックス / 選択チェック -->
+    ${isSelecting ? `
+    <div class="task-select-check ${isSelected?'checked':''}" onclick="toggleTaskSelected('${task.id}',event)" title="選択">${isSelected?'<i class="fas fa-check" style="font-size:9px;color:white"></i>':''}</div>
+    ` : `
     <div class="task-check-area" onclick="toggleTaskDone('${task.id}')" title="${task.done?'未完了に戻す':'完了にする'}">
       <div class="task-checkbox ${task.done?'checked':''} ${isUrgent?'urgent':''}">${task.done?'<i class="fas fa-check" style="font-size:9px;color:white"></i>':''}</div>
     </div>
+    `}
     <!-- メインコンテンツ -->
-    <div class="task-content" onclick="expandTask('${task.id}')" style="cursor:pointer">
+    <div class="task-content" onclick="${isSelecting ? `toggleTaskSelected('${task.id}',event)` : `expandTask('${task.id}')`}" style="cursor:pointer">
       <div class="task-title-row">
         <span class="task-title ${task.done?'done':''}">${isUrgent ? '<i class="fas fa-fire" style="color:#d01050;font-size:10px;margin-right:3px"></i>' : ''}${esc(task.title)}</span>
       </div>
@@ -30887,6 +30953,7 @@ function renderTaskItem(task) {
         <span class="task-pri-chip" style="color:${pri.color};background:${pri.bg}"><i class="fas ${pri.icon}" style="font-size:8px"></i> ${pri.label}</span>
         ${dueDateStr}
         ${proj ? `<span class="task-proj-chip"><i class="fas fa-film" style="font-size:8px"></i> ${esc(proj.title.slice(0,10))}</span>` : ''}
+        ${folder ? `<span class="task-sub-chip" style="color:${folder.color||'var(--fuji)'}"><i class="fas fa-folder" style="font-size:8px"></i> ${esc(folder.name)}</span>` : ''}
         ${subtaskTotal > 0 ? `<span class="task-sub-chip" style="color:${subtaskDone===subtaskTotal?'var(--matcha)':'var(--text-muted)'}"><i class="fas fa-list-check" style="font-size:8px"></i> ${subtaskDone}/${subtaskTotal}</span>` : ''}
         ${task.estimatedMin > 0 ? `<span class="task-sub-chip" style="color:var(--text-muted)"><i class="fas fa-clock" style="font-size:8px"></i> ${task.estimatedMin}分</span>` : ''}
         ${repeatLabel ? `<span class="task-sub-chip" style="color:var(--fuji)"><i class="fas fa-rotate" style="font-size:8px"></i> ${repeatLabel}</span>` : ''}
@@ -30896,6 +30963,7 @@ function renderTaskItem(task) {
       ${bodyExpanded}
       ${subtasksExpanded}
       ${timeExpanded}
+      ${rescheduleExpanded}
       ${subtaskTotal > 0 && !isExpanded ? `
       <div class="task-subtask-progress" style="margin-top:5px">
         <div style="height:3px;flex:1;background:var(--bg-hover);border-radius:2px;overflow:hidden">
@@ -30906,6 +30974,7 @@ function renderTaskItem(task) {
     </div>
     <!-- アクションボタン -->
     <div class="task-item-actions">
+      ${!task.done ? `<button class="btn btn-ghost btn-icon btn-sm task-focus-timer-btn" onclick="event.stopPropagation();startFocusTimer('${task.id}')" title="集中タイマー"><i class="fas fa-stopwatch" style="font-size:10px"></i></button>` : ''}
       <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();openEditTaskModal('${task.id}')" title="編集"><i class="fas fa-pen" style="font-size:10px"></i></button>
       <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();confirmDeleteTask('${task.id}')" title="削除"><i class="fas fa-trash" style="font-size:10px;color:var(--text-light)"></i></button>
       <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();expandTask('${task.id}')" title="${isExpanded?'折りたたむ':'詳細を表示'}">
@@ -31003,7 +31072,7 @@ function renderTasksKanban(tasks) {
   ];
   return `<div class="kanban-wrap">
     ${cols.map(col=>`
-    <div class="kanban-col">
+    <div class="kanban-col" id="kcol-${col.id}" ondragover="onKanbanColDragOver(event,'${col.id}')" ondragleave="onKanbanColDragLeave(event,'${col.id}')" ondrop="onKanbanCardDrop(event,'${col.id}')">
       <div class="kanban-col-header" style="border-bottom:2px solid ${col.color}">
         <span style="font-size:12.5px;font-weight:700;color:var(--text-primary)">${col.label}</span>
         <span style="font-size:11px;color:${col.color};background:${col.color}22;padding:1px 7px;border-radius:10px;font-weight:600">${col.tasks.length}</span>
@@ -31012,7 +31081,9 @@ function renderTasksKanban(tasks) {
         ${col.tasks.map(t=>{
           const pri = TASK_PRIORITIES[t.priority]||TASK_PRIORITIES.medium;
           const cat = TASK_CATEGORIES.find(c=>c.id===t.category)||TASK_CATEGORIES[0];
-          return `<div class="kanban-card ${t.done?'done':''}" style="border-left:3px solid ${pri.color}" onclick="openEditTaskModal('${t.id}')">
+          return `<div class="kanban-card ${t.done?'done':''}" draggable="true" id="kcard-${t.id}"
+            ondragstart="onKanbanCardDragStart(event,'${t.id}')" ondragend="onKanbanCardDragEnd(event,'${t.id}')"
+            style="border-left:3px solid ${pri.color}" onclick="openEditTaskModal('${t.id}')">
             <div class="kanban-card-title">${esc(t.title.slice(0,50))}</div>
             <div class="kanban-card-meta">
               <span style="color:${cat.color}"><i class="fas ${cat.icon}"></i></span>
@@ -31029,6 +31100,65 @@ function renderTasksKanban(tasks) {
       </div>
     </div>`).join('')}
   </div>`;
+}
+
+// ── かんばん D&D ──────────────────────────────────────────────
+let kanbanDraggingTaskId = null;
+function onKanbanCardDragStart(evt, taskId) {
+  kanbanDraggingTaskId = taskId;
+  evt.target.classList.add('dragging');
+  evt.dataTransfer.effectAllowed = 'move';
+  try { evt.dataTransfer.setData('text/plain', taskId); } catch(e) {}
+}
+function onKanbanCardDragEnd(evt) {
+  evt.target.classList.remove('dragging');
+  kanbanDraggingTaskId = null;
+}
+function onKanbanColDragOver(evt, colId) {
+  evt.preventDefault();
+  const col = document.getElementById('kcol-' + colId);
+  if (col) col.classList.add('drag-over');
+}
+function onKanbanColDragLeave(evt, colId) {
+  const col = document.getElementById('kcol-' + colId);
+  if (col) col.classList.remove('drag-over');
+}
+function onKanbanCardDrop(evt, colId) {
+  evt.preventDefault();
+  const col = document.getElementById('kcol-' + colId);
+  if (col) col.classList.remove('drag-over');
+  const taskId = kanbanDraggingTaskId || (evt.dataTransfer ? evt.dataTransfer.getData('text/plain') : null);
+  if (!taskId) return;
+  const task = TASK_DB.getTask(taskId);
+  if (!task) return;
+  const today = new Date().toISOString().slice(0,10);
+  if (colId === 'urgent') {
+    task.priority = 'urgent';
+    task.done = false;
+  } else if (colId === 'todo') {
+    if (task.priority === 'urgent') task.priority = 'medium';
+    task.dueDate = '';
+    task.done = false;
+  } else if (colId === 'today') {
+    if (task.priority === 'urgent') task.priority = 'medium';
+    task.dueDate = today;
+    task.done = false;
+  } else if (colId === 'upcoming') {
+    if (task.priority === 'urgent') task.priority = 'medium';
+    if (!task.dueDate || task.dueDate <= today) {
+      const d = new Date(); d.setDate(d.getDate()+3);
+      task.dueDate = d.toISOString().slice(0,10);
+    }
+    task.done = false;
+  } else if (colId === 'done') {
+    task.done = true;
+    task.completedAt = now();
+  }
+  task.updatedAt = now();
+  TASK_DB.saveTask(task);
+  kanbanDraggingTaskId = null;
+  toast('タスクを移動しました', 'success');
+  render();
 }
 
 // ── Weekly View ───────────────────────────────────────────────
@@ -31271,6 +31401,198 @@ function openAddTaskModal(prefillDate = '') {
   return openNewTaskModal(prefillDate);
 }
 
+// ── 複数選択モード & 一括操作 ─────────────────────────────────
+function toggleTaskSelectMode() {
+  TasksState.selecting = !TasksState.selecting;
+  if (!TasksState.selecting) TasksState.selectedIds = [];
+  render();
+}
+
+function toggleTaskSelected(taskId, evt) {
+  if (evt) evt.stopPropagation();
+  const idx = TasksState.selectedIds.indexOf(taskId);
+  if (idx >= 0) TasksState.selectedIds.splice(idx, 1);
+  else TasksState.selectedIds.push(taskId);
+  render();
+}
+
+function bulkCompleteSelectedTasks() {
+  const ids = TasksState.selectedIds;
+  if (ids.length === 0) return;
+  const ts = TASK_DB.getTasks();
+  ts.forEach(t => {
+    if (ids.includes(t.id) && !t.done) {
+      t.done = true;
+      t.completedAt = now();
+      t.updatedAt = now();
+    }
+  });
+  TASK_DB.saveTasks(ts);
+  toast(`${ids.length}件のタスクを完了にしました ✅`, 'success');
+  TasksState.selecting = false;
+  TasksState.selectedIds = [];
+  render();
+}
+
+function bulkSetPrioritySelectedTasks(priority) {
+  if (!priority) return;
+  const ids = TasksState.selectedIds;
+  if (ids.length === 0) return;
+  const ts = TASK_DB.getTasks();
+  ts.forEach(t => { if (ids.includes(t.id)) { t.priority = priority; t.updatedAt = now(); } });
+  TASK_DB.saveTasks(ts);
+  toast(`${ids.length}件の優先度を変更しました`, 'success');
+  TasksState.selecting = false;
+  TasksState.selectedIds = [];
+  render();
+}
+
+function bulkSetFolderSelectedTasks(folderId) {
+  if (!folderId) return;
+  const ids = TasksState.selectedIds;
+  if (ids.length === 0) return;
+  const ts = TASK_DB.getTasks();
+  ts.forEach(t => { if (ids.includes(t.id)) { t.folderId = folderId; t.updatedAt = now(); } });
+  TASK_DB.saveTasks(ts);
+  const folder = FolderDB.getFolders(tasksFolderScope).find(f=>f.id===folderId);
+  toast(`${ids.length}件を「${folder ? folder.name : 'フォルダ'}」へ移動しました`, 'success');
+  TasksState.selecting = false;
+  TasksState.selectedIds = [];
+  render();
+}
+
+function bulkDeleteSelectedTasksConfirm() {
+  const ids = TasksState.selectedIds;
+  if (ids.length === 0) return;
+  confirmDeleteGeneric('タスクを一括削除', `選択した${ids.length}件のタスクを削除しますか？この操作は取り消せません。`,
+    `bulkDeleteSelectedTasks()`);
+}
+
+function bulkDeleteSelectedTasks() {
+  const ids = TasksState.selectedIds;
+  TASK_DB.saveTasks(TASK_DB.getTasks().filter(t => !ids.includes(t.id)));
+  closeModal();
+  toast(`${ids.length}件のタスクを削除しました`, 'info');
+  TasksState.selecting = false;
+  TasksState.selectedIds = [];
+  render();
+}
+
+// ── ワンタップ再スケジュール ──────────────────────────────────
+function quickRescheduleTask(taskId, target, evt) {
+  if (evt) evt.stopPropagation();
+  const task = TASK_DB.getTask(taskId);
+  if (!task) return;
+  const today = new Date();
+  let dueDate = '';
+  if (target === 'today') {
+    dueDate = today.toISOString().slice(0,10);
+  } else if (target === 'tomorrow') {
+    const d = new Date(today); d.setDate(d.getDate()+1);
+    dueDate = d.toISOString().slice(0,10);
+  } else if (target === 'nextweek') {
+    const d = new Date(today); d.setDate(d.getDate()+7);
+    dueDate = d.toISOString().slice(0,10);
+  } else {
+    dueDate = ''; // なし
+  }
+  task.dueDate = dueDate;
+  task.updatedAt = now();
+  TASK_DB.saveTask(task);
+  toast(dueDate ? `期限を ${dueDate} に設定しました` : '期限を解除しました', 'success');
+  render();
+}
+
+// ── フォーカスタイマー（ポモドーロ） ───────────────────────────
+const FocusTimerState = { taskId: null, seconds: 0, running: false, intervalId: null, mode: 'focus' };
+
+function startFocusTimer(taskId) {
+  const task = TASK_DB.getTask(taskId);
+  if (!task) return;
+  FocusTimerState.taskId = taskId;
+  FocusTimerState.seconds = 25 * 60;
+  FocusTimerState.running = false;
+  FocusTimerState.mode = 'focus';
+  openModal(
+    `<i class="fas fa-crosshairs" style="color:var(--accent)"></i> 集中タイマー`,
+    renderFocusTimerBody(task),
+    `<button class="btn btn-ghost" onclick="stopFocusTimerAndClose()">閉じる</button>`,
+    { size: 'sm' }
+  );
+}
+
+function renderFocusTimerBody(task) {
+  const mins = Math.floor(FocusTimerState.seconds/60);
+  const secs = FocusTimerState.seconds%60;
+  return `
+  <div style="text-align:center;padding:8px 0">
+    <div style="font-size:13px;color:var(--text-muted);margin-bottom:10px"><i class="fas fa-pen-nib" style="margin-right:4px"></i>${esc(task.title)}</div>
+    <div class="focus-timer-display" id="focus-timer-display">${String(mins).padStart(2,'0')}:${String(secs).padStart(2,'0')}</div>
+    <div style="display:flex;gap:8px;justify-content:center;margin-top:16px">
+      <button class="btn ${FocusTimerState.running?'btn-secondary':'btn-primary'}" id="focus-timer-toggle" onclick="toggleFocusTimer('${task.id}')">
+        <i class="fas ${FocusTimerState.running?'fa-pause':'fa-play'}"></i> ${FocusTimerState.running?'一時停止':'開始'}
+      </button>
+      <button class="btn btn-ghost" onclick="resetFocusTimer('${task.id}')"><i class="fas fa-rotate-left"></i> リセット</button>
+    </div>
+    <div style="margin-top:14px;font-size:11px;color:var(--text-light)">25分の集中作業が終わると自動で実績時間に加算されます</div>
+  </div>`;
+}
+
+function toggleFocusTimer(taskId) {
+  FocusTimerState.running = !FocusTimerState.running;
+  if (FocusTimerState.running) {
+    FocusTimerState.intervalId = setInterval(() => {
+      FocusTimerState.seconds--;
+      const disp = document.getElementById('focus-timer-display');
+      if (disp) {
+        const m = Math.floor(FocusTimerState.seconds/60), s = FocusTimerState.seconds%60;
+        disp.textContent = `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      }
+      if (FocusTimerState.seconds <= 0) {
+        clearInterval(FocusTimerState.intervalId);
+        FocusTimerState.running = false;
+        completeFocusSession(taskId);
+      }
+    }, 1000);
+  } else {
+    clearInterval(FocusTimerState.intervalId);
+  }
+  const btn = document.getElementById('focus-timer-toggle');
+  if (btn) {
+    btn.className = `btn ${FocusTimerState.running?'btn-secondary':'btn-primary'}`;
+    btn.innerHTML = `<i class="fas ${FocusTimerState.running?'fa-pause':'fa-play'}"></i> ${FocusTimerState.running?'一時停止':'開始'}`;
+  }
+}
+
+function resetFocusTimer(taskId) {
+  clearInterval(FocusTimerState.intervalId);
+  FocusTimerState.seconds = 25 * 60;
+  FocusTimerState.running = false;
+  const task = TASK_DB.getTask(taskId);
+  if (task) {
+    const body = document.querySelector('.modal-body') || document.querySelector('.modal-content');
+    if (body) body.innerHTML = renderFocusTimerBody(task);
+  }
+}
+
+function completeFocusSession(taskId) {
+  const task = TASK_DB.getTask(taskId);
+  if (task) {
+    task.actualMin = (task.actualMin || 0) + 25;
+    task.updatedAt = now();
+    TASK_DB.saveTask(task);
+  }
+  toast('🎉 集中セッション完了！実績25分を記録しました', 'success');
+  closeModal();
+  render();
+}
+
+function stopFocusTimerAndClose() {
+  clearInterval(FocusTimerState.intervalId);
+  FocusTimerState.running = false;
+  closeModal();
+}
+
 // ── 脚本執筆タスクテンプレート ──────────────────────────────────
 const WRITING_TASK_TEMPLATES = [
   // 執筆系
@@ -31376,6 +31698,12 @@ function openNewTaskModal(prefillDate = '') {
       </div>
     </div>
     <div class="form-group">
+      <label class="form-label"><i class="fas fa-folder" style="margin-right:4px;color:var(--text-muted)"></i>フォルダ</label>
+      <select class="form-select" id="nt-folder">
+        ${folderOptionsHtml(tasksFolderScope, (() => { const af = FolderDB.getActiveFolder(tasksFolderScope); return af && af !== '__none__' ? af : ''; })())}
+      </select>
+    </div>
+    <div class="form-group">
       <label class="form-label">タグ（スペース区切り）</label>
       <input class="form-input" id="nt-tags" placeholder="例: 第3話 ドラフト 重要">
     </div>
@@ -31437,6 +31765,7 @@ function saveNewTask() {
     sectionId: document.getElementById('nt-sect')?.value || '',
     repeat: document.getElementById('nt-repeat')?.value || 'none',
     estimatedMin: parseInt(document.getElementById('nt-est')?.value)||0,
+    folderId: document.getElementById('nt-folder')?.value || '',
     subtasks: subtaskInputs,
     tags,
   });
@@ -31520,6 +31849,12 @@ function openEditTaskModal(taskId) {
       </div>
     </div>
     <div class="form-group">
+      <label class="form-label"><i class="fas fa-folder" style="margin-right:4px;color:var(--text-muted)"></i>フォルダ</label>
+      <select class="form-select" id="et-folder">
+        ${folderOptionsHtml(tasksFolderScope, task.folderId)}
+      </select>
+    </div>
+    <div class="form-group">
       <label class="form-label">タグ（スペース区切り）</label>
       <input class="form-input" id="et-tags" value="${esc((task.tags||[]).join(' '))}">
     </div>
@@ -31560,6 +31895,7 @@ function saveEditTask(taskId) {
   task.repeat = document.getElementById('et-repeat')?.value || 'none';
   task.estimatedMin = parseInt(document.getElementById('et-est')?.value)||0;
   task.actualMin = parseInt(document.getElementById('et-actual')?.value)||0;
+  task.folderId = document.getElementById('et-folder')?.value || '';
   task.tags = tagsRaw ? tagsRaw.split(/\s+/).filter(Boolean) : [];
   task.subtasks = subtasks;
   task.updatedAt = now();
@@ -34475,9 +34811,35 @@ function newStudyInput(data = {}) {
     memo: data.memo || '',
     tags: data.tags || [],
     color: data.color || 'fuji',
+    folderId: data.folderId || '',
     createdAt: now(),
     updatedAt: now(),
     favorite: data.favorite || false,
+  };
+}
+
+// ── インプット・コレクション：複数のインプットを束ねて「組み合わせる」機能 ──
+const StudyCollectionDB = {
+  getAll()   { return DB.get('study_collections', []); },
+  save(list) { DB.set('study_collections', list); },
+  get(id)    { return this.getAll().find(c => c.id === id) || null; },
+  upsert(col) {
+    const list = this.getAll();
+    const idx = list.findIndex(c => c.id === col.id);
+    if (idx >= 0) list[idx] = col; else list.unshift(col);
+    this.save(list);
+  },
+  delete(id) { this.save(this.getAll().filter(c => c.id !== id)); },
+};
+function newStudyCollection(data = {}) {
+  return {
+    id: 'sc-' + uid(),
+    name: data.name || '無題のコレクション',
+    desc: data.desc || '',
+    inputIds: data.inputIds || [],
+    color: data.color || 'fuji',
+    createdAt: now(),
+    updatedAt: now(),
   };
 }
 
@@ -35362,12 +35724,21 @@ function studyShowFullFeedback(draftId) {
 }
 
 // ── インプットモード：学び・引用・メモの自由集積 ─────────────
+const studyInputFolderScope = 'study_inputs';
+
 function renderStudyInputMode() {
-  const items = StudyDB.getInputs();
+  const view = State.currentTab['study-input-view'] || 'gallery'; // gallery | collections
+  if (view === 'collections') return renderStudyCollectionsView();
+
+  const allItems = StudyDB.getInputs();
+  const items = filterByActiveFolder(studyInputFolderScope, allItems);
   const search = State.currentTab['study-input-search'] || '';
   const catFilter = State.currentTab['study-input-cat'] || '';
   const tagFilter = State.currentTab['study-input-tag'] || '';
   const favOnly = State.currentTab['study-input-fav'] === true;
+  const sortMode = State.currentTab['study-input-sort'] || 'updated'; // updated | created | usage | az
+  const selecting = State.currentTab['study-input-selecting'] === true;
+  const selectedIds = State.currentTab['study-input-selected'] || [];
   let filtered = items;
   if (catFilter) filtered = filtered.filter(i => i.category === catFilter);
   if (tagFilter) filtered = filtered.filter(i => (i.tags||[]).includes(tagFilter));
@@ -35379,15 +35750,23 @@ function renderStudyInputMode() {
       (i.workTitle||'').toLowerCase().includes(q) || (i.quote||'').toLowerCase().includes(q) ||
       (i.memo||'').toLowerCase().includes(q) || (i.tags||[]).some(t=>t.toLowerCase().includes(q)));
   }
-  // お気に入り優先ソート
-  filtered = [...filtered].sort((a,b) => (b.favorite?1:0)-(a.favorite?1:0) || new Date(b.updatedAt)-new Date(a.updatedAt));
+  const usageCount = (id) => StudyDB.getDrafts().filter(d => (d.linkedInputIds||[]).includes(id)).length;
+  // 並び替え
+  filtered = [...filtered].sort((a,b) => {
+    if (a.favorite !== b.favorite) return b.favorite ? 1 : -1; // お気に入り常に優先
+    if (sortMode === 'created') return new Date(b.createdAt) - new Date(a.createdAt);
+    if (sortMode === 'usage') return usageCount(b.id) - usageCount(a.id);
+    if (sortMode === 'az') return (a.author||a.title||'').localeCompare(b.author||b.title||'', 'ja');
+    return new Date(b.updatedAt) - new Date(a.updatedAt);
+  });
 
   const catChips = STUDY_INPUT_CATEGORIES.map(c => `
     <button class="study-cat-chip ${catFilter===c.id?'active':''}" style="${catFilter===c.id?`background:var(--${c.color}-bg);color:var(--${c.color});border-color:var(--${c.color}-border)`:''}" onclick="setStudyInputCat('${catFilter===c.id?'':c.id}')">
       <i class="fas ${c.icon}"></i> ${c.label}
     </button>`).join('');
 
-  const tagCloud = studyBuildTagCloud(items);
+  const tagCloud = studyBuildTagCloud(allItems);
+  const collections = StudyCollectionDB.getAll();
 
   const cards = filtered.length === 0 ? `
     <div class="study-empty">
@@ -35396,26 +35775,47 @@ function renderStudyInputMode() {
       <div class="study-empty-sub">${search||catFilter||tagFilter||favOnly ? '検索条件を変えてお試しください' : '好きな作家・作品からの学びや気づきを、自由に集めましょう'}</div>
       ${!search && !catFilter && !tagFilter && !favOnly ? `<button class="btn btn-primary" onclick="studyNewInput()"><i class="fas fa-plus"></i> 最初のメモを追加</button>` : ''}
     </div>`
-    : `<div class="study-input-grid">${filtered.map(renderStudyInputCard).join('')}</div>`;
+    : `<div class="study-input-grid">${filtered.map(i => renderStudyInputCard(i, { selecting, selected: selectedIds.includes(i.id), usage: usageCount(i.id) })).join('')}</div>`;
+
+  const selectBar = selecting ? `
+  <div class="study-select-bar">
+    <span style="font-size:12.5px;font-weight:700;color:var(--fuji)"><i class="fas fa-check-square"></i> ${selectedIds.length}件選択中</span>
+    <button class="btn btn-primary btn-sm" ${selectedIds.length===0?'disabled':''} onclick="studyOpenCreateCollectionModal()"><i class="fas fa-layer-group"></i> コレクションにまとめる</button>
+    <button class="btn btn-secondary btn-sm" ${selectedIds.length===0?'disabled':''} onclick="studyCopySelectedInputs()"><i class="fas fa-copy"></i> まとめてコピー</button>
+    <button class="btn btn-ghost btn-sm" onclick="studyToggleInputSelectMode()" style="margin-left:auto">キャンセル</button>
+  </div>` : '';
 
   return `${renderStudyModeSwitch('input')}
+  <div class="study-input-view-tabs">
+    <button class="study-input-view-tab ${view==='gallery'?'active':''}" onclick="setStudyInputView('gallery')"><i class="fas fa-inbox"></i> インプット一覧</button>
+    <button class="study-input-view-tab ${view==='collections'?'active':''}" onclick="setStudyInputView('collections')"><i class="fas fa-layer-group"></i> コレクション ${collections.length>0?`<span class="study-input-view-count">${collections.length}</span>`:''}</button>
+  </div>
   <div class="study-stat-row">
-    <div class="study-stat-chip"><i class="fas fa-inbox"></i> ${items.length}件のインプット</div>
+    <div class="study-stat-chip"><i class="fas fa-inbox"></i> ${allItems.length}件のインプット</div>
     ${STUDY_INPUT_CATEGORIES.map(c => {
-      const cnt = items.filter(i=>i.category===c.id).length;
+      const cnt = allItems.filter(i=>i.category===c.id).length;
       return cnt>0 ? `<div class="study-stat-chip"><i class="fas ${c.icon}"></i> ${c.label} ${cnt}</div>` : '';
     }).join('')}
-    ${items.length > 0 ? `<button class="study-dash-toggle" onclick="studyShowInspiration()"><i class="fas fa-shuffle"></i> ひらめきを1件表示</button>` : ''}
+    ${allItems.length > 0 ? `<button class="study-dash-toggle" onclick="studyShowInspiration()"><i class="fas fa-shuffle"></i> ひらめきを1件表示</button>` : ''}
   </div>
   <div class="study-toolbar">
     <div class="study-search-wrap">
       <i class="fas fa-search"></i>
       <input class="form-input" placeholder="作家名・作品名・引用・メモを検索…" value="${esc(search)}" oninput="setStudyInputSearch(this.value)" style="padding-left:30px">
     </div>
+    <select class="form-select" style="width:auto;font-size:12px" onchange="setStudyInputSort(this.value)" title="並び替え">
+      <option value="updated" ${sortMode==='updated'?'selected':''}>更新が新しい順</option>
+      <option value="created" ${sortMode==='created'?'selected':''}>追加が新しい順</option>
+      <option value="usage" ${sortMode==='usage'?'selected':''}>使用回数が多い順</option>
+      <option value="az" ${sortMode==='az'?'selected':''}>作家名 (あ→ん)</option>
+    </select>
     <button class="btn ${favOnly?'btn-primary':'btn-secondary'}" onclick="toggleStudyInputFav()"><i class="fas fa-star"></i> お気に入りのみ</button>
+    <button class="btn ${selecting?'btn-primary':'btn-secondary'}" onclick="studyToggleInputSelectMode()"><i class="fas fa-check-square"></i> 選択して組み合わせる</button>
     <button class="btn btn-primary" onclick="studyNewInput()"><i class="fas fa-plus"></i> インプットを追加</button>
   </div>
+  ${selectBar}
   <div class="study-cat-row">${catChips}</div>
+  ${renderFolderBar(studyInputFolderScope, "setStudyInputView('gallery')")}
   ${tagCloud}
   ${tagFilter ? `<div class="study-tagfilter-active">絞り込み中のタグ：<span class="tag tag-fuji">${esc(tagFilter)}</span> <span onclick="setStudyInputTag('')" style="cursor:pointer;text-decoration:underline">クリア</span></div>` : ''}
   ${cards}`;
@@ -35423,6 +35823,31 @@ function renderStudyInputMode() {
 
 function setStudyInputSearch(v) { State.currentTab['study-input-search'] = v; render(); setTimeout(()=>{const i=document.querySelector('.study-search-wrap input');if(i){i.focus();i.setSelectionRange(v.length,v.length);}},0); }
 function setStudyInputCat(c) { State.currentTab['study-input-cat'] = c; render(); }
+function setStudyInputSort(v) { State.currentTab['study-input-sort'] = v; render(); }
+function setStudyInputView(v) { State.currentTab['study-input-view'] = v; render(); }
+
+// ── 複数選択モード：インプット同士を「組み合わせる」ための土台 ──
+function studyToggleInputSelectMode() {
+  State.currentTab['study-input-selecting'] = !State.currentTab['study-input-selecting'];
+  State.currentTab['study-input-selected'] = [];
+  render();
+}
+function studyToggleInputSelected(id, evt) {
+  if (evt) evt.stopPropagation();
+  const cur = State.currentTab['study-input-selected'] || [];
+  State.currentTab['study-input-selected'] = cur.includes(id) ? cur.filter(x=>x!==id) : [...cur, id];
+  render();
+}
+function studyCopySelectedInputs() {
+  const ids = State.currentTab['study-input-selected'] || [];
+  const items = ids.map(id => StudyDB.getInput(id)).filter(Boolean);
+  if (items.length === 0) return;
+  const text = items.map(i => {
+    const src = [i.author, i.workTitle].filter(Boolean).join(' ／ ');
+    return `${i.quote ? `"${i.quote}"\n` : ''}${i.memo ? i.memo + '\n' : ''}${src ? `（${src}）` : ''}`.trim();
+  }).join('\n\n---\n\n');
+  navigator.clipboard?.writeText(text).then(() => toast(`${items.length}件をまとめてコピーしました`, 'success'));
+}
 
 function studyBuildTagCloud(items) {
   const counts = {};
@@ -35466,15 +35891,20 @@ function studyShowInspiration() {
   );
 }
 
-function renderStudyInputCard(item) {
+function renderStudyInputCard(item, opts = {}) {
   const cat = STUDY_INPUT_CATEGORIES.find(c => c.id === item.category) || STUDY_INPUT_CATEGORIES[0];
+  const { selecting = false, selected = false, usage = 0 } = opts;
+  const folders = FolderDB.getFolders(studyInputFolderScope);
+  const folder = item.folderId ? folders.find(f => f.id === item.folderId) : null;
+  const clickAction = selecting ? `studyToggleInputSelected('${item.id}',event)` : `studyEditInput('${item.id}')`;
   return `
-  <div class="study-input-card" style="border-left:3px solid var(--${cat.color})" onclick="studyEditInput('${item.id}')">
+  <div class="study-input-card ${selecting?'selectable':''} ${selected?'selected':''}" style="border-left:3px solid var(--${cat.color})" onclick="${clickAction}">
     <div class="study-input-card-top">
       <span class="tag tag-${cat.color}" style="font-size:9.5px"><i class="fas ${cat.icon}"></i> ${cat.label}</span>
       <div style="display:flex;gap:8px;align-items:center">
+        ${selecting ? `<span class="study-select-check ${selected?'checked':''}">${selected?'<i class="fas fa-check"></i>':''}</span>` : `
         <span class="study-input-card-fav ${item.favorite?'active':''}" onclick="studyToggleInputFavorite('${item.id}',event)"><i class="fas fa-star"></i></span>
-        <span class="study-input-card-menu" onclick="event.stopPropagation();studyDeleteInputConfirm('${item.id}')"><i class="fas fa-trash"></i></span>
+        <span class="study-input-card-menu" onclick="event.stopPropagation();studyDeleteInputConfirm('${item.id}')"><i class="fas fa-trash"></i></span>`}
       </div>
     </div>
     ${item.quote ? `<div class="study-input-card-quote">"${esc(item.quote)}"</div>` : ''}
@@ -35484,6 +35914,10 @@ function renderStudyInputCard(item) {
       ${item.workTitle ? ` ／ <i class="fas fa-book" style="font-size:9px"></i> ${esc(item.workTitle)}` : ''}
     </div>
     <div class="study-input-card-tags">${(item.tags||[]).slice(0,4).map(t=>`<span class="tag tag-gray" style="font-size:9px">${esc(t)}</span>`).join('')}</div>
+    ${(folder || usage > 0) ? `<div class="study-input-card-footer">
+      ${folder ? `<span class="study-input-card-folder" style="color:${folder.color}"><i class="fas fa-folder"></i> ${esc(folder.name)}</span>` : ''}
+      ${usage > 0 ? `<span class="study-input-card-usage" title="${usage}件の原稿で使用中"><i class="fas fa-link"></i> ${usage}件の原稿で使用中</span>` : ''}
+    </div>` : ''}
   </div>`;
 }
 
@@ -35494,6 +35928,19 @@ function studyDeleteInputConfirm(id) {
 
 function studyDeleteInput(id) {
   StudyDB.deleteInput(id);
+  // コレクション・原稿連携からも除去（既存データを壊さないための整合性維持）
+  StudyCollectionDB.getAll().forEach(col => {
+    if ((col.inputIds||[]).includes(id)) {
+      col.inputIds = col.inputIds.filter(x => x !== id);
+      StudyCollectionDB.upsert(col);
+    }
+  });
+  StudyDB.getDrafts().forEach(d => {
+    if ((d.linkedInputIds||[]).includes(id)) {
+      d.linkedInputIds = d.linkedInputIds.filter(x => x !== id);
+      StudyDB.saveDraft(d);
+    }
+  });
   closeModal();
   toast('削除しました', 'info');
   render();
@@ -35520,9 +35967,11 @@ function studyEditInput(id) {
     <div class="form-group"><label class="form-label">気づき・メモ</label>
       <textarea class="form-textarea" id="si-memo" rows="4" placeholder="なぜ印象的だったか、どう自分の執筆に活かせるか…">${esc(item.memo)}</textarea></div>
     <div class="form-group"><label class="form-label">タグ（カンマ区切り）</label>
-      <input class="form-input" id="si-tags" value="${esc((item.tags||[]).join(', '))}" placeholder="例：伏線, 対話劇, ラストシーン"></div>`,
+      <input class="form-input" id="si-tags" value="${esc((item.tags||[]).join(', '))}" placeholder="例：伏線, 対話劇, ラストシーン"></div>
+    <div class="form-group"><label class="form-label">フォルダ</label>
+      <select class="form-select" id="si-folder">${folderOptionsHtml(studyInputFolderScope, item.folderId)}</select></div>`,
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     ${id ? `<button class="btn btn-danger" onclick="StudyDB.deleteInput('${id}');closeModal();toast('削除しました','info');render()"><i class="fas fa-trash"></i> 削除</button>` : ''}
+     ${id ? `<button class="btn btn-danger" onclick="studyDeleteInput('${id}')"><i class="fas fa-trash"></i> 削除</button>` : ''}
      <button class="btn btn-primary" onclick="studySaveInputModal('${item.id}')"><i class="fas fa-save"></i> 保存</button>`
   );
 }
@@ -35536,11 +35985,158 @@ function studySaveInputModal(itemId) {
   existing.quote = $('#si-quote')?.value?.trim() || '';
   existing.memo = $('#si-memo')?.value?.trim() || '';
   existing.tags = ($('#si-tags')?.value || '').split(',').map(s=>s.trim()).filter(Boolean);
+  existing.folderId = $('#si-folder')?.value || '';
   existing.updatedAt = now();
   if (!existing.createdAt) existing.createdAt = now();
   StudyDB.saveInput(existing);
   closeModal();
   toast('保存しました', 'success');
+  render();
+}
+
+// ── インプット・コレクション：複数のメモを「組み合わせて」1つのまとまりにする ──
+function studyOpenCreateCollectionModal() {
+  const ids = State.currentTab['study-input-selected'] || [];
+  if (ids.length === 0) { toast('メモを1件以上選択してください', 'error'); return; }
+  openModal(
+    `<i class="fas fa-layer-group" style="color:var(--fuji)"></i> コレクションを作成`,
+    `<div class="form-group"><label class="form-label">コレクション名 <span style="color:var(--accent)">*</span></label>
+      <input class="form-input" id="sc-name" placeholder="例：ラストシーンの参考集、対話劇の名手たち" autofocus></div>
+    <div class="form-group"><label class="form-label">説明（任意）</label>
+      <textarea class="form-textarea" id="sc-desc" rows="2" placeholder="このコレクションのテーマ・使い道など…"></textarea></div>
+    <div class="study-side-card-desc">選択した ${ids.length} 件のインプットをまとめます。あとから追加・削除もできます。</div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="studySaveNewCollection()"><i class="fas fa-layer-group"></i> 作成する</button>`
+  );
+}
+
+function studySaveNewCollection() {
+  const name = $('#sc-name')?.value?.trim();
+  if (!name) { toast('コレクション名を入力してください', 'error'); return; }
+  const ids = State.currentTab['study-input-selected'] || [];
+  const col = newStudyCollection({ name, desc: $('#sc-desc')?.value?.trim() || '', inputIds: ids });
+  StudyCollectionDB.upsert(col);
+  State.currentTab['study-input-selecting'] = false;
+  State.currentTab['study-input-selected'] = [];
+  State.currentTab['study-input-view'] = 'collections';
+  closeModal();
+  toast(`「${name}」を作成しました`, 'success');
+  render();
+}
+
+function renderStudyCollectionsView() {
+  const collections = StudyCollectionDB.getAll();
+  const cards = collections.length === 0 ? `
+    <div class="study-empty">
+      <div class="study-empty-icon"><i class="fas fa-layer-group"></i></div>
+      <div class="study-empty-title">まだコレクションがありません</div>
+      <div class="study-empty-sub">インプット一覧で「選択して組み合わせる」を使うと、複数のメモをテーマ別にまとめられます</div>
+      <button class="btn btn-primary" onclick="setStudyInputView('gallery')"><i class="fas fa-inbox"></i> インプット一覧へ</button>
+    </div>`
+    : `<div class="study-collection-grid">${collections.map(renderStudyCollectionCard).join('')}</div>`;
+
+  return `${renderStudyModeSwitch('input')}
+  <div class="study-input-view-tabs">
+    <button class="study-input-view-tab" onclick="setStudyInputView('gallery')"><i class="fas fa-inbox"></i> インプット一覧</button>
+    <button class="study-input-view-tab active" onclick="setStudyInputView('collections')"><i class="fas fa-layer-group"></i> コレクション ${collections.length>0?`<span class="study-input-view-count">${collections.length}</span>`:''}</button>
+  </div>
+  <div class="study-side-card-desc" style="margin-bottom:14px">複数のインプットを組み合わせて、テーマ別にまとめておける場所です。「◯◯な場面の参考集」のように使えます。</div>
+  ${cards}`;
+}
+
+function renderStudyCollectionCard(col) {
+  const items = (col.inputIds||[]).map(id => StudyDB.getInput(id)).filter(Boolean);
+  return `
+  <div class="study-collection-card" style="border-left:3px solid var(--${col.color})" onclick="studyOpenCollectionDetail('${col.id}')">
+    <div class="study-collection-card-top">
+      <div class="study-collection-card-name"><i class="fas fa-layer-group" style="color:var(--${col.color})"></i> ${esc(col.name)}</div>
+      <span class="study-input-card-menu" onclick="event.stopPropagation();studyDeleteCollectionConfirm('${col.id}')"><i class="fas fa-trash"></i></span>
+    </div>
+    ${col.desc ? `<div class="study-input-card-memo">${esc(col.desc)}</div>` : ''}
+    <div class="study-collection-card-preview">
+      ${items.slice(0,3).map(i => `<div class="study-collection-mini-item">${esc((i.quote || i.memo || i.author || '（無題）').slice(0,40))}</div>`).join('')}
+    </div>
+    <div class="study-collection-card-count"><i class="fas fa-inbox"></i> ${items.length}件のインプット</div>
+  </div>`;
+}
+
+function studyOpenCollectionDetail(colId) {
+  const col = StudyCollectionDB.get(colId);
+  if (!col) return;
+  const items = (col.inputIds||[]).map(id => StudyDB.getInput(id)).filter(Boolean);
+  const allInputs = StudyDB.getInputs();
+  const unlinked = allInputs.filter(i => !(col.inputIds||[]).includes(i.id));
+  openModal(
+    `<i class="fas fa-layer-group" style="color:var(--fuji)"></i> ${esc(col.name)}`,
+    `${col.desc ? `<div class="study-side-card-desc" style="margin-bottom:12px">${esc(col.desc)}</div>` : ''}
+    <div class="study-linked-input-list">
+      ${items.length === 0 ? `<div class="study-side-card-desc">まだメモがありません。</div>` : items.map(item => {
+        const cat = STUDY_INPUT_CATEGORIES.find(c => c.id === item.category) || STUDY_INPUT_CATEGORIES[0];
+        return `
+        <div class="study-linked-input-card">
+          <div class="study-linked-input-top">
+            <span class="tag tag-${cat.color}" style="font-size:9px"><i class="fas ${cat.icon}"></i> ${cat.label}</span>
+            <span class="study-linked-input-unlink" onclick="studyRemoveFromCollection('${col.id}','${item.id}')" title="コレクションから外す"><i class="fas fa-xmark"></i></span>
+          </div>
+          ${item.quote ? `<div class="study-input-card-quote" style="font-size:11.5px">"${esc(item.quote.slice(0,90))}${item.quote.length>90?'…':''}"</div>` : ''}
+          ${item.memo ? `<div class="study-input-card-memo" style="font-size:11px">${esc(item.memo.slice(0,80))}${item.memo.length>80?'…':''}</div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>
+    ${unlinked.length > 0 ? `
+    <select class="form-select" id="sc-add-input" style="margin-top:12px">
+      <option value="">＋ このコレクションにメモを追加…</option>
+      ${unlinked.map(i => `<option value="${i.id}">${esc((i.quote||i.memo||i.author||'（無題）').slice(0,50))}</option>`).join('')}
+    </select>` : ''}`,
+    `<button class="btn btn-secondary" onclick="closeModal()">閉じる</button>
+     ${items.length>0?`<button class="btn btn-secondary" onclick="studyCopyCollectionToClipboard('${col.id}')"><i class="fas fa-copy"></i> まとめてコピー</button>`:''}
+     ${unlinked.length>0?`<button class="btn btn-primary" onclick="studyAddToCollectionFromSelect('${col.id}')"><i class="fas fa-plus"></i> 追加</button>`:''}`,
+    { size: 'modal-lg' }
+  );
+}
+
+function studyAddToCollectionFromSelect(colId) {
+  const sel = $('#sc-add-input');
+  const inputId = sel?.value;
+  if (!inputId) return;
+  const col = StudyCollectionDB.get(colId);
+  if (!col) return;
+  col.inputIds = col.inputIds || [];
+  if (!col.inputIds.includes(inputId)) col.inputIds.push(inputId);
+  col.updatedAt = now();
+  StudyCollectionDB.upsert(col);
+  studyOpenCollectionDetail(colId);
+}
+
+function studyRemoveFromCollection(colId, inputId) {
+  const col = StudyCollectionDB.get(colId);
+  if (!col) return;
+  col.inputIds = (col.inputIds||[]).filter(id => id !== inputId);
+  col.updatedAt = now();
+  StudyCollectionDB.upsert(col);
+  studyOpenCollectionDetail(colId);
+}
+
+function studyCopyCollectionToClipboard(colId) {
+  const col = StudyCollectionDB.get(colId);
+  if (!col) return;
+  const items = (col.inputIds||[]).map(id => StudyDB.getInput(id)).filter(Boolean);
+  const text = items.map(i => {
+    const src = [i.author, i.workTitle].filter(Boolean).join(' ／ ');
+    return `${i.quote ? `"${i.quote}"\n` : ''}${i.memo ? i.memo + '\n' : ''}${src ? `（${src}）` : ''}`.trim();
+  }).join('\n\n---\n\n');
+  navigator.clipboard?.writeText(text).then(() => toast('コレクションの内容をコピーしました', 'success'));
+}
+
+function studyDeleteCollectionConfirm(colId) {
+  confirmDeleteGeneric('コレクションを削除', 'このコレクションを削除しますか？含まれるインプット自体は削除されません。',
+    `studyDeleteCollection('${colId}')`);
+}
+
+function studyDeleteCollection(colId) {
+  StudyCollectionDB.delete(colId);
+  closeModal();
+  toast('コレクションを削除しました', 'info');
   render();
 }
 
