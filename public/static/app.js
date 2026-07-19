@@ -9986,6 +9986,459 @@ window._DOJO_ADVANCED_EVAL = {
       return { pass, earnedPoints: pts, comment };
     },
   ],
+
+  // =====================================================================
+  // 演習: キャラクターの「声」を設計する
+  // =====================================================================
+  'ex-dialogue-01': [
+    (r, ans) => {
+      const casualCount = (ans.match(/まぁ|なんか|正直に言うと|なんというか|……|えっと/g) || []).length;
+      const formalCount = (ans.match(/です。|ます。|以上|完了|引き継ぎ|ドキュメント|スケジュール/g) || []).length;
+      const hasBoth = casualCount >= 1 && formalCount >= 1;
+      const pass = hasBoth;
+      const pts = pass ? r.weight : (casualCount + formalCount >= 1 ? Math.floor(r.weight * 0.5) : Math.floor(r.weight * 0.2));
+      const comment = pass
+        ? '◎ 2人の「声」が語彙・口調のレベルで明確に分離しています。くだけた言い回しと簡潔な言葉——文体そのものがキャラクターを演じています。'
+        : '▲ 2人の言葉の違いが薄いです。片方は「まぁ」「なんというか」のような迂回・口ぐせを、もう片方は簡潔で無駄のない言い切りを意識的に使い分けてください。声の違いは「何を言うか」ではなく「どう言うか」に出ます。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const hasForbidden = /会社を辞める|辞めることに決め|辞めるんだ|退職することにした/.test(ans);
+      const hasIndirect = /学校には行かなくなる|行かなくなる|退職届|後任|引き継ぎ|次の場所|離れる|潮時/.test(ans);
+      const pass = !hasForbidden && hasIndirect;
+      const pts = pass ? r.weight : hasForbidden ? Math.floor(r.weight * 0.25) : Math.floor(r.weight * 0.5);
+      const comment = pass
+        ? '◎ 「辞める」という直接語を避け、行政的な言葉（退職届）や比喩的な言い回し（潮時）で同じ情報を伝えています。サブテキストの基本形です。'
+        : hasForbidden
+          ? '✕ 「辞める」という言葉がそのまま使われています。同じ情報を、もっと迂回した言い方（退職届を出した／もう学校には行かない）に変換してください。'
+          : '△ 情報が間接的に伝わる工夫がまだ弱いです。「退職届」「引き継ぎ」など、状況が分かる具体的な言葉に置き換えてみてください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const hasAtraits = /まぁ|なんというか|正直に言うと|直感|なんか/.test(ans);
+      const hasBtraits = /データ|効率|スケジュール|引き継ぎ|完結|ドキュメント|簡潔/.test(ans);
+      const pass = hasAtraits && hasBtraits;
+      const pts = pass ? r.weight : (hasAtraits || hasBtraits) ? Math.floor(r.weight * 0.55) : Math.floor(r.weight * 0.2);
+      const comment = pass
+        ? '◎ 元体育教師の直感的な言葉選びと、コンサルタントのデータ的な語彙——それぞれの職業・性格が言葉の選択に正確に反映されています。'
+        : '△ どちらか一方（または両方）のキャラクター設定が言葉に反映されていません。「この職業ならこの言葉を選ぶか」を再確認してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const hasDesignNote = /設計意図/.test(ans);
+      const hasReason = /口ぐせ|活か|表現|示す|反映|排除|使用/.test(ans);
+      const pass = hasDesignNote && hasReason;
+      const pts = pass ? r.weight : hasDesignNote ? Math.floor(r.weight * 0.5) : Math.floor(r.weight * 0.15);
+      const comment = pass
+        ? '◎ 「なぜその言い方にしたか」が明確に説明されています。技術を意識的に使えている証拠です。'
+        : '▲ 設計意図の説明が見当たらない、または根拠が薄いです。「この口ぐせを使ったのは〜だから」という一文を必ず添えてください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+  ],
+
+  // =====================================================================
+  // 演習: テーマを「隠す」設計
+  // =====================================================================
+  'ex-theme-01': [
+    (r, ans) => {
+      const objectWords = ['名刺','写真','手紙','鍵','時計','引き出し','眼鏡','靴','傘','ノート','日記','コーヒー','ネックレス','診察券','花'];
+      const hasObject = objectWords.some(w => ans.includes(w));
+      const pass = hasObject;
+      const pts = pass ? r.weight : Math.floor(r.weight * 0.25);
+      const comment = pass
+        ? '◎ テーマを象徴する具体的なモノが設計されています。抽象的なテーマを「手に触れられるもの」に変換する——これがビジュアルストーリーテリングの核心です。'
+        : '✕ テーマを象徴する具体的なモノ・行動が見当たりません。「引き出しの中の名刺」のように、テーマを一目で連想させる小道具を1つ選び、シーンの冒頭と末尾に配置してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const hasForbidden = /許す|赦し|赦す|自分を許/.test(ans.split('設計メモ')[0] || ans);
+      const hasImageInstead = /視線|間|沈黙|開く|閉じる|止まる/.test(ans);
+      const pass = !hasForbidden && hasImageInstead;
+      const pts = pass ? r.weight : hasForbidden ? Math.floor(r.weight * 0.2) : Math.floor(r.weight * 0.5);
+      const comment = pass
+        ? '◎ テーマのキーワード（許す・赦し）を本文で一度も使わず、行動と間でテーマを感じさせています。「言わせずに見せる」技術が機能しています。'
+        : hasForbidden
+          ? '✕ 本文（設計メモ以外）にテーマのキーワードがそのまま使われています。「許す」を消し、代わりに行動・視線・沈黙で同じ意味を表現してください。'
+          : '△ 行動や間による表現がまだ弱いです。「開く/閉じる」「視線を向ける/逸らす」のような対になる行動を意識的に配置してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const lines = ans.split('\n').filter(l => l.trim());
+      const first = lines.slice(0, Math.max(5, Math.floor(lines.length * 0.3))).join('');
+      const last = lines.slice(-Math.max(5, Math.floor(lines.length * 0.3))).join('');
+      const changeWords = /開く|閉じる|止まる|上げる|下げる|向く|見る/;
+      const changeInFirst = changeWords.test(first);
+      const changeInLast = changeWords.test(last);
+      const pass = changeInFirst && changeInLast;
+      const pts = pass ? r.weight : (changeInFirst || changeInLast) ? Math.floor(r.weight * 0.55) : Math.floor(r.weight * 0.25);
+      const comment = pass
+        ? '◎ シーンの冒頭と末尾、双方に「行動による内的状態の変化」が設計されています。「閉じる」から「開く」への反転など、対比構造が効いています。'
+        : '△ 冒頭・末尾のどちらか（または両方）で、行動による変化の描写が弱いです。同じ行動（開く/閉じる、見る/見ない）を冒頭と末尾で対比させると変化が際立ちます。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const hasMemo = /設計メモ|テーマの埋め込み/.test(ans);
+      const hasExplain = /という|示|表現|変化|繋が/.test(ans.split('設計メモ')[1] || '');
+      const pass = hasMemo && hasExplain;
+      const pts = pass ? r.weight : hasMemo ? Math.floor(r.weight * 0.5) : Math.floor(r.weight * 0.15);
+      const comment = pass
+        ? '◎ 設計メモが論理的に「象徴→テーマ」の接続を説明できています。この自己分析力こそが上級者とアマチュアを分けます。'
+        : '▲ 「テーマの埋め込み設計メモ」が見当たらない、または象徴とテーマの繋がりの説明が不十分です。「この行動が、なぜテーマを表しているのか」を明記してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+  ],
+
+  // =====================================================================
+  // 演習: 日本式フォーマット変換
+  // =====================================================================
+  'ex-format-01': [
+    (r, ans) => {
+      const hasPillar = /○内|○外/.test(ans);
+      const hasTimeOfDay = /深夜|早朝|朝|昼|夕方|夜/.test(ans);
+      const pass = hasPillar && hasTimeOfDay;
+      const pts = pass ? r.weight : hasPillar ? Math.floor(r.weight * 0.6) : Math.floor(r.weight * 0.2);
+      const comment = pass
+        ? '◎ 柱書き（○内/外・場所・時間帯）の書式が正確です。脚本の「地図」となる最初の一行が正しく書けています。'
+        : hasPillar
+          ? '△ 柱書きの型は使えていますが、時間帯（深夜/朝/昼等）の指定が抜けています。'
+          : '✕ 柱書き（「○内・病院・廊下・深夜」のような形式）が見当たりません。脚本はまず場所と時間を明示する一行から始まります。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const hasInnerLabelRemoved = !/心臓がドキドキ|ドキドキしていた/.test(ans);
+      const hasActionSubstitute = /早足|急ぎ足|息を切ら|手が震え|足を速め|早く歩く/.test(ans);
+      const pass = hasInnerLabelRemoved && hasActionSubstitute;
+      const pts = pass ? r.weight : hasInnerLabelRemoved ? Math.floor(r.weight * 0.4) : Math.floor(r.weight * 0.15);
+      const comment = pass
+        ? '◎ 内面描写（心臓がドキドキ）を外から見える行動（早足で歩く等）に正確に変換できています。「見せる」脚本技術の基礎です。'
+        : hasInnerLabelRemoved
+          ? '△ 内面のラベルは消せていますが、代わりの行動描写がまだ弱いです。「早足」「息を切らす」など、俳優が演じられる具体的な動作に変換してください。'
+          : '✕ 「心臓がドキドキ」という内面表現がそのまま残っています。ト書きは俳優が演じられる「外から見える行動」だけで書くのが原則です。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const dialogCount = (ans.match(/「[^」]+」/g) || []).length;
+      const hasNameLine = /佐藤\s*\n|　　佐藤|　佐藤\n/.test(ans);
+      const pass = dialogCount >= 1 && (hasNameLine || /佐藤[「\n]/.test(ans));
+      const pts = pass ? r.weight : dialogCount >= 1 ? Math.floor(r.weight * 0.55) : Math.floor(r.weight * 0.15);
+      const comment = pass
+        ? '◎ セリフの書式（名前を独立行で示し、セリフをインデント）が日本式脚本の型に沿っています。'
+        : '△ セリフの書式が完全ではありません。日本式脚本では「キャラクター名」を独立行に置き、セリフをその下に書くのが基本形です。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const hasEmotionLabel = /泣きそうになった|こらえた/.test(ans);
+      const hasActionOnly = /目を細め|唇を噛|奥歯|視線を外|涙をこらえ|まばたき/.test(ans);
+      const pass = !hasEmotionLabel && hasActionOnly;
+      const pts = pass ? r.weight : hasActionOnly ? Math.floor(r.weight * 0.5) : Math.floor(r.weight * 0.15);
+      const comment = pass
+        ? '◎ 「泣きそうになったがこらえた」という内面説明を排し、目・奥歯・視線の動きだけで同じ感情を伝えています。これが理想の変換です。'
+        : '✕ 「泣きそうになった」「こらえた」という説明的表現が残っています。「奥歯を噛む」「まばたきを繰り返す」のような外形的行動のみで表現してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+  ],
+
+  // =====================================================================
+  // 演習: テンション曲線の設計
+  // =====================================================================
+  'ex-tension-01': [
+    (r, ans) => {
+      const numMatches = (ans.match(/テンション[：:]?\s*\d+(\.\d+)?/g) || []).length;
+      const pass = numMatches >= 5;
+      const pts = pass ? r.weight : numMatches >= 3 ? Math.floor(r.weight * 0.6) : Math.floor(r.weight * 0.2);
+      const comment = pass
+        ? '◎ 5つのシーンすべてにテンション値が数値として設定されています。感情の強度を定量化する意識——これは編集・脚本推敲の実務スキルです。'
+        : `△ テンション値が設定されているのは${numMatches}シーン分のみです。5つ全てのシーンに「テンション：n」の形で数値を明記してください。`;
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const reasonWords = ['劇的アイロニー','プレッシャー','葛藤','緊張','知っている','知らない','無邪気'];
+      const reasonHits = reasonWords.filter(w => ans.includes(w)).length;
+      const pass = reasonHits >= 2;
+      const pts = pass ? r.weight : reasonHits === 1 ? Math.floor(r.weight * 0.55) : Math.floor(r.weight * 0.2);
+      const comment = pass
+        ? '◎ テンション値の根拠が「劇的アイロニー」「内的プレッシャー」など感情・葛藤の理論に基づいて説明されています。'
+        : '△ テンション値の「理由」の説明が浅いです。「観客は知っているが登場人物は知らない」という劇的アイロニーの観点を根拠に加えてください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const values = [...ans.matchAll(/テンション[：:]?\s*(\d+(\.\d+)?)/g)].map(m => parseFloat(m[1]));
+      let hasPeakAndValley = false;
+      if (values.length >= 3) {
+        hasPeakAndValley = (Math.max(...values) - Math.min(...values)) >= 4;
+      }
+      const pass = hasPeakAndValley;
+      const pts = pass ? r.weight : Math.floor(r.weight * 0.3);
+      const comment = pass
+        ? '◎ テンション値に十分な高低差（山と谷）が設計されています。感情を単調に流さず、意図的に波形を作れています。'
+        : '▲ テンション値の変化が平坦です。最高点と最低点の差を大きくつけ、「谷」で観客を休ませてから「山」で再び緊張させる設計にしてください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const hasReorderSection = /並び替え/.test(ans);
+      const hasCatharsisTerm = /カタルシス|インメディアス|劇的アイロニー|レス構造/.test(ans);
+      const pass = hasReorderSection && hasCatharsisTerm;
+      const pts = pass ? r.weight : hasReorderSection ? Math.floor(r.weight * 0.5) : Math.floor(r.weight * 0.15);
+      const comment = pass
+        ? '◎ 並び替え提案がカタルシス理論（劇的アイロニー、イン・メディアス・レス等）の用語で裏付けられています。'
+        : '△ 並び替え提案そのもの、または理論的根拠が不足しています。「観客が何をいつ知るか」という劇的アイロニーの観点から並び順を再検討してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+  ],
+
+  // =====================================================================
+  // 演習: オン・ザ・ノーズ撲滅リライト
+  // =====================================================================
+  'ex-rewrite-01': [
+    (r, ans) => {
+      const hasABCLabels = /A[）)]/.test(ans) && /B[）)]/.test(ans) && /C[）)]/.test(ans);
+      const pass = hasABCLabels;
+      const pts = pass ? r.weight : Math.floor(r.weight * 0.25);
+      const comment = pass
+        ? '◎ A（分析）・B（書き直し）・C（技法説明）の3構造がすべて明示されています。分析→実践→検証というプロの推敲プロセスです。'
+        : '✕ A）B）C）の分析ラベルが見当たりません。各セリフについて「何が表面に出すぎているか」を明示的に分析してから書き直してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const forbiddenPhrases = ['俺はずっとお前を愛していたんだ','この会社は君がいないと困る','あなたが心配なの'];
+      const hasForbidden = forbiddenPhrases.some(p => ans.includes(p));
+      const dialogCount = (ans.match(/「[^」]+」/g) || []).length;
+      const pass = !hasForbidden && dialogCount >= 3;
+      const pts = pass ? r.weight : hasForbidden ? Math.floor(r.weight * 0.2) : Math.floor(r.weight * 0.5);
+      const comment = pass
+        ? '◎ 元のオン・ザ・ノーズなセリフを消し、3つとも新しいサブテキスト表現に置き換えられています。'
+        : hasForbidden
+          ? '✕ 元の説明的なセリフがそのまま残っている箇所があります。すべて書き直してください。'
+          : '△ 書き直し版のセリフ数が不足しています。3セリフすべてに新しいバージョンを用意してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const hasTechniqueLabel = /技法[：:]/.test(ans);
+      const hasTechniqueWords = /話題すり替え|間接的な行動|沈黙|逆の言葉|行動/.test(ans);
+      const pass = hasTechniqueLabel && hasTechniqueWords;
+      const pts = pass ? r.weight : hasTechniqueLabel ? Math.floor(r.weight * 0.5) : Math.floor(r.weight * 0.15);
+      const comment = pass
+        ? '◎ 使用したサブテキスト技法（話題すり替え・行動・沈黙等）が明確に名指しされています。技法を意識的に使い分ける力があります。'
+        : '▲ 「技法：」というラベルと、具体的な技法名（話題すり替え/行動/沈黙等）の説明を必ず加えてください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const dialogCount = (ans.match(/「[^」]+」/g) || []).length;
+      const pass = dialogCount >= 3 && ans.length > 200;
+      const pts = pass ? r.weight : Math.floor(r.weight * 0.4);
+      const comment = pass
+        ? '◎ 3つの書き直しすべてがキャラクターの声として自然に響いています。'
+        : '△ 全体の書き込み量がまだ薄いです。3セリフすべてに十分なト書き・セリフの書き直しを用意してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+  ],
+
+  // =====================================================================
+  // 演習: キャラクターのウーンドから設計する
+  // =====================================================================
+  'ex-character-01': [
+    (r, ans) => {
+      const hasLieLabel = /誤信念|Lie/.test(ans);
+      const hasConditional = /だから|なければ|してはいけない|べきではない|失うなら/.test(ans);
+      const pass = hasLieLabel && hasConditional;
+      const pts = pass ? r.weight : hasLieLabel ? Math.floor(r.weight * 0.5) : Math.floor(r.weight * 0.15);
+      const comment = pass
+        ? '◎ Lie（誤信念）がウーンドから論理的に導かれ、「〜だから〜してはいけない」という過度な一般化の形式で書けています。'
+        : '▲ Lieの設計が弱いです。過去の傷から「〜すれば〜になる」という歪んだ因果関係を1文で明示してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const hasWant = /Want|外的目標/.test(ans);
+      const hasNeed = /Need|内的成長/.test(ans);
+      const hasVs = /vs|対立|矛盾/.test(ans);
+      const pass = hasWant && hasNeed && hasVs;
+      const pts = pass ? r.weight : (hasWant && hasNeed) ? Math.floor(r.weight * 0.6) : Math.floor(r.weight * 0.2);
+      const comment = pass
+        ? '◎ WantとNeedが明示的に対立・矛盾する形で設計されています。この二重構造が物語を動かすエンジンです。'
+        : '△ WantとNeedが設計されていても、両者の「対立」が明示されていません。「Want〇〇 vs Need△△」の形で矛盾を明確化してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const bulletCount = (ans.match(/^[・\-•]/gm) || []).length;
+      const pass = bulletCount >= 3;
+      const pts = pass ? r.weight : bulletCount >= 1 ? Math.floor(r.weight * 0.5) : Math.floor(r.weight * 0.15);
+      const comment = pass
+        ? '◎ 行動パターンが3つ、Lieと一貫して繋がる形で書けています。誤信念が具体的な癖・行動として立体化しています。'
+        : `△ 行動パターンの箇条書きが${bulletCount}個しか見当たりません。「・」で始まる形で3つ、Lieに基づく具体的な行動を書いてください。`;
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const hasArcLabel = /アーク|変化/.test(ans);
+      const hasTrigger = /出会|きっかけ|出来事/.test(ans);
+      const pass = hasArcLabel && hasTrigger;
+      const pts = pass ? r.weight : hasArcLabel ? Math.floor(r.weight * 0.5) : Math.floor(r.weight * 0.15);
+      const comment = pass
+        ? '◎ Lie→Truthへの変化のきっかけ（出会い・出来事）が具体的に設計されています。'
+        : '▲ 変化のきっかけが抽象的です。「誰との」「どんな出来事」が誤信念を崩すのかを具体的な出会い・シーンで書いてください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const hasLoglineLabel = /ログライン/.test(ans);
+      const lastPart = (ans.split('ログライン').pop() || '').replace(/[【】\n]/g, '').trim();
+      const pass = hasLoglineLabel && lastPart.length >= 15 && lastPart.length <= 120;
+      const pts = pass ? r.weight : hasLoglineLabel ? Math.floor(r.weight * 0.5) : Math.floor(r.weight * 0.1);
+      const comment = pass
+        ? '◎ 最後にログラインが1文で完成しており、主人公の欠如・目標・障害が凝縮されています。'
+        : '▲ ログラインが見当たらない、または長すぎ/短すぎます。「欠如ある主人公が〜という目標を持つが〜という障害に直面する」の型で1文にまとめてください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+  ],
+
+  // =====================================================================
+  // 演習: シーンゴールの設計と達成/失敗の分岐
+  // =====================================================================
+  'ex-scene-goal-01': [
+    (r, ans) => {
+      const hasHusbandGoal = /夫のゴール|夫のシーンゴール/.test(ans);
+      const hasWifeGoal = /妻のゴール|妻のシーンゴール/.test(ans);
+      const pass = hasHusbandGoal && hasWifeGoal;
+      const pts = pass ? r.weight : (hasHusbandGoal || hasWifeGoal) ? Math.floor(r.weight * 0.5) : Math.floor(r.weight * 0.15);
+      const comment = pass
+        ? '◎ 夫と妻、双方のシーンゴールが明記され、対立構造として設計されています。'
+        : '✕ 夫・妻のシーンゴールのどちらか（または両方）が明記されていません。「夫のゴール：〜」「妻のゴール：〜」と明示的に書いてください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const hasFunctionLabel = /物語機能|物語上の機能/.test(ans);
+      const hasConcrete = /不可逆|転換点|ポイント・オブ・ノーリターン|前進/.test(ans);
+      const pass = hasFunctionLabel && hasConcrete;
+      const pts = pass ? r.weight : hasFunctionLabel ? Math.floor(r.weight * 0.5) : Math.floor(r.weight * 0.15);
+      const comment = pass
+        ? '◎ 「物語上の機能」が単なる感情表現でなく、物語構造上の役割（転換点・不可逆性）として具体的に説明されています。'
+        : '△ 物語上の機能の説明が抽象的です。このシーンが物語全体の「どの転換点」になるのかを明示してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const dialogCount = (ans.match(/「[^」]+」/g) || []).length + (ans.match(/夫「|妻「/g) || []).length;
+      const pass = dialogCount >= 2;
+      const pts = pass ? r.weight : Math.floor(r.weight * 0.3);
+      const comment = pass
+        ? '◎ 脚本シーンで目標達成に向けた具体的な行動・セリフが書けています。'
+        : '✕ 脚本シーンのセリフ・行動が不足しています。夫・妻それぞれが目標に向けて動く様子を具体的に書いてください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const lastLines = ans.split('\n').slice(-4).join('');
+      const hasChangeAction = /しまう|拒否|引っ込め|署名|受け取る|渡す|置く/.test(lastLines);
+      const pass = hasChangeAction;
+      const pts = pass ? r.weight : Math.floor(r.weight * 0.35);
+      const comment = pass
+        ? '◎ シーンの最後に「達成」または「失敗」を示す明確な行動的変化があります。'
+        : '▲ シーンの結末に変化（署名する/拒否する/物を渡す等）が見えません。達成か失敗か、どちらかをはっきり行動で示してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const emotionLabels = ['悲しい','嬉しい','怖い','辛い','愛してる','愛している','怒っている'];
+      const hasNoLabel = emotionLabels.filter(w => ans.includes(w)).length === 0;
+      const pass = hasNoLabel && ans.length > 80;
+      const pts = pass ? r.weight : Math.floor(r.weight * 0.4);
+      const comment = pass
+        ? '◎ 感情ラベルを使わず、行動のみで心情を伝えられています。'
+        : '△ 感情を直接説明する言葉が使われています。行動・沈黙・視線に置き換えてください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+  ],
+
+  // =====================================================================
+  // 演習: 「説明台詞」を排除してリライトする
+  // =====================================================================
+  'ex-rewrite-scene-01': [
+    (r, ans) => {
+      const forbiddenPhrases = ['3年ぶりですね','私の父の主治医でした','父は去年亡くなりました','私は今でもあなたを恨んでいます'];
+      const hasForbidden = forbiddenPhrases.some(p => ans.includes(p));
+      const pass = !hasForbidden;
+      const pts = pass ? r.weight : Math.floor(r.weight * 0.15);
+      const comment = pass
+        ? '◎ Before版の説明的なセリフがすべて排除されています。情報開示を目的とした「説明のためのセリフ」がありません。'
+        : '✕ Beforeの説明台詞がそのまま残っている箇所があります。「〜ですね」「〜でした」という直接的な情報開示セリフを消してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const hasPropWords = /診察券|診察録|コピー|カルテ|古びた/.test(ans);
+      const hasTimeIndirect = /久しぶり|ぶりに|沈黙|間/.test(ans);
+      const pass = hasPropWords || hasTimeIndirect;
+      const pts = pass ? r.weight : Math.floor(r.weight * 0.25);
+      const comment = pass
+        ? '◎ 「3年ぶり」「主治医だった」等の情報が、小道具や間接的な描写で伝わるよう設計されています。'
+        : '△ 情報を伝える小道具や間接表現が見当たりません。「古びた診察券を持っている」のような具体的なモノで背景情報を示してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const hasEmotionLabel = /恨んでいます|後悔しています/.test(ans);
+      const hasActionSub = /立ったまま|椅子を引かない|目を細め|視線を|黙って/.test(ans);
+      const pass = !hasEmotionLabel && hasActionSub;
+      const pts = pass ? r.weight : hasEmotionLabel ? Math.floor(r.weight * 0.15) : Math.floor(r.weight * 0.45);
+      const comment = pass
+        ? '◎ 「恨んでいる」等の感情ラベルを消し、具体的な行動（立ったまま/椅子を引かない等）に変換できています。'
+        : hasEmotionLabel
+          ? '✕ 「恨んでいます」のような感情ラベルがそのまま残っています。行動・態度に変換してください。'
+          : '△ 感情を示す行動描写がまだ弱いです。緊張感を「立ち方」「視線」「間」で表現してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const dialogCount = (ans.match(/「[^」]+」/g) || []).length;
+      const pass = dialogCount >= 2 && ans.length >= 80 && ans.length <= 400;
+      const pts = pass ? r.weight : Math.floor(r.weight * 0.4);
+      const comment = pass
+        ? '◎ 2人の関係性・緊張感が自然に伝わる長さ・密度で書けています。'
+        : '△ セリフ量または全体のバランスを調整してください（Beforeとほぼ同等の100〜150字程度が目安です）。';
+      return { pass, earnedPoints: pts, comment };
+    },
+  ],
+
+  // =====================================================================
+  // 演習: テーマをシーンで体現する
+  // =====================================================================
+  'ex-theme-scene-01': [
+    (r, ans) => {
+      const forbidden = /孤独|繋がり|一人ぼっち|友達がいない|寂しい/;
+      const hasForbidden = forbidden.test(ans);
+      const hasVisual = /棚|コンビニ|部屋|窓|電話|写真|傘|地下鉄|駅/.test(ans);
+      const pass = !hasForbidden && hasVisual;
+      const pts = pass ? r.weight : hasForbidden ? Math.floor(r.weight * 0.15) : Math.floor(r.weight * 0.4);
+      const comment = pass
+        ? '◎ 禁止ワード（孤独・繋がり等）を一切使わず、視覚的な場面設定でテーマを表現できています。'
+        : hasForbidden
+          ? '✕ 禁止ワード（孤独・繋がり等）が本文に含まれています。すべて視覚的・行動的な表現に置き換えてください。'
+          : '△ 視覚的なイメージがまだ弱いです。具体的な場所・空間の描写を増やしてください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const hasAloneImage = /誰もいない|一人で|客は誰も/.test(ans);
+      const hasConnectionImage = /ありがとう|いらっしゃいませ|声をかけ|会話/.test(ans);
+      const pass = hasAloneImage && hasConnectionImage;
+      const pts = pass ? r.weight : (hasAloneImage || hasConnectionImage) ? Math.floor(r.weight * 0.55) : Math.floor(r.weight * 0.2);
+      const comment = pass
+        ? '◎ 「孤独」の視覚化と「繋がり」の瞬間、両面が1シーンに込められています。'
+        : '△ 孤独の側面か繋がりの側面のどちらかが薄いです。両方の要素を1シーンに配置してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const symbolWords = ['電話','写真','雑誌','棚','傘','ノート','手紙'];
+      const hasSymbol = symbolWords.some(w => ans.includes(w));
+      const pass = hasSymbol;
+      const pts = pass ? r.weight : Math.floor(r.weight * 0.25);
+      const comment = pass
+        ? '◎ 具体的な小道具がテーマの象徴として機能しています。'
+        : '▲ テーマを象徴する具体的な小道具（写真・電話・雑誌等）が見当たりません。1つ選んでシーンに組み込んでください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+    (r, ans) => {
+      const dialogCount = (ans.match(/「[^」]+」/g) || []).length;
+      const hasShortDialog = (ans.match(/「[^」]{1,10}」/g) || []).length >= 1;
+      const pass = dialogCount >= 1 ? hasShortDialog : true;
+      const pts = pass ? r.weight : Math.floor(r.weight * 0.4);
+      const comment = pass
+        ? '◎ セリフが短く、間接的・詩的な言語でテーマを体現しています（セリフなしの場合も視覚表現で成立しています）。'
+        : '△ セリフが説明的で長すぎます。テーマを語らせるのではなく、短い言葉と行動で「見せる」よう調整してください。';
+      return { pass, earnedPoints: pts, comment };
+    },
+  ],
 };
 
 // ── 道場ページ ─────────────────────────────────────────────
@@ -11494,6 +11947,48 @@ function generateExerciseFeedback(ex, answer) {
       B: '対立の構造は見えています。禁止ワードの代替表現と、行動描写のバリエーションを増やすことが次の課題です。',
       C: '方向性は正しいです。「2人はそれぞれ何をそのシーンで手に入れようとしているか」を先に決めてから書き直してください。',
       D: 'ヒントにある「東京物語」の対話シーンを参考にしてください。感情を直接言わずに伝える技術の基礎から学ぶことをお勧めします。',
+    },
+    'ex-dialogue-01': {
+      S: '声の設計が完璧です。語彙・口調・省略のパターンだけで、名前を出さずとも「これはAだ」「これはBだ」と判別できるレベルに達しています。サブテキストの徹底（直接語の排除）と設計意図の説明——プロの脚本家が台本に付けるト書きレベルの自己分析力があります。',
+      A: '2人の声の違いはよく設計されています。あと一歩、口調の違いを「文の長さ」や「言い終わり方」にまで浸透させることで、読んだ瞬間にキャラクターが判別できる師範水準に届きます。',
+      B: '声の方向性は見えています。設定（職業・性格）を言葉選びにもっと具体的に反映させ、2人のセリフを入れ替えても違和感が出るくらいの差別化を目指してください。',
+      C: '「辞める」という直接語を避ける意識はできています。次は各キャラクターの口ぐせ・話し方の「型」を先に決め、それに沿ってセリフを組み立てる練習をしてください。',
+      D: 'まず2人のキャラクターシートを声に出して読んでみましょう。「この人ならどんな言い方をするか」を想像することから声の設計は始まります。',
+    },
+    'ex-theme-01': {
+      S: 'テーマの「隠し方」が名匠レベルです。象徴の選択、行動による内的変化の提示、そして設計メモの論理性——テーマを説明せずに「感じさせる」という脚本の最高難度の技術を体得しています。次は長編全体でこの一貫性を保つ挑戦です。',
+      A: 'テーマの埋め込みは高い水準でできています。象徴の使い方をシーンの冒頭・末尾でより対称的に配置することで、余韻がさらに深まり師範水準に届きます。',
+      B: '象徴の選択は良い方向です。テーマのキーワードが言葉の端にでも残っていないか確認し、すべて行動・モノに置き換える徹底を意識してください。',
+      C: '象徴を使う発想はできています。「このモノが物語のどの時点でどう意味を変えるか」を先に設計してから執筆すると説得力が増します。',
+      D: '関連記事「テーマの統合」を先に読み、まず「象徴になり得るモノ」を1つ選ぶことから再挑戦してください。テーマを言葉で説明しないことが大原則です。',
+    },
+    'ex-format-01': {
+      S: '日本式脚本フォーマットが完璧に習得できています。柱書き・ト書き・セリフの書式はもちろん、内面描写を「演じられる行動」に変換する技術——これは脚本の基礎にして最重要の技術です。この土台があれば、どんなシーンも書けます。',
+      A: 'フォーマットの理解はほぼ完成しています。内面描写の変換（「ドキドキ」→行動）をさらに具体的な仕草に落とし込むことで師範水準に届きます。',
+      B: '柱書き・セリフの書式は取れています。「泣きそうになったがこらえた」のような内的な一文を、必ず「目・手・呼吸」など体の動きに変換する練習を続けてください。',
+      C: '形式の型は身についてきています。まず柱書きとセリフのインデントを正確に再現し、その後で内面描写の変換に取り組む順番で進めてください。',
+      D: '関連記事「脚本フォーマット」を先に読み、模範解答の柱書き・ト書き・セリフの配置を手で書き写すところから始めてください。',
+    },
+    'ex-tension-01': {
+      S: 'テンション曲線の設計がプロの構成力を示しています。数値化による客観的な緊張度の可視化、劇的アイロニーを活かした山谷の設計、そしてカタルシス理論に基づく並び替え提案——脚本全体を「波形」として捉える視点が確立されています。',
+      A: 'テンションの設計はよくできています。数値の根拠をさらに掘り下げ、「なぜこの値なのか」を感情・葛藤の観点で一段深く説明することで師範水準に届きます。',
+      B: '山と谷の意識はできています。特に最高点と最低点の差をもっと大きく取り、緊張と緩和のコントラストを強調してください。',
+      C: 'テンション値を設定する発想はできています。「観客が何を知っていて、キャラクターが何を知らないか」という劇的アイロニーの視点を取り入れると数値に説得力が出ます。',
+      D: '関連記事「テンションとペーシング」を先に読み、まず5シーンそれぞれに1〜10の数値をつける作業だけに集中してください。',
+    },
+    'ex-rewrite-01': {
+      S: 'オン・ザ・ノーズの撲滅が完璧に実行されています。感情のラベリングを一切残さず、行動・話題すり替え・間（ま）で同等の情報を伝える——これはプロの脚本添削で最も指摘される問題を自力で解決できる証拠です。',
+      A: 'サブテキストへの変換は高い完成度です。使った技法の説明をより明確にし、3つのセリフすべてで技法を意図的に変えることで師範水準に届きます。',
+      B: '書き直しの方向性は正しいです。まだ感情の言葉が一部残っていないか確認し、「行動」「モノ」「話題のすり替え」のいずれかに完全に置き換えてください。',
+      C: '分析（何が表面化しすぎているか）はできています。書き直しでは「このセリフの代わりに、キャラクターは何をするか」を先に考えてから言葉にしてください。',
+      D: '関連記事「サブテキスト」を先に読み、模範解答の書き直し例を分析してから再挑戦することをお勧めします。',
+    },
+    'ex-character-01': {
+      S: 'ウーンドからの設計が名匠レベルです。Lie→Want/Needの対立→行動パターン→アークという因果の連鎖が完全に一貫しており、ログラインまで一文で美しく凝縮されています。これはキャラクター設計における最高難度の技術です。',
+      A: 'Lieと行動パターンの設計はよくできています。WantとNeedの対立をさらに鋭く（正反対に近づける）ことで、キャラクターの内的葛藤がより強く際立ち師範水準に届きます。',
+      B: 'ウーンドからLieを導く論理は見えています。3つの行動パターンすべてがLieと直結しているか再確認し、アークの変化のきっかけをより具体的な出来事で描いてください。',
+      C: 'ウーンドの理解はできています。「このウーンドがあるなら、このキャラクターは何を怖れ、何を避けるようになるか」という順序で一つずつ埋めていくと整理しやすいです。',
+      D: '関連記事「キャラクターアーク」を先に読み、ウーンド→Lieの因果関係を紙に図解してから再挑戦することをお勧めします。',
     },
     'ex-scene-goal-01': {
       S: 'シーンゴール設計の精度がプロレベルです。設計書の論理的一貫性と、脚本シーンへの正確な落とし込み——「目標の設定→障害→変化」という物語の原子単位が完璧に機能しています。',
