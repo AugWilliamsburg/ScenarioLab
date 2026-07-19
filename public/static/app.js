@@ -219,6 +219,75 @@ const ToolHistoryDB = {
   },
 };
 
+// ── DojoLibraryDB：道場「提出履行ライブラリ」──────────────────────
+// 演習ごとの提出（解答＋添削結果）を全履歴として蓄積する。
+// 既存の ex_answer_${id} / ex_feedback_${id}（最新1件キャッシュ・下書き用）は
+// 後方互換のため維持し、提出のたびに本DBへも履歴を1件追加する形にする。
+const DojoLibraryDB = {
+  KEY_PREFIX: 'dojo_history_',
+  MAX: 50, // 演習1つあたりの保持件数上限
+  getAll(exId) { return DB.get(this.KEY_PREFIX + exId, []); }, // 新しい順
+  add(exId, entry) {
+    const list = this.getAll(exId);
+    const item = {
+      id: 'sub-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
+      submittedAt: Date.now(),
+      ...entry,
+    };
+    list.unshift(item);
+    if (list.length > this.MAX) list.length = this.MAX;
+    DB.set(this.KEY_PREFIX + exId, list);
+    return item;
+  },
+  get(exId, subId) { return this.getAll(exId).find(x => x.id === subId) || null; },
+  delete(exId, subId) {
+    DB.set(this.KEY_PREFIX + exId, this.getAll(exId).filter(x => x.id !== subId));
+  },
+  deleteAll(exId) { DB.set(this.KEY_PREFIX + exId, []); },
+  count(exId) { return this.getAll(exId).length; },
+  bestScore(exId) {
+    const list = this.getAll(exId);
+    return list.length ? Math.max(...list.map(x => x.feedback?.score || 0)) : 0;
+  },
+  latest(exId) { return this.getAll(exId)[0] || null; },
+  // 全演習を横断した提出ログ（新しい順）。成長ダッシュボード等で使用。
+  allEntries() {
+    const exercises = getAllExercises();
+    const out = [];
+    exercises.forEach(ex => {
+      this.getAll(ex.id).forEach(e => out.push({ ...e, exId: ex.id, exTitle: ex.title, category: ex.category, difficulty: ex.difficulty, color: ex.color, icon: ex.icon }));
+    });
+    out.sort((a, b) => b.submittedAt - a.submittedAt);
+    return out;
+  },
+};
+
+// ── CustomExerciseDB：道場「自作演習」の作成・編集・削除 ────────────
+// 構造は window._EXERCISES の各要素と同一（id には常に "custom-" prefix を付与）。
+const CustomExerciseDB = {
+  KEY: 'custom_exercises',
+  getAll() { return DB.get(this.KEY, []); },
+  save(list) { DB.set(this.KEY, list); },
+  get(id) { return this.getAll().find(e => e.id === id) || null; },
+  upsert(ex) {
+    const list = this.getAll();
+    const idx = list.findIndex(e => e.id === ex.id);
+    if (idx >= 0) list[idx] = ex; else list.unshift(ex);
+    this.save(list);
+  },
+  delete(id) {
+    this.save(this.getAll().filter(e => e.id !== id));
+    DojoLibraryDB.deleteAll(id);
+    DB.set(`ex_answer_${id}`, '');
+    DB.set(`ex_feedback_${id}`, null);
+  },
+};
+
+// 静的演習＋自作演習を合わせた全演習リストを返す（道場全体で使う唯一の取得口）
+function getAllExercises() {
+  return [...(window._EXERCISES || []), ...CustomExerciseDB.getAll()];
+}
+
 // ── 汎用削除確認モーダル ────────────────────────────────────────
 // title: モーダルタイトル文言／message: 本文HTML／confirmCall: 削除を実行するJS式文字列（onclick に埋め込む）
 function confirmDeleteGeneric(title, message, confirmCall) {
@@ -8599,7 +8668,7 @@ function renderLearnPage() {
   const tabBadge = (count, color='var(--fuji)') =>
     count ? `<span style="font-size:9px;padding:1px 5px;background:${color};color:white;border-radius:8px;margin-left:3px">${count}</span>` : '';
 
-  const EXERCISES = window._EXERCISES || [];
+  const EXERCISES = getAllExercises();
 
   const subnav = `
   <div class="learn-subnav">
@@ -9921,7 +9990,7 @@ window._DOJO_ADVANCED_EVAL = {
 
 // ── 道場ページ ─────────────────────────────────────────────
 function renderLearnExercises(hero, subnav) {
-  const exercises = window._EXERCISES || [];
+  const exercises = getAllExercises();
   const doneExercises = DB.get('done_exercises', []);
   const exFilter = DB.get('ex_filter', { difficulty: '', category: '' });
   const allDifficulties = [...new Set(exercises.map(e => e.difficulty))];
@@ -9981,8 +10050,13 @@ function renderLearnExercises(hero, subnav) {
     const hasDraft = savedAnswer.length > 0;
     const isDaily = ex.id === dailyChallengeId;
     return `
-    <div class="card" style="cursor:pointer;padding:0;overflow:hidden;border-top:3px solid ${c.color}${isDaily?';box-shadow:0 0 0 2px var(--kogane)':''}" onclick="navigate('exercise-${ex.id}')">
+    <div class="card" style="cursor:pointer;padding:0;overflow:hidden;border-top:3px solid ${c.color}${isDaily?';box-shadow:0 0 0 2px var(--kogane)':''};position:relative" onclick="navigate('exercise-${ex.id}')">
       ${isDaily && !dailyDone ? `<div style="background:var(--kogane);color:white;font-size:10px;font-weight:700;padding:3px 10px;display:flex;align-items:center;gap:5px"><i class="fas fa-star" style="font-size:9px"></i> 今日のデイリーチャレンジ</div>` : ''}
+      ${ex.isCustom ? `
+      <div style="position:absolute;right:10px;top:10px;display:flex;gap:4px;z-index:1">
+        <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 7px;color:var(--fuji);background:var(--bg-card)" onclick="event.stopPropagation();editCustomExercise('${ex.id}')" title="編集"><i class="fas fa-pen" style="font-size:9px"></i></button>
+        <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:3px 7px;color:var(--accent);background:var(--bg-card)" onclick="event.stopPropagation();confirmDeleteCustomExercise('${ex.id}')" title="削除"><i class="fas fa-trash" style="font-size:9px"></i></button>
+      </div>` : ''}
       <div style="padding:16px 18px">
         <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:10px">
           <div style="width:44px;height:44px;border-radius:var(--radius-md);background:${c.bg};color:${c.color};display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0">
@@ -9993,8 +10067,9 @@ function renderLearnExercises(hero, subnav) {
               <span style="font-size:10px;padding:1px 7px;background:${diffColor[ex.difficulty]||'var(--text-muted)'}22;color:${diffColor[ex.difficulty]||'var(--text-muted)'};border:1px solid ${diffColor[ex.difficulty]||'var(--text-muted)'}44;border-radius:var(--radius-full);font-weight:700">${ex.difficulty}</span>
               <span style="font-size:10px;padding:1px 7px;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:var(--radius-full);font-weight:600">${ex.category}</span>
               ${done ? `<span style="font-size:10px;padding:1px 7px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border);border-radius:var(--radius-full);font-weight:700"><i class="fas fa-check" style="font-size:8px"></i> 提出済</span>` : hasDraft ? `<span style="font-size:10px;padding:1px 7px;background:var(--kogane-bg);color:var(--kogane);border:1px solid var(--kogane-border);border-radius:var(--radius-full);font-weight:700"><i class="fas fa-pencil" style="font-size:8px"></i> 下書き</span>` : ''}
+              ${ex.isCustom ? `<span style="font-size:10px;padding:1px 7px;background:var(--fuji-bg);color:var(--fuji);border:1px solid var(--fuji-border);border-radius:var(--radius-full);font-weight:700"><i class="fas fa-user-pen" style="font-size:8px"></i> 自作</span>` : ''}
             </div>
-            <div style="font-size:14px;font-weight:700;color:var(--text-primary)">${esc(ex.title)}</div>
+            <div style="font-size:14px;font-weight:700;color:var(--text-primary);padding-right:${ex.isCustom?'40px':'0'}">${esc(ex.title)}</div>
           </div>
         </div>
         <div style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:12px">${esc(ex.overview)}</div>
@@ -10052,6 +10127,9 @@ function renderLearnExercises(hero, subnav) {
     <button class="btn btn-sm" onclick="rollDicePractice()" title="ランダム稽古" style="background:linear-gradient(135deg,#e67e22,#c0392b);color:white;border:none;border-radius:var(--radius-md);padding:10px 16px;font-size:13px;font-weight:700;box-shadow:0 2px 8px #c0392b44;cursor:pointer;display:flex;align-items:center;gap:6px">
       <i class="fas fa-dice" style="font-size:16px"></i> ランダム稽古
     </button>
+    <button class="btn btn-sm" onclick="openAddCustomExercise()" title="自分だけの演習を作る" style="background:var(--bg-card);border:1px solid var(--fuji-border);color:var(--fuji);border-radius:var(--radius-md);padding:10px 16px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px">
+      <i class="fas fa-user-pen" style="font-size:15px"></i> 自作演習
+    </button>
     ${pct>=100?`<span style="font-size:18px">🏆</span>`:''}
   </div>
   <div style="padding:12px 14px;background:var(--asagi-bg);border:1px solid var(--asagi-border);border-radius:var(--radius-md);margin-bottom:16px;font-size:12.5px;color:var(--text-secondary);line-height:1.7">
@@ -10068,7 +10146,7 @@ function renderLearnExercises(hero, subnav) {
 
 // ── 道場個別ページ ─────────────────────────────────────────────
 function renderExercisePage(exId) {
-  const exercises = window._EXERCISES || [];
+  const exercises = getAllExercises();
   const ex = exercises.find(e => e.id === exId);
   if (!ex) return `<div class="article-page">
     <div class="article-back-btn" onclick="navigate('learn-exercises')"><i class="fas fa-arrow-left"></i> 道場に戻る</div>
@@ -10087,6 +10165,43 @@ function renderExercisePage(exId) {
     <div style="flex:1;font-size:12.5px;color:var(--text-secondary)">${r.point}</div>
     <div style="font-size:11px;color:var(--text-muted);flex-shrink:0">${r.weight}点</div>
   </div>`).join('');
+
+  // ── 稽古履歴（ライブラリ）：過去の全提出を新しい順に一覧表示 ──
+  const historyList = DojoLibraryDB.getAll(ex.id);
+  const historyBest = DojoLibraryDB.bestScore(ex.id);
+  const historyHtml = `
+  <div id="ex-history-panel" style="display:none;margin-bottom:16px;padding:16px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:6px">
+      <div style="font-size:13px;font-weight:700;color:var(--text-primary)">
+        <i class="fas fa-scroll" style="color:var(--fuji);margin-right:7px"></i>稽古履歴ライブラリ（全${historyList.length}回分）
+      </div>
+      ${historyList.length ? `<button class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--accent)" onclick="clearHistoryForExercise('${ex.id}')"><i class="fas fa-trash"></i> 全削除</button>` : ''}
+    </div>
+    ${historyList.length === 0 ? `
+    <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12.5px">まだ提出履歴がありません。提出するたびにここに記録が積み重なります。</div>` : `
+    <div style="display:flex;flex-direction:column;gap:8px;max-height:340px;overflow-y:auto">
+      ${historyList.map(h => {
+        const isBest = h.feedback.score === historyBest;
+        const dt = new Date(h.submittedAt);
+        const dtStr = `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+        return `
+        <div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--bg-card);border:1px solid ${isBest?'var(--kogane-border)':'var(--border)'};border-radius:var(--radius-md);${isBest?'box-shadow:0 0 0 1px var(--kogane)':''}">
+          <div style="width:38px;height:38px;border-radius:50%;background:var(--bg-subtle);border:2px solid ${h.feedback.scoreColor};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:${h.feedback.scoreColor};flex-shrink:0">${h.feedback.score}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;font-weight:700;color:var(--text-primary)">
+              第${h.submissionNo || '?'}稽古 · ${h.feedback.grade}
+              ${isBest ? `<span style="font-size:9px;padding:1px 6px;background:var(--kogane-bg);color:var(--kogane);border-radius:var(--radius-full);margin-left:6px"><i class="fas fa-crown" style="font-size:8px"></i> 自己ベスト</span>` : ''}
+            </div>
+            <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px">${dtStr} · ${h.answer.length}字</div>
+          </div>
+          <div style="display:flex;gap:5px;flex-shrink:0">
+            <button class="btn btn-ghost btn-sm" style="font-size:10.5px;padding:4px 8px" onclick="loadHistorySubmission('${ex.id}','${h.id}')" title="この提出を呼び出す"><i class="fas fa-rotate-left"></i></button>
+            <button class="btn btn-ghost btn-sm" style="font-size:10.5px;padding:4px 8px;color:var(--accent)" onclick="deleteHistorySubmission('${ex.id}','${h.id}')" title="削除"><i class="fas fa-trash"></i></button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`}
+  </div>`;
 
   const relatedHtml = (ex.relatedArticles || []).map(id => {
     const a = ARTICLES.find(x => x.id === id);
@@ -10165,6 +10280,10 @@ function renderExercisePage(exId) {
         <span style="font-size:10px;padding:2px 8px;background:${diffColor[ex.difficulty]||'#eee'}22;color:${diffColor[ex.difficulty]||'#999'};border:1px solid ${diffColor[ex.difficulty]||'#eee'}44;border-radius:var(--radius-full);font-weight:700">${ex.difficulty}</span>
         <span style="font-size:10px;padding:2px 8px;background:${c.bg};color:${c.color};border:1px solid ${c.border};border-radius:var(--radius-full);font-weight:600">${ex.category}</span>
         ${done?`<span style="font-size:10px;padding:2px 8px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border);border-radius:var(--radius-full);font-weight:700"><i class="fas fa-check" style="font-size:8px"></i> 提出済</span>`:''}
+        ${ex.isCustom?`<span style="font-size:10px;padding:2px 8px;background:var(--fuji-bg);color:var(--fuji);border:1px solid var(--fuji-border);border-radius:var(--radius-full);font-weight:700"><i class="fas fa-user-pen" style="font-size:8px"></i> 自作</span>`:''}
+        ${ex.isCustom?`
+        <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 8px;color:var(--fuji);margin-left:auto" onclick="editCustomExercise('${ex.id}')"><i class="fas fa-pen" style="font-size:9px"></i> 編集</button>
+        <button class="btn btn-ghost btn-sm" style="font-size:10px;padding:2px 8px;color:var(--accent)" onclick="confirmDeleteCustomExercise('${ex.id}')"><i class="fas fa-trash" style="font-size:9px"></i> 削除</button>`:''}
       </div>
     </div>
 
@@ -10224,6 +10343,7 @@ function renderExercisePage(exId) {
             <div style="display:flex;gap:8px;flex-wrap:wrap">
               <button class="btn btn-ghost btn-sm" onclick="showExHint('${ex.id}')"><i class="fas fa-lightbulb"></i> ヒント</button>
               <button class="btn btn-ghost btn-sm" onclick="togglePreSubmitCheck()" id="ex-precheck-btn"><i class="fas fa-clipboard-check"></i> 提出前確認</button>
+              <button class="btn btn-ghost btn-sm" onclick="toggleHistoryPanel()"><i class="fas fa-scroll"></i> 稽古履歴${historyList.length?`(${historyList.length})`:''}</button>
               <button class="btn btn-primary" onclick="submitExercise('${ex.id}')" id="ex-submit-btn">
                 <i class="fas fa-paper-plane"></i> 提出して添削を受ける
               </button>
@@ -10253,6 +10373,9 @@ function renderExercisePage(exId) {
           <div style="font-size:13px;color:var(--text-secondary);white-space:pre-line;line-height:1.8">${esc(ex.hint)}</div>
         </div>
 
+        <!-- 稽古履歴（ライブラリ）パネル -->
+        ${historyHtml}
+
         ${feedbackHtml}
       </div>
 
@@ -10278,7 +10401,7 @@ function renderExercisePage(exId) {
 
         <!-- 前後の演習ナビ -->
         ${(() => {
-          const allEx = window._EXERCISES || [];
+          const allEx = getAllExercises();
           const idx = allEx.findIndex(e => e.id === ex.id);
           const prev = idx > 0 ? allEx[idx-1] : null;
           const next = idx < allEx.length-1 ? allEx[idx+1] : null;
@@ -10726,7 +10849,7 @@ function loadExTemplate(exId) {
 
 // ── 道場 提出→師範添削 ───────────────────────────────────────
 function submitExercise(exId) {
-  const exercises = window._EXERCISES || [];
+  const exercises = getAllExercises();
   const ex = exercises.find(e => e.id === exId);
   if (!ex) return;
   const answer = document.getElementById('ex-answer-input')?.value?.trim() || '';
@@ -10747,6 +10870,12 @@ function submitExercise(exId) {
     DB.set('done_exercises', done);
     DB.set(`ex_answer_${exId}`, answer);
 
+    // ── 稽古履歴ライブラリへ全履行を蓄積（過去のプロンプト/鍛錬を保存） ──
+    const prevBest = DojoLibraryDB.bestScore(exId);
+    const submissionNo = DojoLibraryDB.count(exId) + 1;
+    DojoLibraryDB.add(exId, { answer, feedback, submissionNo });
+    const isNewBest = feedback.score > prevBest;
+
     // ストリーク更新
     const todayStr = new Date().toISOString().slice(0, 10);
     const streakData = DB.get('ex_streak', { count: 0, lastDate: null, dates: [] });
@@ -10758,7 +10887,7 @@ function submitExercise(exId) {
       if (newCount >= 3) toast(`🔥 ${newCount}日連続！ 素晴らしい稽古精神です！`, 'success');
     }
 
-    toast('添削が完了しました！', 'success');
+    toast(isNewBest && submissionNo > 1 ? `添削が完了！ 自己ベスト更新（${feedback.score}点）` : '添削が完了しました！', 'success');
     render();
     setTimeout(() => {
       const panel = document.getElementById('ex-feedback-panel');
@@ -11403,7 +11532,7 @@ function generateExerciseFeedback(ex, answer) {
   return { score: totalScore, grade, scoreColor, rubricFeedback, overallComment, improvements };
 }
 function resetExercise(exId) {
-  if (!confirm('添削結果と下書きをリセットして最初からやり直しますか？')) return;
+  if (!confirm('現在の解答・添削表示をクリアして最初からやり直しますか？\n（過去の提出はすべて「稽古履歴」ライブラリに保存されたまま残ります）')) return;
   DB.set(`ex_feedback_${exId}`, null);
   DB.set(`ex_answer_${exId}`, '');
   const done = DB.get('done_exercises', []);
@@ -11413,6 +11542,204 @@ function resetExercise(exId) {
   render();
 }
 
+// ── 稽古履歴ライブラリから過去の提出を選び、現在の解答欄に呼び出す ──
+function loadHistorySubmission(exId, subId) {
+  const entry = DojoLibraryDB.get(exId, subId);
+  if (!entry) return;
+  const cur = document.getElementById('ex-answer-input');
+  if (cur && cur.value.trim().length > 5 && cur.value.trim() !== entry.answer.trim()) {
+    if (!confirm('現在の解答欄の内容を、この過去の提出内容で置き換えます。よろしいですか？')) return;
+  }
+  DB.set(`ex_answer_${exId}`, entry.answer);
+  DB.set(`ex_feedback_${exId}`, entry.feedback);
+  toast(`過去の提出（第${entry.submissionNo || '?'}稽古）を呼び出しました`, 'success');
+  render();
+  setTimeout(() => {
+    const panel = document.getElementById('ex-feedback-panel');
+    if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 100);
+}
+
+// 稽古履歴ライブラリの個別提出を削除
+function deleteHistorySubmission(exId, subId) {
+  confirmDeleteGeneric(
+    'この提出履歴を削除',
+    'この提出（解答＋添削結果）を稽古履歴ライブラリから削除します。元に戻せません。',
+    `doDeleteHistorySubmission('${exId}','${subId}')`
+  );
+}
+function doDeleteHistorySubmission(exId, subId) {
+  DojoLibraryDB.delete(exId, subId);
+  closeModal();
+  toast('提出履歴を削除しました', 'info');
+  render();
+}
+
+// 稽古履歴ライブラリ全体（この演習分）を一括削除
+function clearHistoryForExercise(exId) {
+  confirmDeleteGeneric(
+    'この演習の稽古履歴をすべて削除',
+    'この演習に関する過去の提出履歴をすべて削除します。元に戻せません。',
+    `doClearHistoryForExercise('${exId}')`
+  );
+}
+function doClearHistoryForExercise(exId) {
+  DojoLibraryDB.deleteAll(exId);
+  closeModal();
+  toast('稽古履歴をすべて削除しました', 'info');
+  render();
+}
+
+// 稽古履歴パネルの開閉トグル
+function toggleHistoryPanel() {
+  const el = document.getElementById('ex-history-panel');
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+// ================================================================
+// ── 道場 自作演習（CustomExerciseDB）作成・編集・削除 UI ─────────────
+// CustomTemplateDBと同様のモーダルCRUDパターンを踏襲。
+// ================================================================
+const CUSTOM_EX_ICONS = ['fa-pen-nib','fa-quote-left','fa-film','fa-masks-theater','fa-comments','fa-bolt','fa-route','fa-lightbulb','fa-heart-crack','fa-scroll','fa-clapperboard','fa-book-open'];
+const CUSTOM_EX_COLORS = ['beni','kon','matcha','kogane','fuji','momo','asagi'];
+
+// ルーブリック行編集UI（テキストエリア「採点項目|配点」形式）をパースして配列に変換
+function _parseRubricLines(text) {
+  return (text || '').split('\n').map(l => l.trim()).filter(Boolean).map(l => {
+    const parts = l.split('|');
+    const point = (parts[0] || '').trim();
+    const weight = Math.max(1, parseInt(parts[1], 10) || 0);
+    return point ? { point, weight } : null;
+  }).filter(Boolean);
+}
+function _rubricToLines(rubric) {
+  return (rubric || []).map(r => `${r.point}|${r.weight}`).join('\n');
+}
+
+function openAddCustomExercise() {
+  openModal(
+    `<i class="fas fa-user-pen" style="color:var(--fuji)"></i> 自作演習を作成`,
+    `<div class="form-group"><label class="form-label">演習タイトル <span style="color:var(--accent)">*</span></label><input class="form-input" id="cex-title" placeholder="例：私だけの対立シーン特訓"></div>
+     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+       <div class="form-group"><label class="form-label">カテゴリ</label><input class="form-input" id="cex-category" placeholder="例：シーン設計"></div>
+       <div class="form-group"><label class="form-label">難易度</label><select class="form-select" id="cex-difficulty">
+         <option value="初級">初級</option><option value="中級" selected>中級</option><option value="上級">上級</option>
+       </select></div>
+     </div>
+     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+       <div class="form-group"><label class="form-label">目安時間（分）</label><input class="form-input" id="cex-time" type="number" min="1" value="20"></div>
+       <div class="form-group"><label class="form-label">アイコン</label><select class="form-select" id="cex-icon">${CUSTOM_EX_ICONS.map(i=>`<option value="${i}"><i class="fas ${i}"></i></option>`).join('')}</select></div>
+       <div class="form-group"><label class="form-label">カラー</label><select class="form-select" id="cex-color">${CUSTOM_EX_COLORS.map(c=>`<option value="${c}">${c}</option>`).join('')}</select></div>
+     </div>
+     <div class="form-group"><label class="form-label">概要（任意）</label><input class="form-input" id="cex-overview" placeholder="どんな稽古か一言で"></div>
+     <div class="form-group"><label class="form-label">問題文 <span style="color:var(--accent)">*</span></label><textarea class="form-input" id="cex-question" rows="6" style="font-family:'Noto Serif JP',serif;line-height:1.7" placeholder="問題文・要件をここに書きます"></textarea></div>
+     <div class="form-group"><label class="form-label">採点基準（1行に「項目名|配点」形式・複数行可） <span style="color:var(--accent)">*</span></label>
+       <textarea class="form-input" id="cex-rubric" rows="5" style="font-family:monospace;font-size:12px" placeholder="主人公の目的が明確か|30
+セリフに感情がこもっているか|30
+サブテキストが使われているか|40"></textarea>
+       <div style="font-size:11px;color:var(--text-muted);margin-top:4px">配点の合計は自動計算されます（100点になるよう調整してください）</div>
+     </div>
+     <div class="form-group"><label class="form-label">ヒント（任意）</label><textarea class="form-input" id="cex-hint" rows="2"></textarea></div>
+     <div class="form-group"><label class="form-label">模範解答（任意）</label><textarea class="form-input" id="cex-sample" rows="4"></textarea></div>
+     <div class="form-group"><label class="form-label">タグ（カンマ区切り・任意）</label><input class="form-input" id="cex-tags" placeholder="例：対立, 自作"></div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="addCustomExercise()"><i class="fas fa-plus"></i> 作成する</button>`,
+    { size: 'modal-lg' }
+  );
+}
+
+function _collectCustomExerciseForm(prefix) {
+  const title = $(`#${prefix}-title`)?.value?.trim();
+  const category = $(`#${prefix}-category`)?.value?.trim() || '自作演習';
+  const difficulty = $(`#${prefix}-difficulty`)?.value || '中級';
+  const estimatedTime = Math.max(1, parseInt($(`#${prefix}-time`)?.value, 10) || 20);
+  const icon = $(`#${prefix}-icon`)?.value || 'fa-pen-nib';
+  const color = $(`#${prefix}-color`)?.value || 'fuji';
+  const overview = $(`#${prefix}-overview`)?.value?.trim() || '';
+  const question = $(`#${prefix}-question`)?.value?.trim();
+  const rubric = _parseRubricLines($(`#${prefix}-rubric`)?.value);
+  const hint = $(`#${prefix}-hint`)?.value?.trim() || '';
+  const sampleAnswer = $(`#${prefix}-sample`)?.value?.trim() || '';
+  const tagsRaw = $(`#${prefix}-tags`)?.value?.trim();
+  const tags = tagsRaw ? tagsRaw.split(',').map(t=>t.trim()).filter(Boolean) : [];
+  if (!title || !question) { toast('演習タイトルと問題文は必須です', 'error'); return null; }
+  if (!rubric.length) { toast('採点基準を1項目以上入力してください（「項目名|配点」形式）', 'error'); return null; }
+  return { title, category, difficulty, estimatedTime, icon, color, overview, question, rubric, hint, sampleAnswer, tags };
+}
+
+function addCustomExercise() {
+  const data = _collectCustomExerciseForm('cex');
+  if (!data) return;
+  const ex = {
+    id: 'custom-' + uid(),
+    isCustom: true,
+    createdAt: now(),
+    relatedArticles: [],
+    ...data,
+  };
+  CustomExerciseDB.upsert(ex);
+  closeModal();
+  toast('自作演習を作成しました。道場に追加されました！', 'success');
+  render();
+}
+
+function editCustomExercise(id) {
+  const ex = CustomExerciseDB.get(id);
+  if (!ex) return;
+  openModal(
+    `<i class="fas fa-pen" style="color:var(--fuji)"></i> 自作演習を編集`,
+    `<div class="form-group"><label class="form-label">演習タイトル <span style="color:var(--accent)">*</span></label><input class="form-input" id="ecex-title" value="${esc(ex.title)}"></div>
+     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+       <div class="form-group"><label class="form-label">カテゴリ</label><input class="form-input" id="ecex-category" value="${esc(ex.category)}"></div>
+       <div class="form-group"><label class="form-label">難易度</label><select class="form-select" id="ecex-difficulty">
+         ${['初級','中級','上級'].map(d=>`<option value="${d}" ${ex.difficulty===d?'selected':''}>${d}</option>`).join('')}
+       </select></div>
+     </div>
+     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+       <div class="form-group"><label class="form-label">目安時間（分）</label><input class="form-input" id="ecex-time" type="number" min="1" value="${ex.estimatedTime}"></div>
+       <div class="form-group"><label class="form-label">アイコン</label><select class="form-select" id="ecex-icon">${CUSTOM_EX_ICONS.map(i=>`<option value="${i}" ${ex.icon===i?'selected':''}><i class="fas ${i}"></i></option>`).join('')}</select></div>
+       <div class="form-group"><label class="form-label">カラー</label><select class="form-select" id="ecex-color">${CUSTOM_EX_COLORS.map(c=>`<option value="${c}" ${ex.color===c?'selected':''}>${c}</option>`).join('')}</select></div>
+     </div>
+     <div class="form-group"><label class="form-label">概要（任意）</label><input class="form-input" id="ecex-overview" value="${esc(ex.overview||'')}"></div>
+     <div class="form-group"><label class="form-label">問題文 <span style="color:var(--accent)">*</span></label><textarea class="form-input" id="ecex-question" rows="6" style="font-family:'Noto Serif JP',serif;line-height:1.7">${esc(ex.question)}</textarea></div>
+     <div class="form-group"><label class="form-label">採点基準（1行に「項目名|配点」形式・複数行可） <span style="color:var(--accent)">*</span></label>
+       <textarea class="form-input" id="ecex-rubric" rows="5" style="font-family:monospace;font-size:12px">${esc(_rubricToLines(ex.rubric))}</textarea>
+     </div>
+     <div class="form-group"><label class="form-label">ヒント（任意）</label><textarea class="form-input" id="ecex-hint" rows="2">${esc(ex.hint||'')}</textarea></div>
+     <div class="form-group"><label class="form-label">模範解答（任意）</label><textarea class="form-input" id="ecex-sample" rows="4">${esc(ex.sampleAnswer||'')}</textarea></div>
+     <div class="form-group"><label class="form-label">タグ（カンマ区切り・任意）</label><input class="form-input" id="ecex-tags" value="${esc((ex.tags||[]).join(', '))}"></div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveEditCustomExercise('${id}')"><i class="fas fa-check"></i> 保存する</button>`,
+    { size: 'modal-lg' }
+  );
+}
+
+function saveEditCustomExercise(id) {
+  const existing = CustomExerciseDB.get(id);
+  if (!existing) return;
+  const data = _collectCustomExerciseForm('ecex');
+  if (!data) return;
+  CustomExerciseDB.upsert({ ...existing, ...data });
+  closeModal();
+  toast('自作演習を更新しました', 'success');
+  render();
+}
+
+function confirmDeleteCustomExercise(id) {
+  const ex = CustomExerciseDB.get(id);
+  confirmDeleteGeneric(
+    '自作演習を削除',
+    `「<strong style="color:var(--text-primary)">${esc(ex?.title||'これ')}</strong>」を削除します。この演習の稽古履歴・解答・添削もすべて削除され、元に戻せません。`,
+    `deleteCustomExercise('${id}')`
+  );
+}
+function deleteCustomExercise(id) {
+  CustomExerciseDB.delete(id);
+  closeModal();
+  toast('自作演習を削除しました', 'info');
+  navigate('learn-exercises');
+}
+
 // ================================================================
 // ── 道場 ランダム問題生成エンジン（1万通り以上）────────────────────
 // ================================================================
@@ -11420,7 +11747,7 @@ window._DICE_SEEDS = {};  // exId -> currentSeed
 
 // リストからランダムに1問選んで遷移
 function rollDicePractice() {
-  const exercises = window._EXERCISES || [];
+  const exercises = getAllExercises();
   if (!exercises.length) return;
   const ex = exercises[Math.floor(Math.random() * exercises.length)];
   navigate('exercise-' + ex.id);
@@ -11816,7 +12143,7 @@ ${req}`;
 
 // ================================================================
 function addExerciseToNote(exId) {
-  const exercises = window._EXERCISES || [];
+  const exercises = getAllExercises();
   const ex = exercises.find(e => e.id === exId);
   if (!ex) return;
   const feedback = DB.get(`ex_feedback_${exId}`, null);
@@ -12363,7 +12690,7 @@ function renderLearnBadges(hero, subnav) {
   const doneExercises  = DB.get('done_exercises', []);
   const readGuides     = DB.get('read_guides', []);
   const roadmapDone    = DB.get('roadmap_completed', []);
-  const exercises      = window._EXERCISES || [];
+  const exercises      = getAllExercises();
 
   const BADGES = [
     // 記事バッジ
