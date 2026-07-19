@@ -915,7 +915,32 @@ function renderLayout(content, proj = null) {
       <div class="page-content" id="page-content">${content}</div>
     </div>
   </div>
+
+  <!-- モバイル用ボトムナビゲーション（画面下部固定・スマホ表示時のみ） -->
+  <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+    <button class="mbn-item ${cp==='top'?'active':''}" onclick="mobileNavGo('top')">
+      <i class="fas fa-house"></i><span>ホーム</span>
+    </button>
+    <button class="mbn-item ${isStudyPage?'active':''}" onclick="mobileNavGo('study')">
+      <i class="fas fa-feather-pointed"></i><span>書斎</span>
+    </button>
+    <button class="mbn-item ${(isToolsPage||isTemplatesPage)?'active':''}" onclick="mobileNavGo('tools')">
+      <i class="fas fa-toolbox"></i><span>ツール</span>
+    </button>
+    <button class="mbn-item ${isJournalPage?'active':''}" onclick="mobileNavGo('journal')">
+      <i class="fas fa-book"></i><span>日誌</span>
+    </button>
+    <button class="mbn-item" id="mbn-menu-btn" onclick="openSidebar()">
+      <i class="fas fa-bars"></i><span>メニュー</span>
+    </button>
+  </nav>
   <div id="toast-container" class="toast-container"></div>`;
+}
+
+// ── モバイルボトムナビ：タップ時にサイドバーが開いていれば閉じてから移動 ──
+function mobileNavGo(page, arg) {
+  if (window.innerWidth <= 900) closeSidebar();
+  navigate(page, arg);
 }
 
 // ── サイドバートグル ────────────────────────────────────────────
@@ -27215,13 +27240,13 @@ const TEMPLATE_CATS_DATA = [
     color: 'beni',
     badge: '構成',
     items: [
-      { id:'three-act', name:'三幕構成シート', desc:'Act1/Act2/Act3の主要ビートを埋めるだけ', tags:['構成','定番'], hasForm:true },
-      { id:'save-cat', name:'Save the Cat 15ビートシート', desc:'ブレイク・スナイダー式の15ポイント完全版', tags:['構成','映画'] },
-      { id:'kishotenketsu', name:'起承転結設計シート', desc:'日本式四段構成の各フェーズを整理', tags:['構成','日本式'] },
-      { id:'story-circle', name:'ストーリーサークル設計', desc:'ダン・ハーモンの8ステップ円環構造', tags:['構成','サークル'] },
-      { id:'logline-sheet', name:'ログライン＆企画書シート', desc:'プレミス・ログライン・ピッチを一枚で完成させる', tags:['企画','ログライン'], hasForm:true },
-      { id:'nonlinear-structure', name:'非線形構成シート', desc:'回想・並行タイムラインを使う物語の時系列を整理', tags:['構成','非線形'], badge:'新規' },
-      { id:'multi-pov-structure', name:'複数視点構成シート', desc:'POVごとの担当パート・情報開示タイミングを設計', tags:['構成','視点'], badge:'新規' },
+      { id:'three-act', name:'三幕構成シート', desc:'Act1/Act2/Act3の主要ビートを埋めるだけ', tags:['構成','定番'], type:'form' },
+      { id:'save-cat', name:'Save the Cat 15ビートシート', desc:'ブレイク・スナイダー式の15ポイント完全版', tags:['構成','映画'], type:'form' },
+      { id:'kishotenketsu', name:'起承転結設計シート', desc:'日本式四段構成の各フェーズを整理', tags:['構成','日本式'], type:'form' },
+      { id:'story-circle', name:'ストーリーサークル設計', desc:'ダン・ハーモンの8ステップ円環構造', tags:['構成','サークル'], type:'form' },
+      { id:'logline-sheet', name:'ログライン＆企画書シート', desc:'プレミス・ログライン・ピッチを一枚で完成させる', tags:['企画','ログライン'], type:'form' },
+      { id:'nonlinear-structure', name:'非線形構成シート', desc:'回想・並行タイムラインを使う物語の時系列を整理', tags:['構成','非線形'], badge:'新規', type:'form' },
+      { id:'multi-pov-structure', name:'複数視点構成シート', desc:'POVごとの担当パート・情報開示タイミングを設計', tags:['構成','視点'], badge:'新規', type:'form' },
     ]
   },
   {
@@ -27231,13 +27256,13 @@ const TEMPLATE_CATS_DATA = [
     color: 'fuji',
     badge: 'キャラ',
     items: [
-      { id:'char-basic', name:'キャラクター基本シート', desc:'名前・年齢・役割・外見・性格の基礎情報', tags:['キャラクター','基礎'], hasForm:true },
-      { id:'char-deep', name:'キャラクター深掘りシート', desc:'Want/Need/ウーンド/Lie/Truthの内面設計', tags:['キャラクター','深掘り'] },
-      { id:'char-arc', name:'キャラクターアーク設計', desc:'ポジティブ/ネガティブ/フラットアーク', tags:['キャラクター','アーク'] },
-      { id:'antagonist-sheet', name:'アンタゴニスト設計シート', desc:'強い敵役の信念・動機・対立軸を設計する', tags:['キャラクター','敵役'] },
-      { id:'relationship-map', name:'人物関係マップ', desc:'主要登場人物の関係性と対立構図を整理', tags:['キャラクター','関係性'] },
-      { id:'char-voice-sheet', name:'キャラクターボイス設計シート', desc:'口調・語彙・話速など「声」の個性を作り分ける', tags:['キャラクター','セリフ'], badge:'新規' },
-      { id:'char-backstory', name:'バックストーリー設計シート', desc:'現在の行動に繋がる過去の出来事を整理する', tags:['キャラクター','過去'], badge:'新規' },
+      { id:'char-basic', name:'キャラクター基本シート', desc:'名前・年齢・役割・外見・性格の基礎情報', tags:['キャラクター','基礎'], type:'form' },
+      { id:'char-deep', name:'キャラクター深掘りシート', desc:'Want/Need/ウーンド/Lie/Truthの内面設計', tags:['キャラクター','深掘り'], type:'form' },
+      { id:'char-arc', name:'キャラクターアーク設計', desc:'ポジティブ/ネガティブ/フラットアーク', tags:['キャラクター','アーク'], type:'form' },
+      { id:'antagonist-sheet', name:'アンタゴニスト設計シート', desc:'強い敵役の信念・動機・対立軸を設計する', tags:['キャラクター','敵役'], type:'form' },
+      { id:'relationship-map', name:'人物関係マップ', desc:'主要登場人物の関係性と対立構図を整理', tags:['キャラクター','関係性'], type:'form' },
+      { id:'char-voice-sheet', name:'キャラクターボイス設計シート', desc:'口調・語彙・話速など「声」の個性を作り分ける', tags:['キャラクター','セリフ'], badge:'新規', type:'form' },
+      { id:'char-backstory', name:'バックストーリー設計シート', desc:'現在の行動に繋がる過去の出来事を整理する', tags:['キャラクター','過去'], badge:'新規', type:'form' },
     ]
   },
   {
@@ -27247,13 +27272,13 @@ const TEMPLATE_CATS_DATA = [
     color: 'momo',
     badge: 'シーン',
     items: [
-      { id:'scene-check', name:'シーンチェックリスト', desc:'目的・対立・変化の1シーン4要素確認', tags:['シーン','チェック'] },
-      { id:'dialogue-check', name:'セリフ診断リスト', desc:'サブテキスト・キャラクターの声・オンザノーズ確認', tags:['セリフ','診断'] },
-      { id:'format-sample', name:'脚本フォーマット見本', desc:'日本式フォーマットの完全記述例付き', tags:['フォーマット','見本'] },
-      { id:'scene-sequence', name:'シーンシーケンス設計', desc:'5〜8シーンのシーケンス構造を設計する', tags:['シーン','構成'] },
-      { id:'subtext-guide', name:'サブテキスト変換ガイド', desc:'直接的なセリフを間接的に変換するための指針', tags:['セリフ','サブテキスト'] },
-      { id:'action-scene-sheet', name:'アクションシーン設計シート', desc:'空間・障害物・段取りを整理してアクションを設計', tags:['シーン','アクション'], badge:'新規' },
-      { id:'opening-scene-check', name:'オープニングシーンチェックリスト', desc:'冒頭シーンで必要な要素を漏れなく確認', tags:['シーン','冒頭'], badge:'新規' },
+      { id:'scene-check', name:'シーンチェックリスト', desc:'目的・対立・変化の1シーン4要素確認', tags:['シーン','チェック'], type:'checklist' },
+      { id:'dialogue-check', name:'セリフ診断リスト', desc:'サブテキスト・キャラクターの声・オンザノーズ確認', tags:['セリフ','診断'], type:'checklist' },
+      { id:'format-sample', name:'脚本フォーマット見本', desc:'日本式フォーマットの完全記述例付き', tags:['フォーマット','見本'], type:'card' },
+      { id:'scene-sequence', name:'シーンシーケンス設計', desc:'5〜8シーンのシーケンス構造を設計する', tags:['シーン','構成'], type:'form' },
+      { id:'subtext-guide', name:'サブテキスト変換ガイド', desc:'直接的なセリフを間接的に変換するための指針', tags:['セリフ','サブテキスト'], type:'card' },
+      { id:'action-scene-sheet', name:'アクションシーン設計シート', desc:'空間・障害物・段取りを整理してアクションを設計', tags:['シーン','アクション'], badge:'新規', type:'form' },
+      { id:'opening-scene-check', name:'オープニングシーンチェックリスト', desc:'冒頭シーンで必要な要素を漏れなく確認', tags:['シーン','冒頭'], badge:'新規', type:'checklist' },
     ]
   },
   {
@@ -27263,12 +27288,12 @@ const TEMPLATE_CATS_DATA = [
     color: 'kogane',
     badge: '改稿',
     items: [
-      { id:'revision-sheet', name:'大改稿チェックシート', desc:'構造・シーン・キャラクター全レベルの確認', tags:['改稿','チェック'] },
-      { id:'polish-sheet', name:'精密推敲チェックシート', desc:'セリフ・ト書きの細部磨き方', tags:['推敲','仕上げ'] },
-      { id:'feedback-form', name:'フィードバック記録フォーム', desc:'読み合わせ後のフィードバックを整理して改稿に活かす', tags:['フィードバック','記録'] },
-      { id:'draft-log', name:'改稿ログシート', desc:'稿ごとの変更内容・目的・結果を記録する', tags:['改稿','管理'] },
-      { id:'pacing-check', name:'ペーシング診断シート', desc:'展開の速さ・間延び・急ぎすぎを章ごとに診断', tags:['改稿','ペース'], badge:'新規' },
-      { id:'consistency-check', name:'整合性チェックリスト', desc:'設定・時系列・呼称のブレを洗い出す', tags:['改稿','整合性'], badge:'新規' },
+      { id:'revision-sheet', name:'大改稿チェックシート', desc:'構造・シーン・キャラクター全レベルの確認', tags:['改稿','チェック'], type:'checklist' },
+      { id:'polish-sheet', name:'精密推敲チェックシート', desc:'セリフ・ト書きの細部磨き方', tags:['推敲','仕上げ'], type:'checklist' },
+      { id:'feedback-form', name:'フィードバック記録フォーム', desc:'読み合わせ後のフィードバックを整理して改稿に活かす', tags:['フィードバック','記録'], type:'form' },
+      { id:'draft-log', name:'改稿ログシート', desc:'稿ごとの変更内容・目的・結果を記録する', tags:['改稿','管理'], type:'form' },
+      { id:'pacing-check', name:'ペーシング診断シート', desc:'展開の速さ・間延び・急ぎすぎを章ごとに診断', tags:['改稿','ペース'], badge:'新規', type:'form' },
+      { id:'consistency-check', name:'整合性チェックリスト', desc:'設定・時系列・呼称のブレを洗い出す', tags:['改稿','整合性'], badge:'新規', type:'checklist' },
     ]
   },
   {
@@ -27278,12 +27303,12 @@ const TEMPLATE_CATS_DATA = [
     color: 'matcha',
     badge: '企画',
     items: [
-      { id:'pitch-sheet', name:'ピッチドックシート', desc:'タイトル・ジャンル・ログライン・世界観・キャスト', tags:['企画','ピッチ'] },
-      { id:'theme-sheet', name:'テーマ設計シート', desc:'テーマ・モラル・プレミスを物語に埋め込む方法', tags:['テーマ','設計'] },
-      { id:'genre-check', name:'ジャンルお約束チェック', desc:'ジャンル別の必須要素と期待を外さないためのリスト', tags:['ジャンル','チェック'] },
-      { id:'world-building', name:'世界観設計シート', desc:'時代・場所・ルール・社会構造の設定整理', tags:['世界観','設定'] },
-      { id:'series-bible', name:'シリーズバイブルシート', desc:'続編・シリーズ化を前提にした設定の一元管理', tags:['企画','シリーズ'], badge:'新規' },
-      { id:'audience-analysis', name:'想定読者分析シート', desc:'誰に向けて書くか・何を期待されているかを明確化', tags:['企画','読者'], badge:'新規' },
+      { id:'pitch-sheet', name:'ピッチドックシート', desc:'タイトル・ジャンル・ログライン・世界観・キャスト', tags:['企画','ピッチ'], type:'form' },
+      { id:'theme-sheet', name:'テーマ設計シート', desc:'テーマ・モラル・プレミスを物語に埋め込む方法', tags:['テーマ','設計'], type:'form' },
+      { id:'genre-check', name:'ジャンルお約束チェック', desc:'ジャンル別の必須要素と期待を外さないためのリスト', tags:['ジャンル','チェック'], type:'checklist' },
+      { id:'world-building', name:'世界観設計シート', desc:'時代・場所・ルール・社会構造の設定整理', tags:['世界観','設定'], type:'form' },
+      { id:'series-bible', name:'シリーズバイブルシート', desc:'続編・シリーズ化を前提にした設定の一元管理', tags:['企画','シリーズ'], badge:'新規', type:'form' },
+      { id:'audience-analysis', name:'想定読者分析シート', desc:'誰に向けて書くか・何を期待されているかを明確化', tags:['企画','読者'], badge:'新規', type:'form' },
     ]
   },
 ];
@@ -27351,7 +27376,9 @@ function renderTemplateCardHtml(item, colorMap, bgMap, borderMap) {
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
           <div style="font-size:13px;font-weight:700;color:var(--text-primary);line-height:1.4">${esc(item.name)}</div>
           ${item.badge ? `<span class="tag tag-beni" style="font-size:9px">${item.badge}</span>` : ''}
-          ${item.hasForm ? `<span class="tag" style="font-size:9px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border)"><i class="fas fa-table-list" style="font-size:8px"></i> フォーム対応</span>` : ''}
+          ${item.type === 'form' ? `<span class="tag" style="font-size:9px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border)"><i class="fas fa-table-list" style="font-size:8px"></i> フォーム対応</span>` : ''}
+          ${item.type === 'checklist' ? `<span class="tag" style="font-size:9px;background:var(--momo-bg);color:var(--momo);border:1px solid var(--momo-border)"><i class="fas fa-list-check" style="font-size:8px"></i> チェック式</span>` : ''}
+          ${item.type === 'card' ? `<span class="tag" style="font-size:9px;background:var(--asagi-bg);color:var(--asagi);border:1px solid var(--asagi-border)"><i class="fas fa-newspaper" style="font-size:8px"></i> 読む</span>` : ''}
           ${useCount > 0 ? `<span class="toolx-usage-badge toolx-usage-inline"><i class="fas fa-arrow-rotate-right"></i> ${useCount}</span>` : ''}
         </div>
         <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.5">${esc(item.desc||'')}</div>
@@ -27771,7 +27798,14 @@ function saveTemplateToNoteFromCard(id, name) {
   toast(`「${name}」を学習ノートに保存しました`, 'success');
 }
 
-const TEMPLATE_FORM_IDS = ['three-act', 'logline-sheet', 'char-basic'];
+function templateTypeIds(type) {
+  const ids = [];
+  TEMPLATE_CATS_DATA.forEach(cat => cat.items.forEach(it => { if (it.type === type) ids.push(it.id); }));
+  return ids;
+}
+const TEMPLATE_FORM_IDS = templateTypeIds('form');
+const TEMPLATE_CHECKLIST_IDS = templateTypeIds('checklist');
+const TEMPLATE_CARD_IDS = templateTypeIds('card');
 function showTemplate(id) {
   ToolHistoryDB.record('template', id);
 
@@ -27798,6 +27832,12 @@ function showTemplate(id) {
 
   // インタラクティブフォーム対応テンプレート
   if (TEMPLATE_FORM_IDS.includes(id)) { openTemplateForm(id); return; }
+
+  // チェック式テンプレート
+  if (TEMPLATE_CHECKLIST_IDS.includes(id)) { openTemplateChecklist(id); return; }
+
+  // コンテンツカード型テンプレート（学習センター記事風）
+  if (TEMPLATE_CARD_IDS.includes(id)) { openTemplateCard(id); return; }
 
   const TEMPLATE_NAMES = {
     'three-act': '三幕構成シート',
@@ -29268,6 +29308,1056 @@ ${v.occupation||''}
 ■ その他メモ：
 ${v.notes||''}`,
   },
+  'save-cat': {
+    name: 'Save the Cat 15ビートシート',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'pages', label:'全ページ数（目標）', type:'text' },
+      { key:'b1', label:'1. オープニングイメージ（p.1）', type:'textarea' },
+      { key:'b2', label:'2. テーマの提示（p.5）', type:'textarea' },
+      { key:'b3', label:'3. 設定（p.1〜10）', type:'textarea' },
+      { key:'b4', label:'4. 触媒・発端（p.12）', type:'textarea' },
+      { key:'b5', label:'5. 議論（p.12〜25）', type:'textarea' },
+      { key:'b6', label:'6. 第二幕への突入（p.25）', type:'textarea' },
+      { key:'b7', label:'7. Bストーリー（p.30）', type:'textarea' },
+      { key:'b8', label:'8. 楽しみと遊び（p.30〜55）', type:'textarea' },
+      { key:'b9', label:'9. ミッドポイント（p.55）', type:'textarea' },
+      { key:'b10', label:'10. 悪役の迫来（p.55〜75）', type:'textarea' },
+      { key:'b11', label:'11. すべてを失う（p.75）', type:'textarea' },
+      { key:'b12', label:'12. 暗闇の魂（p.75〜85）', type:'textarea' },
+      { key:'b13', label:'13. クライマックスへの突入（p.85）', type:'textarea' },
+      { key:'b14', label:'14. クライマックス（p.85〜110）', type:'textarea' },
+      { key:'b15', label:'15. クロージングイメージ（p.110）', type:'textarea' },
+    ],
+    build: (v) => `【Save the Cat — 15ビートシート（ブレイク・スナイダー式）】
+作品タイトル：${v.title||''}　　全ページ数（目標）：${v.pages||''}
+
+1. オープニングイメージ（p.1）：${v.b1||''}
+   → 変化前の主人公の「世界のスナップショット」
+
+2. テーマの提示（p.5）：${v.b2||''}
+   → 誰かが「物語の真実」を主人公に語る（主人公はまだ理解しない）
+
+3. 設定（p.1〜10）：${v.b3||''}
+   → 主人公の日常世界・欠如・動きたくない理由
+
+4. 触媒・発端（p.12）：${v.b4||''}
+   → 主人公の世界を変える出来事
+
+5. 議論（p.12〜25）：${v.b5||''}
+   → 「行くか行かないか」の葛藤と準備
+
+6. 第二幕への突入（p.25）：${v.b6||''}
+   → 主人公が日常を離れる決断・行動
+
+7. Bストーリー（p.30）：${v.b7||''}
+   → テーマを体現する新しい人物・関係の登場
+
+8. 楽しみと遊び（p.30〜55）：${v.b8||''}
+   → ジャンルの「お約束」「予告編シーン」を見せる
+
+9. ミッドポイント（p.55）：${v.b9||''}
+   → 偽りの勝利（ハッピー）or 偽りの敗北（アンハッピー）
+
+10. 悪役の迫来（p.55〜75）：${v.b10||''}
+    → Bストーリーとのクロス・状況が暗くなる
+
+11. すべてを失う（p.75）：${v.b11||''}
+    → 最低点：主人公は何もかも失う
+
+12. 暗闇の魂（p.75〜85）：${v.b12||''}
+    → 反省と準備：新しい真実の受容
+
+13. クライマックスへの突入（p.85）：${v.b13||''}
+    → 最終決戦への覚悟
+
+14. クライマックス（p.85〜110）：${v.b14||''}
+    → 主人公が変化を証明する究極の選択
+
+15. クロージングイメージ（p.110）：${v.b15||''}
+    → 変化後の世界のスナップショット（オープニングの対比）`,
+  },
+  'kishotenketsu': {
+    name: '起承転結設計シート',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'ki_hero', label:'起｜主人公（名前・年齢・職業・欠如）', type:'textarea' },
+      { key:'ki_world', label:'起｜設定・世界（時代・場所・社会状況）', type:'textarea' },
+      { key:'ki_problem', label:'起｜日常の問題・矛盾の提示', type:'textarea' },
+      { key:'ki_inciting', label:'起｜なぜ今この話が始まるか（発端）', type:'textarea' },
+      { key:'ki_open', label:'起｜オープニングイメージ', type:'textarea' },
+      { key:'sho_dev', label:'承｜展開内容', type:'textarea' },
+      { key:'sho_obstacle', label:'承｜登場する障害・困難', type:'textarea' },
+      { key:'sho_foreshadow', label:'承｜転への伏線（複数の仕込み）', type:'textarea' },
+      { key:'sho_bstory', label:'承｜Bストーリー（サブプロット）', type:'textarea' },
+      { key:'ten_content', label:'転｜転換の内容', type:'textarea' },
+      { key:'ten_surprise', label:'転｜なぜ驚きがあるか（意外性）', type:'textarea' },
+      { key:'ten_necessity', label:'転｜なぜ必然性があるか（後から納得できる理由）', type:'textarea' },
+      { key:'ten_impact', label:'転｜感情的インパクト', type:'textarea' },
+      { key:'ten_flip', label:'転｜起承の何が「ひっくり返る」か', type:'textarea' },
+      { key:'ketsu_conv', label:'結｜収束の内容', type:'textarea' },
+      { key:'ketsu_change', label:'結｜主人公の変化・成長', type:'textarea' },
+      { key:'ketsu_afterglow', label:'結｜余韻・余白（説明しないこと）', type:'textarea' },
+      { key:'ketsu_close', label:'結｜クロージングイメージ', type:'textarea' },
+      { key:'ketsu_remain', label:'結｜最後に何が残るか', type:'textarea' },
+      { key:'theme', label:'テーマ（作品が伝えたいこと）', type:'textarea' },
+      { key:'mechanism', label:'転で「起承」が「結」の意味を変える仕組み', type:'textarea' },
+    ],
+    build: (v) => `【起承転結 設計シート】
+作品タイトル：${v.title||''}
+
+■ 起（約15-25%）— 問題の提示
+・主人公（名前・年齢・職業・欠如）：${v.ki_hero||''}
+・設定・世界（時代・場所・社会状況）：${v.ki_world||''}
+・日常の問題・矛盾の提示：${v.ki_problem||''}
+・なぜ今この話が始まるか（発端）：${v.ki_inciting||''}
+・オープニングイメージ：${v.ki_open||''}
+
+■ 承（約40-50%）— 展開と発展
+・承の展開内容：${v.sho_dev||''}
+・登場する障害・困難：${v.sho_obstacle||''}
+・転への伏線（複数の仕込み）：${v.sho_foreshadow||''}
+・Bストーリー（サブプロット）：${v.sho_bstory||''}
+
+■ 転（約15-25%）— 劇的な転換（最重要）
+・転換の内容：${v.ten_content||''}
+・なぜ驚きがあるか（意外性）：${v.ten_surprise||''}
+・なぜ必然性があるか（後から考えると納得できる理由）：${v.ten_necessity||''}
+・感情的インパクト：${v.ten_impact||''}
+・起承の何が「ひっくり返る」か：${v.ten_flip||''}
+
+■ 結（約15-20%）— 収束と余韻
+・収束の内容：${v.ketsu_conv||''}
+・主人公の変化・成長：${v.ketsu_change||''}
+・余韻・余白（説明しないこと）：${v.ketsu_afterglow||''}
+・クロージングイメージ：${v.ketsu_close||''}
+・最後に何が残るか（観客の心に残るもの）：${v.ketsu_remain||''}
+
+■ テーマ（作品が伝えたいこと）：${v.theme||''}
+■ 転で「起承」が「結」の意味を変える仕組み：${v.mechanism||''}`,
+  },
+  'story-circle': {
+    name: 'ストーリーサークル設計',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'s1_zone', label:'1. コンフォートゾーン｜日常世界と欠如', type:'textarea' },
+      { key:'s1_problem', label:'1. コンフォートゾーン｜日常の問題・矛盾', type:'textarea' },
+      { key:'s2_want', label:'2. 欲求｜意識的に追い求めるもの（外的目標）', type:'textarea' },
+      { key:'s2_need', label:'2. 欲求｜無意識に必要としているもの（内的成長）', type:'textarea' },
+      { key:'s3_cross', label:'3. 旅立ち｜日常を離れるきっかけ・決断', type:'textarea' },
+      { key:'s3_new', label:'3. 旅立ち｜新しい状況・環境', type:'textarea' },
+      { key:'s4_challenge', label:'4. 適応｜新しい世界での挑戦', type:'textarea' },
+      { key:'s4_trial', label:'4. 適応｜試行錯誤の内容', type:'textarea' },
+      { key:'s5_dark', label:'5. 代償｜最も暗い瞬間・何かを失う', type:'textarea' },
+      { key:'s5_find', label:'5. 代償｜見つけたもの（しかし代償がある）', type:'textarea' },
+      { key:'s6_return', label:'6. 帰還｜変化を持ち帰る決断', type:'textarea' },
+      { key:'s6_reunion', label:'6. 帰還｜日常世界との再遭遇', type:'textarea' },
+      { key:'s7_choice', label:'7. 変化の証明｜最終選択', type:'textarea' },
+      { key:'s7_climax', label:'7. 変化の証明｜クライマックスのシーン', type:'textarea' },
+      { key:'s8_life', label:'8. 完成｜変化後の新しい日常', type:'textarea' },
+      { key:'s8_theme', label:'8. 完成｜テーマが体現されているシーン', type:'textarea' },
+    ],
+    build: (v) => `【ストーリーサークル設計シート（ダン・ハーモン式）】
+作品タイトル：${v.title||''}
+
+サークル概要：
+　1. コンフォートゾーン → 2. 欲求 → 3. 旅立ち → 4. 適応
+　→ 5. 代償 → 6. 帰還 → 7. 変化の証明 → 8. 完全
+
+■ 1. 「ゾーン（コンフォートゾーン）」— You
+　主人公の日常世界と欠如：${v.s1_zone||''}
+　日常の問題・矛盾：${v.s1_problem||''}
+
+■ 2. 「欲求（Desire）」— Need
+　主人公が意識的に追い求めるもの（外的目標）：${v.s2_want||''}
+　主人公が無意識に必要としているもの（内的成長）：${v.s2_need||''}
+
+■ 3. 「旅立ち（Crossing the Threshold）」— Go
+　日常を離れるきっかけ・決断：${v.s3_cross||''}
+　新しい状況・環境：${v.s3_new||''}
+
+■ 4. 「適応（Adapting to the Road of Trials）」— Search
+　新しい世界での挑戦：${v.s4_challenge||''}
+　試行錯誤の内容：${v.s4_trial||''}
+
+■ 5. 「代償（Paying the Price）」— Find
+　最も暗い瞬間・何かを失う：${v.s5_dark||''}
+　見つけたもの（しかし代償がある）：${v.s5_find||''}
+
+■ 6. 「帰還（Return with the Elixir）」— Take
+　変化を持ち帰る決断：${v.s6_return||''}
+　日常世界との再遭遇：${v.s6_reunion||''}
+
+■ 7. 「変化の証明（New Master Status）」— Return
+　主人公が変化を証明する最終選択：${v.s7_choice||''}
+　クライマックスのシーン：${v.s7_climax||''}
+
+■ 8. 「完成（New Life）」— Changed
+　変化後の新しい日常：${v.s8_life||''}
+　テーマが体現されているシーン：${v.s8_theme||''}`,
+  },
+  'nonlinear-structure': {
+    name: '非線形構成シート',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'method', label:'採用する非線形手法（回想／並行タイムライン／逆順／円環構造 等）', type:'text' },
+      { key:'main_line', label:'「現在」の時系列（メインライン）', type:'textarea' },
+      { key:'sub_line', label:'「過去／別ライン」の時系列（サブライン）', type:'textarea' },
+      { key:'cross_points', label:'交差ポイント（メイン×サブが接続・対比される箇所）', type:'textarea' },
+      { key:'clarity', label:'観客の混乱を防ぐための工夫（時制表示・色調・字幕等）', type:'textarea' },
+      { key:'purpose', label:'この構成にする狙い（なぜ順番通りに語らないのか）', type:'textarea' },
+      { key:'checks', label:'チェック（今どこにいるか把握できるか／驚き・伏線回収があるか／時系列順で成立してしまわないか）', type:'textarea' },
+    ],
+    build: (v) => `【非線形構成シート】
+作品タイトル：${v.title||''}
+
+■ 採用する非線形手法（回想／並行タイムライン／逆順／円環構造 等）：${v.method||''}
+
+■ 「現在」の時系列（メインライン）：
+${v.main_line||''}
+
+■ 「過去／別ライン」の時系列（サブライン）：
+${v.sub_line||''}
+
+■ 交差ポイント（メイン×サブが接続・対比される箇所）：
+${v.cross_points||''}
+
+■ 観客の混乱を防ぐための工夫（時制表示・色調・字幕等）：
+${v.clarity||''}
+
+■ この構成にする狙い（なぜ順番通りに語らないのか）：
+${v.purpose||''}
+
+■ チェック
+${v.checks||''}`,
+  },
+  'multi-pov-structure': {
+    name: '複数視点構成シート',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'pov_list', label:'POVキャラクター一覧（名前・役割・担当パート）', type:'textarea' },
+      { key:'asymmetry', label:'各POVが「知っていること／知らないこと」（情報の非対称性）', type:'textarea' },
+      { key:'switch_timing', label:'POV切り替えのタイミングと理由', type:'textarea' },
+      { key:'convergence', label:'全POVが収束する場面（クライマックス／全員が揃う場面）', type:'textarea' },
+      { key:'voice_diff', label:'各POVの声・文体の差別化ポイント', type:'textarea' },
+      { key:'checks', label:'チェック（ドラマティック・アイロニー／情報の重複／混乱の有無）', type:'textarea' },
+    ],
+    build: (v) => `【複数視点構成シート】
+作品タイトル：${v.title||''}
+
+■ POVキャラクター一覧
+${v.pov_list||''}
+
+■ 各POVが「知っていること／知らないこと」（情報の非対称性）
+${v.asymmetry||''}
+
+■ POV切り替えのタイミングと理由（なぜこの場面で視点を変えるか）
+${v.switch_timing||''}
+
+■ 全POVが収束する場面（クライマックス／全員が揃う場面）：
+${v.convergence||''}
+
+■ 各POVの声・文体の差別化ポイント：
+${v.voice_diff||''}
+
+■ チェック
+${v.checks||''}`,
+  },
+  'char-deep': {
+    name: 'キャラクター深掘りシート',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'char_name', label:'キャラクター名', type:'text' },
+      { key:'want', label:'Want（表面的な欲求 / 外的目標）', type:'textarea' },
+      { key:'need', label:'Need（内面の必要 / 内的成長）', type:'textarea' },
+      { key:'wound', label:'欠如・ウーンド（過去のトラウマ）', type:'textarea' },
+      { key:'ghost', label:'ゴースト（過去の出来事の具体的内容）', type:'textarea' },
+      { key:'lie', label:'誤った信念（Lie）', type:'textarea' },
+      { key:'truth', label:'真実（Truth）', type:'textarea' },
+      { key:'initial', label:'冒頭のキャラクター状態（誤信を持っている）', type:'textarea' },
+      { key:'turn1', label:'転換点1（誤信が揺らぐ瞬間）', type:'textarea' },
+      { key:'midpoint', label:'ミッドポイント（変化の兆し）', type:'textarea' },
+      { key:'lowpoint', label:'最低点（誤信と向き合う）', type:'textarea' },
+      { key:'climax', label:'クライマックス（真実を選ぶ）', type:'textarea' },
+      { key:'before', label:'クライマックスの選択｜以前なら（旧来の選択）', type:'textarea' },
+      { key:'after', label:'クライマックスの選択｜今は（変化後の選択）', type:'textarea' },
+    ],
+    build: (v) => `【キャラクター深掘りシート】
+作品タイトル：${v.title||''}　　キャラクター名：${v.char_name||''}
+
+─────────────────────────────
+動機の構造
+─────────────────────────────
+■ Want（表面的な欲求 / 外的目標）：
+${v.want||''}
+  → 意識的に追い求める外的目標・行動の理由
+
+■ Need（内面の必要 / 内的成長）：
+${v.need||''}
+  → 無意識に必要としている内的変化・テーマとの接点
+
+■ 欠如・ウーンド（過去のトラウマ）：
+${v.wound||''}
+  → 現在の行動を歪めている過去の出来事
+
+■ ゴースト（過去の出来事の具体的内容）：
+${v.ghost||''}
+  → バックストーリーの核心：いつ・何が起きたか
+
+─────────────────────────────
+信念の構造
+─────────────────────────────
+■ 誤った信念（Lie the Character Believes）：
+${v.lie||''}
+
+■ 真実（Truth）：
+${v.truth||''}
+
+─────────────────────────────
+変化の軌跡
+─────────────────────────────
+■ 冒頭のキャラクター状態（誤信を持っている）：
+${v.initial||''}
+
+■ Wantを追いかけることでNeedを発見する過程：
+  ・転換点1（誤信が揺らぐ瞬間）：${v.turn1||''}
+  ・ミッドポイント（変化の兆し）：${v.midpoint||''}
+  ・最低点（誤信と向き合う）：${v.lowpoint||''}
+  ・クライマックス（真実を選ぶ）：${v.climax||''}
+
+■ クライマックスでの選択（変化の証明）：
+  以前なら →（${v.before||''}）
+  今は    →（${v.after||''}）`,
+  },
+  'char-arc': {
+    name: 'キャラクターアーク設計',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'char_name', label:'キャラクター名', type:'text' },
+      { key:'arc_type', label:'アークタイプ', type:'select', options:['ポジティブアーク — 誤信を捨て真実を掴む（成長・変容）','ネガティブアーク — 真実を拒絶し誤信に沈む（堕落・悲劇）','フラットアーク — 信念を揺るがす世界を変える（不変・触媒）'] },
+      { key:'lie', label:'冒頭の状態｜誤信（Lie）', type:'textarea' },
+      { key:'lack', label:'冒頭の状態｜外的状況（日常の欠如）', type:'textarea' },
+      { key:'want', label:'冒頭の状態｜最初の目標（Want）', type:'textarea' },
+      { key:'tp1', label:'第一幕末（転換点1）での変化', type:'textarea' },
+      { key:'mid', label:'ミッドポイントでの変化', type:'textarea' },
+      { key:'low', label:'最低点での状態（何を失ったか／誤信と真実のどちらに近いか）', type:'textarea' },
+      { key:'dark', label:'暗闇の魂（変化直前の内省）', type:'textarea' },
+      { key:'before', label:'クライマックスの選択｜以前なら（旧来の選択）', type:'textarea' },
+      { key:'after', label:'クライマックスの選択｜今は（変化後の選択）', type:'textarea' },
+      { key:'epilogue', label:'エピローグでの状態（外的状況・内的変化の証）', type:'textarea' },
+      { key:'checks', label:'アーク整合性チェック', type:'textarea' },
+    ],
+    build: (v) => `【キャラクターアーク設計シート】
+作品タイトル：${v.title||''}　　キャラクター名：${v.char_name||''}
+
+アークタイプ：${v.arc_type||''}
+
+─────────────────────────────
+変化の設計
+─────────────────────────────
+■ 冒頭の状態：
+  誤信（Lie）：${v.lie||''}
+  外的状況（日常の欠如）：${v.lack||''}
+  最初の目標（Want）：${v.want||''}
+
+■ 第一幕末（転換点1）での変化：
+${v.tp1||''}
+
+■ ミッドポイントでの変化：
+${v.mid||''}
+
+■ 最低点での状態：
+${v.low||''}
+
+■ 暗闇の魂（変化直前の内省）：
+${v.dark||''}
+
+■ クライマックスでの選択（変化の証明）：
+  以前なら → （${v.before||''}）
+  今は    → （${v.after||''}）
+
+■ エピローグでの状態：
+${v.epilogue||''}
+
+─────────────────────────────
+アーク整合性チェック
+─────────────────────────────
+${v.checks||''}`,
+  },
+  'antagonist-sheet': {
+    name: 'アンタゴニスト設計シート',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'ant_name', label:'アンタゴニスト名', type:'text' },
+      { key:'ant_type', label:'アンタゴニストのタイプ', type:'select', options:['人物型（直接対立する敵役）','社会・組織型（制度・システムが敵）','内面型（主人公自身の内なる敵）','環境・運命型（自然・状況・偶然）'] },
+      { key:'goal', label:'アンタゴニストの目標（What）', type:'textarea' },
+      { key:'motive', label:'アンタゴニストの動機（Why）／観客が理解できる理由', type:'textarea' },
+      { key:'mirror', label:'プロタゴニストの鏡（Mirror）：主人公が「こうなり得た別の選択肢」である理由', type:'textarea' },
+      { key:'exploit', label:'プロタゴニストの弱点を突く方法', type:'textarea' },
+      { key:'active', label:'行動原則1｜能動的（受け身でなく自ら動く）', type:'textarea' },
+      { key:'exploit_action', label:'行動原則2｜主人公の弱点を利用する具体的行動', type:'textarea' },
+      { key:'humanity', label:'行動原則3｜人間性を見せる瞬間（共感の瞬間）', type:'textarea' },
+      { key:'final_battle', label:'最終対決の設計（場所・状況）', type:'textarea' },
+      { key:'why_win', label:'主人公が勝てる理由（成長があるから）', type:'textarea' },
+      { key:'final_look', label:'アンタゴニストの最後の姿', type:'textarea' },
+      { key:'belief', label:'アンタゴニストの信念（主人公と対立するもの）', type:'textarea' },
+      { key:'logic', label:'アンタゴニストが「正しい」と思っている論理', type:'textarea' },
+    ],
+    build: (v) => `【アンタゴニスト設計シート】
+作品タイトル：${v.title||''}　　アンタゴニスト名：${v.ant_name||''}
+
+─────────────────────────────
+基本設計
+─────────────────────────────
+■ アンタゴニストのタイプ：${v.ant_type||''}
+
+■ アンタゴニストの目標（What）：${v.goal||''}
+■ アンタゴニストの動機（Why）：
+  → 観客が「それは理解できる」と思える理由：${v.motive||''}
+
+─────────────────────────────
+対立設計
+─────────────────────────────
+■ プロタゴニストの鏡（Mirror）：
+  → 主人公が「こうなり得た別の選択肢」である理由・同じ欠如を持ちながら異なる選択をした点：
+  ${v.mirror||''}
+
+■ プロタゴニストの弱点を突く方法：
+${v.exploit||''}
+
+■ アンタゴニストの三つの行動原則：
+  1. 能動的（受け身でなく自ら動く）：${v.active||''}
+  2. 主人公の弱点を利用する具体的行動：${v.exploit_action||''}
+  3. 人間性を見せる瞬間（共感の瞬間）：${v.humanity||''}
+
+─────────────────────────────
+クライマックス設計
+─────────────────────────────
+■ 最終対決の設計：
+  場所・状況：${v.final_battle||''}
+  主人公が勝てる理由（成長があるから）：${v.why_win||''}
+  アンタゴニストの最後の姿：${v.final_look||''}
+
+■ アンタゴニストの信念（主人公と対立するもの）：${v.belief||''}
+■ アンタゴニストが「正しい」と思っている論理：${v.logic||''}`,
+  },
+  'relationship-map': {
+    name: '人物関係マップ',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'char_list', label:'主要登場人物リスト（役割・欠如/Want/Need・関係）', type:'textarea' },
+      { key:'main_conflict', label:'主対立（プロタゴニスト vs アンタゴニスト）の核・それぞれの立場', type:'textarea' },
+      { key:'sub_conflict', label:'副対立（サブプロット）の人物・核・テーマとの接点', type:'textarea' },
+      { key:'mentor', label:'メンター（助ける/教える人物）：名前・役割', type:'textarea' },
+      { key:'ally', label:'アライ（仲間）：名前・役割', type:'textarea' },
+      { key:'love', label:'ラブインタレスト：名前・関係の変化', type:'textarea' },
+      { key:'trickster', label:'トリックスター（混乱をもたらす）：名前・役割', type:'textarea' },
+      { key:'bstory_char', label:'Bストーリーのキャラクター（テーマを体現）：名前・接点', type:'textarea' },
+      { key:'arc_influence', label:'主人公のアークに影響を与える人物関係', type:'textarea' },
+    ],
+    build: (v) => `【人物関係マップ】
+作品タイトル：${v.title||''}
+
+─────────────────────────────
+主要登場人物リスト
+─────────────────────────────
+${v.char_list||''}
+
+─────────────────────────────
+主要な対立構図
+─────────────────────────────
+■ 主対立（プロタゴニスト vs アンタゴニスト）：
+${v.main_conflict||''}
+
+■ 副対立（サブプロット）：
+${v.sub_conflict||''}
+
+─────────────────────────────
+プロタゴニストとの関係
+─────────────────────────────
+■ メンター（助ける/教える人物）：
+${v.mentor||''}
+■ アライ（仲間）：
+${v.ally||''}
+■ ラブインタレスト：
+${v.love||''}
+■ トリックスター（混乱をもたらす）：
+${v.trickster||''}
+
+─────────────────────────────
+テーマとの接点
+─────────────────────────────
+■ Bストーリーのキャラクター（テーマを体現）：
+${v.bstory_char||''}
+
+■ 主人公のアークに影響を与える人物関係：
+${v.arc_influence||''}`,
+  },
+  'char-voice-sheet': {
+    name: 'キャラクターボイス設計シート',
+    fields: [
+      { key:'char_name', label:'キャラクター名', type:'text' },
+      { key:'pronoun1', label:'一人称（私／俺／僕／あたし 等）', type:'text' },
+      { key:'pronoun2', label:'二人称（相手の呼び方）', type:'text' },
+      { key:'ending', label:'文末の癖（〜だよね／〜であります／〜さ 等）', type:'text' },
+      { key:'speed', label:'話すスピード・リズム（早口／間を置く／もったり等）', type:'text' },
+      { key:'vocab_level', label:'使う言葉のレベル（学術的／俗語／方言／古語）', type:'textarea' },
+      { key:'catchphrase', label:'よく使うフレーズ・口癖', type:'textarea' },
+      { key:'never_say', label:'絶対に使わない言葉（キャラクターらしくない表現）', type:'textarea' },
+      { key:'joy', label:'喜びの表現方法', type:'textarea' },
+      { key:'anger', label:'怒りの表現方法', type:'textarea' },
+      { key:'upset', label:'動揺した時の口調変化', type:'textarea' },
+      { key:'to_boss', label:'上司/目上の人に対しての話し方', type:'textarea' },
+      { key:'to_friend', label:'友人に対しての話し方', type:'textarea' },
+      { key:'to_enemy', label:'敵対者に対しての話し方', type:'textarea' },
+      { key:'sample1', label:'サンプル｜「遅刻を注意された」への反応', type:'textarea' },
+      { key:'sample2', label:'サンプル｜「褒められた」への反応', type:'textarea' },
+      { key:'sample3', label:'サンプル｜「予想外の事態」への反応', type:'textarea' },
+      { key:'checks', label:'チェック（誰の発言か判別できるか／他キャラクターと似すぎていないか）', type:'textarea' },
+    ],
+    build: (v) => `【キャラクターボイス設計シート】
+キャラクター名：${v.char_name||''}
+
+■ 話し方の基本パターン
+・一人称（私／俺／僕／あたし 等）：${v.pronoun1||''}
+・二人称（相手の呼び方）：${v.pronoun2||''}
+・文末の癖（〜だよね／〜であります／〜さ 等）：${v.ending||''}
+・話すスピード・リズム（早口／間を置く／もったりetc）：${v.speed||''}
+
+■ 語彙レベル・専門性
+・使う言葉のレベル（学術的／俗語／方言／古語）：${v.vocab_level||''}
+・よく使うフレーズ・口癖：${v.catchphrase||''}
+・絶対に使わない言葉（キャラクターらしくない表現）：${v.never_say||''}
+
+■ 感情の表れ方
+・喜びの表現方法：${v.joy||''}
+・怒りの表現方法：${v.anger||''}
+・動揺した時の口調変化：${v.upset||''}
+
+■ 他キャラクターとの会話での違い
+・上司/目上の人に対して：${v.to_boss||''}
+・友人に対して：${v.to_friend||''}
+・敵対者に対して：${v.to_enemy||''}
+
+■ ボイスチェック用サンプルセリフ（同じ内容を3パターンで書く）
+1. 状況「遅刻を注意された」への反応：${v.sample1||''}
+2. 状況「褒められた」への反応：${v.sample2||''}
+3. 状況「予想外の事態」への反応：${v.sample3||''}
+
+■ チェック
+${v.checks||''}`,
+  },
+  'char-backstory': {
+    name: 'バックストーリー設計シート',
+    fields: [
+      { key:'char_name', label:'キャラクター名', type:'text' },
+      { key:'origin', label:'出身・生まれた環境', type:'textarea' },
+      { key:'family', label:'家族構成・育った家庭環境', type:'textarea' },
+      { key:'childhood', label:'幼少期の重要な出来事', type:'textarea' },
+      { key:'turning_event', label:'転機となった出来事の内容', type:'textarea' },
+      { key:'turning_age', label:'その時の年齢', type:'text' },
+      { key:'wound', label:'この出来事が残した「傷（ウーンド）」', type:'textarea' },
+      { key:'lie', label:'そこから生まれた「思い込み（Lie）」', type:'textarea' },
+      { key:'link_lack', label:'このバックストーリーが現在の「欠如」にどう繋がるか', type:'textarea' },
+      { key:'link_goal', label:'このバックストーリーが現在の「目標」にどう繋がるか', type:'textarea' },
+      { key:'reveal', label:'物語中でこの過去がどう明かされるか（タイミング・相手）', type:'textarea' },
+      { key:'hidden', label:'隠している/話したくない過去はあるか', type:'textarea' },
+      { key:'checks', label:'チェック（行動選択への影響／Show don\'t tell／小出しの計画）', type:'textarea' },
+    ],
+    build: (v) => `【バックストーリー設計シート】
+キャラクター名：${v.char_name||''}
+
+■ 生い立ちの基本情報
+・出身・生まれた環境：${v.origin||''}
+・家族構成・育った家庭環境：${v.family||''}
+・幼少期の重要な出来事：${v.childhood||''}
+
+■ 転機となった出来事（キャラクターを形成した事件）
+・出来事の内容：${v.turning_event||''}
+・その時の年齢：${v.turning_age||''}
+・この出来事が残した「傷（ウーンド）」：${v.wound||''}
+・そこから生まれた「思い込み（Lie）」：${v.lie||''}
+
+■ 現在の行動とのつながり
+・このバックストーリーが現在の「欠如」にどう繋がるか：${v.link_lack||''}
+・このバックストーリーが現在の「目標」にどう繋がるか：${v.link_goal||''}
+・物語中でこの過去がどう明かされるか（どのタイミングで、誰に）：${v.reveal||''}
+
+■ 隠している/話したくない過去はあるか：${v.hidden||''}
+
+■ チェック
+${v.checks||''}`,
+  },
+  'scene-sequence': {
+    name: 'シーンシーケンス設計',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'seq_name', label:'シーケンス名（例：逃走シーケンス）', type:'text' },
+      { key:'act', label:'このシーケンスの幕（Act1／Act2a／Act2b／Act3）', type:'text' },
+      { key:'before', label:'このシーケンスが始まる前の状況', type:'textarea' },
+      { key:'after', label:'このシーケンスが終わった後の状況（必ず変化させる）', type:'textarea' },
+      { key:'mini_goal', label:'このシーケンスのミニゴール（小目標）', type:'textarea' },
+      { key:'tone', label:'シーケンスの感情的トーン', type:'text' },
+      { key:'scene1', label:'#1｜場所・時／登場人物／目標・障害／変化／感情トーン', type:'textarea' },
+      { key:'scene2', label:'#2｜場所・時／登場人物／目標・障害／変化／感情トーン', type:'textarea' },
+      { key:'scene3', label:'#3｜場所・時／登場人物／目標・障害／変化／感情トーン', type:'textarea' },
+      { key:'scene4', label:'#4｜場所・時／登場人物／目標・障害／変化／感情トーン', type:'textarea' },
+      { key:'scene5', label:'#5｜場所・時／登場人物／目標・障害／変化／感情トーン', type:'textarea' },
+      { key:'checks', label:'シーケンス全体チェック（変化の有無／テンション変化／不要シーン／目的）', type:'textarea' },
+    ],
+    build: (v) => `【シーンシーケンス設計シート】
+作品タイトル：${v.title||''}　　シーケンス名（例：逃走シーケンス）：${v.seq_name||''}
+このシーケンスの幕（Act1 / Act2a / Act2b / Act3）：${v.act||''}
+
+─────────────────────────────
+シーケンスの設計
+─────────────────────────────
+■ このシーケンスが始まる前の状況：${v.before||''}
+■ このシーケンスが終わった後の状況（必ず変化させる）：${v.after||''}
+■ このシーケンスのミニゴール（小目標）：${v.mini_goal||''}
+■ シーケンスの感情的トーン：${v.tone||''}
+
+─────────────────────────────
+各シーンの設計（5〜8シーン）
+─────────────────────────────
+#1
+${v.scene1||''}
+
+#2
+${v.scene2||''}
+
+#3
+${v.scene3||''}
+
+#4
+${v.scene4||''}
+
+#5
+${v.scene5||''}
+
+─────────────────────────────
+シーケンス全体チェック
+─────────────────────────────
+${v.checks||''}`,
+  },
+  'action-scene-sheet': {
+    name: 'アクションシーン設計シート',
+    fields: [
+      { key:'scene_name', label:'シーン名', type:'text' },
+      { key:'location', label:'場所（地形・構造・広さ）', type:'textarea' },
+      { key:'obstacles', label:'障害物・使える道具', type:'textarea' },
+      { key:'visibility', label:'視界・光の状態（暗い／狭い／高所等）', type:'textarea' },
+      { key:'hero_side', label:'主人公側｜能力・強み', type:'textarea' },
+      { key:'enemy_side', label:'敵側｜能力・強み', type:'textarea' },
+      { key:'power_balance', label:'力関係（誰が優位に見えるか、開始時点）', type:'textarea' },
+      { key:'beat1', label:'ビート1｜開始のきっかけ', type:'textarea' },
+      { key:'beat2', label:'ビート2｜最初の攻防', type:'textarea' },
+      { key:'beat3', label:'ビート3｜状況の変化（優位が入れ替わる）', type:'textarea' },
+      { key:'beat4', label:'ビート4｜ピンチ（主人公が追い詰められる）', type:'textarea' },
+      { key:'beat5', label:'ビート5｜転換点（アイデア・環境利用での逆転）', type:'textarea' },
+      { key:'beat6', label:'ビート6｜決着', type:'textarea' },
+      { key:'emotion', label:'アクションに込める感情・意味', type:'textarea' },
+      { key:'checks', label:'チェック（内的葛藤の同時進行／伏線活用／道具の使い方）', type:'textarea' },
+    ],
+    build: (v) => `【アクションシーン設計シート】
+シーン名：${v.scene_name||''}
+
+■ 空間設定
+・場所（地形・構造・広さ）：${v.location||''}
+・障害物・使える道具：${v.obstacles||''}
+・視界・光の状態（暗い／狭い／高所等）：${v.visibility||''}
+
+■ 参加者
+・主人公側：　　能力・強み：${v.hero_side||''}
+・敵側：　　能力・強み：${v.enemy_side||''}
+・力関係（誰が優位に見えるか、開始時点）：${v.power_balance||''}
+
+■ ビート（段取り）分割
+  1. 開始のきっかけ：${v.beat1||''}
+  2. 最初の攻防：${v.beat2||''}
+  3. 状況の変化（優位が入れ替わる）：${v.beat3||''}
+  4. ピンチ（主人公が追い詰められる）：${v.beat4||''}
+  5. 転換点（アイデア・環境利用での逆転）：${v.beat5||''}
+  6. 決着：${v.beat6||''}
+
+■ アクションに込める感情・意味（単なる殴り合いで終わらせない要素）：${v.emotion||''}
+
+■ チェック
+${v.checks||''}`,
+  },
+  'feedback-form': {
+    name: 'フィードバック記録フォーム',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'draft_no', label:'稿数', type:'text' },
+      { key:'date', label:'フィードバック日', type:'text' },
+      { key:'source', label:'フィードバック元（誰から・形式）', type:'text' },
+      { key:'good_points', label:'良い点（継続・強化すべき）', type:'textarea' },
+      { key:'high_priority', label:'問題点｜優先度「高」（構造的問題）：場所・内容・対応方針', type:'textarea' },
+      { key:'mid_priority', label:'問題点｜優先度「中」（シーン・キャラクター）：場所・内容・対応方針', type:'textarea' },
+      { key:'low_priority', label:'問題点｜優先度「低」（セリフ・ト書き・細部）：場所・内容・対応方針', type:'textarea' },
+      { key:'questions', label:'疑問・確認が必要な点', type:'textarea' },
+      { key:'next_actions', label:'次の改稿で行うこと（3件以内に絞る）', type:'textarea' },
+      { key:'due', label:'改稿完了予定', type:'text' },
+    ],
+    build: (v) => `【フィードバック記録フォーム】
+作品タイトル：${v.title||''}　　稿数：${v.draft_no||''}
+フィードバック日：${v.date||''}
+フィードバック元（誰から・形式）：${v.source||''}
+
+─────────────────────────────
+良い点（継続・強化すべき）
+─────────────────────────────
+${v.good_points||''}
+
+─────────────────────────────
+問題点（修正が必要）
+─────────────────────────────
+優先度「高」（構造的問題）：
+${v.high_priority||''}
+
+優先度「中」（シーン・キャラクター）：
+${v.mid_priority||''}
+
+優先度「低」（セリフ・ト書き・細部）：
+${v.low_priority||''}
+
+─────────────────────────────
+疑問・確認が必要な点
+─────────────────────────────
+${v.questions||''}
+
+─────────────────────────────
+次の改稿で行うこと（3件以内に絞る）
+─────────────────────────────
+${v.next_actions||''}
+
+改稿完了予定：${v.due||''}`,
+  },
+  'draft-log': {
+    name: '改稿ログシート',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'d1', label:'第1稿｜完成日・ページ数・この稿の状態・感想・主な問題点', type:'textarea' },
+      { key:'d2', label:'第2稿｜完成日・変更の目的・主な変更内容・改善されたこと・残っている問題', type:'textarea' },
+      { key:'d3', label:'第3稿｜完成日・変更の目的・主な変更内容・改善されたこと・残っている問題', type:'textarea' },
+      { key:'d4', label:'第4稿以降（繰り返し）｜完成日・変更の目的・主な変更内容・進捗メモ', type:'textarea' },
+      { key:'current_issues', label:'現在の課題メモ', type:'textarea' },
+    ],
+    build: (v) => `【改稿ログシート】
+作品タイトル：${v.title||''}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+稿履歴
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+■ 第1稿
+${v.d1||''}
+
+■ 第2稿
+${v.d2||''}
+
+■ 第3稿
+${v.d3||''}
+
+■ 第4稿以降（繰り返し）
+${v.d4||''}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+現在の課題メモ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${v.current_issues||''}`,
+  },
+  'pitch-sheet': {
+    name: 'ピッチドックシート',
+    fields: [
+      { key:'title', label:'タイトル', type:'text' },
+      { key:'genre', label:'ジャンル', type:'text' },
+      { key:'format', label:'フォーマット', type:'text' },
+      { key:'duration', label:'想定尺', type:'text' },
+      { key:'author', label:'作者名', type:'text' },
+      { key:'date', label:'日付', type:'text' },
+      { key:'hook', label:'一行ピッチ（フックライン・15字以内）', type:'text' },
+      { key:'logline', label:'ログライン（60字以内）', type:'textarea' },
+      { key:'synopsis', label:'シノプシス（200〜300字）', type:'textarea' },
+      { key:'theme', label:'テーマ（物語が言いたいこと）', type:'textarea' },
+      { key:'moral', label:'モラル（主人公が学ぶ真実）', type:'textarea' },
+      { key:'protagonist', label:'主人公｜Want・Need・魅力・独自性', type:'textarea' },
+      { key:'antagonist', label:'アンタゴニスト｜目標・動機', type:'textarea' },
+      { key:'support_chars', label:'主要サポートキャラ', type:'textarea' },
+      { key:'setting', label:'時代・場所', type:'textarea' },
+      { key:'world_rule', label:'世界のルール（特殊な設定があれば）', type:'textarea' },
+      { key:'tone', label:'視覚的特徴・トーン', type:'textarea' },
+      { key:'audience', label:'想定ターゲット', type:'textarea' },
+      { key:'similar_works', label:'類似作品（参考作品）', type:'textarea' },
+      { key:'uniqueness', label:'この作品の独自性（なぜ今、これでなければならないか）', type:'textarea' },
+    ],
+    build: (v) => `【ピッチドックシート（企画書）】
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+基本情報
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+タイトル：${v.title||''}
+ジャンル：${v.genre||''}
+フォーマット：${v.format||''}　　想定尺：${v.duration||''}
+作者名：${v.author||''}　　　　　日付：${v.date||''}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+一行ピッチ（フックライン・15字以内）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${v.hook||''}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ログライン（60字以内）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${v.logline||''}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+シノプシス（200〜300字）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${v.synopsis||''}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+テーマ・モラル
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+テーマ（物語が言いたいこと）：${v.theme||''}
+モラル（主人公が学ぶ真実）：${v.moral||''}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+登場人物
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+主人公：${v.protagonist||''}
+アンタゴニスト：${v.antagonist||''}
+主要サポートキャラ：${v.support_chars||''}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+世界観・設定
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+時代・場所：${v.setting||''}
+世界のルール（特殊な設定があれば）：${v.world_rule||''}
+視覚的特徴・トーン：${v.tone||''}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+マーケット分析
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+想定ターゲット：${v.audience||''}
+類似作品（参考作品）：${v.similar_works||''}
+この作品の独自性（なぜ今、これでなければならないか）：${v.uniqueness||''}`,
+  },
+  'theme-sheet': {
+    name: 'テーマ設計シート',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'theme', label:'テーマ（物語の「問い」）', type:'textarea' },
+      { key:'moral', label:'モラル（物語の「答え」— 主人公が学ぶこと）', type:'textarea' },
+      { key:'premise', label:'プレミス（ひとことで言うなら）', type:'text' },
+      { key:'symbol', label:'方法1：シンボル｜選んだシンボル・象徴する意味・登場するシーン', type:'textarea' },
+      { key:'char_embody', label:'方法2：キャラクターの選択で体現｜誰が・どの選択で・どのように', type:'textarea' },
+      { key:'bstory', label:'方法3：Bストーリーでサブテキスト的に示す｜接点・クロスする瞬間', type:'textarea' },
+      { key:'checks', label:'テーマ伝達チェック', type:'textarea' },
+    ],
+    build: (v) => `【テーマ設計シート】
+作品タイトル：${v.title||''}
+
+─────────────────────────────
+テーマとモラルの整理
+─────────────────────────────
+■ テーマ（物語の「問い」）：
+${v.theme||''}
+
+■ モラル（物語の「答え」— 主人公が学ぶこと）：
+${v.moral||''}
+
+■ プレミス（ひとことで言うなら）：
+${v.premise||''}
+
+─────────────────────────────
+テーマを「隠す」3つの方法
+─────────────────────────────
+方法1: シンボル（象徴）を使う
+${v.symbol||''}
+
+方法2: キャラクターの選択で体現する
+${v.char_embody||''}
+
+方法3: Bストーリーでサブテキスト的に示す
+${v.bstory||''}
+
+─────────────────────────────
+テーマ伝達チェック
+─────────────────────────────
+${v.checks||''}`,
+  },
+  'world-building': {
+    name: '世界観設計シート',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'era', label:'時代・年代', type:'text' },
+      { key:'place', label:'場所・地域', type:'text' },
+      { key:'genre', label:'ジャンル（現代劇/時代劇/SF/ファンタジー等）', type:'text' },
+      { key:'special_rule', label:'世界の「特殊ルール」（あれば）', type:'textarea' },
+      { key:'society', label:'社会の仕組み・階層構造', type:'textarea' },
+      { key:'values', label:'支配的な価値観・道徳観', type:'textarea' },
+      { key:'taboo', label:'禁忌（やってはいけないこと）', type:'textarea' },
+      { key:'economy', label:'経済・権力の仕組み', type:'textarea' },
+      { key:'religion', label:'宗教・信仰・迷信（あれば）', type:'textarea' },
+      { key:'daily', label:'人々の日常（主人公の世界の「普通」）', type:'textarea' },
+      { key:'tech', label:'テクノロジー水準・コミュニケーション方法', type:'textarea' },
+      { key:'lifestyle', label:'食・服・移動手段', type:'textarea' },
+      { key:'entertainment', label:'エンターテイメント・文化', type:'textarea' },
+      { key:'visual_tone', label:'映像的トーン・カラーパレット', type:'textarea' },
+      { key:'sound', label:'音・音楽のイメージ', type:'textarea' },
+      { key:'locations', label:'代表的なロケーション（3カ所）', type:'textarea' },
+      { key:'checks', label:'情報公開の管理チェック', type:'textarea' },
+    ],
+    build: (v) => `【世界観設計シート】
+作品タイトル：${v.title||''}
+
+─────────────────────────────
+基本設定
+─────────────────────────────
+■ 時代・年代：${v.era||''}
+■ 場所・地域：${v.place||''}
+■ ジャンル（現代劇/時代劇/SF/ファンタジー等）：${v.genre||''}
+■ 世界の「特殊ルール」（あれば）：${v.special_rule||''}
+
+─────────────────────────────
+社会・文化
+─────────────────────────────
+■ 社会の仕組み・階層構造：${v.society||''}
+■ 支配的な価値観・道徳観：${v.values||''}
+■ 禁忌（やってはいけないこと）：${v.taboo||''}
+■ 経済・権力の仕組み：${v.economy||''}
+■ 宗教・信仰・迷信（あれば）：${v.religion||''}
+
+─────────────────────────────
+日常生活
+─────────────────────────────
+■ 人々の日常（主人公の世界の「普通」）：${v.daily||''}
+■ テクノロジー水準・コミュニケーション方法：${v.tech||''}
+■ 食・服・移動手段：${v.lifestyle||''}
+■ エンターテイメント・文化：${v.entertainment||''}
+
+─────────────────────────────
+視覚・感覚的特徴
+─────────────────────────────
+■ 映像的トーン・カラーパレット：${v.visual_tone||''}
+■ 音・音楽のイメージ：${v.sound||''}
+■ 代表的なロケーション（3カ所）：
+${v.locations||''}
+
+─────────────────────────────
+情報公開の管理
+─────────────────────────────
+${v.checks||''}`,
+  },
+  'pacing-check': {
+    name: 'ペーシング診断シート',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'scenes_eval', label:'章・シーンごとのペース評価（速い／普通／遅い・理由）', type:'textarea' },
+      { key:'stagnation', label:'停滞ポイント（箇所・原因）', type:'textarea' },
+      { key:'rushing', label:'急ぎすぎポイント（箇所・原因）', type:'textarea' },
+      { key:'rest_after_climax', label:'盛り上がり（速い）シーンの直後に配置する「息継ぎ」シーン', type:'textarea' },
+      { key:'silence', label:'クライマックス前の「静寂」の使い方', type:'textarea' },
+      { key:'checks', label:'チェック（同テンポの連続／間の有無／中弛みの集中）', type:'textarea' },
+    ],
+    build: (v) => `【ペーシング診断シート】
+作品タイトル：${v.title||''}
+
+■ 章・シーンごとのペース評価（各シーンを「速い／普通／遅い」で分類）
+${v.scenes_eval||''}
+
+■ 停滞ポイント（読者が飽きる可能性のある箇所）
+${v.stagnation||''}
+
+■ 急ぎすぎポイント（感情が追いつかない箇所）
+${v.rushing||''}
+
+■ 緩急のリズム設計
+・盛り上がり（速い）シーンの直後に配置する「息継ぎ」シーン：${v.rest_after_climax||''}
+・クライマックス前の「静寂」の使い方：${v.silence||''}
+
+■ チェック
+${v.checks||''}`,
+  },
+  'series-bible': {
+    name: 'シリーズバイブルシート',
+    fields: [
+      { key:'series_name', label:'シリーズ名', type:'text' },
+      { key:'volumes', label:'全体の完結までの巻数／話数（予定）', type:'text' },
+      { key:'big_goal', label:'シリーズ全体を通しての大きな謎・目標', type:'textarea' },
+      { key:'volume_goals', label:'各巻/各シーズンごとの中目標', type:'textarea' },
+      { key:'fixed_world', label:'変わらない設定｜世界観の基本ルール', type:'textarea' },
+      { key:'fixed_char', label:'変わらない設定｜キャラクターの基本設定（生年月日・出身等）', type:'textarea' },
+      { key:'fixed_names', label:'変わらない設定｜組織・地名・固有名詞の正式表記一覧', type:'textarea' },
+      { key:'hero_growth', label:'主人公の変化（シリーズを通した変化）', type:'textarea' },
+      { key:'support_growth', label:'主要脇役の変化', type:'textarea' },
+      { key:'foreshadow', label:'伏線管理（シリーズ全体で仕込む長期伏線）', type:'textarea' },
+      { key:'checks', label:'チェック（各巻の独立性／設定資料と本編の矛盾時の「正」）', type:'textarea' },
+    ],
+    build: (v) => `【シリーズバイブルシート】
+シリーズ名：${v.series_name||''}
+
+■ シリーズ全体の骨格
+・全体の完結までの巻数／話数（予定）：${v.volumes||''}
+・シリーズ全体を通しての大きな謎・目標：${v.big_goal||''}
+・各巻/各シーズンごとの中目標：
+${v.volume_goals||''}
+
+■ 変わらない設定（絶対に矛盾させてはいけないルール）
+・世界観の基本ルール：${v.fixed_world||''}
+・キャラクターの基本設定（生年月日・出身等）：${v.fixed_char||''}
+・組織・地名・固有名詞の正式表記一覧：${v.fixed_names||''}
+
+■ キャラクターの成長軌道（シリーズを通した変化）
+・主人公の変化：${v.hero_growth||''}
+・主要脇役の変化：${v.support_growth||''}
+
+■ 伏線管理（シリーズ全体で仕込む長期伏線）
+${v.foreshadow||''}
+
+■ チェック
+${v.checks||''}`,
+  },
+  'audience-analysis': {
+    name: '想定読者分析シート',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'demographics', label:'年齢層・性別・ライフスタイル', type:'textarea' },
+      { key:'similar_taste', label:'既読/既視の作品（好みの傾向が近い作品）', type:'textarea' },
+      { key:'desired_experience', label:'この読者が普段求めている体験（癒し／興奮／驚き／共感等）', type:'textarea' },
+      { key:'value_provided', label:'読み終えた後に得られる感情', type:'textarea' },
+      { key:'relatability', label:'読者が「自分ごと」として感じられる要素', type:'textarea' },
+      { key:'genre_must', label:'ジャンルとして「絶対に外せない」お約束', type:'textarea' },
+      { key:'twist', label:'逆に「予想を裏切る」ことで驚きを生む部分', type:'textarea' },
+      { key:'unique_point', label:'一言で言うと何が新しいか', type:'textarea' },
+      { key:'diff_point', label:'似た作品と比較した際の差別化ポイント', type:'textarea' },
+      { key:'checks', label:'チェック（誰のために書いているか／最初の5分での離脱防止）', type:'textarea' },
+    ],
+    build: (v) => `【想定読者分析シート】
+作品タイトル：${v.title||''}
+
+■ 想定読者層
+・年齢層・性別・ライフスタイル：${v.demographics||''}
+・既読/既視の作品（好みの傾向が近い作品）：${v.similar_taste||''}
+・この読者が普段求めている体験（癒し／興奮／驚き／共感等）：${v.desired_experience||''}
+
+■ この作品が読者に提供する価値
+・読み終えた後に得られる感情：${v.value_provided||''}
+・読者が「自分ごと」として感じられる要素：${v.relatability||''}
+
+■ 想定読者の期待とその外し方
+・ジャンルとして「絶対に外せない」お約束：${v.genre_must||''}
+・逆に「予想を裏切る」ことで驚きを生む部分：${v.twist||''}
+
+■ 訴求ポイント（宣伝文・紹介文に使える強み）
+・一言で言うと何が新しいか：${v.unique_point||''}
+・似た作品と比較した際の差別化ポイント：${v.diff_point||''}
+
+■ チェック
+${v.checks||''}`,
+  },
 };
 
 function openTemplateForm(id) {
@@ -29279,6 +30369,8 @@ function openTemplateForm(id) {
       <label class="form-label">${esc(f.label)}</label>
       ${f.type === 'textarea'
         ? `<textarea class="form-input" id="tf-${f.key}" rows="2" style="font-size:12.5px">${esc(saved[f.key]||'')}</textarea>`
+        : f.type === 'select'
+        ? `<select class="form-input" id="tf-${f.key}">${(f.options||[]).map(o=>`<option value="${esc(o)}" ${saved[f.key]===o?'selected':''}>${esc(o)}</option>`).join('')}</select>`
         : `<input class="form-input" id="tf-${f.key}" value="${esc(saved[f.key]||'')}">`}
     </div>`).join('');
   openModal(
@@ -29346,6 +30438,815 @@ function saveTemplateToNote(templateId) {
   DB.set('learn_notes', notes);
   closeModal();
   toast(`「${name}」を学習ノートに保存しました`, 'success');
+}
+
+// ── インタラクティブ・チェックリスト対応テンプレート ─────────────────
+const TEMPLATE_CHECKLIST_SCHEMAS = {
+  'scene-check': {
+    name: 'シーンチェックリスト',
+    fields: [
+      { key:'scene_no', label:'シーン番号', type:'text' },
+      { key:'title', label:'タイトル（任意）', type:'text' },
+      { key:'location', label:'場所', type:'text' },
+      { key:'time', label:'時間帯', type:'text' },
+      { key:'characters', label:'登場人物', type:'text' },
+      { key:'stage', label:'このシーンの段階（Act1 / Act2a / 中間点 / Act2b / Act3）', type:'text' },
+    ],
+    sections: [
+      { title:'基本4要素', items:[
+        { id:'entry', text:'入場（シーン直前の状況・なぜここにいるか）' },
+        { id:'goal', text:'このシーンの目標（誰が何を達成しようとするか）' },
+        { id:'conflict', text:'対立・障害（何が目標を妨げるか）' },
+        { id:'exit', text:'出場（シーン後に何が変わるか・決定的なターン）' },
+      ]},
+      { title:'機能チェック', items:[
+        { id:'f1', text:'このシーンを削ったとき、物語に穴があくか？（なければ削るべき）' },
+        { id:'f2', text:'このシーンは物語を前進させているか？（逆行 or 停滞していないか？）' },
+        { id:'f3', text:'主人公の感情・認識が変化するか？' },
+        { id:'f4', text:'「遅く入り、早く出る」を守っているか？（無駄な入退場がない）' },
+        { id:'f5', text:'1シーンに複数の役割があるか？（例：情報提供＋感情描写＋フォア）' },
+      ]},
+      { title:'品質チェック', items:[
+        { id:'q1', text:'このシーンの「感情的トーン」は適切か？' },
+        { id:'q2', text:'サブテキスト（言わないこと）はあるか？' },
+        { id:'q3', text:'ビジュアルで語れているか？（内面を映像で表現）' },
+        { id:'q4', text:'入場時と出場時の感情状態を書き出したか？（入場時→出場時）' },
+      ]},
+    ],
+    build: (v, mark) => `【シーンチェックリスト】
+
+シーン番号：${v.scene_no||''}　　　タイトル（任意）：${v.title||''}
+場所：${v.location||''}　　　　　　時間帯：${v.time||''}
+登場人物：${v.characters||''}
+このシーンの段階（Act1 / Act2a / 中間点 / Act2b / Act3）：${v.stage||''}
+
+─────────────────────────────
+基本4要素
+─────────────────────────────
+${mark('entry')} 入場（シーン直前の状況・なぜここにいるか）
+${mark('goal')} このシーンの目標（誰が何を達成しようとするか）
+${mark('conflict')} 対立・障害（何が目標を妨げるか）
+${mark('exit')} 出場（シーン後に何が変わるか・決定的なターン）
+
+─────────────────────────────
+機能チェック
+─────────────────────────────
+${mark('f1')} このシーンを削ったとき、物語に穴があくか？（なければ削るべき）
+${mark('f2')} このシーンは物語を前進させているか？（逆行 or 停滞していないか？）
+${mark('f3')} 主人公の感情・認識が変化するか？
+${mark('f4')} 「遅く入り、早く出る」を守っているか？（無駄な入退場がない）
+${mark('f5')} 1シーンに複数の役割があるか？（例：情報提供＋感情描写＋フォア）
+
+─────────────────────────────
+品質チェック
+─────────────────────────────
+${mark('q1')} このシーンの「感情的トーン」は適切か？
+${mark('q2')} サブテキスト（言わないこと）はあるか？
+${mark('q3')} ビジュアルで語れているか？（内面を映像で表現）
+${mark('q4')} 入場時と出場時の感情状態を書き出す：`,
+  },
+  'dialogue-check': {
+    name: 'セリフ診断リスト',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'scene_no', label:'シーン番号', type:'text' },
+      { key:'char_name', label:'チェック対象のキャラクター', type:'text' },
+    ],
+    sections: [
+      { title:'目的・機能チェック', items:[
+        { id:'p1', text:'このセリフに目的はあるか？（情報・感情・影響・攻防のどれか）' },
+        { id:'p2', text:'このセリフはシーンのゴールに向かっているか？' },
+        { id:'p3', text:'削れるセリフはないか？（なくても意味が通じるセリフは削除候補）' },
+      ]},
+      { title:'キャラクター性チェック', items:[
+        { id:'c1', text:'このキャラクターらしいか？（名前を隠しても誰かわかるか？）' },
+        { id:'c2', text:'年齢・職業・教育・地域のリアリティはあるか？' },
+        { id:'c3', text:'感情状態が話し方に反映されているか？' },
+      ]},
+      { title:'サブテキストチェック（最重要）', items:[
+        { id:'s1', text:'サブテキスト（言外の意味・本音）はあるか？' },
+        { id:'s2', text:'直接的すぎないか？（本音を隠す・嘘をつく・遠回しにする）' },
+        { id:'s3', text:'説明的すぎないか？（テーマ・感情・情報を直接言っていない？）' },
+        { id:'s4', text:'感情をラベリングしていないか？（「悲しい」「怒っている」など直接言わない）' },
+      ]},
+      { title:'声・音楽性チェック', items:[
+        { id:'v1', text:'声に出して読んで自然か？（舌を嚙む・言いにくい表現はないか）' },
+        { id:'v2', text:'リズム・テンポは適切か？（長すぎ・短すぎのバランス）' },
+        { id:'v3', text:'長すぎないか？（3行以上は分割を検討）' },
+        { id:'v4', text:'沈黙・間を効果的に使っているか？' },
+        { id:'v5', text:'括弧書き（演技指定）は最小限か？' },
+      ]},
+    ],
+    build: (v, mark) => `【セリフ診断リスト】
+
+作品タイトル：${v.title||''}　　シーン番号：${v.scene_no||''}
+チェック対象のキャラクター：${v.char_name||''}
+
+─────────────────────────────
+目的・機能チェック
+─────────────────────────────
+${mark('p1')} このセリフに目的はあるか？（情報・感情・影響・攻防のどれか）
+${mark('p2')} このセリフはシーンのゴールに向かっているか？
+${mark('p3')} 削れるセリフはないか？（なくても意味が通じるセリフは削除候補）
+
+─────────────────────────────
+キャラクター性チェック
+─────────────────────────────
+${mark('c1')} このキャラクターらしいか？（名前を隠しても誰かわかるか？）
+${mark('c2')} 年齢・職業・教育・地域のリアリティはあるか？
+${mark('c3')} 感情状態が話し方に反映されているか？
+
+─────────────────────────────
+サブテキストチェック（最重要）
+─────────────────────────────
+${mark('s1')} サブテキスト（言外の意味・本音）はあるか？
+${mark('s2')} 直接的すぎないか？（本音を隠す・嘘をつく・遠回しにする）
+${mark('s3')} 説明的すぎないか？（テーマ・感情・情報を直接言っていない？）
+${mark('s4')} 感情をラベリングしていないか？（「悲しい」「怒っている」など直接言わない）
+
+─────────────────────────────
+声・音楽性チェック
+─────────────────────────────
+${mark('v1')} 声に出して読んで自然か？（舌を嚙む・言いにくい表現はないか）
+${mark('v2')} リズム・テンポは適切か？（長すぎ・短すぎのバランス）
+${mark('v3')} 長すぎないか？（3行以上は分割を検討）
+${mark('v4')} 沈黙・間を効果的に使っているか？
+${mark('v5')} 括弧書き（演技指定）は最小限か？`,
+  },
+  'opening-scene-check': {
+    name: 'オープニングシーンチェックリスト',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'first_impression', label:'最初の3行/3カットで伝えていること（ジャンル・トーン／時代・場所／主人公）', type:'textarea' },
+      { key:'image_function', label:'オープニングイメージの機能（提示する「変化前の世界」／クロージングとの対比）', type:'textarea' },
+      { key:'hook', label:'フック（興味を引く謎・違和感／提示する問い）', type:'textarea' },
+      { key:'info_delivery', label:'情報の出し方（説明的すぎないか／「見せる」ことで伝えている情報）', type:'textarea' },
+    ],
+    sections: [
+      { title:'チェック', items:[
+        { id:'ck1', text:'最初の1ページ/1分でジャンルと約束が伝わるか？' },
+        { id:'ck2', text:'説明過多で観客を置いてけぼりにしていないか？' },
+        { id:'ck3', text:'冒頭で「この物語を読み続ける理由」が生まれているか？' },
+        { id:'ck4', text:'主人公への感情移入ポイント（同情・興味・共感）があるか？' },
+      ]},
+    ],
+    build: (v, mark) => `【オープニングシーンチェックリスト】
+作品タイトル：${v.title||''}
+
+■ 最初の3行/3カットで伝えていること
+${v.first_impression||''}
+
+■ オープニングイメージの機能
+${v.image_function||''}
+
+■ フック（続きを読みたくなる要素）
+${v.hook||''}
+
+■ 情報の出し方
+${v.info_delivery||''}
+
+■ チェック
+${mark('ck1')} 最初の1ページ/1分でジャンルと約束が伝わるか？
+${mark('ck2')} 説明過多で観客を置いてけぼりにしていないか？
+${mark('ck3')} 冒頭で「この物語を読み続ける理由」が生まれているか？
+${mark('ck4')} 主人公への感情移入ポイント（同情・興味・共感）があるか？`,
+  },
+  'revision-sheet': {
+    name: '大改稿チェックシート',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'draft_no', label:'稿数', type:'text' },
+      { key:'purpose', label:'改稿の目的（今回何を直すか）', type:'textarea' },
+      { key:'priority_high', label:'改稿優先リスト｜高優先（構造的問題）', type:'textarea' },
+      { key:'priority_mid', label:'改稿優先リスト｜中優先（シーン・キャラクター）', type:'textarea' },
+      { key:'priority_low', label:'改稿優先リスト｜低優先（セリフ・ト書き）', type:'textarea' },
+    ],
+    sections: [
+      { title:'構造レベル（最優先）', items:[
+        { id:'st1', text:'第一幕で主人公・目標・障害が明確に提示されているか？' },
+        { id:'st2', text:'ターニングポイント1・2の位置とインパクトは適切か？' },
+        { id:'st3', text:'クライマックスで主人公の変化が「選択」で証明されているか？' },
+        { id:'st4', text:'各幕の長さバランスは適切か？（中弛みはないか？）' },
+        { id:'st5', text:'ミッドポイントで主人公の立場・認識が変化しているか？' },
+        { id:'st6', text:'「すべてを失う」場面は機能しているか？' },
+        { id:'st7', text:'キャラクターアークは完結しているか？' },
+      ]},
+      { title:'シーンレベル', items:[
+        { id:'sc1', text:'不要なシーン（削っても穴があかない）を特定したか？' },
+        { id:'sc2', text:'各シーンが物語を前進させているか？（逆行・停滞がない）' },
+        { id:'sc3', text:'伏線とその回収を全て確認したか？' },
+        { id:'sc4', text:'サブプロット（Bストーリー）はメインと絡んでいるか？' },
+        { id:'sc5', text:'シーンの感情的変化（前→後）が全シーンであるか？' },
+      ]},
+      { title:'キャラクターレベル', items:[
+        { id:'ch1', text:'主人公の動機・行動が一貫しているか？' },
+        { id:'ch2', text:'敵役・障害の動機は観客が理解できるか？' },
+        { id:'ch3', text:'テーマはセリフではなく行動・選択で示されているか？' },
+        { id:'ch4', text:'各キャラクターの口調・話し方が一貫しているか？' },
+      ]},
+    ],
+    build: (v, mark) => `【大改稿チェックシート】
+作品タイトル：${v.title||''}　　　稿数：${v.draft_no||''}
+改稿の目的（今回何を直すか）：${v.purpose||''}
+
+─────────────────────────────
+構造レベル（最優先）
+─────────────────────────────
+${mark('st1')} 第一幕で主人公・目標・障害が明確に提示されているか？
+${mark('st2')} ターニングポイント1・2の位置とインパクトは適切か？
+${mark('st3')} クライマックスで主人公の変化が「選択」で証明されているか？
+${mark('st4')} 各幕の長さバランスは適切か？（中弛みはないか？）
+${mark('st5')} ミッドポイントで主人公の立場・認識が変化しているか？
+${mark('st6')} 「すべてを失う」場面は機能しているか？
+${mark('st7')} キャラクターアークは完結しているか？
+
+─────────────────────────────
+シーンレベル
+─────────────────────────────
+${mark('sc1')} 不要なシーン（削っても穴があかない）を特定したか？
+${mark('sc2')} 各シーンが物語を前進させているか？（逆行・停滞がない）
+${mark('sc3')} 伏線とその回収を全て確認したか？
+${mark('sc4')} サブプロット（Bストーリー）はメインと絡んでいるか？
+${mark('sc5')} シーンの感情的変化（前→後）が全シーンであるか？
+
+─────────────────────────────
+キャラクターレベル
+─────────────────────────────
+${mark('ch1')} 主人公の動機・行動が一貫しているか？
+${mark('ch2')} 敵役・障害の動機は観客が理解できるか？
+${mark('ch3')} テーマはセリフではなく行動・選択で示されているか？
+${mark('ch4')} 各キャラクターの口調・話し方が一貫しているか？
+
+─────────────────────────────
+改稿優先リスト
+─────────────────────────────
+高優先（構造的問題）：
+${v.priority_high||''}
+中優先（シーン・キャラクター）：
+${v.priority_mid||''}
+低優先（セリフ・ト書き）：
+${v.priority_low||''}`,
+  },
+  'polish-sheet': {
+    name: '精密推敲チェックシート',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'draft_no', label:'稿数', type:'text' },
+      { key:'page_range', label:'推敲対象ページ', type:'text' },
+    ],
+    sections: [
+      { title:'セリフ全般', items:[
+        { id:'d1', text:'すべてのセリフを声に出して読んだか？' },
+        { id:'d2', text:'「言わなくてもわかるセリフ」を削ったか？' },
+        { id:'d3', text:'各キャラクターの口調・語彙が一貫しているか？' },
+        { id:'d4', text:'感情を直接言っているセリフはないか？（「悲しい」「嬉しい」等）' },
+        { id:'d5', text:'テーマを直接言っているセリフはないか？' },
+        { id:'d6', text:'オン・ザ・ノーズ（ぼかしのない直接的表現）はないか？' },
+        { id:'d7', text:'説明セリフ（exposition dumping）はないか？' },
+        { id:'d8', text:'サブテキストがあるか？（言葉の下に本音が流れているか）' },
+        { id:'d9', text:'1つのセリフが3行以上なら分割・短縮を検討したか？' },
+        { id:'d10', text:'沈黙・間（括弧の使い方）は効果的か？' },
+      ]},
+      { title:'ト書き全般', items:[
+        { id:'t1', text:'4行以上の長いト書きを分割したか？' },
+        { id:'t2', text:'カメラに映らないもの（内面・匂い等）を書いていないか？' },
+        { id:'t3', text:'「〜と思う」「〜と感じる」など内面描写を避けているか？' },
+        { id:'t4', text:'主語（誰が？）が明確か？' },
+        { id:'t5', text:'演技指定（括弧書き）を最小限にしたか？' },
+        { id:'t6', text:'重複表現（セリフと同じ内容をト書きでも書いていないか）はないか？' },
+        { id:'t7', text:'ト書きで「見せて（Show）」いるか（Tell していないか）？' },
+      ]},
+      { title:'全体チェック', items:[
+        { id:'a1', text:'誤字・脱字・表記ゆれを確認したか？' },
+        { id:'a2', text:'人物名の統一（呼び名・表記がブレていないか）' },
+        { id:'a3', text:'冒頭3ページにフック（観客を引き込む要素）があるか？' },
+        { id:'a4', text:'ラストシーンに余韻・余白があるか？' },
+        { id:'a5', text:'ページ数・フォーマットの確認（柱書き・インデント等）' },
+      ]},
+    ],
+    build: (v, mark) => `【精密推敲チェックシート】
+作品タイトル：${v.title||''}　　稿数：${v.draft_no||''}
+推敲対象ページ（${v.page_range||''}）：
+
+─────────────────────────────
+セリフ全般
+─────────────────────────────
+${mark('d1')} すべてのセリフを声に出して読んだか？
+${mark('d2')} 「言わなくてもわかるセリフ」を削ったか？
+${mark('d3')} 各キャラクターの口調・語彙が一貫しているか？
+${mark('d4')} 感情を直接言っているセリフはないか？（「悲しい」「嬉しい」等）
+${mark('d5')} テーマを直接言っているセリフはないか？
+${mark('d6')} オン・ザ・ノーズ（ぼかしのない直接的表現）はないか？
+${mark('d7')} 説明セリフ（exposition dumping）はないか？
+${mark('d8')} サブテキストがあるか？（言葉の下に本音が流れているか）
+${mark('d9')} 1つのセリフが3行以上なら分割・短縮を検討したか？
+${mark('d10')} 沈黙・間（括弧の使い方）は効果的か？
+
+─────────────────────────────
+ト書き全般
+─────────────────────────────
+${mark('t1')} 4行以上の長いト書きを分割したか？
+${mark('t2')} カメラに映らないもの（内面・匂い等）を書いていないか？
+${mark('t3')} 「〜と思う」「〜と感じる」など内面描写を避けているか？
+${mark('t4')} 主語（誰が？）が明確か？
+${mark('t5')} 演技指定（括弧書き）を最小限にしたか？
+${mark('t6')} 重複表現（セリフと同じ内容をト書きでも書いていないか）はないか？
+${mark('t7')} ト書きで「見せて（Show）」いるか（Tell していないか）？
+
+─────────────────────────────
+全体チェック
+─────────────────────────────
+${mark('a1')} 誤字・脱字・表記ゆれを確認したか？
+${mark('a2')} 人物名の統一（呼び名・表記がブレていないか）
+${mark('a3')} 冒頭3ページにフック（観客を引き込む要素）があるか？
+${mark('a4')} ラストシーンに余韻・余白があるか？
+${mark('a5')} ページ数・フォーマットの確認（柱書き・インデント等）`,
+  },
+  'consistency-check': {
+    name: '整合性チェックリスト',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'timeline', label:'時系列の整合性（年齢の一貫性／季節・日数・移動時間の矛盾）', type:'textarea' },
+      { key:'setting_consistency', label:'設定の整合性（世界観ルールの後半破り／都合の良い解決）', type:'textarea' },
+      { key:'char_consistency', label:'キャラクターの整合性（性格変化の理由／口調のブレ／表記統一）', type:'textarea' },
+      { key:'unresolved_foreshadow', label:'伏線の整合性｜未回収リスト', type:'textarea' },
+      { key:'ambiguous_foreshadow', label:'伏線の整合性｜回収済みだが張っていた場所が曖昧なもの', type:'textarea' },
+    ],
+    sections: [
+      { title:'チェック', items:[
+        { id:'ck1', text:'通し読みで「あれ？」と引っかかる箇所を全てリストアップしたか？' },
+        { id:'ck2', text:'固有名詞（地名・人名・組織名）の表記は統一されているか？' },
+      ]},
+    ],
+    build: (v, mark) => `【整合性チェックリスト】
+作品タイトル：${v.title||''}
+
+■ 時系列の整合性
+${v.timeline||''}
+
+■ 設定の整合性
+${v.setting_consistency||''}
+
+■ キャラクターの整合性
+${v.char_consistency||''}
+
+■ 伏線の整合性
+・未回収リスト：
+${v.unresolved_foreshadow||''}
+・回収済みだが張っていた場所が曖昧なもの：
+${v.ambiguous_foreshadow||''}
+
+■ チェック
+${mark('ck1')} 通し読みで「あれ？」と引っかかる箇所を全てリストアップしたか？
+${mark('ck2')} 固有名詞（地名・人名・組織名）の表記は統一されているか？`,
+  },
+  'genre-check': {
+    name: 'ジャンルお約束チェック',
+    fields: [
+      { key:'title', label:'作品タイトル', type:'text' },
+      { key:'genre', label:'ジャンル', type:'text' },
+      { key:'unique_check', label:'独自チェック（このジャンルで一番大切なこと）', type:'textarea' },
+    ],
+    sections: [
+      { title:'共通チェック（全ジャンル必須）', items:[
+        { id:'g1', text:'ジャンルの「お約束」（ジャンルの期待）を満たしているか？' },
+        { id:'g2', text:'ジャンルの「お約束」を少なくとも1つ裏切っているか？（独自性）' },
+        { id:'g3', text:'ジャンル固有の感情（ホラー=恐怖、コメディ=笑い等）を提供できているか？' },
+        { id:'g4', text:'ジャンルのターゲット観客の期待に応えているか？' },
+      ]},
+      { title:'【ドラマ（感情中心）】', items:[
+        { id:'drama1', text:'主人公の感情的苦境が明確か？' },
+        { id:'drama2', text:'人物の関係性が変化しているか？' },
+        { id:'drama3', text:'観客が感情移入できる「普遍的テーマ」があるか？' },
+      ]},
+      { title:'【スリラー・サスペンス】', items:[
+        { id:'th1', text:'ステークス（失敗したら何が起きるか）が明確か？' },
+        { id:'th2', text:'タイムプレッシャーがあるか？' },
+        { id:'th3', text:'最低3回以上、観客の予想を裏切るどんでん返しがあるか？' },
+      ]},
+      { title:'【コメディ】', items:[
+        { id:'co1', text:'コアのギャップ・矛盾（ルールの衝突）が明確か？' },
+        { id:'co2', text:'キャラクターの「ルール」が一貫しているか？（ルール破りが笑いになる）' },
+        { id:'co3', text:'ビルドアップ（フリ）と裏切り（ボケ）の構造があるか？' },
+      ]},
+      { title:'【ホラー】', items:[
+        { id:'ho1', text:'「守るべきもの」（愛着を持てる対象）が明確か？' },
+        { id:'ho2', text:'脅威のルールが一貫しているか？' },
+        { id:'ho3', text:'主人公の「恐怖の原因」が明確か？（外的/内的の両方）' },
+      ]},
+      { title:'【ロマンス】', items:[
+        { id:'ro1', text:'二人を引き合わせる「磁力」と引き離す「障害」が明確か？' },
+        { id:'ro2', text:'関係の構築〜危機〜和解の3段階があるか？' },
+        { id:'ro3', text:'クライマックスで「愛の証明」があるか？' },
+      ]},
+    ],
+    build: (v, mark) => `【ジャンル別・お約束チェックリスト】
+作品タイトル：${v.title||''}
+ジャンル：${v.genre||''}
+
+─────────────────────────────
+共通チェック（全ジャンル必須）
+─────────────────────────────
+${mark('g1')} ジャンルの「お約束」（ジャンルの期待）を満たしているか？
+${mark('g2')} ジャンルの「お約束」を少なくとも1つ裏切っているか？（独自性）
+${mark('g3')} ジャンル固有の感情（ホラー=恐怖、コメディ=笑い等）を提供できているか？
+${mark('g4')} ジャンルのターゲット観客の期待に応えているか？
+
+─────────────────────────────
+ジャンル別チェック（該当するものを使う）
+─────────────────────────────
+
+【ドラマ（感情中心）】
+${mark('drama1')} 主人公の感情的苦境が明確か？
+${mark('drama2')} 人物の関係性が変化しているか？
+${mark('drama3')} 観客が感情移入できる「普遍的テーマ」があるか？
+
+【スリラー・サスペンス】
+${mark('th1')} ステークス（失敗したら何が起きるか）が明確か？
+${mark('th2')} タイムプレッシャーがあるか？
+${mark('th3')} 最低3回以上、観客の予想を裏切るどんでん返しがあるか？
+
+【コメディ】
+${mark('co1')} コアのギャップ・矛盾（ルールの衝突）が明確か？
+${mark('co2')} キャラクターの「ルール」が一貫しているか？（ルール破りが笑いになる）
+${mark('co3')} ビルドアップ（フリ）と裏切り（ボケ）の構造があるか？
+
+【ホラー】
+${mark('ho1')} 「守るべきもの」（愛着を持てる対象）が明確か？
+${mark('ho2')} 脅威のルールが一貫しているか？
+${mark('ho3')} 主人公の「恐怖の原因」が明確か？（外的/内的の両方）
+
+【ロマンス】
+${mark('ro1')} 二人を引き合わせる「磁力」と引き離す「障害」が明確か？
+${mark('ro2')} 関係の構築〜危機〜和解の3段階があるか？
+${mark('ro3')} クライマックスで「愛の証明」があるか？
+
+─────────────────────────────
+独自チェック（このジャンルで一番大切なこと）
+─────────────────────────────
+${v.unique_check||''}`,
+  },
+};
+
+function openTemplateChecklist(id) {
+  const schema = TEMPLATE_CHECKLIST_SCHEMAS[id];
+  if (!schema) return;
+  const saved = DB.get('template_checklist_' + id, { fields:{}, checked:[] });
+  const totalItems = (schema.sections||[]).reduce((a,s)=>a+s.items.length,0);
+  const checkedCount = (saved.checked||[]).length;
+  const pct = totalItems ? Math.round(checkedCount/totalItems*100) : 0;
+  const fieldsHtml = (schema.fields||[]).map(f => `
+    <div class="form-group">
+      <label class="form-label">${esc(f.label)}</label>
+      ${f.type === 'textarea'
+        ? `<textarea class="form-input" id="tc-${f.key}" rows="2" style="font-size:12.5px">${esc(saved.fields[f.key]||'')}</textarea>`
+        : `<input class="form-input" id="tc-${f.key}" value="${esc(saved.fields[f.key]||'')}">`}
+    </div>`).join('');
+  const sectionsHtml = (schema.sections||[]).map(sec => `
+    <div style="margin:14px 0 6px;font-size:12px;font-weight:700;color:var(--text-primary)">${esc(sec.title)}</div>
+    ${sec.items.map(it => {
+      const ok = (saved.checked||[]).includes(it.id);
+      return `<div class="checklist-item" onclick="toggleTemplateChecklistItem('${id}','${it.id}')">
+        <div class="checklist-check ${ok?'checked':''}">${ok?'<i class="fas fa-check"></i>':''}</div>
+        <div class="checklist-text ${ok?'done':''}">${esc(it.text)}</div>
+      </div>`;
+    }).join('')}`).join('');
+  openModal(
+    `<i class="fas fa-list-check" style="color:var(--momo)"></i> ${esc(schema.name)}（チェック式）`,
+    `<div style="margin-bottom:10px;font-size:11.5px;color:var(--text-muted)"><i class="fas fa-circle-info" style="margin-right:4px"></i>チェックすると進捗が自動保存されます。「ノートに保存」でテキスト化して記録できます。</div>
+     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+       <div style="flex:1;height:6px;background:var(--bg-hover);border-radius:var(--radius-full);overflow:hidden"><div style="height:100%;width:${pct}%;background:var(--momo);border-radius:var(--radius-full)"></div></div>
+       <div style="font-size:11px;color:var(--text-muted);white-space:nowrap">${checkedCount}/${totalItems} 完了</div>
+     </div>
+     ${fieldsHtml ? `<div style="margin-bottom:4px">${fieldsHtml}</div>` : ''}
+     <div style="max-height:360px;overflow-y:auto;padding-right:6px">${sectionsHtml}</div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">閉じる</button>
+     <button class="btn btn-ghost" onclick="previewTemplateChecklist('${id}')"><i class="fas fa-eye"></i> プレビュー</button>
+     <button class="btn btn-primary" onclick="saveTemplateChecklistToNote('${id}')"><i class="fas fa-note-sticky"></i> ノートに保存</button>`,
+    { size: 'modal-lg' }
+  );
+}
+function collectTemplateChecklistFields(id) {
+  const schema = TEMPLATE_CHECKLIST_SCHEMAS[id];
+  const saved = DB.get('template_checklist_' + id, { fields:{}, checked:[] });
+  (schema.fields||[]).forEach(f => { const el = $('#tc-' + f.key); if (el) saved.fields[f.key] = el.value; });
+  DB.set('template_checklist_' + id, saved);
+  return saved;
+}
+function toggleTemplateChecklistItem(id, itemId) {
+  const saved = collectTemplateChecklistFields(id);
+  const idx = (saved.checked||[]).indexOf(itemId);
+  if (idx >= 0) saved.checked.splice(idx, 1); else (saved.checked = saved.checked||[]).push(itemId);
+  DB.set('template_checklist_' + id, saved);
+  openTemplateChecklist(id);
+}
+function buildTemplateChecklistText(id) {
+  const schema = TEMPLATE_CHECKLIST_SCHEMAS[id];
+  const saved = DB.get('template_checklist_' + id, { fields:{}, checked:[] });
+  const mark = (itemId) => (saved.checked||[]).includes(itemId) ? '☑' : '□';
+  return schema.build(saved.fields||{}, mark);
+}
+function previewTemplateChecklist(id) {
+  collectTemplateChecklistFields(id);
+  const schema = TEMPLATE_CHECKLIST_SCHEMAS[id];
+  const content = buildTemplateChecklistText(id);
+  window._currentTemplate = content;
+  window._currentTemplateName = schema.name;
+  openModal(
+    `<i class="fas fa-eye" style="color:var(--momo)"></i> ${esc(schema.name)}（プレビュー）`,
+    `<div style="white-space:pre-wrap;font-family:'Noto Serif JP',serif;font-size:12.5px;color:var(--text-secondary);line-height:1.9;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-sm);padding:16px;max-height:440px;overflow-y:auto">${esc(content)}</div>`,
+    `<button class="btn btn-secondary" onclick="openTemplateChecklist('${id}')"><i class="fas fa-arrow-left"></i> チェックリストに戻る</button>
+     <button class="btn btn-ghost" onclick="saveTemplateToNote('${id}')"><i class="fas fa-note-sticky"></i> ノートに保存</button>
+     <button class="btn btn-primary" onclick="copyTemplate()"><i class="fas fa-copy"></i> クリップボードにコピー</button>`,
+    { size: 'modal-lg' }
+  );
+}
+function saveTemplateChecklistToNote(id) {
+  collectTemplateChecklistFields(id);
+  const schema = TEMPLATE_CHECKLIST_SCHEMAS[id];
+  const content = buildTemplateChecklistText(id);
+  const notes = DB.get('learn_notes', []);
+  notes.unshift({
+    id: 'note-' + Date.now(), title: schema.name, content,
+    tags: ['テンプレート','チェックリスト'], color: 'momo',
+    pinned: false, createdAt: Date.now(), updatedAt: Date.now(),
+  });
+  DB.set('learn_notes', notes);
+  closeModal();
+  toast(`「${schema.name}」を学習ノートに保存しました`, 'success');
+}
+
+// ── コンテンツカード対応テンプレート（学習センター記事風）───────────
+const TEMPLATE_CARD_SCHEMAS = {
+  'format-sample': {
+    name: '脚本フォーマット見本',
+    icon: 'fa-file-lines',
+    intro: '日本式脚本の基本書式ルールを、実際のサンプルシーンとともに確認できるコンテンツカードです。ルールを体で覚えるほど執筆速度が上がります。',
+    items: [
+      { no:1, en:'RULE 1', ja:'柱書き', title:'柱書き（シーンヘッダー）', icon:'fa-heading', color:'var(--accent)', bg:'var(--accent-bg)', desc:'○ + 内外 + 場所 + 時 の順で一行にまとめて表記する。シーンが変わるたびに必ず入れる。', tips:['例：○内・警察署・取調室・夜', '「内」＝室内、「外」＝屋外を必ず明示する'] },
+      { no:2, en:'RULE 2', ja:'ト書き', title:'ト書き（描写文）', icon:'fa-align-left', color:'var(--kogane)', bg:'var(--kogane-bg)', desc:'動作・情景・状況を2字下げ（全角スペース2つ）で記述する地の文。', tips:['4行以上続けない。分割して読みやすく', 'カメラ指示は書きすぎない（監督の仕事）'] },
+      { no:3, en:'RULE 3', ja:'人物名', title:'人物名', icon:'fa-user', color:'var(--fuji)', bg:'var(--fuji-bg)', desc:'セリフの上に、中央またはト書きより深い4〜5字下げで配置する。', tips:['インデントを全キャラクターで統一する'] },
+      { no:4, en:'RULE 4', ja:'セリフ', title:'セリフ', icon:'fa-comment', color:'var(--momo)', bg:'var(--momo-bg)', desc:'「」に入れ、対応する人物名の直下に配置する。', tips:['「〜と言った」等の説明を付けない（ト書きで語る）'] },
+      { no:5, en:'RULE 5', ja:'情感指定', title:'情感指定', icon:'fa-face-smile', color:'var(--matcha)', bg:'var(--matcha-bg)', desc:'セリフ前の（　）内に、口調や感情のニュアンスを短く指定する。', tips:['多用しすぎない。俳優の解釈に委ねる部分も残す'] },
+      { no:6, en:'RULE 6', ja:'ＴＯ', title:'Ｔ　Ｏ（転換指示）', icon:'fa-arrow-right-long', color:'var(--kon-lt)', bg:'var(--kon-bg)', desc:'シーンやカットの転換を示す指示。行末に右寄せで記載する。', tips:['多用は禁物。本当に必要な転換にのみ使う'] },
+    ],
+    sampleTitle: 'サンプル（A4縦・一段組の標準書式）',
+    sample: `　○内・警察署・取調室・夜
+
+　　蛍光灯の灯り。スチール椅子が二脚。
+　　木村（38）が片方に座り、正面の空席を見ている。
+
+　　ドアが開く。
+
+　　田中教授（64）が入ってくる。白髪。穏やかな顔。
+　　が、その目は笑っていない。
+
+　　　　木村
+　　「……先生？」
+
+　　教授、無言で向かいの椅子に座る。
+　　しばらく沈黙。
+
+　　　　田中教授
+　　「久しぶりだな、木村」
+
+　　　　木村
+　　　　（震える声で）
+　　「なぜ……なぜここに」
+
+　　　　田中教授
+　　「君が呼んだんだろう」
+
+　　木村、立ち上がろうとして――できない。
+
+　　　　　　　　　　　　　　カット　Ｔ　Ｏ：
+
+　○外・渋谷・スクランブル交差点・昼
+
+　　人々が行き交う。ノイズ。喧騒。
+　　そこに一人だけ、静止している男がいる。木村だ。`,
+    mistakesTitle: 'よくある書式ミス',
+    mistakes: [
+      'セリフに「と言った」「と答えた」を使う',
+      '「〜と思った」など内面描写を書く',
+      '4行以上の連続したト書き（分割する）',
+      'カメラ指示を書きすぎる（映像は監督に任せる）',
+      '人物名を太字にしない・インデントがバラバラ',
+    ],
+    outro: '書式は「読みやすさ」のためのルールです。迷ったら「現場のスタッフが一目で理解できるか」を基準に判断しましょう。',
+    rawText: `【日本式脚本フォーマット完全見本】
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+書式ルール
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+・柱書き（シーンヘッダー）：○ + 内外 + 場所 + 時
+・ト書き：2字下げ（全角スペース2つ）
+・人物名：中央または4〜5字下げ
+・セリフ：「」に入れ、人物名の下に
+・情感指定：（　）内に、セリフ前に
+・Ｔ　Ｏ（転換指示）：行末右寄せ
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+サンプル（A4縦・一段組の標準書式）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+　○内・警察署・取調室・夜
+
+　　蛍光灯の灯り。スチール椅子が二脚。
+　　木村（38）が片方に座り、正面の空席を見ている。
+
+　　ドアが開く。
+
+　　田中教授（64）が入ってくる。白髪。穏やかな顔。
+　　が、その目は笑っていない。
+
+　　　　木村
+　　「……先生？」
+
+　　教授、無言で向かいの椅子に座る。
+　　しばらく沈黙。
+
+　　　　田中教授
+　　「久しぶりだな、木村」
+
+　　　　木村
+　　　　（震える声で）
+　　「なぜ……なぜここに」
+
+　　　　田中教授
+　　「君が呼んだんだろう」
+
+　　木村、立ち上がろうとして――できない。
+
+　　　　　　　　　　　　　　カット　Ｔ　Ｏ：
+
+　○外・渋谷・スクランブル交差点・昼
+
+　　人々が行き交う。ノイズ。喧騒。
+　　そこに一人だけ、静止している男がいる。木村だ。
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+よくある書式ミス
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✗ セリフに「と言った」「と答えた」を使う
+✗ 「〜と思った」など内面描写を書く
+✗ 4行以上の連続したト書き（分割する）
+✗ カメラ指示を書きすぎる（映像は監督に任せる）
+✗ 人物名を太字にしない・インデントがバラバラ`,
+  },
+  'subtext-guide': {
+    name: 'サブテキスト変換ガイド',
+    icon: 'fa-comments',
+    intro: '「言葉の下に流れる本音・感情・意図」＝サブテキスト。優れた脚本は「言われたこと」ではなく「言われなかったこと」で魅せます。5つの変換技法をカードで確認しましょう。',
+    items: [
+      { no:1, en:'技法1', ja:'話題転換', title:'全く別のことを話す', icon:'fa-shuffle', color:'var(--accent)', bg:'var(--accent-bg)', direct:'私はあなたのことが好きです', converted:'……昨日、変な夢を見た／このコーヒー、前より薄い', desc:'本音と全く関係のない話題にすり替えることで、言えない想いを匂わせる。' },
+      { no:2, en:'技法2', ja:'行動代替', title:'行動・仕草で代替する', icon:'fa-hand', color:'var(--kogane)', bg:'var(--kogane-bg)', direct:'申し訳ない', converted:'［相手が落とした書類を黙って拾い、手渡す］', desc:'セリフではなく行動で気持ちを語らせる。台詞なしでも感情は伝わる。' },
+      { no:3, en:'技法3', ja:'沈黙と間', title:'沈黙と間を使う', icon:'fa-ellipsis', color:'var(--fuji)', bg:'var(--fuji-bg)', direct:'返事できない', converted:'［長い沈黙］「……そう」［また沈黙］「今日、寒いね」', desc:'言葉にできない感情を「間」で表現する。沈黙こそが最も強いセリフになることもある。' },
+      { no:4, en:'技法4', ja:'反対表現', title:'反対のことを言う', icon:'fa-arrows-left-right', color:'var(--momo)', bg:'var(--momo-bg)', direct:'怖い', converted:'「別に。大丈夫です」（体が小さく震えている）', desc:'セリフと身体・状況を矛盾させることで、本音が透けて見える。' },
+      { no:5, en:'技法5', ja:'固執', title:'関係のないことにこだわる', icon:'fa-thumbtack', color:'var(--matcha)', bg:'var(--matcha-bg)', direct:'もう終わりにしたい', converted:'「この部屋、電球が切れかかってる。ずっと気になってた」', desc:'些細な物事に固執させることで、心の余裕のなさ・逃避を表現する。' },
+    ],
+    checklistTitle: 'チェックシート',
+    checklist: [
+      '変換後のセリフを読んで、本音が「伝わる」か（観客が感じるか）？',
+      'キャラクターの性格・状況と一致しているか？',
+      '「なぜここでこれを言うのか」に必然性があるか？',
+    ],
+    outro: 'サブテキストは「隠す」ためではなく「深く伝える」ための技法です。まずは自分のセリフ一行を選び、5技法のどれかで変換してみましょう。',
+    rawText: `【サブテキスト変換ガイド】
+
+─────────────────────────────
+サブテキストとは
+─────────────────────────────
+「言葉の下に流れる本音・感情・意図」のこと。
+優れた脚本は「言われたこと」ではなく「言われなかったこと」を描く。
+
+─────────────────────────────
+直接表現 → サブテキスト変換の5技法
+─────────────────────────────
+技法1: 全く別のことを話す
+直接：「私はあなたのことが好きです」
+変換：「……昨日、変な夢を見た」「このコーヒー、前より薄い」
+
+技法2: 行動・仕草で代替する
+直接：「申し訳ない」
+変換：[相手が落とした書類を黙って拾い、手渡す]
+
+技法3: 沈黙と間を使う
+直接：「返事できない」
+変換：[長い沈黙]「……そう」[また沈黙]「今日、寒いね」
+
+技法4: 反対のことを言う
+直接：「怖い」
+変換：「別に。大丈夫です」（体が小さく震えている）
+
+技法5: 関係のないことにこだわる
+直接：「もう終わりにしたい」
+変換：「この部屋、電球が切れかかってる。ずっと気になってた」
+
+─────────────────────────────
+チェックシート
+─────────────────────────────
+変換したいセリフ：
+その裏にある本音・感情：
+
+変換後（技法　を使用）：
+
+□ 変換後のセリフを読んで、本音が「伝わる」か（観客が感じるか）？
+□ キャラクターの性格・状況と一致しているか？
+□ 「なぜここでこれを言うのか」に必然性があるか？`,
+  },
+};
+
+function openTemplateCard(id) {
+  const schema = TEMPLATE_CARD_SCHEMAS[id];
+  if (!schema) return;
+  window._currentTemplate = schema.rawText || '';
+  window._currentTemplateName = schema.name;
+
+  const items = schema.items || [];
+  const overviewHtml = `
+  <div class="sct-overview">
+    ${items.map(it => `
+    <div class="sct-overview-item" style="border-color:${it.color};background:${it.bg}">
+      <div class="sct-ov-no" style="color:${it.color}">${it.no}</div>
+      <div class="sct-ov-content">
+        <div class="sct-ov-en" style="color:${it.color}">${esc(it.en||'')}</div>
+        <div class="sct-ov-ja">${esc(it.ja||it.title||'')}</div>
+      </div>
+      <i class="fas ${it.icon} sct-ov-icon" style="color:${it.color}"></i>
+    </div>`).join('')}
+  </div>`;
+
+  const detailHtml = items.map(it => `
+  <div class="sct-item-card">
+    <div class="sct-item-header" style="background:${it.bg};border-left:4px solid ${it.color}">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="width:36px;height:36px;background:${it.color};border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800;font-size:14px;flex-shrink:0">${it.no}</div>
+        <div>
+          <div style="font-size:13px;font-weight:700;color:${it.color}">${esc(it.title)}</div>
+          <div style="font-size:10px;color:var(--text-muted)"><i class="fas ${it.icon}" style="margin-right:4px"></i>${esc((it.desc||'').slice(0,40))}…</div>
+        </div>
+      </div>
+    </div>
+    <div class="sct-item-body">
+      <p style="font-size:13px;line-height:1.75;color:var(--text-secondary);margin:0 0 12px">${esc(it.desc||'')}</p>
+      ${it.tips ? `<div style="background:var(--bg-page);border-radius:var(--radius-sm);padding:10px 12px">
+        <div style="font-size:10.5px;font-weight:700;color:${it.color};margin-bottom:6px"><i class="fas fa-lightbulb" style="margin-right:4px"></i>実践ポイント</div>
+        <ul style="margin:0;padding-left:16px">
+          ${it.tips.map(tip => `<li style="font-size:12px;color:var(--text-secondary);margin-bottom:3px">${esc(tip)}</li>`).join('')}
+        </ul>
+      </div>` : ''}
+      ${it.direct ? `<div style="display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;background:var(--bg-page);border-radius:var(--radius-sm);padding:10px 12px">
+        <div><div style="font-size:9.5px;color:var(--text-muted);margin-bottom:3px">直接的表現</div><div style="font-size:12px;color:var(--text-secondary)">${esc(it.direct)}</div></div>
+        <i class="fas fa-arrow-right" style="color:${it.color}"></i>
+        <div><div style="font-size:9.5px;color:${it.color};margin-bottom:3px;font-weight:700">サブテキスト変換後</div><div style="font-size:12px;color:var(--text-secondary)">${esc(it.converted)}</div></div>
+      </div>` : ''}
+    </div>
+  </div>`).join('');
+
+  const sampleHtml = schema.sample ? `
+  <h2 style="font-size:13.5px;margin:16px 0 8px">${esc(schema.sampleTitle||'サンプル')}</h2>
+  <div style="white-space:pre-wrap;font-family:'Noto Serif JP',serif;font-size:12px;color:var(--text-secondary);line-height:1.9;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px">${esc(schema.sample)}</div>` : '';
+
+  const mistakesHtml = schema.mistakes ? `
+  <div class="article-callout beni" style="margin-top:14px">
+    <i class="fas fa-triangle-exclamation" style="color:var(--accent);margin-right:8px;flex-shrink:0"></i>
+    <div><strong>${esc(schema.mistakesTitle||'よくあるミス')}</strong><ul style="margin:6px 0 0;padding-left:16px">${schema.mistakes.map(m=>`<li style="font-size:12.5px;margin-bottom:3px">${esc(m)}</li>`).join('')}</ul></div>
+  </div>` : '';
+
+  const checklistHtml = schema.checklist ? `
+  <div class="article-callout asagi" style="margin-top:14px">
+    <i class="fas fa-square-check" style="color:var(--asagi);margin-right:8px;flex-shrink:0"></i>
+    <div><strong>${esc(schema.checklistTitle||'チェックシート')}</strong><ul style="margin:6px 0 0;padding-left:16px">${schema.checklist.map(c=>`<li style="font-size:12.5px;margin-bottom:3px">${esc(c)}</li>`).join('')}</ul></div>
+  </div>` : '';
+
+  const outroHtml = schema.outro ? `
+  <div class="article-callout kogane" style="margin-top:14px">
+    <strong>活用法：</strong>${esc(schema.outro)}
+  </div>` : '';
+
+  openModal(
+    `<i class="fas ${schema.icon||'fa-layer-group'}" style="color:var(--kogane)"></i> ${esc(schema.name)}`,
+    `<div style="margin-bottom:10px;display:flex;gap:6px;flex-wrap:wrap">
+       <span style="font-size:11px;padding:2px 10px;background:var(--asagi-bg);color:var(--asagi);border:1px solid var(--asagi-border);border-radius:var(--radius-full)"><i class="fas fa-newspaper" style="font-size:9px;margin-right:3px"></i>コンテンツカード</span>
+     </div>
+     <div class="article-callout asagi" style="margin-bottom:14px">
+       <i class="fas fa-circle-info" style="color:var(--asagi);margin-right:8px;flex-shrink:0"></i>
+       <div>${esc(schema.intro||'')}</div>
+     </div>
+     <div style="max-height:440px;overflow-y:auto;padding-right:4px">
+       ${overviewHtml}
+       ${detailHtml}
+       ${sampleHtml}
+       ${mistakesHtml}
+       ${checklistHtml}
+       ${outroHtml}
+     </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">閉じる</button>
+     <button class="btn btn-ghost" onclick="saveTemplateToNote('${id}')"><i class="fas fa-note-sticky"></i> ノートに保存</button>
+     <button class="btn btn-primary" onclick="copyTemplate()"><i class="fas fa-copy"></i> クリップボードにコピー</button>`,
+    { size: 'modal-lg' }
+  );
 }
 
 // ================================================================

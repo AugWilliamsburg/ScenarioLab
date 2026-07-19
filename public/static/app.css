@@ -10340,3 +10340,103 @@ body {
 @media (max-width: 768px) {
   .dojo-growth-bar-label { width: 78px; font-size: 10.5px; }
 }
+
+/* ================================================================
+   モバイル用ボトムナビゲーション（PWA風・画面下部固定）
+   PC版（901px以上）では常に非表示。900px以下でのみ表示。
+   ================================================================ */
+.mobile-bottom-nav {
+  display: none; /* デフォルト非表示（PC） */
+}
+@media (max-width: 900px) {
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 90;
+    background: var(--bg-sidebar, #1c1510);
+    background-image: linear-gradient(180deg, #241a11 0%, #1c1510 100%);
+    border-top: 1px solid var(--border-sidebar, rgba(255,255,255,.08));
+    box-shadow: 0 -4px 16px rgba(0,0,0,.18);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .mbn-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    padding: 8px 2px 7px;
+    background: none;
+    border: none;
+    color: rgba(255,255,255,.55);
+    font-size: 9.5px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    cursor: pointer;
+    transition: color .15s, transform .15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .mbn-item i {
+    font-size: 17px;
+    line-height: 1;
+    transition: transform .15s;
+  }
+  .mbn-item:active { transform: scale(0.92); }
+  .mbn-item.active {
+    color: var(--accent, #e8593f);
+  }
+  .mbn-item.active i { transform: translateY(-1px); }
+  #mbn-menu-btn { color: rgba(255,255,255,.55); }
+  #mbn-menu-btn:hover, #mbn-menu-btn:active { color: var(--kogane, #c48a00); }
+
+  /* ボトムナビの分だけページ本体に余白を確保（コンテンツがナビに隠れないように） */
+  .page-content {
+    padding-bottom: calc(72px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  /* モーダルもボトムナビより高いz-indexを維持しつつ、モーダルフッターが隠れないよう下部余白 */
+  .modal-overlay {
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+}
+@media (max-width: 420px) {
+  .mbn-item { font-size: 9px; }
+  .mbn-item i { font-size: 16px; }
+}
+
+/* ── ボトムナビに重なる可能性のある固定要素を持ち上げる（900px以下） ── */
+@media (max-width: 900px) {
+  .toast-container {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px) + 10px);
+    right: 12px;
+    left: 12px;
+  }
+  .toast { width: 100%; }
+  .focus-mode-toggle {
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px) + 12px);
+    right: 16px;
+  }
+}
+/* 集中執筆モード中はボトムナビも隠す（フルスクリーン執筆優先） */
+.focus-mode-active .mobile-bottom-nav { display: none !important; }
+.focus-mode-active .page-content { padding-bottom: 0 !important; }
+
+/* ── テンプレート一覧・カテゴリチップ・検索欄のモバイル最適化 ── */
+@media (max-width: 600px) {
+  #app > div > div[style*="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))"],
+  div[style*="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))"] {
+    grid-template-columns: 1fr !important;
+  }
+  .toolx-stats-bar { gap: 6px; }
+  .toolx-stat-chip { font-size: 10.5px; padding: 4px 8px; }
+}
+@media (max-width: 480px) {
+  #template-search-input { font-size: 13.5px; }
+}
+
+/* ── モーダル：ボトムナビ環境でもフッターが隠れないように ── */
+@media (max-width: 900px) {
+  .modal { max-height: calc(92vh - 60px); }
+  .modal-footer { flex-wrap: wrap; }
+}
