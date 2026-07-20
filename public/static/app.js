@@ -1010,17 +1010,31 @@ function renderLayout(content, proj = null) {
     <button class="mbn-item ${isJournalPage?'active':''}" onclick="mobileNavGo('journal')">
       <i class="fas fa-book"></i><span>日誌</span>
     </button>
-    <button class="mbn-item" id="mbn-menu-btn" onclick="openSidebar()">
-      <i class="fas fa-bars"></i><span>メニュー</span>
+    <button class="mbn-item ${isInspirationPage?'active':''}" id="mbn-menu-btn" onclick="goToScratchpad()">
+      <i class="fas fa-note-sticky"></i><span>メモ</span>
     </button>
   </nav>
-  <div id="toast-container" class="toast-container"></div>`;
+  <div id="toast-container" class="toast-container"></div>
+  <!-- モバイル用クイックメモFAB：スクラッチパッド以外のページでも、いつでもワンタップで着想をパッと書ける（表示はCSS側で900px以下のみに制御） -->
+  ${cp !== 'inspiration' ? `
+  <button class="qm-fab" id="qm-fab" onclick="openQuickMemo()" title="クイックメモ">
+    <i class="fas fa-pen"></i>
+  </button>` : ''}`;
 }
 
 // ── モバイルボトムナビ：タップ時にサイドバーが開いていれば閉じてから移動 ──
 function mobileNavGo(page, arg) {
   if (window.innerWidth <= 900) closeSidebar();
   navigate(page, arg);
+}
+
+// ── モバイルナビ「メモ」：インスピレーション・スクラッチパッドへ直接遷移 ──
+// （サイドバー／ハンバーガーメニューへのアクセスはトップバーの sidebar-toggle-btn が
+//   モバイル幅でも常時表示されているため引き続き利用できる）
+function goToScratchpad() {
+  if (window.innerWidth <= 900) closeSidebar();
+  State.currentTab['inspiration'] = 'scratch';
+  navigate('inspiration');
 }
 
 // ── サイドバートグル ────────────────────────────────────────────
@@ -32778,7 +32792,10 @@ function renderInspirationScratch(scratches) {
             <option>着想</option><option>シーン</option><option>セリフ</option><option>テーマ</option><option>キャラ</option><option>設定</option><option>その他</option>
           </select>
         </div>
-        <textarea class="form-textarea" id="sc-body" rows="3" placeholder="思いついたことを何でも…キーワード1個でも、一文でも、長文でもOK。" style="font-size:13px;resize:vertical"></textarea>
+        <div style="position:relative">
+          <textarea class="form-textarea" id="sc-body" rows="3" placeholder="思いついたことを何でも…キーワード1個でも、一文でも、長文でもOK。" style="font-size:13px;resize:vertical;padding-right:38px"></textarea>
+          <button class="qm-mic-btn qm-mic-btn-inline" id="sc-mic-btn" onclick="voiceInputToggle('sc-body','sc-mic-btn')" title="音声入力"><i class="fas fa-microphone"></i></button>
+        </div>
         <div class="grid-2" style="gap:8px;margin-top:8px">
           <input class="form-input" id="sc-tags-input" placeholder="タグ（カンマ区切り）例: 主人公, 終盤" style="font-size:12px">
           <select class="form-select" id="sc-folder" style="font-size:12px">${folderOptionsHtml(scratchFolderScope, '')}</select>
@@ -32864,6 +32881,19 @@ function renderInspirationScratch(scratches) {
 
     <!-- 右: サイドパネル -->
     <div style="display:flex;flex-direction:column;gap:14px">
+      <!-- メモの掘り出し（ランダム再発見） -->
+      ${scratches.length > 0 ? `
+      <div class="card qm-discovery-card" onclick="shuffleScratchDiscovery()" style="padding:14px;cursor:pointer;background:linear-gradient(135deg,var(--fuji-bg) 0%,var(--bg-subtle) 100%);border:1.5px solid var(--fuji-border)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="width:32px;height:32px;border-radius:50%;background:var(--fuji);color:white;display:flex;align-items:center;justify-content:center;flex-shrink:0"><i class="fas fa-shuffle" style="font-size:13px"></i></div>
+          <div style="flex:1">
+            <div style="font-size:12.5px;font-weight:700;color:var(--fuji)">メモの掘り出し</div>
+            <div style="font-size:10.5px;color:var(--text-muted)">過去のメモをふと思い出す</div>
+          </div>
+          <i class="fas fa-chevron-right" style="font-size:11px;color:var(--fuji)"></i>
+        </div>
+      </div>` : ''}
+
       <!-- 統計 -->
       <div class="card" style="padding:14px">
         <div style="font-size:12.5px;font-weight:600;margin-bottom:10px;color:var(--text-secondary)"><i class="fas fa-chart-simple" style="color:var(--asagi);margin-right:6px"></i>メモ図書館</div>
@@ -34094,6 +34124,200 @@ function stopBrainStorm() {
   DB.set('inspiration_scratches', scratches);
   toast(`${items.length}個のアイデアをメモに追加しました！`, 'success');
   navigate('inspiration');
+}
+
+// ================================================================
+//  クイックメモ（フルスクリーン風キャプチャオーバーレイ）
+//  「いつでも手軽に着想やアイディアをメモにパッと書く」という用途に特化した
+//  超軽量入力UI。モバイルFAB／ボトムナビ「メモ」長押しなどから即座に開ける。
+//  ・タイプはチップ選択（タップ1回）／タグはよく使うものをチップ表示
+//  ・入力内容は毎キー入力ごとにドラフトとして自動保存 → 誤操作・ページ離脱で消えない
+//  ・「保存して次へ」で連続キャプチャ（フォームをクリアして再度フォーカス）
+//  ・音声入力（Web Speech API 対応環境のみ、マイクボタン表示）
+// ================================================================
+const QM_DRAFT_KEY = 'inspiration_scratch_qm_draft';
+
+function openQuickMemo() {
+  const draft = DB.get(QM_DRAFT_KEY, null);
+  const scratchFolderScope = 'inspiration_scratches';
+  const types = ['着想','シーン','セリフ','テーマ','キャラ','設定','その他'];
+  const typeColor = { '着想':'var(--kogane)','シーン':'var(--momo)','セリフ':'var(--fuji)','テーマ':'var(--asagi)','キャラ':'var(--accent)','設定':'var(--matcha)','その他':'var(--text-muted)' };
+  const curType = draft?.type || '着想';
+  const overlay = el('div', { class: 'qm-overlay', id: 'qm-overlay' });
+  overlay.innerHTML = `
+    <div class="qm-sheet">
+      <div class="qm-header">
+        <div class="qm-header-title"><i class="fas fa-bolt" style="color:var(--kogane)"></i> クイックメモ</div>
+        <button class="btn btn-ghost btn-icon" onclick="closeQuickMemo()"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="qm-body">
+        <div class="qm-type-row" id="qm-type-row">
+          ${types.map(t => `<button class="qm-type-chip ${t===curType?'active':''}" style="--tc:${typeColor[t]}" onclick="qmSetType('${t}')" data-type="${t}">${t}</button>`).join('')}
+        </div>
+        <textarea class="qm-textarea" id="qm-body" placeholder="思いついたことをそのまま…&#10;（自動でドラフト保存されるので安心して書けます）" oninput="qmAutoSaveDraft()">${esc(draft?.body || '')}</textarea>
+        <div class="qm-row-2">
+          <input class="form-input qm-title-input" id="qm-title" placeholder="タイトル（任意）" value="${esc(draft?.title || '')}" oninput="qmAutoSaveDraft()">
+          <input class="form-input qm-tags-input" id="qm-tags" placeholder="タグ（カンマ区切り）" value="${esc(draft?.tags || '')}" oninput="qmAutoSaveDraft()">
+        </div>
+        <div class="qm-footer-row">
+          <label class="qm-pin-check"><input type="checkbox" id="qm-pinned" ${draft?.pinned?'checked':''}> <i class="fas fa-thumbtack"></i> ピン留め</label>
+          <button class="qm-mic-btn" id="qm-mic-btn" onclick="qmToggleVoice()" title="音声入力"><i class="fas fa-microphone"></i></button>
+          <span id="qm-draft-status" style="font-size:10.5px;color:var(--text-muted);margin-left:auto">${draft?.body ? '<i class="fas fa-circle-check" style="color:var(--matcha)"></i> ドラフト復元済み' : ''}</span>
+        </div>
+      </div>
+      <div class="qm-actions">
+        <button class="btn btn-secondary" onclick="closeQuickMemo()">閉じる</button>
+        <button class="btn btn-ghost" style="border:1.5px solid var(--kogane-border);color:var(--kogane)" onclick="qmSaveAndNext()"><i class="fas fa-forward"></i> 保存して次へ</button>
+        <button class="btn btn-primary" onclick="qmSaveAndClose()"><i class="fas fa-check"></i> 保存する</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  requestAnimationFrame(() => overlay.classList.add('active'));
+  setTimeout(() => $('#qm-body')?.focus(), 220);
+  // Escキーで閉じる
+  document.addEventListener('keydown', _qmEscHandler);
+}
+
+function _qmEscHandler(e) {
+  if (e.key === 'Escape') closeQuickMemo();
+}
+
+function closeQuickMemo() {
+  if (_voiceRecognizing && _voiceActiveTextareaId === 'qm-body') qmToggleVoice();
+  document.removeEventListener('keydown', _qmEscHandler);
+  const o = $('#qm-overlay');
+  if (!o) return;
+  o.classList.remove('active');
+  setTimeout(() => o.remove(), 180);
+}
+
+function qmSetType(t) {
+  $$('#qm-type-row .qm-type-chip').forEach(c => c.classList.toggle('active', c.dataset.type === t));
+  qmAutoSaveDraft();
+}
+
+function qmCurrentType() {
+  return $('#qm-type-row .qm-type-chip.active')?.dataset.type || '着想';
+}
+
+function qmAutoSaveDraft() {
+  const body = $('#qm-body')?.value || '';
+  const title = $('#qm-title')?.value || '';
+  const tags = $('#qm-tags')?.value || '';
+  const pinned = $('#qm-pinned')?.checked || false;
+  if (!body && !title && !tags) { DB.set(QM_DRAFT_KEY, null); return; }
+  DB.set(QM_DRAFT_KEY, { body, title, tags, pinned, type: qmCurrentType(), savedAt: new Date().toISOString() });
+}
+
+function qmBuildEntryFromForm() {
+  const body = ($('#qm-body')?.value || '').trim();
+  const title = ($('#qm-title')?.value || '').trim();
+  const tags = ($('#qm-tags')?.value || '').split(',').map(t=>t.trim()).filter(Boolean);
+  const pinned = $('#qm-pinned')?.checked || false;
+  const type = qmCurrentType();
+  return { body, title, tags, pinned, type };
+}
+
+function qmSaveAndClose() {
+  const { body, title, tags, pinned, type } = qmBuildEntryFromForm();
+  if (!body) { toast('本文を入力してください', 'error'); return; }
+  const scratches = DB.get('inspiration_scratches', []);
+  scratches.unshift({ id: uid(), title, body, type, tags, pinned, folderId: '', createdAt: new Date().toISOString() });
+  DB.set('inspiration_scratches', scratches);
+  DB.set(QM_DRAFT_KEY, null);
+  closeQuickMemo();
+  toast('メモを書き留めました！', 'success');
+  if (State.currentPage === 'inspiration') navigate('inspiration');
+}
+
+function qmSaveAndClear() {
+  const { body, title, tags, pinned, type } = qmBuildEntryFromForm();
+  if (!body) { toast('本文を入力してください', 'error'); return false; }
+  const scratches = DB.get('inspiration_scratches', []);
+  scratches.unshift({ id: uid(), title, body, type, tags, pinned, folderId: '', createdAt: new Date().toISOString() });
+  DB.set('inspiration_scratches', scratches);
+  DB.set(QM_DRAFT_KEY, null);
+  return true;
+}
+
+// 「保存して次へ」：連続キャプチャ用 — フォームをクリアして即また入力できる状態に戻す
+function qmSaveAndNext() {
+  if (!qmSaveAndClear()) return;
+  const bodyEl = $('#qm-body'); const titleEl = $('#qm-title'); const tagsEl = $('#qm-tags'); const pinEl = $('#qm-pinned');
+  if (bodyEl) bodyEl.value = '';
+  if (titleEl) titleEl.value = '';
+  if (tagsEl) tagsEl.value = '';
+  if (pinEl) pinEl.checked = false;
+  const statusEl = $('#qm-draft-status');
+  if (statusEl) statusEl.innerHTML = '<i class="fas fa-check" style="color:var(--matcha)"></i> 追加しました！続けて書けます';
+  toast('メモを追加！続けてどうぞ', 'success');
+  bodyEl?.focus();
+}
+
+// ── 音声入力（Web Speech API 共通ヘルパー）：話した内容を指定テキストエリアに追記 ──
+// textareaId: 追記先の textarea/input の id, btnId: マイクボタンの id, onCommit: 追記後に呼ぶコールバック（任意）
+let _voiceRecognition = null;
+let _voiceRecognizing = false;
+let _voiceActiveTextareaId = null;
+function voiceInputToggle(textareaId, btnId, onCommit) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { toast('この環境では音声入力に対応していません', 'error'); return; }
+  const btn = $('#' + btnId);
+  if (_voiceRecognizing && _voiceActiveTextareaId === textareaId) {
+    _voiceRecognition?.stop();
+    _voiceRecognizing = false;
+    if (btn) btn.classList.remove('listening');
+    return;
+  }
+  if (_voiceRecognizing) { _voiceRecognition?.stop(); _voiceRecognizing = false; }
+  _voiceRecognition = new SR();
+  _voiceRecognition.lang = 'ja-JP';
+  _voiceRecognition.continuous = true;
+  _voiceRecognition.interimResults = false;
+  _voiceActiveTextareaId = textareaId;
+  _voiceRecognition.onresult = (e) => {
+    const bodyEl = $('#' + textareaId);
+    if (!bodyEl) return;
+    let text = '';
+    for (let i = e.resultIndex; i < e.results.length; i++) text += e.results[i][0].transcript;
+    if (text) {
+      bodyEl.value = (bodyEl.value ? bodyEl.value + '\n' : '') + text;
+      if (onCommit) onCommit();
+    }
+  };
+  _voiceRecognition.onerror = () => { _voiceRecognizing = false; if (btn) btn.classList.remove('listening'); };
+  _voiceRecognition.onend = () => { _voiceRecognizing = false; if (btn) btn.classList.remove('listening'); };
+  _voiceRecognition.start();
+  _voiceRecognizing = true;
+  if (btn) btn.classList.add('listening');
+  toast('話しかけてください（マイクをもう一度押すと停止）', 'info');
+}
+// クイックメモ用ショートカット
+function qmToggleVoice() { voiceInputToggle('qm-body', 'qm-mic-btn', qmAutoSaveDraft); }
+
+// ── 「メモの掘り出し」：過去のメモをランダムに1件再表示し再発見を促す ──
+function shuffleScratchDiscovery() {
+  const scratches = DB.get('inspiration_scratches', []);
+  if (scratches.length === 0) { toast('まだメモがありません', 'info'); return; }
+  const s = scratches[Math.floor(Math.random() * scratches.length)];
+  const typeColor = { '着想':'var(--kogane)','シーン':'var(--momo)','セリフ':'var(--fuji)','テーマ':'var(--asagi)','キャラ':'var(--accent)','設定':'var(--matcha)','その他':'var(--text-muted)' };
+  const tc = typeColor[s.type||'その他'] || 'var(--text-muted)';
+  openModal(
+    `<i class="fas fa-shuffle" style="color:var(--fuji)"></i> メモの掘り出し`,
+    `<div style="font-size:11px;color:var(--text-muted);margin-bottom:10px">過去に書いたメモを、ふと思い出すために。</div>
+     <div style="padding:14px;background:var(--bg-subtle);border-radius:var(--radius-md);border-left:3px solid ${tc}">
+       <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px">
+         <span style="font-size:10px;font-weight:700;color:${tc};padding:2px 8px;background:white;border:1px solid ${tc};border-radius:var(--radius-full)">${s.type||'その他'}</span>
+         <span style="font-size:10px;color:var(--text-light)">${s.createdAt?s.createdAt.slice(0,10):''}</span>
+       </div>
+       ${s.title?`<div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:6px;font-family:'Noto Serif JP',serif">${esc(s.title)}</div>`:''}
+       <div style="font-size:13px;color:var(--text-secondary);line-height:1.8;white-space:pre-wrap">${esc(s.body||'')}</div>
+     </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">閉じる</button>
+     <button class="btn btn-ghost" onclick="closeModal();shuffleScratchDiscovery()"><i class="fas fa-shuffle"></i> 別のメモ</button>
+     <button class="btn btn-primary" onclick="closeModal();developScratch('${s.id}')"><i class="fas fa-wand-magic-sparkles"></i> 展開する</button>`,
+    { size: 'modal-md' }
+  );
 }
 
 // ── ランダム生成タブの関数 ───────────────────────────────────────
