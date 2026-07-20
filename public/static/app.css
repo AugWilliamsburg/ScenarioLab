@@ -2893,6 +2893,22 @@ body {
   border-color: var(--kogane-border);
   background: var(--kogane-bg);
 }
+.insp-scratch-card { position: relative; }
+.insp-scratch-card.selecting { cursor: pointer; padding-left: 40px; }
+.insp-scratch-card.selected { border-color: var(--fuji-border); background: var(--fuji-bg); }
+.insp-scratch-card[draggable="true"] { cursor: grab; padding-left: 30px; }
+.insp-scratch-card.dragging { opacity: 0.4; }
+.insp-scratch-card.drag-over { border-color: var(--fuji); box-shadow: 0 -2px 0 var(--fuji) inset; }
+.sc-drag-handle {
+  position: absolute; left: 8px; top: 14px; color: var(--text-light); font-size: 12px;
+  cursor: grab;
+}
+.sc-select-check {
+  position: absolute; left: 12px; top: 14px; width: 18px; height: 18px; border-radius: 5px;
+  border: 1.5px solid var(--border); background: var(--bg-card);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.sc-select-check.checked { background: var(--fuji); border-color: var(--fuji); }
 .insp-scratch-top {
   display: flex;
   align-items: center;
@@ -9978,6 +9994,29 @@ body {
   background: var(--matcha-bg); border: 1px solid var(--matcha); border-radius: var(--radius-md);
   padding: 9px 14px; margin-bottom: 10px;
 }
+
+/* スクラッチパッド：一括操作バー */
+.sc-bulk-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--fuji-bg); border: 1px solid var(--fuji); border-radius: var(--radius-md);
+  padding: 9px 14px; margin-bottom: 10px;
+  animation: fadeIn .15s ease;
+}
+
+/* スクラッチパッド：継続記録（streak）ウィジェット */
+.sc-streak-card {
+  padding: 16px; text-align: center;
+  background: linear-gradient(135deg, var(--kogane-bg) 0%, var(--bg-white) 100%);
+  border: 1.5px solid var(--kogane-border);
+}
+.sc-streak-main { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.sc-streak-num { font-size: 30px; font-weight: 900; line-height: 1; color: var(--text-muted); font-family: 'Noto Serif JP', serif; }
+.sc-streak-num.active { color: #ff9a52; text-shadow: 0 0 12px rgba(255,154,82,0.5); }
+.sc-streak-label { font-size: 11px; color: var(--text-muted); }
+.sc-streak-main i.fa-fire { font-size: 16px; color: var(--border); }
+.sc-streak-main i.fa-fire.active { color: #ff9a52; }
+.sc-streak-sub { font-size: 11px; color: var(--text-secondary); margin-top: 8px; }
+.sc-streak-total { font-size: 10.5px; color: var(--text-muted); margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--kogane-border); }
 .task-select-check {
   width: 17px; height: 17px; border-radius: 4px; border: 1.5px solid var(--border);
   display: flex; align-items: center; justify-content: center; font-size: 9px; color: white;

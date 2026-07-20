@@ -32696,6 +32696,26 @@ function renderInspirationPage() {
 }
 
 // ── スクラッチパッドタブ ──────────────────────────────────────
+// ── メモ習慣の継続記録（streak） ──────────────────────────────
+function getScratchStreak() {
+  const scratches = DB.get('inspiration_scratches', []);
+  const dateSet = new Set(scratches.map(s => (s.createdAt||'').slice(0,10)).filter(Boolean));
+  if (dateSet.size === 0) return { count: 0, isActiveToday: false, totalDays: 0 };
+  const todayStr = new Date().toISOString().slice(0,10);
+  const isActiveToday = dateSet.has(todayStr);
+  let cursor = new Date();
+  if (!isActiveToday) cursor.setDate(cursor.getDate() - 1);
+  let count = 0;
+  while (true) {
+    const ds = cursor.toISOString().slice(0,10);
+    if (dateSet.has(ds)) { count++; cursor.setDate(cursor.getDate() - 1); } else break;
+  }
+  return { count, isActiveToday, totalDays: dateSet.size };
+}
+
+// ── 複数選択モード & 一括操作の状態 ────────────────────────────
+const ScratchState = { selecting: false, selectedIds: [] };
+
 function renderInspirationScratch(scratches) {
   const tags = [...new Set(scratches.flatMap(s => s.tags||[]))].filter(Boolean);
   const filterTag = State.currentTab['insp-tag'] || '';
@@ -32729,9 +32749,12 @@ function renderInspirationScratch(scratches) {
   else if (sortMode === 'oldest') filtered.sort((a,b) => new Date(a.createdAt)-new Date(b.createdAt));
   else if (sortMode === 'alpha') filtered.sort((a,b) => (a.title||a.body||'').localeCompare(b.title||b.body||''));
   else if (sortMode === 'pinned') filtered.sort((a,b) => (b.pinned?1:0)-(a.pinned?1:0));
-  // ピン留めは常に上
+  // カスタム順は保存済みの配列順そのまま使用（ドラッグ&ドロップで並び替え）
+  // ピン留めは常に上（カスタム順・ピン優先モードは除く）
   const pinnedFirst = [...filtered.filter(s=>s.pinned), ...filtered.filter(s=>!s.pinned)];
-  const displayList = sortMode === 'pinned' ? filtered : pinnedFirst;
+  const displayList = (sortMode === 'pinned' || sortMode === 'custom') ? filtered : pinnedFirst;
+  const streak = getScratchStreak();
+  const isSelecting = ScratchState.selecting;
 
   const typeColor = { '着想':'var(--kogane)','シーン':'var(--momo)','セリフ':'var(--fuji)','テーマ':'var(--asagi)','キャラ':'var(--accent)','設定':'var(--matcha)','その他':'var(--text-muted)' };
 
@@ -32753,8 +32776,13 @@ function renderInspirationScratch(scratches) {
           return esc(text).replace(new RegExp(q, 'gi'), m => `<mark style="background:var(--kogane-bg);color:var(--kogane);border-radius:2px">${m}</mark>`);
         };
         const sfld = scratchFolders.find(f => f.id === s.folderId);
+        const isSel = ScratchState.selectedIds.includes(s.id);
         return `
-        <div class="insp-scratch-card hub-clickable-card ${s.pinned?'pinned':''}" id="sc-${s.id}" onclick="openScratchHub('${s.id}')">
+        <div class="insp-scratch-card hub-clickable-card ${s.pinned?'pinned':''} ${isSelecting?'selecting':''} ${isSel?'selected':''}" id="sc-${s.id}"
+             ${!isSelecting && sortMode==='custom' ? `draggable="true" ondragstart="scratchDragStart(event,'${s.id}')" ondragover="scratchDragOver(event,'${s.id}')" ondragend="scratchDragEnd(event)" ondrop="scratchDrop(event,'${s.id}')"` : ''}
+             onclick="${isSelecting ? `event.stopPropagation();toggleScratchSelected('${s.id}')` : `openScratchHub('${s.id}')`}">
+          ${!isSelecting && sortMode==='custom' ? `<div class="sc-drag-handle" title="ドラッグして並び替え"><i class="fas fa-grip-vertical"></i></div>` : ''}
+          ${isSelecting ? `<div class="sc-select-check ${isSel?'checked':''}" title="選択">${isSel?'<i class="fas fa-check" style="font-size:9px;color:white"></i>':''}</div>` : ''}
           <div class="insp-scratch-top">
             <div style="display:flex;align-items:center;gap:6px">
               <span style="font-size:10px;font-weight:700;color:${tc};padding:2px 8px;background:white;border:1px solid ${tc};border-radius:var(--radius-full)">${s.type||'その他'}</span>
@@ -32858,7 +32886,9 @@ function renderInspirationScratch(scratches) {
             <option value="oldest" ${sortMode==='oldest'?'selected':''}>古い順</option>
             <option value="alpha" ${sortMode==='alpha'?'selected':''}>あいうえお順</option>
             <option value="pinned" ${sortMode==='pinned'?'selected':''}>ピン優先</option>
+            <option value="custom" ${sortMode==='custom'?'selected':''}>カスタム順（ドラッグ）</option>
           </select>
+          <button class="btn ${isSelecting?'btn-primary':'btn-ghost'} btn-sm" onclick="toggleScratchSelectMode()" style="white-space:nowrap;font-size:11px"><i class="fas fa-check-square"></i> 複数選択</button>
           <!-- 件数表示 -->
           <span style="font-size:11px;color:var(--text-muted);margin-left:auto">${displayList.length} / ${scratches.length}件</span>
         </div>
@@ -32872,6 +32902,24 @@ function renderInspirationScratch(scratches) {
         </div>` : ''}
       </div>
 
+      <!-- 一括操作バー -->
+      ${isSelecting ? `
+      <div class="sc-bulk-bar">
+        <span style="font-size:12px;font-weight:700;color:var(--fuji)"><i class="fas fa-check-square"></i> ${ScratchState.selectedIds.length}件選択中</span>
+        <button class="btn btn-ghost btn-sm" onclick="selectAllScratches(${JSON.stringify(displayList.map(s=>s.id))})">全選択</button>
+        <button class="btn btn-primary btn-sm" ${ScratchState.selectedIds.length===0?'disabled':''} onclick="bulkPinSelectedScratches()"><i class="fas fa-thumbtack"></i> ピン留め</button>
+        <select class="form-select" style="width:auto;font-size:11px" ${ScratchState.selectedIds.length===0?'disabled':''} onchange="bulkTagSelectedScratches(this.value);this.value=''">
+          <option value="">タグを追加…</option>
+          ${tags.map(t=>`<option value="${esc(t)}">#${esc(t)} を追加</option>`).join('')}
+        </select>
+        <select class="form-select" style="width:auto;font-size:11px" ${ScratchState.selectedIds.length===0?'disabled':''} onchange="bulkSetFolderSelectedScratches(this.value)">
+          <option value="">フォルダへ移動…</option>
+          ${folderOptionsHtml(scratchFolderScope, '')}
+        </select>
+        <button class="btn btn-danger btn-sm" ${ScratchState.selectedIds.length===0?'disabled':''} onclick="bulkDeleteSelectedScratchesConfirm()"><i class="fas fa-trash"></i> 削除</button>
+        <button class="btn btn-ghost btn-sm" onclick="toggleScratchSelectMode()" style="margin-left:auto">キャンセル</button>
+      </div>` : ''}
+
       ${renderFolderBar(scratchFolderScope, "navigate('inspiration')")}
       <!-- カード一覧 -->
       <div id="scratch-list" style="display:flex;flex-direction:column;gap:10px">
@@ -32881,6 +32929,24 @@ function renderInspirationScratch(scratches) {
 
     <!-- 右: サイドパネル -->
     <div style="display:flex;flex-direction:column;gap:14px">
+      <!-- 継続記録（streak） -->
+      ${scratches.length > 0 ? `
+      <div class="card sc-streak-card">
+        <div class="sc-streak-main">
+          <div class="sc-streak-num ${streak.isActiveToday?'active':''}">${streak.count}</div>
+          <div class="sc-streak-label">日連続</div>
+          <i class="fas fa-fire${streak.count>=1?' active':''}"></i>
+        </div>
+        <div class="sc-streak-sub">
+          ${streak.isActiveToday
+            ? '<i class="fas fa-circle-check" style="color:var(--matcha)"></i> 今日も書けました！'
+            : streak.count > 0
+              ? '<i class="fas fa-clock" style="color:var(--kogane)"></i> 今日はまだ…書いて記録を継続しよう'
+              : '<i class="fas fa-seedling" style="color:var(--matcha)"></i> 今日から記録を始めよう'}
+        </div>
+        <div class="sc-streak-total">これまでの記録日数: <strong>${streak.totalDays}</strong>日</div>
+      </div>` : ''}
+
       <!-- メモの掘り出し（ランダム再発見） -->
       ${scratches.length > 0 ? `
       <div class="card qm-discovery-card" onclick="shuffleScratchDiscovery()" style="padding:14px;cursor:pointer;background:linear-gradient(135deg,var(--fuji-bg) 0%,var(--bg-subtle) 100%);border:1.5px solid var(--fuji-border)">
@@ -33949,6 +34015,126 @@ function deleteScratch(id) {
   DB.set('inspiration_scratches', scratches);
   closeModal();
   toast('削除しました', 'info');
+  navigate('inspiration');
+}
+
+// ── 複数選択モード & 一括操作 ─────────────────────────────────
+function toggleScratchSelectMode() {
+  ScratchState.selecting = !ScratchState.selecting;
+  if (!ScratchState.selecting) ScratchState.selectedIds = [];
+  navigate('inspiration');
+}
+
+function toggleScratchSelected(id) {
+  const idx = ScratchState.selectedIds.indexOf(id);
+  if (idx >= 0) ScratchState.selectedIds.splice(idx, 1);
+  else ScratchState.selectedIds.push(id);
+  navigate('inspiration');
+}
+
+function selectAllScratches(ids) {
+  const allSelected = ids.length > 0 && ids.every(id => ScratchState.selectedIds.includes(id));
+  ScratchState.selectedIds = allSelected ? [] : [...ids];
+  navigate('inspiration');
+}
+
+function bulkPinSelectedScratches() {
+  const ids = ScratchState.selectedIds;
+  if (ids.length === 0) return;
+  const scratches = DB.get('inspiration_scratches', []);
+  scratches.forEach(s => { if (ids.includes(s.id)) s.pinned = true; });
+  DB.set('inspiration_scratches', scratches);
+  toast(`${ids.length}件をピン留めしました`, 'success');
+  ScratchState.selecting = false;
+  ScratchState.selectedIds = [];
+  navigate('inspiration');
+}
+
+function bulkTagSelectedScratches(tag) {
+  if (!tag) return;
+  const ids = ScratchState.selectedIds;
+  if (ids.length === 0) return;
+  const scratches = DB.get('inspiration_scratches', []);
+  scratches.forEach(s => {
+    if (ids.includes(s.id)) {
+      s.tags = s.tags || [];
+      if (!s.tags.includes(tag)) s.tags.push(tag);
+    }
+  });
+  DB.set('inspiration_scratches', scratches);
+  toast(`${ids.length}件に「${tag}」タグを追加しました`, 'success');
+  ScratchState.selecting = false;
+  ScratchState.selectedIds = [];
+  navigate('inspiration');
+}
+
+function bulkSetFolderSelectedScratches(folderId) {
+  if (!folderId) return;
+  const ids = ScratchState.selectedIds;
+  if (ids.length === 0) return;
+  const scratches = DB.get('inspiration_scratches', []);
+  scratches.forEach(s => { if (ids.includes(s.id)) s.folderId = folderId; });
+  DB.set('inspiration_scratches', scratches);
+  const folder = FolderDB.getFolders('inspiration_scratches').find(f=>f.id===folderId);
+  toast(`${ids.length}件を「${folder ? folder.name : 'フォルダ'}」へ移動しました`, 'success');
+  ScratchState.selecting = false;
+  ScratchState.selectedIds = [];
+  navigate('inspiration');
+}
+
+function bulkDeleteSelectedScratchesConfirm() {
+  const ids = ScratchState.selectedIds;
+  if (ids.length === 0) return;
+  confirmDeleteGeneric('メモを一括削除', `選択した${ids.length}件のメモを削除しますか？この操作は取り消せません。`,
+    `bulkDeleteSelectedScratches()`);
+}
+
+function bulkDeleteSelectedScratches() {
+  const ids = ScratchState.selectedIds;
+  let scratches = DB.get('inspiration_scratches', []);
+  scratches = scratches.filter(s => !ids.includes(s.id));
+  DB.set('inspiration_scratches', scratches);
+  closeModal();
+  toast(`${ids.length}件のメモを削除しました`, 'info');
+  ScratchState.selecting = false;
+  ScratchState.selectedIds = [];
+  navigate('inspiration');
+}
+
+// ── ドラッグ & ドロップによる並び替え（カスタム順） ─────────────
+let _scDragId = null;
+function scratchDragStart(event, id) {
+  _scDragId = id;
+  event.dataTransfer.effectAllowed = 'move';
+  event.currentTarget.classList.add('dragging');
+}
+
+function scratchDragOver(event, overId) {
+  event.preventDefault();
+  event.dataTransfer.dropEffect = 'move';
+  if (_scDragId && _scDragId !== overId) {
+    $$('.insp-scratch-card').forEach(c => c.classList.remove('drag-over'));
+    event.currentTarget.classList.add('drag-over');
+  }
+}
+
+function scratchDragEnd(event) {
+  event.currentTarget.classList.remove('dragging');
+  $$('.insp-scratch-card').forEach(c => c.classList.remove('drag-over'));
+}
+
+function scratchDrop(event, dropId) {
+  event.preventDefault();
+  $$('.insp-scratch-card').forEach(c => c.classList.remove('drag-over'));
+  if (!_scDragId || _scDragId === dropId) return;
+  const scratches = DB.get('inspiration_scratches', []);
+  const fromIdx = scratches.findIndex(s => s.id === _scDragId);
+  const toIdx = scratches.findIndex(s => s.id === dropId);
+  if (fromIdx < 0 || toIdx < 0) return;
+  const [moved] = scratches.splice(fromIdx, 1);
+  scratches.splice(toIdx, 0, moved);
+  DB.set('inspiration_scratches', scratches);
+  _scDragId = null;
   navigate('inspiration');
 }
 
