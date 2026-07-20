@@ -398,6 +398,86 @@ function closeModal() {
   if (o) o.remove();
 }
 
+// ================================================================
+//  詳細ハブポップアップ 共通基盤
+//  ── メモ・カード系機能をクリックすると開く「ダッシュボード的」な
+//     タブ式詳細ポップアップ。openModal の上に薄くかぶせる共通部品群。
+// ================================================================
+
+// タブバー + 各タブパネルの土台HTMLを生成する
+//   tabs: [{ key, label, icon, badge? }]
+//   panelsHtml: { [key]: htmlString }
+function renderHubTabs(hubId, tabs, panelsHtml, activeKey) {
+  const active = activeKey || tabs[0]?.key;
+  const tabsHtml = tabs.map(t => `
+    <button class="hub-tab ${t.key === active ? 'active' : ''}" id="hub-tab-${hubId}-${t.key}"
+            onclick="switchHubTab('${hubId}','${t.key}')">
+      <i class="fas ${t.icon || 'fa-circle'}"></i>${esc(t.label)}
+      ${t.badge != null && t.badge !== '' ? `<span class="hub-tab-badge">${esc(String(t.badge))}</span>` : ''}
+    </button>`).join('');
+  const panelsOut = tabs.map(t => `
+    <div class="hub-tab-panel ${t.key === active ? 'active' : ''}" id="hub-panel-${hubId}-${t.key}">
+      ${panelsHtml[t.key] || ''}
+    </div>`).join('');
+  return `<div class="hub-tabs">${tabsHtml}</div>${panelsOut}`;
+}
+
+function switchHubTab(hubId, key) {
+  $$(`[id^="hub-tab-${hubId}-"]`).forEach(b => b.classList.remove('active'));
+  $$(`[id^="hub-panel-${hubId}-"]`).forEach(p => p.classList.remove('active'));
+  document.getElementById(`hub-tab-${hubId}-${key}`)?.classList.add('active');
+  document.getElementById(`hub-panel-${hubId}-${key}`)?.classList.add('active');
+}
+
+// タグチップエディタ：クリックで削除できるチップ＋Enterで追加できる入力欄
+// _hubTagState[fieldId] に現在のタグ配列を保持し、保存時にそこから読む
+const _hubTagState = {};
+function renderHubTagEditor(fieldId, tags) {
+  _hubTagState[fieldId] = (tags || []).slice();
+  return `<div class="hub-tag-editor" id="hub-tagwrap-${fieldId}" onclick="document.getElementById('hub-taginput-${fieldId}').focus()">
+    ${_hubTagEditorInner(fieldId)}
+  </div>`;
+}
+function _hubTagEditorInner(fieldId) {
+  const tags = _hubTagState[fieldId] || [];
+  return tags.map((t, i) => `
+      <span class="hub-tag-chip">${esc(t)}<i class="fas fa-xmark" onclick="event.stopPropagation();removeHubTag('${fieldId}',${i})"></i></span>`).join('')
+    + `<input class="hub-tag-add-input" id="hub-taginput-${fieldId}" placeholder="${tags.length===0?'タグを入力してEnter…':'追加…'}"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();addHubTag('${fieldId}');}"
+        onclick="event.stopPropagation()">`;
+}
+function addHubTag(fieldId) {
+  const input = document.getElementById(`hub-taginput-${fieldId}`);
+  const val = input?.value?.trim();
+  if (!val) return;
+  _hubTagState[fieldId] = _hubTagState[fieldId] || [];
+  if (!_hubTagState[fieldId].includes(val)) _hubTagState[fieldId].push(val);
+  const wrap = document.getElementById(`hub-tagwrap-${fieldId}`);
+  if (wrap) wrap.innerHTML = _hubTagEditorInner(fieldId);
+  document.getElementById(`hub-taginput-${fieldId}`)?.focus();
+}
+function removeHubTag(fieldId, idx) {
+  if (!_hubTagState[fieldId]) return;
+  _hubTagState[fieldId].splice(idx, 1);
+  const wrap = document.getElementById(`hub-tagwrap-${fieldId}`);
+  if (wrap) wrap.innerHTML = _hubTagEditorInner(fieldId);
+}
+function getHubTags(fieldId) {
+  return (_hubTagState[fieldId] || []).slice();
+}
+
+// メタ情報チップ（作成日・更新日・文字数など）の並び生成
+function renderHubMetaGrid(items) {
+  // items: [{label, value}]
+  const filtered = items.filter(it => it && it.value != null && it.value !== '');
+  if (filtered.length === 0) return '';
+  return `<div class="hub-meta-grid">${filtered.map(it => `
+    <div class="hub-meta-chip">
+      <div class="hub-meta-chip-label">${esc(it.label)}</div>
+      <div class="hub-meta-chip-value">${it.value}</div>
+    </div>`).join('')}</div>`;
+}
+
 // ── Project Factory ────────────────────────────────────────────
 function newProject(data = {}) {
   return {
@@ -2174,10 +2254,9 @@ function renderIdeas(proj) {
         const tc = IDEA_TYPE_COLORS[idea.type] || IDEA_TYPE_COLORS['メモ'];
         const fld = ideaFolders.find(f => f.id === idea.folderId);
         return `
-      <div class="idea-card" id="idea-${idea.id}" style="border-top:3px solid ${tc.hex}">
+      <div class="idea-card hub-clickable-card" id="idea-${idea.id}" style="border-top:3px solid ${tc.hex}" onclick="openIdeaHub('${proj.id}','${idea.id}')">
         <div class="idea-card-actions">
-          <button class="btn btn-ghost btn-icon btn-sm" onclick="editIdea('${proj.id}','${idea.id}')" title="編集"><i class="fas fa-pen" style="font-size:10px"></i></button>
-          <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDeleteIdea('${proj.id}','${idea.id}')" title="削除"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();confirmDeleteIdea('${proj.id}','${idea.id}')" title="削除"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>
         </div>
         <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
           <div style="width:22px;height:22px;border-radius:4px;background:${tc.bg};border:1px solid ${tc.hex}44;display:flex;align-items:center;justify-content:center;flex-shrink:0">
@@ -2190,6 +2269,7 @@ function renderIdeas(proj) {
           <span class="tag ${tc.tag}" style="font-size:10px">${esc(idea.type||'メモ')}</span>
           ${idea.priority==='高' ? '<span class="tag tag-beni" style="font-size:10px"><i class="fas fa-fire" style="font-size:9px"></i> 高優先</span>' : ''}
           ${idea.priority==='低' ? '<span class="tag tag-gray" style="font-size:10px">低優先</span>' : ''}
+          ${(idea.tags||[]).slice(0,3).map(t=>`<span class="tag tag-gray" style="font-size:10px">#${esc(t)}</span>`).join('')}
           ${fld ? `<span class="tag" style="font-size:10px;background:${fld.color}22;color:${fld.color};border:1px solid ${fld.color}55"><i class="fas fa-folder" style="font-size:9px"></i> ${esc(fld.name)}</span>` : ''}
           <span class="tag tag-gray" style="margin-left:auto;font-size:10px">${fmtDate(idea.createdAt)}</span>
         </div>
@@ -2376,10 +2456,9 @@ function sortIdeas(projId, by, btn) {
   if (!grid) return;
   grid.innerHTML = sorted.map(idea => {
     const tc = IDEA_TYPE_COLORS[idea.type] || IDEA_TYPE_COLORS['メモ'];
-    return `<div class="idea-card" id="idea-${idea.id}" style="border-top:3px solid ${tc.hex}">
+    return `<div class="idea-card hub-clickable-card" id="idea-${idea.id}" style="border-top:3px solid ${tc.hex}" onclick="openIdeaHub('${projId}','${idea.id}')">
       <div class="idea-card-actions">
-        <button class="btn btn-ghost btn-icon btn-sm" onclick="editIdea('${projId}','${idea.id}')"><i class="fas fa-pen" style="font-size:10px"></i></button>
-        <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDeleteIdea('${projId}','${idea.id}')"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();confirmDeleteIdea('${projId}','${idea.id}')"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>
       </div>
       <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px">
         <div style="width:22px;height:22px;border-radius:4px;background:${tc.bg};border:1px solid ${tc.hex}44;display:flex;align-items:center;justify-content:center;flex-shrink:0">
@@ -2527,42 +2606,71 @@ function addIdea(projId) {
   render();
 }
 
-function editIdea(projId, ideaId) {
+// ── アイデア：詳細ハブポップアップ（クリックで開く・タブ式ダッシュボード） ──
+function openIdeaHub(projId, ideaId) {
   const proj = DB.getProject(projId);
   const idea = (proj?.ideas||[]).find(i => i.id === ideaId);
   if (!idea) return;
+  const wordCount = (idea.body||'').length;
+  const panels = {
+    edit: `
+      <div class="form-group">
+        <label class="form-label">タイトル</label>
+        <input class="form-input" id="ei-title" value="${esc(idea.title||'')}">
+      </div>
+      <div class="form-group">
+        <label class="form-label">内容</label>
+        <textarea class="form-textarea" id="ei-body" rows="6">${esc(idea.body||'')}</textarea>
+      </div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label class="form-label">種類</label>
+          <select class="form-select" id="ei-type">
+            ${['メモ','シーン','セリフ','テーマ','キャラクター','設定'].map(t=>`<option ${t===idea.type?'selected':''}>${t}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">優先度</label>
+          <select class="form-select" id="ei-priority">
+            ${['普通','高','低'].map(t=>`<option ${t===idea.priority?'selected':''}>${t}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">フォルダ</label>
+        <select class="form-select" id="ei-folder">${folderOptionsHtml('ideas_'+projId, idea.folderId||'')}</select>
+      </div>
+      <div class="form-group">
+        <label class="form-label"><i class="fas fa-tags" style="color:var(--fuji);margin-right:4px"></i>タグ</label>
+        ${renderHubTagEditor('idea-'+ideaId, idea.tags||[])}
+      </div>`,
+    meta: `
+      ${renderHubMetaGrid([
+        { label:'作成日', value: fmtDate(idea.createdAt) },
+        { label:'文字数', value: wordCount + ' 文字' },
+        { label:'種類', value: esc(idea.type||'メモ') },
+        { label:'優先度', value: esc(idea.priority||'普通') },
+      ])}
+      <div class="form-group" style="margin-top:6px">
+        <label class="form-label"><i class="fas fa-share" style="color:var(--matcha);margin-right:4px"></i>他機能へ送る</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn btn-secondary btn-sm" onclick="sendIdeaToScratch('${projId}','${ideaId}')"><i class="fas fa-wand-magic-sparkles"></i> インスピレーションへ複製</button>
+        </div>
+      </div>`,
+  };
   openModal(
-    `<i class="fas fa-pen" style="color:var(--accent)"></i> アイデアを編集`,
-    `<div class="form-group">
-      <label class="form-label">タイトル</label>
-      <input class="form-input" id="ei-title" value="${esc(idea.title||'')}">
-    </div>
-    <div class="form-group">
-      <label class="form-label">内容</label>
-      <textarea class="form-textarea" id="ei-body" rows="5">${esc(idea.body||'')}</textarea>
-    </div>
-    <div class="grid-2">
-      <div class="form-group">
-        <label class="form-label">種類</label>
-        <select class="form-select" id="ei-type">
-          ${['メモ','シーン','セリフ','テーマ','キャラクター','設定'].map(t=>`<option ${t===idea.type?'selected':''}>${t}</option>`).join('')}
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">優先度</label>
-        <select class="form-select" id="ei-priority">
-          ${['普通','高','低'].map(t=>`<option ${t===idea.priority?'selected':''}>${t}</option>`).join('')}
-        </select>
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">フォルダ</label>
-      <select class="form-select" id="ei-folder">${folderOptionsHtml('ideas_'+projId, idea.folderId||'')}</select>
-    </div>`,
+    `<i class="fas fa-lightbulb" style="color:#f7c56a"></i> アイデア詳細`,
+    renderHubTabs('idea', [
+      { key:'edit', label:'編集', icon:'fa-pen' },
+      { key:'meta', label:'メタ情報', icon:'fa-chart-simple' },
+    ], panels),
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     <button class="btn btn-primary" onclick="saveEditIdea('${projId}','${ideaId}')">保存</button>`
+     <button class="btn btn-danger" onclick="confirmDeleteIdea('${projId}','${ideaId}')"><i class="fas fa-trash"></i> 削除</button>
+     <button class="btn btn-primary" onclick="saveEditIdea('${projId}','${ideaId}')"><i class="fas fa-floppy-disk"></i> 保存</button>`,
+    { size: 'modal-lg' }
   );
 }
+function editIdea(projId, ideaId) { openIdeaHub(projId, ideaId); }
 
 function saveEditIdea(projId, ideaId) {
   const proj = DB.getProject(projId);
@@ -2573,9 +2681,24 @@ function saveEditIdea(projId, ideaId) {
   idea.type  = $('#ei-type')?.value || 'メモ';
   idea.priority = $('#ei-priority')?.value || '普通';
   idea.folderId = $('#ei-folder')?.value || '';
+  idea.tags = getHubTags('idea-'+ideaId);
   proj.updatedAt = now();
   DB.saveProject(proj);
   closeModal(); toast('更新しました', 'success'); render();
+}
+
+function sendIdeaToScratch(projId, ideaId) {
+  const proj = DB.getProject(projId);
+  const idea = (proj?.ideas||[]).find(i => i.id === ideaId);
+  if (!idea) return;
+  const scratches = DB.get('inspiration_scratches', []);
+  scratches.unshift({
+    id: uid(), title: idea.title||'', body: idea.body||'',
+    type: '着想', tags: idea.tags||[], pinned: false, folderId: '',
+    createdAt: now(),
+  });
+  DB.set('inspiration_scratches', scratches);
+  toast('インスピレーション・スクラッチパッドへ複製しました', 'success');
 }
 
 function confirmDeleteIdea(projId, ideaId) {
@@ -2628,11 +2751,16 @@ function deleteKeyword(projId, kw) {
 function editMoodItem(projId, category) {
   const proj = DB.getProject(projId);
   const item = (proj?.moodboard||[]).find(m => m.category === category);
+  const metaHtml = item ? (renderHubMetaGrid([
+    { label:'更新日', value: fmtDate(item.updatedAt) },
+    { label:'文字数', value: (item.content||'').length ? (item.content||'').length + '文字' : null },
+  ]) || '') : '';
   openModal(
     `<i class="fas fa-palette" style="color:var(--accent2)"></i> ${esc(category)}`,
-    `<div class="form-group">
+    `${metaHtml}
+    <div class="form-group">
       <label class="form-label">内容・イメージ</label>
-      <textarea class="form-textarea" id="mood-content" rows="4" placeholder="${esc(category)}について自由に書いてください…">${esc(item?.content||'')}</textarea>
+      <textarea class="form-textarea" id="mood-content" rows="5" placeholder="${esc(category)}について自由に書いてください…">${esc(item?.content||'')}</textarea>
     </div>`,
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
      <button class="btn btn-primary" onclick="saveMoodItem('${projId}','${esc(category)}')">保存</button>`
@@ -2645,8 +2773,8 @@ function saveMoodItem(projId, category) {
   proj.moodboard = proj.moodboard || [];
   const idx = proj.moodboard.findIndex(m => m.category === category);
   const content = $('#mood-content')?.value?.trim() || '';
-  if (idx >= 0) proj.moodboard[idx].content = content;
-  else proj.moodboard.push({ category, content });
+  if (idx >= 0) { proj.moodboard[idx].content = content; proj.moodboard[idx].updatedAt = now(); }
+  else proj.moodboard.push({ category, content, updatedAt: now() });
   proj.updatedAt = now();
   DB.saveProject(proj);
   closeModal(); render();
@@ -2679,10 +2807,9 @@ function renderResearch(proj) {
     const cat = NOTE_CAT_COLORS[n.category] || NOTE_CAT_COLORS['その他'];
     const fld = noteFolders.find(f => f.id === n.folderId);
     return `
-    <div class="idea-card" style="border-left:3px solid ${cat.color};position:relative">
+    <div class="idea-card hub-clickable-card" style="border-left:3px solid ${cat.color};position:relative" onclick="openResearchNoteHub('${proj.id}','${n.id}')">
       <div class="idea-card-actions">
-        <button class="btn btn-ghost btn-icon btn-sm" onclick="editResearchNote('${proj.id}','${n.id}')" title="編集"><i class="fas fa-pen" style="font-size:10px"></i></button>
-        <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDeleteResearchNote('${proj.id}','${n.id}')" title="削除"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();confirmDeleteResearchNote('${proj.id}','${n.id}')" title="削除"><i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i></button>
       </div>
       <div style="display:inline-flex;align-items:center;gap:4px;background:${cat.bg};color:${cat.color};border:1px solid ${cat.border};border-radius:10px;padding:2px 8px;font-size:10px;font-weight:600;margin-bottom:7px">
         ${esc(n.category||'その他')}
@@ -2891,20 +3018,21 @@ function addResearchNote(projId) {
   closeModal(); toast('追加しました','success'); render();
 }
 
-function editResearchNote(projId, id) {
+// ── リサーチノート：詳細ハブポップアップ ──
+function openResearchNoteHub(projId, id) {
   const proj = DB.getProject(projId);
   const n = (proj?.research?.notes||[]).find(x => x.id === id);
   if (!n) return;
-  openModal(
-    `<i class="fas fa-pen" style="color:var(--accent)"></i> リサーチノートを編集`,
-    `<div class="form-group">
+  const panels = {
+    edit: `
+    <div class="form-group">
       <label class="form-label">タイトル</label>
       <input class="form-input" id="ern-title" value="${esc(n.title||'')}">
     </div>
     <div class="form-group">
-      <label class="form-label">カテギリ</label>
+      <label class="form-label">カテゴリ</label>
       <select class="form-select" id="ern-cat">
-        ${['職業・専門知識','時代・歴割','地理・場所','人物・実在モデル','法律・制度','文化・慣修','その他'].map(c=>`<option ${c===n.category?'selected':''}>${c}</option>`).join('')}
+        ${['職業・専門知識','時代・歴史','地理・場所','人物・実在モデル','法律・制度','文化・慣習','その他'].map(c=>`<option ${c===n.category?'selected':''}>${c}</option>`).join('')}
       </select>
     </div>
     <div class="form-group">
@@ -2914,11 +3042,30 @@ function editResearchNote(projId, id) {
     <div class="form-group">
       <label class="form-label">フォルダ</label>
       <select class="form-select" id="ern-folder">${folderOptionsHtml('researchnotes_'+projId, n.folderId||'')}</select>
+    </div>
+    <div class="form-group">
+      <label class="form-label"><i class="fas fa-tags" style="color:var(--fuji);margin-right:4px"></i>タグ</label>
+      ${renderHubTagEditor('research-'+id, n.tags||[])}
     </div>`,
+    meta: renderHubMetaGrid([
+      { label:'作成日', value: fmtDate(n.createdAt) },
+      { label:'文字数', value: (n.body||'').length + ' 文字' },
+      { label:'カテゴリ', value: esc(n.category||'その他') },
+    ]) || `<div class="hub-empty-mini">メタ情報はまだありません</div>`,
+  };
+  openModal(
+    `<i class="fas fa-book-open" style="color:var(--kon-lt)"></i> リサーチノート詳細`,
+    renderHubTabs('research', [
+      { key:'edit', label:'編集', icon:'fa-pen' },
+      { key:'meta', label:'メタ情報', icon:'fa-chart-simple' },
+    ], panels),
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     <button class="btn btn-primary" onclick="saveEditResearchNote('${projId}','${id}')">保存</button>`
+     <button class="btn btn-danger" onclick="confirmDeleteResearchNote('${projId}','${id}')"><i class="fas fa-trash"></i> 削除</button>
+     <button class="btn btn-primary" onclick="saveEditResearchNote('${projId}','${id}')"><i class="fas fa-floppy-disk"></i> 保存</button>`,
+    { size: 'modal-lg' }
   );
 }
+function editResearchNote(projId, id) { openResearchNoteHub(projId, id); }
 
 function saveEditResearchNote(projId, id) {
   const proj = DB.getProject(projId);
@@ -2928,6 +3075,7 @@ function saveEditResearchNote(projId, id) {
   n.category = $('#ern-cat')?.value || 'その他';
   n.body = $('#ern-body')?.value?.trim() || '';
   n.folderId = $('#ern-folder')?.value || '';
+  n.tags = getHubTags('research-'+id);
   proj.updatedAt = now();
   DB.saveProject(proj);
   closeModal(); toast('更新しました','success'); render();
@@ -25757,20 +25905,20 @@ function renderToolWorldNotes() {
           filtered.map((n,i)=>{
             const realIdx = notes.indexOf(n);
             const fld = worldFolders.find(f => f.id === n.folderId);
-            return `<div class="card" style="padding:14px">
+            return `<div class="card hub-clickable-card" style="padding:14px" onclick="openWorldNoteHub(${realIdx})">
               <div style="display:flex;align-items:flex-start;gap:10px">
                 <div style="flex:1">
                   <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
                     <div style="font-size:13.5px;font-weight:700;color:var(--text-primary)">${esc(n.title)}</div>
                     <span style="font-size:10px;padding:2px 7px;background:var(--asagi-bg);color:var(--asagi);border:1px solid var(--asagi-border);border-radius:10px;font-weight:600">${esc(n.category)}</span>
+                    ${(n.tags||[]).slice(0,3).map(t=>`<span class="tag tag-gray" style="font-size:10px">#${esc(t)}</span>`).join('')}
                     ${fld ? `<span class="tag" style="font-size:10px;background:${fld.color}22;color:${fld.color};border:1px solid ${fld.color}55"><i class="fas fa-folder" style="font-size:9px"></i> ${esc(fld.name)}</span>` : ''}
                   </div>
                   <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.7;white-space:pre-wrap">${esc(n.body)}</div>
                   <div style="font-size:10px;color:var(--text-muted);margin-top:6px">${n.createdAt?.slice(0,10)||''}</div>
                 </div>
                 <div style="display:flex;gap:2px">
-                  <button class="btn btn-ghost btn-icon btn-sm" onclick="editWorldNote(${realIdx})" title="編集"><i class="fas fa-pen" style="font-size:11px;color:var(--text-muted)"></i></button>
-                  <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDeleteWorldNote(${realIdx})" title="削除"><i class="fas fa-trash" style="font-size:11px;color:var(--text-muted)"></i></button>
+                  <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();confirmDeleteWorldNote(${realIdx})" title="削除"><i class="fas fa-trash" style="font-size:11px;color:var(--text-muted)"></i></button>
                 </div>
               </div>
             </div>`;
@@ -25793,21 +25941,41 @@ function addWorldNote() {
   render();
 }
 
-function editWorldNote(idx) {
+// ── 世界観メモ：詳細ハブポップアップ ──
+function openWorldNoteHub(idx) {
   const notes = JSON.parse(localStorage.getItem('sl_world_notes') || '[]');
   const n = notes[idx];
   if (!n) return;
   const WORLD_CATS = ['設定・ルール','地名・場所','用語・専門語','キャラ設定メモ','時代・時系列','その他'];
-  openModal(
-    `<i class="fas fa-pen" style="color:var(--accent)"></i> メモを編集`,
-    `<div class="form-group"><label class="form-label">タイトル</label><input class="form-input" id="ewn-title" value="${esc(n.title||'')}"></div>
+  const panels = {
+    edit: `
+     <div class="form-group"><label class="form-label">タイトル</label><input class="form-input" id="ewn-title" value="${esc(n.title||'')}"></div>
      <div class="form-group"><label class="form-label">カテゴリ</label><select class="form-select" id="ewn-category">${WORLD_CATS.map(c=>`<option ${c===n.category?'selected':''}>${c}</option>`).join('')}</select></div>
      <div class="form-group"><label class="form-label">内容</label><textarea class="form-textarea" id="ewn-body" rows="4">${esc(n.body||'')}</textarea></div>
-     <div class="form-group"><label class="form-label">フォルダ</label><select class="form-select" id="ewn-folder">${folderOptionsHtml('world_notes', n.folderId||'')}</select></div>`,
+     <div class="form-group"><label class="form-label">フォルダ</label><select class="form-select" id="ewn-folder">${folderOptionsHtml('world_notes', n.folderId||'')}</select></div>
+     <div class="form-group">
+       <label class="form-label"><i class="fas fa-tags" style="color:var(--fuji);margin-right:4px"></i>タグ</label>
+       ${renderHubTagEditor('world-'+idx, n.tags||[])}
+     </div>`,
+    meta: renderHubMetaGrid([
+      { label:'作成日', value: n.createdAt?.slice(0,10)||'' },
+      { label:'文字数', value: (n.body||'').length + ' 文字' },
+      { label:'カテゴリ', value: esc(n.category||'その他') },
+    ]) || `<div class="hub-empty-mini">メタ情報はまだありません</div>`,
+  };
+  openModal(
+    `<i class="fas fa-globe" style="color:var(--asagi)"></i> 世界観メモ詳細`,
+    renderHubTabs('world', [
+      { key:'edit', label:'編集', icon:'fa-pen' },
+      { key:'meta', label:'メタ情報', icon:'fa-chart-simple' },
+    ], panels),
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     <button class="btn btn-primary" onclick="saveEditWorldNote(${idx})">保存</button>`
+     <button class="btn btn-danger" onclick="confirmDeleteWorldNote(${idx})"><i class="fas fa-trash"></i> 削除</button>
+     <button class="btn btn-primary" onclick="saveEditWorldNote(${idx})"><i class="fas fa-floppy-disk"></i> 保存</button>`,
+    { size: 'modal-lg' }
   );
 }
+function editWorldNote(idx) { openWorldNoteHub(idx); }
 
 function saveEditWorldNote(idx) {
   const notes = JSON.parse(localStorage.getItem('sl_world_notes') || '[]');
@@ -25817,6 +25985,7 @@ function saveEditWorldNote(idx) {
   n.category = document.getElementById('ewn-category')?.value || n.category;
   n.body = document.getElementById('ewn-body')?.value.trim() || '';
   n.folderId = document.getElementById('ewn-folder')?.value || '';
+  n.tags = getHubTags('world-'+idx);
   localStorage.setItem('sl_world_notes', JSON.stringify(notes));
   closeModal(); toast('更新しました', 'success'); render();
 }
@@ -32571,7 +32740,7 @@ function renderInspirationScratch(scratches) {
         };
         const sfld = scratchFolders.find(f => f.id === s.folderId);
         return `
-        <div class="insp-scratch-card ${s.pinned?'pinned':''}" id="sc-${s.id}">
+        <div class="insp-scratch-card hub-clickable-card ${s.pinned?'pinned':''}" id="sc-${s.id}" onclick="openScratchHub('${s.id}')">
           <div class="insp-scratch-top">
             <div style="display:flex;align-items:center;gap:6px">
               <span style="font-size:10px;font-weight:700;color:${tc};padding:2px 8px;background:white;border:1px solid ${tc};border-radius:var(--radius-full)">${s.type||'その他'}</span>
@@ -32580,17 +32749,16 @@ function renderInspirationScratch(scratches) {
             </div>
             <div style="display:flex;gap:4px;align-items:center">
               <span style="font-size:10px;color:var(--text-light)">${s.createdAt ? s.createdAt.slice(0,10) : ''}</span>
-              <button class="btn btn-ghost btn-icon btn-sm" onclick="togglePinScratch('${s.id}')" title="${s.pinned?'ピン解除':'ピン留め'}">
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();togglePinScratch('${s.id}')" title="${s.pinned?'ピン解除':'ピン留め'}">
                 <i class="fas fa-thumbtack" style="font-size:10px;color:${s.pinned?'var(--kogane)':'var(--text-muted)'}"></i>
               </button>
-              <button class="btn btn-ghost btn-icon btn-sm" onclick="openEditScratch('${s.id}')"><i class="fas fa-pen" style="font-size:10px"></i></button>
-              <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDeleteScratch('${s.id}')"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();confirmDeleteScratch('${s.id}')"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
             </div>
           </div>
           ${s.title ? `<div style="font-size:13px;font-weight:700;color:var(--text-primary);margin:6px 0 4px;font-family:'Noto Serif JP',serif">${highlightText(s.title)}</div>` : ''}
           <div class="insp-scratch-body">${highlightText(s.body||'')}</div>
-          ${tagHtml ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px">${tagHtml}</div>` : ''}
-          <div style="margin-top:10px;display:flex;gap:6px">
+          ${tagHtml ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px" onclick="event.stopPropagation()">${tagHtml}</div>` : ''}
+          <div style="margin-top:10px;display:flex;gap:6px" onclick="event.stopPropagation()">
             <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="developScratch('${s.id}')"><i class="fas fa-wand-magic-sparkles"></i> 展開する</button>
             <button class="btn btn-ghost btn-sm" style="font-size:11px" onclick="sendScratchToProject('${s.id}')"><i class="fas fa-share"></i> 作品へ送る</button>
           </div>
@@ -33641,13 +33809,21 @@ function togglePinScratch(id) {
   navigate('inspiration');
 }
 
-function openEditScratch(id) {
+// ── インスピレーション・スクラッチ：詳細ハブポップアップ ──
+function openScratchHub(id) {
   const scratches = DB.get('inspiration_scratches', []);
   const s = scratches.find(x => x.id === id);
   if (!s) return;
-  openModal(
-    `<i class="fas fa-pen" style="color:var(--fuji)"></i> メモを編集`,
-    `<div class="form-group">
+  const developPatterns = [
+    { key:'scene', label:'シーンに落とす', body:`【シーンに落とす】\n${s.body||''}\n↓\n情景: \nキャラの行動: \nセリフ（一言）: ` },
+    { key:'theme', label:'テーマを掘り下げる', body:`【テーマを掘り下げる】\n「${s.body||''}」\n↓\nなぜこれが重要か: \n主人公との関係: \n物語への影響: ` },
+    { key:'conflict', label:'対立軸を作る', body:`【対立軸を作る】\n${s.body||''}\n↓\nAの立場: \nBの立場: \n衝突する瞬間: ` },
+    { key:'5w1h', label:'5W1Hで展開', body:`【5W1Hで展開】\n${s.body||''}\n↓\nWho: \nWhat: \nWhen: \nWhere: \nWhy: \nHow: ` },
+  ];
+  const projects = DB.getProjects();
+  const panels = {
+    edit: `
+     <div class="form-group">
        <label class="form-label">タイトル</label>
        <input class="form-input" id="es-title" value="${esc(s.title||'')}" placeholder="タイトル（任意）">
      </div>
@@ -33659,8 +33835,8 @@ function openEditScratch(id) {
          </select>
        </div>
        <div class="form-group">
-         <label class="form-label">タグ（カンマ区切り）</label>
-         <input class="form-input" id="es-tags" value="${esc((s.tags||[]).join(', '))}">
+         <label class="form-label">フォルダ</label>
+         <select class="form-select" id="es-folder">${folderOptionsHtml('inspiration_scratches', s.folderId||'')}</select>
        </div>
      </div>
      <div class="form-group">
@@ -33668,13 +33844,49 @@ function openEditScratch(id) {
        <textarea class="form-textarea" id="es-body" rows="5">${esc(s.body||'')}</textarea>
      </div>
      <div class="form-group">
-       <label class="form-label">フォルダ</label>
-       <select class="form-select" id="es-folder">${folderOptionsHtml('inspiration_scratches', s.folderId||'')}</select>
+       <label class="form-label"><i class="fas fa-tags" style="color:var(--fuji);margin-right:4px"></i>タグ</label>
+       ${renderHubTagEditor('scratch-'+id, s.tags||[])}
+     </div>
+     <label class="hub-tab-panel-checkbox" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);cursor:pointer">
+       <input type="checkbox" id="es-pinned" ${s.pinned?'checked':''} style="width:14px;height:14px;cursor:pointer"> ピン留めする
+     </label>`,
+    develop: `
+     <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;padding:10px;background:var(--bg-subtle);border-radius:var(--radius-sm);font-style:italic">元メモ: ${esc((s.body||'').slice(0,80))}${(s.body||'').length>80?'…':''}</div>
+     <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:10px">展開パターンを選択 — クリックで展開メモを新規作成</div>
+     <div style="display:flex;flex-direction:column;gap:8px">
+       ${developPatterns.map((p,i) => `
+         <div class="tool-result-card" style="cursor:pointer" onclick="applyDevelopPattern(${i},'${id}')">
+           <div style="font-size:11px;font-weight:700;color:var(--fuji);margin-bottom:4px">${esc(p.label)}</div>
+           <div style="font-size:11px;color:var(--text-muted);white-space:pre-line;line-height:1.7">${esc(p.body)}</div>
+         </div>`).join('')}
      </div>`,
+    send: `
+     ${projects.length===0 ? `<div class="hub-empty-mini">先に作品を作成してください</div>` : `
+     <div class="form-group"><label class="form-label">送り先の作品</label><select class="form-select" id="str-proj">${projects.map(p=>`<option value="${p.id}">${esc(p.title)}</option>`).join('')}</select></div>
+     <div class="form-group">
+       <label class="form-label">送る先</label>
+       <select class="form-select" id="str-dest">
+         <option value="ideas">アイデアリスト</option>
+         <option value="research">リサーチノート</option>
+       </select>
+     </div>
+     <div style="padding:10px;background:var(--bg-subtle);border-radius:var(--radius-sm);font-size:12.5px;color:var(--text-secondary);white-space:pre-wrap;line-height:1.7;font-style:italic">${esc((s.title?s.title+'\n':'')+(s.body||''))}</div>
+     <button class="btn btn-primary btn-sm" style="margin-top:10px" onclick="confirmSendScratch('${id}')"><i class="fas fa-share"></i> この作品へ送る</button>`}`,
+  };
+  openModal(
+    `<i class="fas fa-note-sticky" style="color:var(--fuji)"></i> メモ詳細`,
+    renderHubTabs('scratch', [
+      { key:'edit', label:'編集', icon:'fa-pen' },
+      { key:'develop', label:'展開する', icon:'fa-wand-magic-sparkles' },
+      { key:'send', label:'作品へ送る', icon:'fa-share' },
+    ], panels),
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     <button class="btn btn-primary" onclick="saveEditScratch('${id}')"><i class="fas fa-floppy-disk"></i> 保存</button>`
+     <button class="btn btn-danger" onclick="confirmDeleteScratch('${id}')"><i class="fas fa-trash"></i> 削除</button>
+     <button class="btn btn-primary" onclick="saveEditScratch('${id}')"><i class="fas fa-floppy-disk"></i> 保存</button>`,
+    { size: 'modal-lg' }
   );
 }
+function openEditScratch(id) { openScratchHub(id); }
 
 function saveEditScratch(id) {
   const scratches = DB.get('inspiration_scratches', []);
@@ -33683,8 +33895,10 @@ function saveEditScratch(id) {
   scratches[idx].title = $('#es-title')?.value?.trim() || '';
   scratches[idx].body  = $('#es-body')?.value?.trim()  || '';
   scratches[idx].type  = $('#es-type')?.value           || 'その他';
-  scratches[idx].tags  = ($('#es-tags')?.value||'').split(',').map(t=>t.trim()).filter(Boolean);
+  scratches[idx].tags  = getHubTags('scratch-'+id);
   scratches[idx].folderId = $('#es-folder')?.value || '';
+  const pinnedEl = document.getElementById('es-pinned');
+  if (pinnedEl) scratches[idx].pinned = pinnedEl.checked;
   DB.set('inspiration_scratches', scratches);
   closeModal();
   toast('保存しました', 'success');
@@ -36737,11 +36951,12 @@ function renderBoardCard(card, boardId) {
   }
 
   return `
-  <div class="board-card ${card.pinned ? 'pinned' : ''}" 
+  <div class="board-card hub-clickable-card ${card.pinned ? 'pinned' : ''}" 
        id="bc-${card.id}"
        draggable="true"
        ondragstart="boardDragStart(event,'${card.id}','${boardId}')"
        ondragend="boardDragEnd(event)"
+       onclick="openCardEditModal('${card.id}','${boardId}')"
        style="border-left:3px solid ${pri.color};${card.color && card.color !== '#ffffff' ? `background:${card.color}18;` : ''}">
     <!-- Card Header -->
     <div class="board-card-header">
@@ -36753,13 +36968,10 @@ function renderBoardCard(card, boardId) {
         <span class="priority-chip" style="background:${pri.bg};color:${pri.color}" title="${pri.label}優先度">
           <i class="fas ${pri.icon}" style="font-size:8px"></i>
         </span>
-        <button class="btn btn-ghost btn-icon" style="width:22px;height:22px;padding:0" onclick="flipCard('${card.id}')" title="裏面を見る">
+        <button class="btn btn-ghost btn-icon" style="width:22px;height:22px;padding:0" onclick="event.stopPropagation();flipCard('${card.id}')" title="裏面を見る">
           <i class="fas fa-rotate" style="font-size:10px;color:var(--fuji)"></i>
         </button>
-        <button class="btn btn-ghost btn-icon" style="width:22px;height:22px;padding:0" onclick="openCardEditModal('${card.id}','${boardId}')" title="編集">
-          <i class="fas fa-pen" style="font-size:10px"></i>
-        </button>
-        <button class="btn btn-ghost btn-icon" style="width:22px;height:22px;padding:0" onclick="confirmDeleteCard('${card.id}','${boardId}')" title="削除">
+        <button class="btn btn-ghost btn-icon" style="width:22px;height:22px;padding:0" onclick="event.stopPropagation();confirmDeleteCard('${card.id}','${boardId}')" title="削除">
           <i class="fas fa-xmark" style="font-size:10px;color:var(--text-light)"></i>
         </button>
       </div>
@@ -36774,7 +36986,7 @@ function renderBoardCard(card, boardId) {
       ${checkTotal > 0 ? `<span style="font-size:10px;color:${checkDone===checkTotal?'var(--matcha)':'var(--text-muted)'}"><i class="fas fa-check-square" style="margin-right:2px"></i>${checkDone}/${checkTotal}</span>` : ''}
       ${card.back?.emotion ? `<span style="font-size:10px;color:var(--momo)"><i class="fas fa-heart" style="margin-right:2px"></i>${esc(card.back.emotion)}</span>` : ''}
       ${card.dueDate ? `<span style="font-size:10px;color:var(--text-muted);margin-left:auto"><i class="fas fa-calendar" style="margin-right:2px"></i>${card.dueDate}</span>` : '<span style="margin-left:auto"></span>'}
-      <button class="btn btn-ghost btn-icon" style="width:20px;height:20px;padding:0;flex-shrink:0" onclick="togglePinCard('${card.id}','${boardId}')" title="${card.pinned?'ピン解除':'ピン留め'}">
+      <button class="btn btn-ghost btn-icon" style="width:20px;height:20px;padding:0;flex-shrink:0" onclick="event.stopPropagation();togglePinCard('${card.id}','${boardId}')" title="${card.pinned?'ピン解除':'ピン留め'}">
         <i class="fas fa-thumbtack" style="font-size:10px;color:${card.pinned?'var(--kogane)':'var(--text-light)'}"></i>
       </button>
     </div>
@@ -37012,6 +37224,7 @@ function openCardEditModal(cardId, boardId) {
       <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px">
         <button class="card-edit-tab active" id="ced-tab-front" onclick="switchCardEditTab('front')">表面</button>
         <button class="card-edit-tab" id="ced-tab-back" onclick="switchCardEditTab('back')">裏面・詳細</button>
+        <button class="card-edit-tab" id="ced-tab-meta" onclick="switchCardEditTab('meta')">メタ情報</button>
       </div>
 
       <!-- 表面 -->
@@ -37107,6 +37320,16 @@ function openCardEditModal(cardId, boardId) {
           <input class="form-input" id="ced-refs" value="${esc(back.references||'')}" placeholder="https://...">
         </div>
       </div>
+
+      <!-- メタ情報 -->
+      <div id="ced-meta" style="display:none">
+        ${renderHubMetaGrid([
+          { label:'作成日', value: fmtDate(card.createdAt) },
+          { label:'更新日', value: fmtDate(card.updatedAt) },
+          { label:'文字数', value: (card.body||'').length ? (card.body||'').length + '文字' : null },
+          { label:'チェック', value: checklist.length ? `${checklist.filter(i=>i.done).length}/${checklist.length}` : null },
+        ]) || `<div class="hub-empty-mini">メタ情報はまだありません</div>`}
+      </div>
     </div>`,
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
      <button class="btn btn-primary" onclick="saveCardEdit('${cardId}','${boardId}')"><i class="fas fa-floppy-disk"></i> 保存</button>`,
@@ -37115,18 +37338,13 @@ function openCardEditModal(cardId, boardId) {
 }
 
 function switchCardEditTab(tab) {
-  const front = document.getElementById('ced-front');
-  const back = document.getElementById('ced-back');
-  const tabFront = document.getElementById('ced-tab-front');
-  const tabBack = document.getElementById('ced-tab-back');
-  if (!front || !back) return;
-  if (tab === 'front') {
-    front.style.display = ''; back.style.display = 'none';
-    tabFront?.classList.add('active'); tabBack?.classList.remove('active');
-  } else {
-    front.style.display = 'none'; back.style.display = '';
-    tabFront?.classList.remove('active'); tabBack?.classList.add('active');
-  }
+  const panels = { front: document.getElementById('ced-front'), back: document.getElementById('ced-back'), meta: document.getElementById('ced-meta') };
+  const tabs = { front: document.getElementById('ced-tab-front'), back: document.getElementById('ced-tab-back'), meta: document.getElementById('ced-tab-meta') };
+  if (!panels.front) return;
+  Object.keys(panels).forEach(k => {
+    if (panels[k]) panels[k].style.display = (k === tab) ? '' : 'none';
+    tabs[k]?.classList.toggle('active', k === tab);
+  });
 }
 
 let _tempChecklist = [];
@@ -39792,13 +40010,13 @@ function studyDeleteInput(id) {
 
 function studyNewInput() { studyEditInput(null); }
 
+// ── 書斎インプットメモ：詳細ハブポップアップ（編集＋関連原稿・コレクションの集約表示） ──
 function studyEditInput(id) {
   const item = id ? StudyDB.getInput(id) : newStudyInput();
   if (!item) return;
   const catOpts = STUDY_INPUT_CATEGORIES.map(c => `<option value="${c.id}" ${item.category===c.id?'selected':''}>${c.label}</option>`).join('');
-  openModal(
-    `<i class="fas fa-inbox" style="color:var(--fuji)"></i> ${id ? 'インプットを編集' : '新しいインプットを追加'}`,
-    `<div class="form-group"><label class="form-label">カテゴリー</label>
+  const editPanel = `
+    <div class="form-group"><label class="form-label">カテゴリー</label>
       <select class="form-select" id="si-category">${catOpts}</select></div>
     <div class="grid-2">
       <div class="form-group"><label class="form-label">作家名</label>
@@ -39810,13 +40028,45 @@ function studyEditInput(id) {
       <textarea class="form-textarea" id="si-quote" rows="3" placeholder="印象に残ったセリフ・文章をそのまま">${esc(item.quote)}</textarea></div>
     <div class="form-group"><label class="form-label">気づき・メモ</label>
       <textarea class="form-textarea" id="si-memo" rows="4" placeholder="なぜ印象的だったか、どう自分の執筆に活かせるか…">${esc(item.memo)}</textarea></div>
-    <div class="form-group"><label class="form-label">タグ（カンマ区切り）</label>
-      <input class="form-input" id="si-tags" value="${esc((item.tags||[]).join(', '))}" placeholder="例：伏線, 対話劇, ラストシーン"></div>
+    <div class="form-group"><label class="form-label"><i class="fas fa-tags" style="color:var(--fuji);margin-right:4px"></i>タグ</label>
+      ${renderHubTagEditor('studyinput-'+item.id, item.tags||[])}</div>
     <div class="form-group"><label class="form-label">フォルダ</label>
-      <select class="form-select" id="si-folder">${folderOptionsHtml(studyInputFolderScope, item.folderId)}</select></div>`,
+      <select class="form-select" id="si-folder">${folderOptionsHtml(studyInputFolderScope, item.folderId)}</select></div>`;
+
+  let relatedPanel = `<div class="hub-empty-mini">まず一度保存すると、関連する原稿・コレクションがここに集約表示されます</div>`;
+  if (id) {
+    const linkedDrafts = StudyDB.getDrafts().filter(d => (d.linkedInputIds||[]).includes(id));
+    const linkedCollections = StudyCollectionDB.getAll().filter(c => (c.inputIds||[]).includes(id));
+    relatedPanel = `
+      <div style="font-size:11.5px;font-weight:700;color:var(--text-muted);margin-bottom:6px"><i class="fas fa-file-pen" style="margin-right:4px"></i>この原稿で使用中 (${linkedDrafts.length})</div>
+      <div class="hub-link-list" style="margin-bottom:16px">
+        ${linkedDrafts.length===0 ? `<div class="hub-empty-mini">まだ使用されていません</div>` :
+              linkedDrafts.map(d => `<div class="hub-link-item" onclick="closeModal();studyOpenDraftTab('${d.id}')"><i class="fas fa-file-lines"></i> ${esc(d.title||'無題の原稿')}</div>`).join('')}
+      </div>
+      <div style="font-size:11.5px;font-weight:700;color:var(--text-muted);margin-bottom:6px"><i class="fas fa-layer-group" style="margin-right:4px"></i>所属コレクション (${linkedCollections.length})</div>
+      <div class="hub-link-list">
+        ${linkedCollections.length===0 ? `<div class="hub-empty-mini">まだどのコレクションにも属していません</div>` :
+          linkedCollections.map(c => `<div class="hub-link-item" onclick="closeModal();studyOpenCollectionDetail('${c.id}')"><i class="fas fa-layer-group"></i> ${esc(c.name)}
+            <span class="hub-link-remove" onclick="event.stopPropagation();studyRemoveFromCollection('${c.id}','${id}');studyEditInput('${id}')" title="外す"><i class="fas fa-xmark"></i></span></div>`).join('')}
+      </div>`;
+  }
+  const metaPanel = id ? (renderHubMetaGrid([
+    { label:'作成日', value: fmtDate(item.createdAt) },
+    { label:'更新日', value: fmtDate(item.updatedAt) },
+    { label:'お気に入り', value: item.favorite ? '★ あり' : '－' },
+  ]) || `<div class="hub-empty-mini">メタ情報はまだありません</div>`) : `<div class="hub-empty-mini">保存後に表示されます</div>`;
+
+  openModal(
+    `<i class="fas fa-inbox" style="color:var(--fuji)"></i> ${id ? 'インプット詳細' : '新しいインプットを追加'}`,
+    id ? renderHubTabs('studyinput', [
+      { key:'edit', label:'編集', icon:'fa-pen' },
+      { key:'related', label:'関連', icon:'fa-link', badge: (StudyDB.getDrafts().filter(d=>(d.linkedInputIds||[]).includes(id)).length + StudyCollectionDB.getAll().filter(c=>(c.inputIds||[]).includes(id)).length) || null },
+      { key:'meta', label:'メタ情報', icon:'fa-chart-simple' },
+    ], { edit: editPanel, related: relatedPanel, meta: metaPanel }) : editPanel,
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
      ${id ? `<button class="btn btn-danger" onclick="studyDeleteInput('${id}')"><i class="fas fa-trash"></i> 削除</button>` : ''}
-     <button class="btn btn-primary" onclick="studySaveInputModal('${item.id}')"><i class="fas fa-save"></i> 保存</button>`
+     <button class="btn btn-primary" onclick="studySaveInputModal('${item.id}')"><i class="fas fa-save"></i> 保存</button>`,
+    { size: 'modal-lg' }
   );
 }
 
@@ -39828,7 +40078,7 @@ function studySaveInputModal(itemId) {
   existing.workTitle = $('#si-worktitle')?.value?.trim() || '';
   existing.quote = $('#si-quote')?.value?.trim() || '';
   existing.memo = $('#si-memo')?.value?.trim() || '';
-  existing.tags = ($('#si-tags')?.value || '').split(',').map(s=>s.trim()).filter(Boolean);
+  existing.tags = getHubTags('studyinput-'+itemId);
   existing.folderId = $('#si-folder')?.value || '';
   existing.updatedAt = now();
   if (!existing.createdAt) existing.createdAt = now();
