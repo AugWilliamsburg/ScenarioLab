@@ -99,7 +99,7 @@
   pm2 start ecosystem.config.cjs       # メインアプリ (port 3000)
   pm2 start pdf_ecosystem.config.cjs   # PDF抽出サーバー (port 3001)
   ```
-- **Last Updated**: 2026-07-21（モバイル版 構造独立化 第2弾：メニューハブ新設・サイドバー解体・横切れ解消・トップバー簡易化を反映）
+- **Last Updated**: 2026-07-21（モバイル版 構造独立化 第2弾＋起動速度改善（minifyビルドパイプライン導入）を反映）
 
 ## モバイル版 構造独立化 第2弾：PC版とは別の独自モバイルUXへ（NEW・進行中）
 「モバイル版はWebサイト版とはまた別の独自のものとして改良・進化させていこう」という要望に基づき、モバイル版を単なるPC版の縮小レイアウトから、構造そのものが異なる独立したモバイルアプリ的UXへ刷新した。
@@ -136,8 +136,30 @@
 
 ### 残タスク（次ターン対応予定）
 - 実機（iOS/Androidの実ブラウザ、DevToolsモバイルエミュレーション）での視覚的な最終確認（横切れ解消・メニューハブ・ボトムナビ・サイドバー解体後の見た目）
-- 起動（初期ロード）速度のさらなる改善（`app.js`本体2.5MBのコード分割・遅延ロードは未着手）
-- モーダル・ポップアップ系UIのモバイル構造独立化（現状は横切れ対策の対象に含めていないものがある可能性）
+- `app.js`本体自体のコード分割・遅延ロード（ページ単位でのdynamic import化）は未着手。現状のminify化は「同じ内容をより軽く送る」対応であり、「初期表示に不要なコードを後回しにする」対応ではないため、さらなる高速化の余地は残る
+
+## 起動速度改善：ビルド時minifyパイプライン導入（NEW・完了）
+「起動までが時間かかる」というモバイルUX課題に対応し、配信物（`dist/`）だけを対象にminify処理を導入した。開発時に読み書きする`public/static/app.js` / `app.css`のソースは非圧縮の読みやすい状態のまま維持し、`npm run build`実行時にのみ軽量化を適用する方式。
+
+### 実装内容
+- `scripts/minify-static.mjs`（新規）：`vite build`完了後に`dist/static/app.js`と`dist/static/app.css`をesbuildで上書きminifyするNodeスクリプト
+- `package.json`の`build`スクリプトを`vite build && node scripts/minify-static.mjs`に変更し、通常の`npm run build`実行だけで自動的に軽量化が適用されるようにした
+- `esbuild`（`--minify --charset=utf8`）を使用。`--charset=utf8`を指定することで、日本語文字列が`\uXXXX`エスケープに展開されてサイズが増えてしまう問題を回避
+
+### 効果（配信物のみ、ソースは変更なし）
+- `app.js`: 2,583,869 bytes → 2,150,998 bytes（17%減、gzip後は634KB→557KB）
+- `app.css`: 334,147 bytes → 235,310 bytes（30%減、gzip後は55.9KB→37.8KB）
+- グローバル関数名・文字列リテラル（`onclick="funcName(...)"`等のインラインイベントハンドラ文字列参照、`navigate('menu-hub')`等のページID文字列）はminify後も保持されることを確認済み（esbuildのデフォルト動作：トップレベルのグローバルスコープ識別子は安全のためリネームしない）
+
+### 安全性検証
+- Node.jsの`vm.runInThisContext`でオリジナル版とminify版の両方をサンドボックス実行し、`renderMenuHubPage()`が両方で完全に同一のHTML文字列（5102文字、内容一致）を返すことを確認
+- `toggleSidebar()`をモバイル幅（375px）を模した環境で呼び出し、両方で同一の挙動（例外なく実行完了）を確認
+- 主要関数（`renderMenuHubPage` / `toggleSidebar` / `mobileNavGo` / `goToScratchpad` / `navigate` / `renderLayout` / `render`）が両方の版で`function`型として定義されていることを確認
+- `npm run build`実行後、PM2再起動・`curl`での実配信物取得（`/static/app.js`が2,150,998 bytes、`/static/app.css`が235,310 bytesで配信されていることを確認）・HTTP 200・Playwrightコンソールキャプチャ（エラー0件）まで完了済み
+
+### 今後の候補
+- ページ単位でのコード分割・遅延ロード（現状は全ページの全関数を1ファイルに含めて配信しているため、初期表示に不要なコードもダウンロード・パースされる）
+- 画像・アイコン等、他アセットの軽量化余地の確認
 
 ## モバイル最適化 第1弾：safe-area対応・タップ領域拡大・初期ロード軽量化（完了）
 「モバイル版の使い心地」向上のための抜本対応、第1弾として以下を実施した。
