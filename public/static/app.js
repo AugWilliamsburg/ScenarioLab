@@ -32845,7 +32845,7 @@ function renderInspirationScratch(scratches) {
         <div style="font-size:14px;font-weight:600;margin-bottom:6px">${searchQ || filterTag || filterType ? '条件に一致するメモがありません' : 'まだメモがありません'}</div>
         <div style="font-size:12px;color:var(--text-muted)">${searchQ||filterTag||filterType ? 'フィルターをリセットしてみてください' : '上の入力欄からアイデアを書き留めましょう'}</div>
        </div>`
-    : displayList.map(s => {
+    : displayList.map((s, scIdx) => {
         const tagHtml = (s.tags||[]).map(t =>
           `<span class="insp-tag" onclick="filterScratchByTag('${esc(t)}')">${esc(t)}</span>`
         ).join('');
@@ -32863,6 +32863,10 @@ function renderInspirationScratch(scratches) {
              ${!isSelecting && sortMode==='custom' ? `draggable="true" ondragstart="scratchDragStart(event,'${s.id}')" ondragover="scratchDragOver(event,'${s.id}')" ondragend="scratchDragEnd(event)" ondrop="scratchDrop(event,'${s.id}')"` : ''}
              onclick="${isSelecting ? `event.stopPropagation();toggleScratchSelected('${s.id}')` : `openScratchHub('${s.id}')`}">
           ${!isSelecting && sortMode==='custom' ? `<div class="sc-drag-handle" title="ドラッグして並び替え"><i class="fas fa-grip-vertical"></i></div>` : ''}
+          ${!isSelecting && sortMode==='custom' ? `<div class="sc-move-btns" onclick="event.stopPropagation()">
+              <button class="btn btn-ghost btn-icon btn-sm" ${scIdx===0?'disabled':''} onclick="scratchMoveByStep('${s.id}',-1)" title="上へ移動"><i class="fas fa-chevron-up"></i></button>
+              <button class="btn btn-ghost btn-icon btn-sm" ${scIdx===displayList.length-1?'disabled':''} onclick="scratchMoveByStep('${s.id}',1)" title="下へ移動"><i class="fas fa-chevron-down"></i></button>
+            </div>` : ''}
           ${isSelecting ? `<div class="sc-select-check ${isSel?'checked':''}" title="選択">${isSel?'<i class="fas fa-check" style="font-size:9px;color:white"></i>':''}</div>` : ''}
           <div class="insp-scratch-top">
             <div style="display:flex;align-items:center;gap:6px">
@@ -34216,6 +34220,21 @@ function scratchDrop(event, dropId) {
   scratches.splice(toIdx, 0, moved);
   DB.set('inspiration_scratches', scratches);
   _scDragId = null;
+  navigate('inspiration');
+}
+
+// ── モバイル用「カスタム順」並び替え代替手段 ──
+// HTML5ネイティブドラッグ&ドロップ（scratchDragStart等）はタッチデバイスでは
+// 発火しないため、900px以下では上下移動ボタンで同じ配列操作を行えるようにする
+function scratchMoveByStep(id, dir) {
+  const scratches = DB.get('inspiration_scratches', []);
+  const idx = scratches.findIndex(s => s.id === id);
+  if (idx < 0) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= scratches.length) return;
+  const [moved] = scratches.splice(idx, 1);
+  scratches.splice(newIdx, 0, moved);
+  DB.set('inspiration_scratches', scratches);
   navigate('inspiration');
 }
 

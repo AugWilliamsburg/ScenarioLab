@@ -2929,6 +2929,20 @@ body {
   position: absolute; left: 8px; top: 14px; color: var(--text-light); font-size: 12px;
   cursor: grab;
 }
+/* モバイル用「カスタム順」並び替え代替ボタン（scratchMoveByStep）
+   HTML5ネイティブD&D(.sc-drag-handle)はタッチデバイスで発火しないため、
+   PC版では隠し、900px以下でのみ上下移動ボタンとして表示する */
+.sc-move-btns { display: none; }
+@media (max-width: 900px) {
+  .insp-scratch-card[draggable="true"] { padding-left: 8px; padding-right: 34px; }
+  .sc-drag-handle { display: none; }
+  .sc-move-btns {
+    display: flex; flex-direction: column; gap: 2px;
+    position: absolute; right: 6px; top: 10px;
+  }
+  .sc-move-btns .btn { width: 26px; height: 26px; padding: 0; }
+  .sc-move-btns .btn[disabled] { opacity: 0.3; pointer-events: none; }
+}
 .sc-select-check {
   position: absolute; left: 12px; top: 14px; width: 18px; height: 18px; border-radius: 5px;
   border: 1.5px solid var(--border); background: var(--bg-card);
