@@ -587,6 +587,9 @@ const GENRES = ['ドラマ','コメディ','サスペンス','ミステリー','
 const FORMATS = ['テレビドラマ（連続）','テレビドラマ（単発）','映画','短編映画','ウェブドラマ','舞台脚本','アニメ','その他'];
 
 // ── Router ─────────────────────────────────────────────────────
+// popstate経由（ブラウザ/Androidの「戻る」）で呼ばれた場合はtrueにし、
+// history.pushStateの再発行を抑止するためのフラグ
+let _isPopStateNav = false;
 function navigate(page, projectId = null) {
   State.currentPage = page;
   if (projectId) State.currentProjectId = projectId;
@@ -600,7 +603,24 @@ function navigate(page, projectId = null) {
   // → renderLayout側で DB.get('sidebar_collapsed', true) を読むのでここでは変更しない
   render();
   window.scrollTo(0, 0);
+  // 「戻る」操作への対応：ページ遷移ごとに履歴エントリを積み、
+  // ブラウザ/Androidの戻るボタンでアプリが唐突に終了する問題を解消する
+  // （popstateから呼ばれた場合は積み直さない）
+  if (!_isPopStateNav) {
+    try { history.pushState({ slPage: page, slProjectId: State.currentProjectId }, '', location.href); } catch (e) {}
+  }
+  _isPopStateNav = false;
 }
+// ブラウザ/Androidの「戻る」ボタンをページ内遷移に接続する
+window.addEventListener('popstate', (e) => {
+  // 戻る操作時に開いているモーダルが残ると新しいページの上に浮いた
+  // 見た目になってしまうため、視覚的破綻を防ぐために先に閉じる
+  closeModal();
+  if (e.state && e.state.slPage) {
+    _isPopStateNav = true;
+    navigate(e.state.slPage, e.state.slProjectId);
+  }
+});
 
 // ── Main Render ────────────────────────────────────────────────
 function render() {
@@ -39062,6 +39082,9 @@ function init() {
     DB.saveProject(sample);
   }
   render();
+  // 初期表示ページの状態も履歴に積んでおく（popstateで戻ってきた際に
+  // 空のstateにならないようにするため。navigate()経由ではないのでここで明示的に設定）
+  try { history.replaceState({ slPage: State.currentPage, slProjectId: State.currentProjectId }, '', location.href); } catch (e) {}
   // v16: Signal loader completion
   if (typeof window.__loaderDone === 'function') {
     setTimeout(window.__loaderDone, 100);
