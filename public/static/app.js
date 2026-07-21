@@ -2378,6 +2378,18 @@ function bindProjectPage(proj) {
       });
     }
   }
+
+  // フェーズバー：現在地(active)が横スクロールで見切れている場合、
+  // 自動的にスクロールして常に視認できるようにする（モバイルの
+  // 「今どこにいるか分からない」問題への対策）
+  try {
+    const activePhaseBtn = $('.phase-top-btn.active');
+    if (activePhaseBtn) {
+      requestAnimationFrame(() => {
+        activePhaseBtn.scrollIntoView({ behavior: 'auto', inline: 'center', block: 'nearest' });
+      });
+    }
+  } catch (e) {}
 }
 
 function autoSaveField(inp, proj) {

@@ -11275,3 +11275,29 @@ body.modal-open-lock {
     touch-action: none;
   }
 }
+
+/* ================================================================
+   フェーズバー モバイルUX改善（現在地の視認性・タップ領域）
+   768px以下ではアイコンのみでラベルが消えるため「今どこにいるか」
+   が分かりにくかった。現在地(active)だけはラベルを残し、
+   タップ領域も気持ち広げて誤タップを減らす。
+   ================================================================ */
+@media (max-width: 768px) {
+  .phase-top-btn {
+    min-height: 40px;
+    justify-content: center;
+  }
+  .phase-top-btn.active {
+    flex-direction: row;
+    gap: 4px;
+    padding: 6px 10px;
+  }
+  .phase-top-btn.active .phase-top-label {
+    display: inline-block;
+    max-width: 60px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 9.5px;
+  }
+}
