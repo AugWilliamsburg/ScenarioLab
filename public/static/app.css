@@ -10936,12 +10936,15 @@ body {
     transform: scale(0.97);
   }
 
-  /* ── フォーム: iOSでの自動ズームを防止（16px未満のinputはフォーカス時に強制ズームされる） ── */
+  /* ── フォーム: iOSでの自動ズームを防止（16px未満のinputはフォーカス時に強制ズームされる） ──
+     多数のinput/textarea/selectがインラインstyleでfont-size:10〜15pxを個別指定しており、
+     インラインstyleはCSSクラスルールより詳細度が高いため、!important なしの上記指定では
+     上書きできず自動ズーム対策が無効化されていた。!important を付けて確実に16px以上を強制する */
   .form-input, .form-textarea, .form-select,
   input[type="text"], input[type="number"], input[type="date"],
   input[type="time"], input[type="email"], input[type="search"],
   textarea, select {
-    font-size: 16px;
+    font-size: 16px !important;
   }
   .btn, .btn-sm { font-size: 13px; }
 
