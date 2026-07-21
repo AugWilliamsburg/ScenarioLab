@@ -331,7 +331,7 @@ function confirmDeleteGeneric(title, message, confirmCall) {
     `<i class="fas fa-trash" style="color:var(--red)"></i> ${esc(title)}`,
     `<p style="color:var(--text-secondary);font-size:14px;line-height:1.7">${message}</p>`,
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     <button class="btn btn-danger" onclick="${confirmCall}"><i class="fas fa-trash"></i> 削除する</button>`
+     <button class="btn btn-danger" onclick="haptic('warning');${confirmCall}"><i class="fas fa-trash"></i> 削除する</button>`
   );
 }
 
@@ -375,6 +375,22 @@ function toast(msg, type = 'info') {
   const t = el('div', { class: `toast ${type}` }, `<i class="fas ${icons[type]||icons.info}"></i> ${esc(msg)}`);
   cont.appendChild(t);
   setTimeout(() => { t.style.animation = 'fadeOut 0.3s ease forwards'; setTimeout(() => t.remove(), 300); }, 2800);
+  // モバイルアプリらしい操作感のための軽い触覚フィードバック
+  // （success/errorのみ。infoは頻度が高すぎるため対象外）
+  if (type === 'success') haptic('light');
+  else if (type === 'error') haptic('warning');
+}
+
+// ── 触覚フィードバック（Vibration API）────────────────────────────
+// 対応デバイス（主にAndroid Chrome）でのみ動作。iOS SafariはVibration API
+// 非対応のため自動的に無音無害にフォールスルーする（try/catchで安全に無視）。
+// kind: 'light'(軽いタップ確認) | 'medium'(標準操作) | 'warning'(エラー・強め)
+function haptic(kind = 'light') {
+  try {
+    if (!navigator.vibrate) return;
+    const patterns = { light: 8, medium: 15, warning: [12, 40, 12] };
+    navigator.vibrate(patterns[kind] || patterns.light);
+  } catch (e) {}
 }
 
 // ── Modal ──────────────────────────────────────────────────────
@@ -440,6 +456,7 @@ function _setupModalSwipeToClose(overlay) {
     modalEl.style.transition = '';
     const dy = Math.max(0, currentY - startY);
     if (dy > 90) {
+      haptic('light');
       closeModal();
     } else {
       modalEl.style.transform = '';
@@ -1116,6 +1133,7 @@ function renderLayout(content, proj = null) {
 
 // ── モバイルボトムナビ：タップ時にサイドバーが開いていれば閉じてから移動 ──
 function mobileNavGo(page, arg) {
+  haptic('light');
   if (window.innerWidth <= 900) closeSidebar();
   navigate(page, arg);
 }
@@ -1124,6 +1142,7 @@ function mobileNavGo(page, arg) {
 // （サイドバー／ハンバーガーメニューへのアクセスはトップバーの sidebar-toggle-btn が
 //   モバイル幅でも常時表示されているため引き続き利用できる）
 function goToScratchpad() {
+  haptic('light');
   if (window.innerWidth <= 900) closeSidebar();
   State.currentTab['inspiration'] = 'scratch';
   navigate('inspiration');
@@ -34521,6 +34540,7 @@ function stopBrainStorm() {
 const QM_DRAFT_KEY = 'inspiration_scratch_qm_draft';
 
 function openQuickMemo() {
+  haptic('light');
   const draft = DB.get(QM_DRAFT_KEY, null);
   const scratchFolderScope = 'inspiration_scratches';
   const types = ['着想','シーン','セリフ','テーマ','キャラ','設定','その他'];
