@@ -2942,6 +2942,10 @@ body {
   }
   .sc-move-btns .btn { width: 26px; height: 26px; padding: 0; }
   .sc-move-btns .btn[disabled] { opacity: 0.3; pointer-events: none; }
+  /* draggable="true" 属性はモバイルでも残っているため、長押し時にテキスト選択メニューや
+     ゴーストドラッグ画像が誤って発生することがある。900px以下では上下ボタン操作に一本化した
+     ため、ネイティブの長押し挙動を明示的に抑制する */
+  .insp-scratch-card[draggable="true"] { -webkit-touch-callout: none; -webkit-user-drag: none; }
 }
 .sc-select-check {
   position: absolute; left: 12px; top: 14px; width: 18px; height: 18px; border-radius: 5px;
@@ -3308,6 +3312,10 @@ body {
     color: var(--text-muted); font-size: 10px; cursor: pointer; z-index: 1;
   }
   .board-card { padding-right: 34px; }
+  /* draggable="true" 属性はモバイルでも残っているため、長押し時にテキスト選択メニューや
+     ゴーストドラッグ画像が誤って発生することがある。900px以下では移動ボタン操作に一本化した
+     ため、ネイティブの長押し挙動を明示的に抑制する */
+  .board-card[draggable="true"] { -webkit-touch-callout: none; -webkit-user-drag: none; }
 }
 .board-card-back {
   cursor: default;
@@ -3725,6 +3733,10 @@ body {
     color: var(--text-muted); font-size: 10px; cursor: pointer; z-index: 1;
   }
   .smap-scene-card { padding-right: 34px; }
+  /* draggable="true" 属性はモバイルでも残っているため、長押し時にテキスト選択メニューや
+     ゴーストドラッグ画像が誤って発生することがある。900px以下では移動ボタン操作に一本化した
+     ため、ネイティブの長押し挙動を明示的に抑制する */
+  .smap-scene-card[draggable="true"] { -webkit-touch-callout: none; -webkit-user-drag: none; }
 }
 
 /* Add Card/Act */
@@ -4322,6 +4334,10 @@ body {
     color: var(--text-muted); font-size: 10px; cursor: pointer; z-index: 1;
   }
   .kanban-card { padding-right: 34px; }
+  /* draggable="true" 属性はモバイルでも残っているため、長押し時にテキスト選択メニューや
+     ゴーストドラッグ画像が誤って発生することがある。900px以下では移動ボタン操作に一本化した
+     ため、ネイティブの長押し挙動を明示的に抑制する */
+  .kanban-card[draggable="true"] { -webkit-touch-callout: none; -webkit-user-drag: none; }
 }
 .kanban-card-title { font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 5px; line-height: 1.4; }
 .kanban-card-meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
