@@ -3296,6 +3296,19 @@ body {
 .board-card.pinned {
   box-shadow: 0 0 0 2px var(--kogane);
 }
+/* モバイル用「列を移動」ボタン（openBoardMoveMenu）
+   HTML5ネイティブD&D(draggable)はタッチデバイスで発火しないため、
+   900px以下でのみ表示し、タップで移動先の列を選ぶモーダルを開く */
+.board-move-btn { display: none; }
+@media (max-width: 900px) {
+  .board-move-btn {
+    display: flex; align-items: center; justify-content: center;
+    position: absolute; right: 6px; top: 6px; width: 24px; height: 24px;
+    border: none; background: var(--bg-subtle); border-radius: 50%;
+    color: var(--text-muted); font-size: 10px; cursor: pointer; z-index: 1;
+  }
+  .board-card { padding-right: 34px; }
+}
 .board-card-back {
   cursor: default;
   background: linear-gradient(135deg, var(--fuji-bg) 0%, var(--card-bg) 100%);
@@ -3700,6 +3713,19 @@ body {
 .smap-scene-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.09); transform: translateY(-1px); }
 .smap-scene-card:hover .scene-card-actions { opacity: 1 !important; }
 .smap-scene-card:active { cursor: grabbing; opacity: 0.85; }
+/* モバイル用「幕を移動」ボタン（openSmapMoveMenu）
+   HTML5ネイティブD&D(draggable)はタッチデバイスで発火しないため、
+   900px以下でのみ表示し、タップで移動先の幕を選ぶモーダルを開く */
+.smap-move-btn { display: none; }
+@media (max-width: 900px) {
+  .smap-move-btn {
+    display: flex; align-items: center; justify-content: center;
+    position: absolute; right: 6px; top: 6px; width: 24px; height: 24px;
+    border: none; background: var(--bg-subtle); border-radius: 50%;
+    color: var(--text-muted); font-size: 10px; cursor: pointer; z-index: 1;
+  }
+  .smap-scene-card { padding-right: 34px; }
+}
 
 /* Add Card/Act */
 .smap-add-card-btn {
@@ -4280,9 +4306,23 @@ body {
   padding: 9px 10px;
   cursor: pointer;
   transition: box-shadow .12s, transform .12s;
+  position: relative;
 }
 .kanban-card:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.08); transform: translateY(-1px); }
 .kanban-card.done { opacity: 0.5; }
+/* モバイル用「列を移動」ボタン（openKanbanMoveMenu）
+   HTML5ネイティブD&D(draggable)はタッチデバイスで発火しないため、
+   900px以下でのみ表示し、タップで移動先の列を選ぶモーダルを開く */
+.kanban-move-btn { display: none; }
+@media (max-width: 900px) {
+  .kanban-move-btn {
+    display: flex; align-items: center; justify-content: center;
+    position: absolute; right: 6px; top: 6px; width: 24px; height: 24px;
+    border: none; background: var(--bg-subtle); border-radius: 50%;
+    color: var(--text-muted); font-size: 10px; cursor: pointer; z-index: 1;
+  }
+  .kanban-card { padding-right: 34px; }
+}
 .kanban-card-title { font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 5px; line-height: 1.4; }
 .kanban-card-meta { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
 .kanban-subtask-bar { display: flex; align-items: center; gap: 4px; margin-top: 6px; }

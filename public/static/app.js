@@ -35363,6 +35363,7 @@ function renderTasksKanban(tasks) {
           return `<div class="kanban-card ${t.done?'done':''}" draggable="true" id="kcard-${t.id}"
             ondragstart="onKanbanCardDragStart(event,'${t.id}')" ondragend="onKanbanCardDragEnd(event,'${t.id}')"
             style="border-left:3px solid ${pri.color}" onclick="openEditTaskModal('${t.id}')">
+            <button class="kanban-move-btn" onclick="openKanbanMoveMenu(event,'${t.id}','${col.id}')" title="列を移動"><i class="fas fa-arrows-up-down-left-right"></i></button>
             <div class="kanban-card-title">${esc(t.title.slice(0,50))}</div>
             <div class="kanban-card-meta">
               <span style="color:${cat.color}"><i class="fas ${cat.icon}"></i></span>
@@ -35408,6 +35409,13 @@ function onKanbanCardDrop(evt, colId) {
   if (col) col.classList.remove('drag-over');
   const taskId = kanbanDraggingTaskId || (evt.dataTransfer ? evt.dataTransfer.getData('text/plain') : null);
   if (!taskId) return;
+  kanbanDraggingTaskId = null;
+  moveKanbanTaskToColumn(taskId, colId);
+}
+// ── かんばんカードを指定列へ移動するコアロジック ──
+// onKanbanCardDrop(D&D)とモバイル用moveKanbanTaskMobile(ボタン操作)の両方から呼ばれる共通処理
+const KANBAN_COL_LABELS = { urgent:'🔥 緊急', todo:'📋 To Do', today:'📅 今日', upcoming:'📆 予定', done:'✅ 完了' };
+function moveKanbanTaskToColumn(taskId, colId) {
   const task = TASK_DB.getTask(taskId);
   if (!task) return;
   const today = new Date().toISOString().slice(0,10);
@@ -35435,9 +35443,22 @@ function onKanbanCardDrop(evt, colId) {
   }
   task.updatedAt = now();
   TASK_DB.saveTask(task);
-  kanbanDraggingTaskId = null;
   toast('タスクを移動しました', 'success');
   render();
+}
+// ── モバイル用カンバン移動メニュー ──
+// HTML5ネイティブD&D(onKanbanCardDragStart等)はタッチデバイスで発火しないため、
+// 900px以下ではカードの「⇄移動」ボタンから移動先の列を選ぶ簡易メニューを表示する
+function openKanbanMoveMenu(evt, taskId, currentColId) {
+  evt.stopPropagation();
+  const cols = Object.keys(KANBAN_COL_LABELS).filter(id => id !== currentColId);
+  openModal(
+    `<i class="fas fa-arrows-up-down-left-right" style="color:var(--fuji)"></i> 列を移動`,
+    `<div style="display:flex;flex-direction:column;gap:8px">
+      ${cols.map(id => `<button class="btn btn-secondary" style="justify-content:flex-start" onclick="closeModal();moveKanbanTaskToColumn('${taskId}','${id}')">${KANBAN_COL_LABELS[id]}</button>`).join('')}
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>`
+  );
 }
 
 // ── Weekly View ───────────────────────────────────────────────
@@ -36778,6 +36799,7 @@ function renderSceneCard(card, mapId, actIdx, cardIdx) {
        ondragstart="smapDragStart(event,'${card.id}','${mapId}',${actIdx})"
        ondragend="smapDragEnd(event)"
        style="${card.color&&card.color!=='#ffffff'?`background:${card.color}18;`:''}border-left:3px solid ${typeColor}">
+    <button class="smap-move-btn" onclick="openSmapMoveMenu(event,'${card.id}','${mapId}',${actIdx})" title="幕を移動"><i class="fas fa-arrows-up-down-left-right"></i></button>
     <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px">
       <div style="display:flex;align-items:center;gap:6px;flex:1;min-width:0">
         ${sceneType?`<span style="font-size:9px;padding:1px 6px;border-radius:6px;background:${typeColor}22;color:${typeColor};font-weight:600;white-space:nowrap">${sceneType}</span>`:''}
@@ -36991,20 +37013,42 @@ function smapDrop(ev, mapId, toActIdx) {
   ev.preventDefault();
   $$('.smap-act-col').forEach(c=>c.classList.remove('smap-drag-over'));
   if (!SmapDrag.cardId) return;
+  const cardId = SmapDrag.cardId, fromActIdx = SmapDrag.fromActIdx;
+  SmapDrag.cardId=null;
+  moveSceneCardToAct(cardId, mapId, fromActIdx, toActIdx);
+}
+// ── シーンカードを指定の幕へ移動するコアロジック ──
+// smapDrop(D&D)とモバイル用openSmapMoveMenu(ボタン操作)の両方から呼ばれる共通処理
+function moveSceneCardToAct(cardId, mapId, fromActIdx, toActIdx) {
   const map = STORYMAP_DB.getMap(mapId);
   if (!map) return;
-  const fromAct = map.acts[SmapDrag.fromActIdx];
+  const fromAct = map.acts[fromActIdx];
   const toAct = map.acts[toActIdx];
   if (!fromAct||!toAct) return;
-  const cardIdx = fromAct.cards.findIndex(c=>c.id===SmapDrag.cardId);
+  const cardIdx = fromAct.cards.findIndex(c=>c.id===cardId);
   if (cardIdx<0) return;
   const [card] = fromAct.cards.splice(cardIdx, 1);
   card.updatedAt = now();
   toAct.cards.push(card);
   map.updatedAt = now();
   STORYMAP_DB.saveMap(map);
-  SmapDrag.cardId=null;
   render();
+}
+// ── モバイル用シーンマップ移動メニュー ──
+// HTML5ネイティブD&D(smapDragStart等)はタッチデバイスで発火しないため、
+// 900px以下ではカードの「⇄移動」ボタンから移動先の幕を選ぶ簡易メニューを表示する
+function openSmapMoveMenu(evt, cardId, mapId, fromActIdx) {
+  evt.stopPropagation();
+  const map = STORYMAP_DB.getMap(mapId);
+  if (!map) return;
+  const acts = map.acts || [];
+  openModal(
+    `<i class="fas fa-arrows-up-down-left-right" style="color:var(--fuji)"></i> 幕を移動`,
+    `<div style="display:flex;flex-direction:column;gap:8px">
+      ${acts.map((act,ai) => ai===fromActIdx ? '' : `<button class="btn btn-secondary" style="justify-content:flex-start" onclick="closeModal();moveSceneCardToAct('${cardId}','${mapId}',${fromActIdx},${ai})">${esc(act.title)}</button>`).join('')}
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>`
+  );
 }
 
 // ── StoryMap Modals ──────────────────────────────────────────
@@ -37468,6 +37512,7 @@ function renderBoardCard(card, boardId) {
        ondragend="boardDragEnd(event)"
        onclick="openCardEditModal('${card.id}','${boardId}')"
        style="border-left:3px solid ${pri.color};${card.color && card.color !== '#ffffff' ? `background:${card.color}18;` : ''}">
+    <button class="board-move-btn" onclick="openBoardMoveMenu(event,'${card.id}','${boardId}',${card.column})" title="列を移動"><i class="fas fa-arrows-up-down-left-right"></i></button>
     <!-- Card Header -->
     <div class="board-card-header">
       <div style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">
@@ -37955,16 +38000,38 @@ function boardDrop(event, boardId, colIdx) {
   event.preventDefault();
   $$('.board-column').forEach(c => c.classList.remove('drag-over'));
   if (!BoardState.dragCard) return;
+  const cardId = BoardState.dragCard;
+  BoardState.dragCard = null;
+  moveBoardCardToColumn(cardId, boardId, colIdx);
+}
+// ── ボードカードを指定列へ移動するコアロジック ──
+// boardDrop(D&D)とモバイル用openBoardMoveMenu(ボタン操作)の両方から呼ばれる共通処理
+function moveBoardCardToColumn(cardId, boardId, colIdx) {
   const board = BOARD_DB.getBoard(boardId);
   if (!board) return;
-  const cardIdx = (board.cards||[]).findIndex(c => c.id === BoardState.dragCard);
+  const cardIdx = (board.cards||[]).findIndex(c => c.id === cardId);
   if (cardIdx < 0) return;
   board.cards[cardIdx].column = colIdx;
   board.cards[cardIdx].updatedAt = now();
   board.updatedAt = now();
   BOARD_DB.saveBoard(board);
-  BoardState.dragCard = null;
   render();
+}
+// ── モバイル用ストーリーボード移動メニュー ──
+// HTML5ネイティブD&D(boardDragStart等)はタッチデバイスで発火しないため、
+// 900px以下ではカードの「⇄移動」ボタンから移動先の列を選ぶ簡易メニューを表示する
+function openBoardMoveMenu(evt, cardId, boardId, currentColIdx) {
+  evt.stopPropagation();
+  const board = BOARD_DB.getBoard(boardId);
+  if (!board) return;
+  const columns = board.columns || [];
+  openModal(
+    `<i class="fas fa-arrows-up-down-left-right" style="color:var(--fuji)"></i> 列を移動`,
+    `<div style="display:flex;flex-direction:column;gap:8px">
+      ${columns.map((col,ci) => ci===currentColIdx ? '' : `<button class="btn btn-secondary" style="justify-content:flex-start" onclick="closeModal();moveBoardCardToColumn('${cardId}','${boardId}',${ci})">${esc(col)}</button>`).join('')}
+    </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>`
+  );
 }
 
 // ── Filter & Search ──────────────────────────────────────────
