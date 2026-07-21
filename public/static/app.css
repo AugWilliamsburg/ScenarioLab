@@ -11134,3 +11134,22 @@ body {
   #page-content, .menu-hub-card { animation: none !important; }
 }
 
+/* ================================================================
+   hover依存カードアクションのタッチ対応（モバイル専用）
+   .idea-card-actions / .board-card-actions / .task-item-actions /
+   .scene-card-actions は「デフォルトopacity:0、:hoverでopacity:1」
+   という設計で、PC版ではカードにマウスを乗せた時だけ編集・削除等の
+   操作ボタンが浮かび上がる仕組み。だがタッチデバイスには:hoverが
+   発火しないため、モバイルではこれらのボタンが常に透明＝存在は
+   見えるが操作できないという致命的な問題があった。
+   900px以下では常時 opacity:1 にして、タップで確実に操作できるようにする。
+   ================================================================ */
+@media (max-width: 900px) {
+  .idea-card-actions,
+  .board-card-actions,
+  .task-item-actions,
+  .scene-card-actions {
+    opacity: 1 !important;
+  }
+}
+
