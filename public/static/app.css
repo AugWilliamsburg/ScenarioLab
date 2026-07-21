@@ -11082,6 +11082,20 @@ body {
   .topbar-proj-info, .topbar-page-info {
     display: flex; align-items: center;
   }
+  /* アプリのタイトルバーらしく「現在地の1行」だけに絞る。副題（作品ジャンル/
+     フェーズ名やページ説明文）は情報量として過剰なため900px以下では常に非表示
+     （601〜900px用に個別指定していた旧ルールは、480px/600px側の既存指定と
+     合わせてここで一括カバーする） */
+  .topbar-proj-info .topbar-subtitle,
+  .topbar-page-info .topbar-subtitle {
+    display: none;
+  }
+}
+/* .topbar-title のフォントサイズは 600px/480px 側で段階的に縮小する既存ルール
+   （6382行目・5308行目）と競合しないよう、900px〜601pxの範囲だけに限定する
+   （同じセレクタの場合CSSはソース順で決まるため、範囲を絞らないと後方の
+   ルールがより狭い画面幅の縮小指定を上書きしてしまう） */
+@media (max-width: 900px) and (min-width: 601px) {
   .topbar-title { font-size: 14px; }
 }
 
