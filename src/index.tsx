@@ -54,12 +54,15 @@ app.get('*', (c) => {
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="シナリオラボ">
+  <!-- モバイル高速化: 外部オリジンへの接続を先行確立（DNS+TLSハンドシェイクを事前に済ませる） -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.5.0/css/all.min.css" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=Noto+Serif+JP:wght@400;500;600;700&family=Courier+Prime:wght@400;700&display=swap" rel="stylesheet">
-  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.min.mjs" type="module" id="pdfjs-script"></script>
   <script>
-    // PDF.js worker path (loaded via module, accessible globally after load)
+    // PDF.js worker path（本体は実際に使う瞬間まで動的import。head での事前ロード(327KB)は
+    // モバイル初期表示を大きく遅らせるため廃止し、workerSrcの参照だけ用意しておく）
     window.PDFJS_WORKER_URL = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.4.168/build/pdf.worker.min.mjs';
   </script>
   <link rel="stylesheet" href="/static/app.css">

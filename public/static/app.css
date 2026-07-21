@@ -3,7 +3,9 @@
    最高峰の洗練された伝統和色 × 現代UI デザインシステム
    ================================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=Noto+Serif+JP:wght@400;500;600;700&display=swap');
+/* モバイル高速化: フォントは index.tsx の <head><link> で並列取得済みのため、
+   ここで @import すると同じフォントをCSS解析中に再度・直列でブロッキング取得してしまう。
+   重複ロードとレンダーブロッキングを避けるため @import は撤去（下記 :root 以降は変更なし）。 */
 
 /* ================================================================
    CSS Variables — 精選された和カラーパレット
@@ -127,6 +129,30 @@ body {
   line-height: 1.7;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  overscroll-behavior-y: none; /* モバイルでのバウンス/意図しないpull-to-refreshを抑制 */
+}
+
+/* ================================================================
+   モバイル：ノッチ・ステータスバー対応（safe-area-inset）
+   viewport-fit=cover 指定に対応し、ノッチ/ステータスバー/丸角と
+   固定UI（トップバー・サイドバー・ボトムナビ等）の重なりを解消する。
+   ================================================================ */
+@media (max-width: 900px) {
+  .topbar {
+    padding-top: env(safe-area-inset-top, 0px);
+    height: calc(48px + env(safe-area-inset-top, 0px));
+    min-height: calc(48px + env(safe-area-inset-top, 0px));
+  }
+  .sidebar {
+    top: env(safe-area-inset-top, 0px);
+    height: calc(100vh - env(safe-area-inset-top, 0px));
+    min-height: 0;
+  }
+  .sidebar-overlay { top: env(safe-area-inset-top, 0px); }
+  /* トップバーがsafe-area分高くなった分、直下固定のタイマーポップアップも追従させる */
+  .timer-popup {
+    top: calc(48px + env(safe-area-inset-top, 0px)) !important;
+  }
 }
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -10829,3 +10855,99 @@ body {
   .qm-row-2 { grid-template-columns: 1fr; }
   .qm-sheet { max-height: 94vh; }
 }
+
+/* ================================================================
+   モバイル操作性 抜本強化（タップ領域・タッチフィードバック・ロード最適化）
+   方針: PC版のCSSは一切変更せず、@media (max-width:900px) のみで追加調整。
+   狙い: 「上のボタンが小さい/感度が悪い」という体感の直接原因（タップ領域不足・
+   :hover前提のフィードバック・画面上端の被り）を解消し、ネイティブアプリに近い
+   反応速度と押しやすさを実現する。
+   ================================================================ */
+@media (max-width: 900px) {
+  /* ── タップ領域拡大: Apple/Google推奨の最低44×44pxを確保 ── */
+  .sidebar-toggle-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 16px;
+  }
+  .sidebar-close-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 15px;
+  }
+  .btn-icon {
+    width: 38px;
+    height: 38px;
+  }
+  .btn-icon.btn-sm {
+    width: 34px;
+    height: 34px;
+  }
+  .btn {
+    min-height: 38px;
+    padding: 8px 16px;
+  }
+  .btn-sm {
+    min-height: 34px;
+    padding: 6px 13px;
+  }
+  .nav-item {
+    padding: 11px 16px 11px 18px;
+    min-height: 44px;
+  }
+  .topbar-logo-link {
+    min-height: 44px;
+    padding: 6px 8px;
+  }
+  .global-timer-widget {
+    min-height: 38px;
+    padding: 6px 12px;
+  }
+  /* サイドバー折りたたみ用トグル・閉じるボタンなど、隣接要素との間隔を確保して誤タップを防止 */
+  .topbar { gap: 10px; }
+  .topbar-actions { gap: 8px; }
+
+  /* ── タッチフィードバック: :hover が発火しないタッチ環境向けに :active で代替 ──
+     押した瞬間に視覚的に反応することで「感度が悪い」という体感を解消する */
+  .btn,
+  .btn-icon,
+  .sidebar-toggle-btn,
+  .sidebar-close-btn,
+  .nav-item,
+  .topbar-logo-link,
+  .global-timer-widget,
+  .card,
+  .hub-clickable-card {
+    -webkit-tap-highlight-color: transparent;
+  }
+  .btn:active,
+  .btn-icon:active,
+  .sidebar-toggle-btn:active,
+  .sidebar-close-btn:active {
+    transform: scale(0.94);
+    transition: transform .08s;
+  }
+  .nav-item:active {
+    background: var(--bg-sidebar-hover);
+    transform: scale(0.98);
+  }
+  .topbar-logo-link:active {
+    background: var(--bg-hover);
+    transform: scale(0.97);
+  }
+
+  /* ── フォーム: iOSでの自動ズームを防止（16px未満のinputはフォーカス時に強制ズームされる） ── */
+  .form-input, .form-textarea, .form-select,
+  input[type="text"], input[type="number"], input[type="date"],
+  input[type="time"], input[type="email"], input[type="search"],
+  textarea, select {
+    font-size: 16px;
+  }
+  .btn, .btn-sm { font-size: 13px; }
+
+  /* ── スクロール操作性: 横スクロール領域の慣性スクロールを有効化 ── */
+  .tasks-view-tabs, .study-tabbar, .learn-filter-bar {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
