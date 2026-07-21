@@ -10951,3 +10951,137 @@ body {
   }
 }
 
+/* ================================================================
+   モバイル版 構造独立化 第2弾
+   PC版とは別の独自モバイルUXへ進化させるための構造的な変更。
+   ================================================================ */
+@media (max-width: 900px) {
+  /* ── 横切れの根本解決 ──────────────────────────────────────
+     PCページ内に多数存在する「本文+固定px幅の補足カラム」インライン
+     グリッド（例: style="grid-template-columns:1fr 340px"）が、モバイル
+     幅ではそのまま横に展開されて画面から見切れる主因になっていた。
+     属性セレクタで全ページ一括に1カラム化する（各ページ個別のJS修正
+     より確実に横切れを解消できる、最も広範囲に効く一撃）。 */
+  [style*="grid-template-columns:1fr 340px"],
+  [style*="grid-template-columns:340px 1fr"],
+  [style*="grid-template-columns:1fr 300px"],
+  [style*="grid-template-columns:1fr 230px"],
+  [style*="grid-template-columns:1fr 200px"],
+  [style*="grid-template-columns:1fr 1fr 1fr"],
+  [style*="grid-template-columns:1fr 2fr 1fr 1fr"],
+  [style*="grid-template-columns:repeat(4,1fr)"],
+  [style*="grid-template-columns:repeat(5,1fr)"],
+  [style*="grid-template-columns:repeat(7,1fr)"] {
+    grid-template-columns: 1fr !important;
+  }
+  /* 数値カラム（曜日カレンダー等）は1列化すると意味を失うため、
+     横スクロール可能にして情報保持しつつ画面幅を超えさせない */
+  [style*="grid-template-columns:repeat(7,1fr)"] {
+    grid-template-columns: repeat(7, minmax(34px, 1fr)) !important;
+    overflow-x: auto;
+  }
+  /* どこかで見落とした固定px幅要素が残っても画面幅を超えて横スクロール
+     バーが出ないよう、ページ本体レベルで保険をかける */
+  .page-content, .top-page, .db-page, #page-content {
+    overflow-x: hidden;
+    max-width: 100vw;
+  }
+  .page-content table { display: block; overflow-x: auto; white-space: nowrap; }
+
+  /* ── ハンバーガー/オフキャンバスサイドバーの解体 ──────────────
+     モバイルではサイドバーを画面内に一切出現させない（ボタンは
+     menu-hub への遷移トリガーとして再利用するため、DOM自体は残すが
+     視覚的・操作的には完全非表示にする） */
+  .sidebar { visibility: hidden; pointer-events: none; }
+  .sidebar-overlay { display: none !important; }
+
+  /* ── ボトムナビ5項目のレイアウト微調整（タスク未読ドット） ── */
+  .mbn-item { position: relative; }
+  .mbn-dot {
+    position: absolute;
+    top: 5px; right: 22%;
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 0 1.5px var(--bg-sidebar, #1c1510);
+  }
+}
+
+/* ================================================================
+   モバイル専用「メニューハブ」ページ
+   ================================================================ */
+.menu-hub-page { display: flex; flex-direction: column; gap: 18px; padding-bottom: 8px; }
+.menu-hub-proj-card {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--bg-card); border: 1.5px solid var(--fuji-border);
+  border-radius: var(--radius-md); padding: 14px 16px;
+}
+.menu-hub-proj-icon {
+  width: 40px; height: 40px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--accent), var(--momo));
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-size: 16px;
+}
+.menu-hub-proj-body { flex: 1; min-width: 0; }
+.menu-hub-proj-title {
+  font-size: 14.5px; font-weight: 700; color: var(--text-primary);
+  font-family: 'Noto Serif JP', serif;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.menu-hub-proj-phase { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+.menu-hub-group-label {
+  font-size: 12px; font-weight: 700; color: var(--text-secondary);
+  margin-bottom: 10px; display: flex; align-items: center; gap: 7px;
+  letter-spacing: .02em;
+}
+.menu-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+.menu-hub-card {
+  position: relative;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 14px 14px 12px;
+  text-align: left; font-family: inherit;
+  min-height: 88px;
+  -webkit-tap-highlight-color: transparent;
+}
+.menu-hub-card:active { transform: scale(0.96); background: var(--bg-hover); }
+.menu-hub-card-icon { font-size: 20px; margin-bottom: 2px; }
+.menu-hub-card-label { font-size: 13px; font-weight: 700; color: var(--text-primary); }
+.menu-hub-card-desc { font-size: 10.5px; color: var(--text-muted); line-height: 1.4; }
+.menu-hub-card-badge {
+  position: absolute; top: 8px; right: 8px;
+  background: var(--accent); color: white;
+  font-size: 9.5px; font-weight: 700;
+  padding: 1px 6px; border-radius: 10px;
+}
+.menu-hub-new-btn { width: 100%; height: 46px; font-size: 14px; margin-top: 4px; }
+@media (min-width: 901px) {
+  .menu-hub-page { display: none; } /* PC版はこのページに来ない設計だが保険で非表示 */
+}
+
+/* ================================================================
+   トップバー簡易化（モバイル専用）
+   PC版の「ロゴ＋作品/ページ情報＋一覧/ダッシュボードボタン」という
+   Webサイト的な情報量を、モバイルではアプリのタイトルバーのように
+   最小限（アイコン＋現在地＋主要アクションのみ）に絞る。
+   一覧・ダッシュボードへの導線はメニューハブに集約したので、
+   トップバーからは撤去してよい。
+   ================================================================ */
+@media (max-width: 900px) {
+  .topbar-logo-texts { display: none; }
+  .topbar-logo-link { padding: 6px 4px; gap: 0; }
+  .topbar-divider { display: none !important; }
+  /* 「一覧」「ダッシュボード」ボタン（secondary）はメニューハブに
+     導線を集約済みのため撤去。保存・新規作品（primary）のみ残す */
+  .topbar-actions .btn-secondary { display: none !important; }
+  .topbar-proj-info, .topbar-page-info {
+    display: flex; align-items: center;
+  }
+  .topbar-title { font-size: 14px; }
+}
+

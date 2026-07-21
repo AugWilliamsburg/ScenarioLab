@@ -635,6 +635,12 @@ function render() {
     return;
   }
 
+  // モバイル専用メニューハブ（ハンバーガー/サイドバーの代替）
+  if (p === 'menu-hub') {
+    app.innerHTML = renderLayout(renderMenuHubPage());
+    return;
+  }
+
   if (p === 'dashboard' || p === 'top' || !State.currentProjectId) {
     if (p === 'top') {
       app.innerHTML = renderLayout(renderTopPage());
@@ -726,6 +732,7 @@ function renderLayout(content, proj = null) {
     board:            { icon:'fa-film',              color:'var(--fuji)',   title:'ストーリーボード',  sub:'カンバンボード＆シーンマップで物語を視覚設計' },
     tasks:            { icon:'fa-calendar-check',   color:'var(--matcha)', title:'タスク管理',        sub:'執筆タスク・スケジュール・習慣管理' },
     storymap:         { icon:'fa-film',              color:'var(--fuji)',   title:'ストーリーボード',  sub:'カンバンボード＆シーンマップで物語を視覚設計' },
+    'menu-hub':       { icon:'fa-grip',         color:'var(--kogane)', title:'メニュー',           sub:'全機能をここから' },
   };
   const cpKey = TOPBAR_PAGES[cp] ? cp : (cp && cp.startsWith('article-') ? 'learn' : (cp && cp.startsWith('study-') ? 'study' : null));
   const tbData = cpKey ? TOPBAR_PAGES[cpKey] : null;
@@ -1004,14 +1011,14 @@ function renderLayout(content, proj = null) {
     <button class="mbn-item ${isStudyPage?'active':''}" onclick="mobileNavGo('study')">
       <i class="fas fa-feather-pointed"></i><span>書斎</span>
     </button>
-    <button class="mbn-item ${(isToolsPage||isTemplatesPage)?'active':''}" onclick="mobileNavGo('tools')">
-      <i class="fas fa-toolbox"></i><span>ツール</span>
+    <button class="mbn-item ${isTasksPage?'active':''}" onclick="mobileNavGo('tasks')">
+      <i class="fas fa-calendar-check"></i><span>タスク</span>${dueBadge ? '<span class="mbn-dot"></span>' : ''}
     </button>
-    <button class="mbn-item ${isJournalPage?'active':''}" onclick="mobileNavGo('journal')">
-      <i class="fas fa-book"></i><span>日誌</span>
-    </button>
-    <button class="mbn-item ${isInspirationPage?'active':''}" id="mbn-menu-btn" onclick="goToScratchpad()">
+    <button class="mbn-item ${isInspirationPage?'active':''}" onclick="goToScratchpad()">
       <i class="fas fa-note-sticky"></i><span>メモ</span>
+    </button>
+    <button class="mbn-item ${cp==='menu-hub'?'active':''}" id="mbn-menu-btn" onclick="mobileNavGo('menu-hub')">
+      <i class="fas fa-grip"></i><span>メニュー</span>
     </button>
   </nav>
   <div id="toast-container" class="toast-container"></div>
@@ -1038,18 +1045,19 @@ function goToScratchpad() {
 }
 
 // ── サイドバートグル ────────────────────────────────────────────
+// モバイル（900px以下）ではオフキャンバスサイドバー自体を解体し、
+// 同じボタンから新設「メニューハブ」ページへ直接遷移する
+// （PC版はハンバーガーでサイドバー開閉、モバイル版はメニューハブへの
+//  ワンタップ遷移——という、それぞれに適した独立ナビゲーションにする）
 function toggleSidebar() {
+  if (window.innerWidth <= 900) {
+    navigate('menu-hub');
+    return;
+  }
   const app = document.querySelector('.app-layout');
-  const overlay = document.getElementById('sidebar-overlay');
   if (!app) return;
   const isCollapsed = app.classList.toggle('sidebar-collapsed');
-  // デスクトップ: DB に保存（状態永続化）
-  if (window.innerWidth > 900) {
-    DB.set('sidebar_collapsed', isCollapsed);
-  } else {
-    // モバイル: オーバーレイのみ制御（DB保存しない）
-    if (overlay) overlay.classList.toggle('active', !isCollapsed);
-  }
+  DB.set('sidebar_collapsed', isCollapsed);
 }
 function closeSidebar() {
   const app = document.querySelector('.app-layout');
@@ -1136,6 +1144,79 @@ const WRITING_QUOTES = [
   { text: '物語の核心はいつも「変化」だ——主人公が変わるか、世界が変わるか、観客が変わるか。', author: 'ロバート・マッキー' },
   { text: '書くことは孤独な仕事だ。しかし孤独でなければ書けない。', author: 'フランツ・カフカ' },
 ];
+
+// ================================================================
+//  モバイル専用「メニューハブ」— ハンバーガー/サイドバーに代わる
+//  PC版とは独立したモバイルUX。ボトムナビ「メニュー」から遷移し、
+//  全機能をアプリのホーム画面のようにカード一覧で提示する。
+// ================================================================
+function renderMenuHubPage() {
+  const proj = State.currentProjectId ? DB.getProject(State.currentProjectId) : null;
+  const tasks = TASK_DB.getTasks();
+  const dueCount = tasks.filter(t => !t.done && t.dueDate && t.dueDate <= new Date().toISOString().slice(0,10)).length;
+
+  const groups = [
+    {
+      label: 'メインメニュー', icon: 'fa-house', color: '#f7d07a',
+      items: [
+        { page: 'top', icon: 'fa-sun', color: '#f7d07a', label: 'ホーム', desc: '今日の執筆・進捗' },
+        { page: 'dashboard', icon: 'fa-gauge-high', color: '#f5d9c8', label: 'ダッシュボード', desc: '作品一覧・管理' },
+        { page: 'journal', icon: 'fa-book', color: '#7de08a', label: '執筆日誌', desc: '毎日の記録' },
+        { page: 'inspiration', icon: 'fa-bolt', color: '#f7d07a', label: 'インスピレーション', desc: 'メモ・アイデア' },
+        { page: 'board', icon: 'fa-film', color: '#bbb4ff', label: 'ストーリーボード', desc: 'カンバン・シーンマップ' },
+        { page: 'tasks', icon: 'fa-calendar-check', color: '#7de08a', label: 'タスク管理', desc: 'やること・締切', badge: dueCount>0?dueCount:null },
+      ]
+    },
+    {
+      label: '執筆サポート', icon: 'fa-pen-nib', color: '#c0b8ff',
+      items: [
+        { page: 'learn', icon: 'fa-graduation-cap', color: '#c0b8ff', label: '学習センター', desc: '理論・記事・練習' },
+        { page: 'study', icon: 'fa-feather-pointed', color: '#e0a8ff', label: '書斎', desc: '自由執筆スペース' },
+        { page: 'tools', icon: 'fa-toolbox', color: '#6ddede', label: 'ツール', desc: '執筆支援ツール集' },
+        { page: 'templates', icon: 'fa-copy', color: '#f7d07a', label: 'テンプレート', desc: 'すぐ使える書式' },
+      ]
+    },
+    {
+      label: '設計・資料', icon: 'fa-folder', color: '#d8cec4',
+      items: [
+        { page: 'namedict', icon: 'fa-spell-check', color: '#90c8f8', label: '名前辞典', desc: '登場人物の名前管理' },
+        { page: 'worldbuilding', icon: 'fa-globe', color: '#6ddede', label: '世界観設計', desc: '舞台・設定を構築' },
+        { page: 'settings', icon: 'fa-gear', color: '#d8cec4', label: '設定', desc: 'アプリの設定' },
+      ]
+    }
+  ];
+
+  return `
+  <div class="menu-hub-page">
+    ${proj ? `
+    <div class="menu-hub-proj-card hub-clickable-card" onclick="navigate('proj-dash','${proj.id}')">
+      <div class="menu-hub-proj-icon"><i class="fas fa-film"></i></div>
+      <div class="menu-hub-proj-body">
+        <div class="menu-hub-proj-title">${esc(proj.title)}</div>
+        <div class="menu-hub-proj-phase">現在の作品 — ${esc(proj.phase)}</div>
+      </div>
+      <i class="fas fa-chevron-right" style="color:var(--text-muted)"></i>
+    </div>` : ''}
+
+    ${groups.map(g => `
+    <div class="menu-hub-group">
+      <div class="menu-hub-group-label"><i class="fas ${g.icon}" style="color:${g.color}"></i> ${g.label}</div>
+      <div class="menu-hub-grid">
+        ${g.items.map(it => `
+        <button class="menu-hub-card hub-clickable-card" onclick="navigate('${it.page}')">
+          ${it.badge ? `<span class="menu-hub-card-badge">${it.badge}</span>` : ''}
+          <div class="menu-hub-card-icon" style="color:${it.color}"><i class="fas ${it.icon}"></i></div>
+          <div class="menu-hub-card-label">${it.label}</div>
+          <div class="menu-hub-card-desc">${it.desc}</div>
+        </button>`).join('')}
+      </div>
+    </div>`).join('')}
+
+    <button class="btn btn-primary menu-hub-new-btn" onclick="openNewProjectModal()">
+      <i class="fas fa-plus"></i> 新規作品を作成
+    </button>
+  </div>`;
+}
 
 function renderTopPage() {
   const today = new Date().toISOString().slice(0, 10);
