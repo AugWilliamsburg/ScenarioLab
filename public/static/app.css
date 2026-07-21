@@ -660,6 +660,13 @@ body {
 .modal-lg { max-width: 720px; }
 .modal-xl { max-width: 960px; }
 
+/* モーダル表示中は背面のスクロールを止める（bodyロック） */
+body.modal-open-lock {
+  position: fixed;
+  width: 100%;
+  overflow: hidden;
+}
+
 .modal-header {
   display: flex;
   align-items: center;
@@ -11223,3 +11230,48 @@ body {
   }
 }
 
+
+/* ================================================================
+   モーダルのボトムシート化（モバイルアプリらしいUXへの転換・900px以下）
+   PC版は中央ダイアログのまま維持。モバイルでは画面下端に貼り付き、
+   下から出現し、上部のドラッグハンドルまたはヘッダーを下方向にスワイプ
+   すると閉じられる「ボトムシート」に変える。
+   ================================================================ */
+@media (max-width: 900px) {
+  .modal-overlay {
+    align-items: flex-end;
+    justify-content: stretch;
+    padding: 0;
+  }
+  .modal {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 18px 18px 0 0;
+    max-height: calc(88vh - 60px);
+    animation: modalSheetIn 0.26s cubic-bezier(0.32,0.72,0,1);
+    /* JSのスワイプでtransformを直接操作するため、通常時はtransitionなし。
+       スワイプ終了時に閉じ切らなかった場合だけJS側で一時的に付与する */
+  }
+  .modal-lg, .modal-xl { max-width: 100%; }
+  @keyframes modalSheetIn {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
+  /* ドラッグハンドル：指でつまんでスワイプダウンできることを示す視覚的アフォーダンス */
+  .modal-drag-handle {
+    display: flex;
+    justify-content: center;
+    padding: 8px 0 2px;
+    touch-action: none;
+    flex-shrink: 0;
+  }
+  .modal-drag-handle span {
+    width: 36px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border-strong, rgba(0,0,0,.18));
+  }
+  .modal-header {
+    touch-action: none;
+  }
+}

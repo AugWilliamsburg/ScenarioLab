@@ -378,12 +378,19 @@ function toast(msg, type = 'info') {
 }
 
 // ── Modal ──────────────────────────────────────────────────────
+// モバイル幅(900px以下)ではボトムシート表示に切り替える：
+//   - 下からスライドインし、画面下端に貼り付く（PC版は中央ダイアログのまま）
+//   - 上部にドラッグハンドルを追加し、下方向スワイプで閉じられるようにする
+//   - 開いている間は背面スクロールを止める（bodyロック）
+let _modalBodyScrollY = 0;
 function openModal(titleHtml, bodyHtml, footerHtml = '', opts = {}) {
   closeModal();
   const size = opts.size || '';
+  const isMobile = window.innerWidth <= 900;
   const overlay = el('div', { class: 'modal-overlay', id: 'modal-overlay', onclick: (e) => { if (e.target.id === 'modal-overlay') closeModal(); } });
   overlay.innerHTML = `
     <div class="modal ${size}">
+      ${isMobile ? `<div class="modal-drag-handle" id="modal-drag-handle"><span></span></div>` : ''}
       <div class="modal-header">
         <div class="modal-title">${titleHtml}</div>
         <button class="btn btn-ghost btn-icon" onclick="closeModal()"><i class="fas fa-xmark"></i></button>
@@ -392,10 +399,58 @@ function openModal(titleHtml, bodyHtml, footerHtml = '', opts = {}) {
       ${footerHtml ? `<div class="modal-footer">${footerHtml}</div>` : ''}
     </div>`;
   document.body.appendChild(overlay);
+  // 背面スクロールロック（開いている間はbody固定）
+  _modalBodyScrollY = window.scrollY || document.documentElement.scrollTop || 0;
+  document.body.classList.add('modal-open-lock');
+  document.body.style.top = `-${_modalBodyScrollY}px`;
+  if (isMobile) _setupModalSwipeToClose(overlay);
 }
 function closeModal() {
   const o = $('#modal-overlay');
   if (o) o.remove();
+  if (document.body.classList.contains('modal-open-lock')) {
+    document.body.classList.remove('modal-open-lock');
+    document.body.style.top = '';
+    window.scrollTo(0, _modalBodyScrollY || 0);
+  }
+}
+// モバイルのボトムシートを下方向スワイプで閉じるジェスチャー
+// ドラッグハンドル、またはモーダル最上部(ヘッダー)からのスワイプのみを対象にし、
+// 本文スクロール中の誤発火を避ける
+function _setupModalSwipeToClose(overlay) {
+  const modalEl = overlay.querySelector('.modal');
+  const handle = overlay.querySelector('#modal-drag-handle');
+  const header = overlay.querySelector('.modal-header');
+  if (!modalEl) return;
+  let startY = 0, currentY = 0, dragging = false;
+  const onStart = (e) => {
+    dragging = true;
+    startY = currentY = (e.touches ? e.touches[0].clientY : e.clientY);
+    modalEl.style.transition = 'none';
+  };
+  const onMove = (e) => {
+    if (!dragging) return;
+    currentY = (e.touches ? e.touches[0].clientY : e.clientY);
+    const dy = Math.max(0, currentY - startY);
+    if (dy > 0) modalEl.style.transform = `translateY(${dy}px)`;
+  };
+  const onEnd = () => {
+    if (!dragging) return;
+    dragging = false;
+    modalEl.style.transition = '';
+    const dy = Math.max(0, currentY - startY);
+    if (dy > 90) {
+      closeModal();
+    } else {
+      modalEl.style.transform = '';
+    }
+  };
+  [handle, header].forEach(elm => {
+    if (!elm) return;
+    elm.addEventListener('touchstart', onStart, { passive: true });
+    elm.addEventListener('touchmove', onMove, { passive: true });
+    elm.addEventListener('touchend', onEnd, { passive: true });
+  });
 }
 
 // ================================================================
