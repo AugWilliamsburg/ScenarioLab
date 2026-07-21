@@ -613,9 +613,19 @@ function navigate(page, projectId = null) {
 }
 // ブラウザ/Androidの「戻る」ボタンをページ内遷移に接続する
 window.addEventListener('popstate', (e) => {
-  // 戻る操作時に開いているモーダルが残ると新しいページの上に浮いた
-  // 見た目になってしまうため、視覚的破綻を防ぐために先に閉じる
+  // モーダルが開いた状態で「戻る」が押された場合は、モーダルを閉じる
+  // だけにしてページ自体は移動しない、というモバイルアプリの標準的な
+  // 挙動にする（従来は「モーダルが閉じる」と「1つ前のページへ移動する」
+  // が同時に起きてしまい、ユーザーの意図と異なる大きな遷移になっていた）。
+  // ブラウザは既にこのpopstateで1つ前の履歴へ移動済みのため、閉じた後に
+  // 現在のページ状態を再pushして「戻る1回分」を打ち消し、履歴の深さを
+  // 元に戻す（次に戻るボタンを押した際、正しく1つ前のページへ行けるようにする）
+  const modalWasOpen = !!$('#modal-overlay');
   closeModal();
+  if (modalWasOpen) {
+    try { history.pushState({ slPage: State.currentPage, slProjectId: State.currentProjectId }, '', location.href); } catch (err) {}
+    return;
+  }
   if (e.state && e.state.slPage) {
     _isPopStateNav = true;
     navigate(e.state.slPage, e.state.slProjectId);
