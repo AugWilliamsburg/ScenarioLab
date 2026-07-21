@@ -11085,3 +11085,35 @@ body {
   .topbar-title { font-size: 14px; }
 }
 
+/* ================================================================
+   ページ遷移アニメーション（モバイル専用）
+   render()によるinnerHTML差し替え時、新しいページ本体がふわっと
+   フェードインすることで、PCサイトのような「ページが切り替わった」
+   感覚ではなく、モバイルアプリ的な滑らかな画面遷移に近づける。
+   ================================================================ */
+@media (max-width: 900px) {
+  #page-content {
+    animation: mobilePageIn .22s ease both;
+  }
+  @keyframes mobilePageIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  /* メニューハブのカード自体もわずかに遅延させて連続的に浮き上がらせる
+     （nth-childで各カードの開始タイミングをずらし、段階的に現れる演出） */
+  .menu-hub-card {
+    animation: mobilePageIn .22s ease both;
+  }
+  .menu-hub-group:nth-of-type(1) .menu-hub-card:nth-child(1) { animation-delay: .00s; }
+  .menu-hub-group:nth-of-type(1) .menu-hub-card:nth-child(2) { animation-delay: .03s; }
+  .menu-hub-group:nth-of-type(1) .menu-hub-card:nth-child(3) { animation-delay: .06s; }
+  .menu-hub-group:nth-of-type(1) .menu-hub-card:nth-child(4) { animation-delay: .09s; }
+  .menu-hub-group:nth-of-type(1) .menu-hub-card:nth-child(5) { animation-delay: .12s; }
+  .menu-hub-group:nth-of-type(1) .menu-hub-card:nth-child(6) { animation-delay: .15s; }
+  .menu-hub-group:nth-of-type(2) .menu-hub-card { animation-delay: .10s; }
+  .menu-hub-group:nth-of-type(3) .menu-hub-card { animation-delay: .16s; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #page-content, .menu-hub-card { animation: none !important; }
+}
+
