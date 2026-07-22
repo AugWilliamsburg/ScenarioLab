@@ -10787,6 +10787,14 @@ body.modal-open-lock {
   border-top: 1px solid var(--border);
 }
 .hub-rich-charcount { font-size: 10.5px; color: var(--text-muted); }
+@media (max-width: 600px) {
+  .hub-rich-toolbar { gap: 3px; padding: 5px; }
+  .hub-rich-btn { width: 32px; height: 30px; font-size: 12.5px; }
+  .hub-rich-btn-sub sub { font-size: 7.5px; }
+  .hub-rich-sep { margin: 0 2px; height: 16px; }
+  .hub-rich-editor { min-height: 100px; max-height: 320px; padding: 9px 10px; font-size: 13.5px; }
+  .hub-rich-footer { padding: 3px 8px 5px; }
+}
 
 /* ハブ共通：自動保存インジケーター（フッターに置く「自動保存」表示） */
 .hub-autosave-indicator {
