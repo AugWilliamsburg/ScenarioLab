@@ -27,7 +27,10 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS)).catch(() => {})
   );
-  self.skipWaiting();
+  // 注意：ここではskipWaiting()を呼ばない。新しいSWは一旦「waiting」状態で
+  // 待機させ、既存タブが開いたままの状態で裏から突然入れ替わって表示が
+  // 壊れる事態を避ける。実際の切り替えは、app.js側で「更新があります」を
+  // ユーザーに通知し、タップ確認を得てからmessage('SKIP_WAITING')で行う。
 });
 
 self.addEventListener('activate', (event) => {
@@ -37,6 +40,14 @@ self.addEventListener('activate', (event) => {
     )
   );
   self.clients.claim();
+});
+
+// アプリ側（app.js）から「新バージョンを今すぐ適用してよい」という
+// ユーザー確認が取れた時点で送られてくる指示。install完了時点では
+// 自動skipWaitingしない設計にすることで、閲覧中に急に裏で入れ替わって
+// 表示が壊れる事態を避け、ユーザー操作をきっかけに安全に切り替える。
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('fetch', (event) => {

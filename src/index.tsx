@@ -133,9 +133,39 @@ app.get('*', (c) => {
     // Service Worker登録：ホーム画面追加時のオフライン起動対応。
     // 対応ブラウザのみ実行（try/catchで非対応環境は安全に無視）。
     // メイン処理をブロックしないよう、ページのload完了後に登録する。
+    //
+    // ＋アップデート通知：新しいSWがインストール済み(waiting状態)になったら
+    // 画面下に「更新があります」バナーを出す。sw.js側はinstall時に
+    // skipWaiting()しない設計にしているため、ユーザーがバナーをタップして
+    // 明示的に確認するまでは古い画面のまま安全に使い続けられる。
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', function() {
-        try { navigator.serviceWorker.register('/sw.js', { scope: '/' }); } catch (e) {}
+        try {
+          navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(function(reg) {
+            if (!reg) return;
+            function notifyIfWaiting() {
+              if (reg.waiting && navigator.serviceWorker.controller) {
+                if (typeof window.__showUpdateBanner === 'function') window.__showUpdateBanner(reg);
+              }
+            }
+            // 登録直後、すでにwaitingが存在するケース（前回訪問時の残り）
+            notifyIfWaiting();
+            reg.addEventListener('updatefound', function() {
+              var installing = reg.installing;
+              if (!installing) return;
+              installing.addEventListener('statechange', function() {
+                if (installing.state === 'installed') notifyIfWaiting();
+              });
+            });
+          }).catch(function() {});
+          // 新SWが実際に有効化されたらページを一度だけ再読込して最新版を反映
+          var reloaded = false;
+          navigator.serviceWorker.addEventListener('controllerchange', function() {
+            if (reloaded) return;
+            reloaded = true;
+            window.location.reload();
+          });
+        } catch (e) {}
       });
     }
   </script>

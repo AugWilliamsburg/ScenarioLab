@@ -99,7 +99,7 @@
   pm2 start ecosystem.config.cjs       # メインアプリ (port 3000)
   pm2 start pdf_ecosystem.config.cjs   # PDF抽出サーバー (port 3001)
   ```
-- **Last Updated**: 2026-07-22（モバイル版 構造独立化 第2弾＋起動速度改善＋ページ遷移アニメーション＋トップバーCSS優先順位バグ修正＋フォーム自動ズーム対策の実効性修正＋hover依存カードアクションのタッチ対応＋スクラッチパッド/かんばん/シーンマップ/ストーリーボードのD&Dタッチ対応（全4箇所完了）＋長押し時のネイティブ挙動抑制＋アイコン画像の軽量化＋モーダルのボトムシート化＋「戻る」ボタン対応(history.pushState連携)＋フェーズバーのモバイルUX改善(現在地の視認性・自動追従)＋モーダルのhistory非連動を解消＋触覚フィードバック(Vibration API)導入・適用箇所拡大(トグル・移動系11箇所)＋Service Worker導入(ホーム画面追加時のオフライン起動対応)＋オンライン/オフライン状態の可視化を反映）
+- **Last Updated**: 2026-07-22（モバイル版 構造独立化 第2弾＋起動速度改善＋ページ遷移アニメーション＋トップバーCSS優先順位バグ修正＋フォーム自動ズーム対策の実効性修正＋hover依存カードアクションのタッチ対応＋スクラッチパッド/かんばん/シーンマップ/ストーリーボードのD&Dタッチ対応（全4箇所完了）＋長押し時のネイティブ挙動抑制＋アイコン画像の軽量化＋モーダルのボトムシート化＋「戻る」ボタン対応(history.pushState連携)＋フェーズバーのモバイルUX改善(現在地の視認性・自動追従)＋モーダルのhistory非連動を解消＋触覚フィードバック(Vibration API)導入・適用箇所拡大(トグル・移動系11箇所)＋Service Worker導入(ホーム画面追加時のオフライン起動対応)＋オンライン/オフライン状態の可視化＋Service Workerのアップデート通知を反映）
 
 ## モバイル版 構造独立化 第2弾：PC版とは別の独自モバイルUXへ（NEW・進行中）
 「モバイル版はWebサイト版とはまた別の独自のものとして改良・進化させていこう」という要望に基づき、モバイル版を単なるPC版の縮小レイアウトから、構造そのものが異なる独立したモバイルアプリ的UXへ刷新した。
@@ -201,6 +201,27 @@ Service Worker導入によりオフラインでもアプリ自体は開けるよ
 
 ### 補足
 - `dist/static/sw.js`（ビルド時の静的コピー）も残るが、実運用では`/sw.js`ルートのみが使われるため無害な残留物。原本は`public/static/sw.js`の一箇所のみで二重管理はしていない
+
+## Service Workerのアップデート通知（NEW・完了）
+Service Worker導入時は`install`時に即`skipWaiting()`する設計にしていなかった（意図的）ため、新バージョンをデプロイしても、開いたままのタブでは古いキャッシュのまま動き続け、ユーザーが手動でアプリを閉じて再度開くまで更新が反映されない問題があった。かつ「今、更新がある」ことに気づく手段が一切ないため、実質的に更新が反映されないまま使われ続けるリスクがあった。
+
+### 設計方針
+- **勝手にリロードしない**：新バージョンを検知した瞬間に裏で自動リロードすると、フォーム入力中や執筆中の作業が予告なく中断されてしまう。ユーザーが明示的に「更新する」をタップするまでは、古い画面のままでも安全に使い続けられる設計を維持した
+- **sw.js側**：`install`イベントで`skipWaiting()`を呼ばない（既存の挙動を維持）。新たに`message`イベントを追加し、`'SKIP_WAITING'`を受け取った時だけ`self.skipWaiting()`を呼ぶようにした
+- **index.tsx（登録スクリプト）側**：`register()`後、`reg.waiting`が存在する（＝新バージョンが待機中）ことを検知したら`window.__showUpdateBanner(reg)`を呼ぶ。検知タイミングは2つ：①登録直後に既に`waiting`が存在するケース（前回訪問時の残り）、②`updatefound`→`installing`の`statechange`が`'installed'`になったタイミング
+- **app.js側**：`window.__showUpdateBanner(reg)`を新設。画面下部に「新しいバージョンがあります／更新する」バナーを表示し、タップされたら`medium`触覚→`reg.waiting.postMessage('SKIP_WAITING')`→バナーを閉じるアニメーション。二重表示防止のため既にバナーが存在する場合は何もしない
+- **反映**：`navigator.serviceWorker.addEventListener('controllerchange', ...)`で、新SWが実際に有効化された瞬間（＝上記postMessageの結果）に一度だけ`window.location.reload()`し、最新版を画面に反映する
+
+### 実装内容
+- `public/static/sw.js`：`activate`直後に`message`イベントリスナーを追加（`event.data === 'SKIP_WAITING'`時のみ`self.skipWaiting()`）
+- `src/index.tsx`：SW登録スクリプトを拡張し、`updatefound`/`statechange`/`controllerchange`のハンドリングを追加
+- `public/static/app.js`：`haptic()`関数の直後に`window.__showUpdateBanner`を新設
+- `public/static/app.css`：`.sw-update-banner`（画面下部固定・safe-area対応・PC版は右下寄せの小型表示に切替）と更新ボタンのスタイルを追加
+
+### 検証
+- Node.js `vm`モジュールでsw.js本体を実行し、`install`時に`skipWaiting()`が呼ばれないこと、`message('SKIP_WAITING')`受信時のみ`skipWaiting()`が呼ばれること、他のメッセージでは呼ばれないことを確認
+- 同様に`__showUpdateBanner`関数本体を`el()`・`haptic()`と共に抽出実行し、①バナーがbodyに追加されること・②二重呼び出し時は追加されないこと（既存バナーのチェック）・③ボタンクリック時に`medium`触覚(15ms)発火・`postMessage('SKIP_WAITING')`送信・クロージングクラス付与・`setTimeout`によるバナー削除が正しく行われることを確認
+- `node -c`で構文チェックOK、CSS波括弧対応チェック（open=close=2511）、ビルド成功（`_worker.js` 36.5KB→38.95KB、`SKIP_WAITING`/`updatefound`が正しく反映）、PM2再起動・HTTP 200確認、`/sw.js`への`Service-Worker-Allowed: /`ヘッダー付与を再確認、Playwrightコンソールキャプチャ（公開URL経由）でエラー0件確認
 
 ## フェーズバーのモバイルUX改善：現在地の視認性・自動追従（NEW・完了）
 12フェーズを横スクロールで一覧するトップの「フェーズバー」について、モバイル幅（768px以下）ではアイコンのみになりラベルが完全に消えるため「今どのフェーズにいるか」がタップしないと分からない問題があった。

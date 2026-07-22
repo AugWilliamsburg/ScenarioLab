@@ -393,6 +393,24 @@ function haptic(kind = 'light') {
   } catch (e) {}
 }
 
+// ── Service Workerアップデート通知バナー ─────────────────────────
+// index.tsx側のSW登録スクリプトから、新バージョンがインストール済み
+// (waiting状態)になったタイミングで呼ばれる。ユーザーが明示的にタップ
+// するまでは自動リロードしない（作業中のデータ入力を壊さないため）。
+window.__showUpdateBanner = function(reg) {
+  if (document.getElementById('sw-update-banner')) return; // 二重表示防止
+  const banner = el('div', { id: 'sw-update-banner', class: 'sw-update-banner' },
+    '<i class="fas fa-arrow-rotate-right"></i><span>新しいバージョンがあります</span><button type="button" class="sw-update-btn">更新する</button>'
+  );
+  document.body.appendChild(banner);
+  banner.querySelector('.sw-update-btn').addEventListener('click', () => {
+    haptic('medium');
+    banner.classList.add('sw-update-banner-closing');
+    try { reg.waiting && reg.waiting.postMessage('SKIP_WAITING'); } catch (e) {}
+    setTimeout(() => banner.remove(), 250);
+  });
+};
+
 // ── Modal ──────────────────────────────────────────────────────
 // モバイル幅(900px以下)ではボトムシート表示に切り替える：
 //   - 下からスライドインし、画面下端に貼り付く（PC版は中央ダイアログのまま）
