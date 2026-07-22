@@ -663,6 +663,94 @@ window.addEventListener('online', () => {
   toast('オンラインに復帰しました', 'success');
 });
 
+// ── タスクリストのスワイプアクション（モバイル専用・900px以下）──────
+// document直下のイベントデリゲーションで実装することで、タスク一覧が
+// 都度再レンダリング(outerHTML置換)されてもリスナーの再バインドが不要。
+// 右スワイプ=完了トグル、左スワイプ=削除（確認ダイアログ経由）。
+// 選択モード中（複数選択チェックボックス表示中）はタップ操作を優先し、
+// 誤操作防止のためスワイプ自体を無効化する。
+(function initTaskSwipeGesture() {
+  const THRESHOLD = 70;   // これ以上動かしたら操作確定（px）
+  const MAX_DRAG = 110;   // 見た目上の最大移動量（px）
+  let activeWrap = null;
+  let startX = 0, startY = 0, dx = 0;
+  let dragging = false, axisLocked = null; // 'x' | 'y' | null
+
+  function getBg(wrap) { return wrap.querySelector('.task-swipe-bg'); }
+
+  function onStart(e) {
+    if (window.innerWidth > 900) return;
+    if (TasksState.selecting) return; // 複数選択モード中は無効化
+    const wrap = e.target.closest('.task-swipe-wrap');
+    if (!wrap) return;
+    // ボタン・入力欄からの開始は通常操作を優先（誤爆防止）
+    if (e.target.closest('button, input, textarea, select, a')) return;
+    activeWrap = wrap;
+    const t = e.touches[0];
+    startX = t.clientX; startY = t.clientY; dx = 0;
+    dragging = false; axisLocked = null;
+  }
+
+  function onMove(e) {
+    if (!activeWrap) return;
+    const t = e.touches[0];
+    const rawDx = t.clientX - startX;
+    const rawDy = t.clientY - startY;
+    if (!axisLocked) {
+      if (Math.abs(rawDx) < 6 && Math.abs(rawDy) < 6) return;
+      axisLocked = Math.abs(rawDx) > Math.abs(rawDy) ? 'x' : 'y';
+    }
+    if (axisLocked === 'y') { activeWrap = null; return; } // 縦スクロールに委ねる
+    dragging = true;
+    dx = Math.max(-MAX_DRAG, Math.min(MAX_DRAG, rawDx));
+    const item = activeWrap.querySelector('.task-item');
+    const bg = getBg(activeWrap);
+    if (item) item.style.transform = `translateX(${dx}px)`;
+    activeWrap.classList.add('swiping');
+    if (bg) {
+      const completeEl = bg.querySelector('.complete');
+      const deleteEl = bg.querySelector('.delete');
+      const ratio = Math.min(1, Math.abs(dx) / THRESHOLD);
+      if (completeEl) completeEl.style.opacity = dx > 0 ? ratio : 0;
+      if (deleteEl) deleteEl.style.opacity = dx < 0 ? ratio : 0;
+    }
+  }
+
+  function onEnd() {
+    if (!activeWrap) return;
+    const wrap = activeWrap;
+    const item = wrap.querySelector('.task-item');
+    const taskId = wrap.dataset.taskId;
+    wrap.classList.remove('swiping');
+    if (dragging && Math.abs(dx) >= THRESHOLD && taskId) {
+      haptic('medium');
+      if (item) item.style.transform = `translateX(${dx > 0 ? MAX_DRAG : -MAX_DRAG}px)`;
+      if (dx > 0) {
+        // 右スワイプ：完了トグル
+        setTimeout(() => { toggleTaskDone(taskId); }, 90);
+      } else {
+        // 左スワイプ：削除（確認ダイアログへ委譲。キャンセル時は見た目を戻す）
+        setTimeout(() => {
+          if (item) item.style.transform = '';
+          const bg = getBg(wrap);
+          if (bg) bg.querySelectorAll('.task-swipe-bg-action').forEach(el => el.style.opacity = 0);
+          confirmDeleteTask(taskId);
+        }, 90);
+      }
+    } else if (item) {
+      item.style.transform = '';
+      const bg = getBg(wrap);
+      if (bg) bg.querySelectorAll('.task-swipe-bg-action').forEach(el => el.style.opacity = 0);
+    }
+    activeWrap = null; dragging = false; axisLocked = null; dx = 0;
+  }
+
+  document.addEventListener('touchstart', onStart, { passive: true });
+  document.addEventListener('touchmove', onMove, { passive: true });
+  document.addEventListener('touchend', onEnd, { passive: true });
+  document.addEventListener('touchcancel', onEnd, { passive: true });
+})();
+
 // ブラウザ/Androidの「戻る」ボタンをページ内遷移に接続する
 window.addEventListener('popstate', (e) => {
   // モーダルが開いた状態で「戻る」が押された場合は、モーダルを閉じる
@@ -35218,7 +35306,14 @@ function renderTasksPage() {
         </div>
         <div class="task-group-body" style="display:${isCollapsed?'none':''}">
           ${g.tasks.length === 0 ? `<div class="task-empty-group">タスクがありません — <button class="btn btn-ghost btn-sm" style="padding:0;font-size:11px" onclick="openNewTaskModal()">追加</button></div>` :
-            g.tasks.map(t => renderTaskItem(t)).join('')}
+            g.tasks.map(t => `
+            <div class="task-swipe-wrap" data-task-id="${t.id}">
+              <div class="task-swipe-bg" aria-hidden="true">
+                <div class="task-swipe-bg-action complete"><i class="fas fa-check"></i><span>${t.done?'未完了':'完了'}</span></div>
+                <div class="task-swipe-bg-action delete"><i class="fas fa-trash"></i><span>削除</span></div>
+              </div>
+              ${renderTaskItem(t)}
+            </div>`).join('')}
         </div>
       </div>`;
     }).join('');

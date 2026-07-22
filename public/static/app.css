@@ -11384,3 +11384,52 @@ body.modal-open-lock {
   /* PC版は右下寄せの小型バナーに（ボトムナビが無いため） */
   .sw-update-banner { left: auto; right: 22px; bottom: 22px; max-width: 340px; }
 }
+
+/* ================================================================
+   タスクリストのスワイプアクション（モバイル専用・900px以下）
+   ネイティブのタスク管理アプリ（メール/ToDo系）で標準的な「左右スワイプで
+   クイック操作」ジェスチャーをタスク一覧に追加。ボタンタップより速く、
+   片手操作でも完了/削除ができるようにする。
+   - 右へスワイプ（緑背景が見える）: 完了/未完了トグル
+   - 左へスワイプ（赤背景が見える）: 削除（確認ダイアログを経由）
+   PC版（901px以上）は無変更（従来のボタン操作のみ）。
+   ================================================================ */
+@media (max-width: 900px) {
+  .task-swipe-wrap {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+  }
+  .task-swipe-bg {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-radius: var(--radius-sm);
+    /* JS側でスワイプ量に応じて背景色の左右どちらを見せるかを透明度で制御 */
+    pointer-events: none;
+  }
+  .task-swipe-bg-action {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 100%;
+    padding: 0 18px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+    opacity: 0;
+    transition: opacity .1s;
+  }
+  .task-swipe-bg-action.complete { background: var(--matcha); border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+  .task-swipe-bg-action.delete   { background: var(--accent); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; margin-left: auto; }
+  /* .task-item自体をスワイプで左右に動かす対象にする */
+  .task-swipe-wrap .task-item {
+    position: relative;
+    background: var(--bg-white);
+    touch-action: pan-y; /* 縦スクロールは妨げず、横方向のみJSでハンドリング */
+  }
+  .task-swipe-wrap.swiping .task-item { transition: none; }
+  .task-swipe-wrap:not(.swiping) .task-item { transition: transform .2s ease; }
+}
