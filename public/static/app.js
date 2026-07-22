@@ -884,7 +884,47 @@ function newProject(data = {}) {
     wordTarget: 12000,
     notes: [],
     tags: [],
+    worldbuilding: null, // 遅延初期化。getProjWorldbuilding()で初回アクセス時にデフォルト構造を生成する
   };
+}
+
+// ── 世界観設計データ（プロジェクトごとにスコープ）────────────────
+// 旧バージョンではDB.get('worldbuilding',...)というグローバル単一キーに
+// 全プロジェクト共通で保存されていたため、複数プロジェクトを持つユーザーの
+// データが混在してしまう欠陥があった。proj.worldbuilding に移行し、
+// 既存のグローバルデータは初回アクセス時に一度だけ「最初のプロジェクト」へ
+// 移行する（移行済みかどうかは sl_wb_migrated フラグで判定）。
+function getProjWorldbuilding(proj) {
+  if (!proj.worldbuilding) {
+    proj.worldbuilding = {
+      title: '', era: '', setting: '', rules: '', geography: '', culture: '',
+      politics: '', technology: '', history: '', conflicts: '',
+      titleHtml: '', eraHtml: '', settingHtml: '', rulesHtml: '', geographyHtml: '',
+      cultureHtml: '', politicsHtml: '', technologyHtml: '', historyHtml: '', conflictsHtml: '',
+      social_structure: '', economy: '', law: '', religion: '', education: '', military: '',
+      social_structureHtml: '', economyHtml: '', lawHtml: '', religionHtml: '', educationHtml: '', militaryHtml: '',
+      glossary: [], factions: [], timeline: [], locations: [],
+    };
+    // グローバル旧データからの一回限りの移行（このプロジェクトが移行先の初回作品の場合のみ）
+    if (!DB.get('wb_migrated', false)) {
+      const legacy = DB.get('worldbuilding', null);
+      if (legacy && (DB.getProjects()[0]?.id === proj.id)) {
+        Object.keys(legacy).forEach(k => {
+          if (k === 'glossary' || k === 'factions' || k === 'timeline') {
+            proj.worldbuilding[k] = legacy[k] || [];
+          } else if (typeof legacy[k] === 'string') {
+            proj.worldbuilding[k] = legacy[k];
+            proj.worldbuilding[k + 'Html'] = plainTextToRichHtml(legacy[k]);
+          }
+        });
+        // 移行したデータを即座に永続化する（表示だけで離脱した場合のデータ消失を防ぐ）
+        DB.saveProject(proj);
+      }
+      DB.set('wb_migrated', true);
+    }
+  }
+  if (!proj.worldbuilding.locations) proj.worldbuilding.locations = [];
+  return proj.worldbuilding;
 }
 
 // ── Phase Definitions ─────────────────────────────────────────
@@ -28349,9 +28389,6 @@ function renderTemplateCardHtml(item, colorMap, bgMap, borderMap) {
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
           <div style="font-size:13px;font-weight:700;color:var(--text-primary);line-height:1.4">${esc(item.name)}</div>
           ${item.badge ? `<span class="tag tag-beni" style="font-size:9px">${item.badge}</span>` : ''}
-          ${item.type === 'form' ? `<span class="tag" style="font-size:9px;background:var(--matcha-bg);color:var(--matcha);border:1px solid var(--matcha-border)"><i class="fas fa-table-list" style="font-size:8px"></i> フォーム対応</span>` : ''}
-          ${item.type === 'checklist' ? `<span class="tag" style="font-size:9px;background:var(--momo-bg);color:var(--momo);border:1px solid var(--momo-border)"><i class="fas fa-list-check" style="font-size:8px"></i> チェック式</span>` : ''}
-          ${item.type === 'card' ? `<span class="tag" style="font-size:9px;background:var(--asagi-bg);color:var(--asagi);border:1px solid var(--asagi-border)"><i class="fas fa-newspaper" style="font-size:8px"></i> 読む</span>` : ''}
           ${useCount > 0 ? `<span class="toolx-usage-badge toolx-usage-inline"><i class="fas fa-arrow-rotate-right"></i> ${useCount}</span>` : ''}
         </div>
         <div style="font-size:11.5px;color:var(--text-secondary);line-height:1.5">${esc(item.desc||'')}</div>
@@ -28749,7 +28786,7 @@ function renderTemplatesPage() {
   <!-- ヒント -->
   <div style="padding:12px 16px;background:var(--asagi-bg);border:1px solid var(--asagi-border);border-radius:var(--radius-md);font-size:12.5px;color:var(--text-secondary);line-height:1.7">
     <i class="fas fa-lightbulb" style="color:var(--asagi);margin-right:6px"></i>
-    <strong>使い方のコツ：</strong>テンプレートはコピー後、お使いのエディタ（Word・Google Docs等）に貼り付けて使います。「フォーム対応」バッジ付きテンプレートは項目を入力するだけで自動整形できます。「自作」タブから独自のテンプレートを作成・フォルダ分類できます。タグをクリックすると同じタグのテンプレートに絞り込めます。
+    <strong>使い方のコツ：</strong>テンプレートはコピー後、お使いのエディタ（Word・Google Docs等）に貼り付けて使います。「自作」タブから独自のテンプレートを作成・フォルダ分類できます。タグをクリックすると同じタグのテンプレートに絞り込めます。
   </div>`;
 }
 
@@ -33047,65 +33084,86 @@ function bindNameDictPage() {}
 //  PAGE: 世界観設計
 // ================================================================
 function renderWorldBuildingPage() {
+  const proj = State.currentProjectId ? DB.getProject(State.currentProjectId) : null;
+  if (!proj) {
+    const projects = DB.getProjects();
+    return `
+    <div style="background:linear-gradient(135deg,var(--asagi-bg),var(--bg-subtle));border:1px solid var(--asagi-border);border-radius:var(--radius-lg);padding:18px 22px;margin-bottom:18px">
+      <h2 style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin:0"><i class="fas fa-globe" style="color:var(--asagi);margin-right:10px"></i>世界観設計ノート</h2>
+      <div style="font-size:12.5px;color:var(--text-muted);margin-top:3px">世界観設計は作品（プロジェクト）ごとに記録します。まずは作品を選んでください。</div>
+    </div>
+    <div class="card" style="text-align:center;padding:48px">
+      <i class="fas fa-film" style="font-size:32px;color:var(--text-muted);opacity:0.3;display:block;margin-bottom:14px"></i>
+      ${projects.length === 0 ? `
+      <div style="color:var(--text-muted);margin-bottom:16px">まだ作品がありません。新規作品を作成すると世界観設計を始められます。</div>
+      <button class="btn btn-primary" onclick="openNewProjectModal()"><i class="fas fa-plus"></i> 新規作品を作成</button>
+      ` : `
+      <div style="color:var(--text-muted);margin-bottom:16px">世界観設計を編集する作品を選んでください</div>
+      <div style="display:flex;flex-direction:column;gap:8px;max-width:360px;margin:0 auto">
+        ${projects.map(p => `<button class="btn btn-secondary" style="justify-content:flex-start" onclick="navigate('worldbuilding','${p.id}')"><i class="fas fa-film" style="margin-right:8px;color:var(--accent)"></i>${esc(p.title)}</button>`).join('')}
+      </div>`}
+    </div>`;
+  }
+
   const wbTab = DB.get('wb_active_tab', 'main');
-  const wb = DB.get('worldbuilding', {
-    title: '',
-    era: '',
-    setting: '',
-    rules: '',
-    geography: '',
-    culture: '',
-    politics: '',
-    technology: '',
-    magic: '',
-    history: '',
-    conflicts: '',
-    glossary: [],
-    factions: [],
-    timeline: [],
-  });
+  const wb = getProjWorldbuilding(proj);
+  const autoSaveKey = 'wb-' + proj.id;
+  const statusId = 'wb-autosave-' + proj.id;
+  const autoSaveCall = `hubAutoSave('${autoSaveKey}', ()=>persistWbMainFields('${proj.id}'), '${statusId}')`;
+
+  const mainFields = [
+    { id:'title',      label:'世界観タイトル',   placeholder:'例：近未来の新東京' },
+    { id:'era',        label:'時代・時期設定',    placeholder:'例：2045年、AIが人権を獲得した時代' },
+    { id:'setting',    label:'舞台・場所',         placeholder:'例：海面上昇後の東京。高層都市と水上スラムが並立する' },
+    { id:'rules',      label:'世界のルール（物理法則・超自然）', placeholder:'例：特定の感情を持つ者だけが「境界」を越えられる' },
+    { id:'geography',  label:'地理・地図',         placeholder:'例：三つの島に分かれた都市構造。北島は富裕層、南島は労働者層' },
+    { id:'culture',    label:'文化・習慣・宗教',   placeholder:'例：死者の日は年に一度全市民が白い仮面を着けて外出する' },
+    { id:'politics',   label:'政治・権力構造',     placeholder:'例：三つの財閥が都市を分割支配。警察は財閥傭兵が担当' },
+    { id:'technology', label:'科学技術・魔法体系', placeholder:'例：記憶を「書き換え」できるナノマシン技術が普及している' },
+    { id:'history',    label:'重要な歴史・出来事', placeholder:'例：30年前の「大分断」で旧東京が三分割された' },
+    { id:'conflicts',  label:'内在する葛藤・矛盾', placeholder:'例：AI市民権vs人間優位主義の対立が社会の根底にある' },
+  ];
+  const societyFields = [
+    { id:'social_structure', label:'社会構造・階級', placeholder:'例：貴族・平民・奴隷の3層構造。貴族は全人口の3%だが国富の80%を支配' },
+    { id:'economy', label:'経済・通貨・交易', placeholder:'例：魔石が通貨。北部は鉱業、南部は農業に依存。海上交易ルートが要塞化されている' },
+    { id:'law', label:'法律・司法制度', placeholder:'例：魔法師は特別裁判所に従う。一般市民は12人制陪審員制度' },
+    { id:'religion', label:'宗教・信仰体系', placeholder:'例：太陽神と月神の二神教。神殿が国政に強い影響力を持つ' },
+    { id:'education', label:'教育・知識の伝達', placeholder:'例：文字は貴族のみ学べる。口伝の伝承が一般民衆の文化を支える' },
+    { id:'military', label:'軍事・治安組織', placeholder:'例：王国軍5万人。国境守備隊は独自の自治権を持つ' },
+  ];
 
   const glossaryHtml = (wb.glossary || []).map((g, i) => `
     <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="flex:0 0 100px;font-size:12.5px;font-weight:700;color:var(--kon-lt);font-family:'Noto Serif JP',serif">${esc(g.term)}</div>
       <div style="flex:1;font-size:12.5px;color:var(--text-secondary);line-height:1.6">${esc(g.def)}</div>
-      <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteWbGlossary(${i})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+      <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteWbGlossary('${proj.id}',${i})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
     </div>`).join('');
-
-  const fields = [
-    { id:'title',      label:'世界観タイトル',   placeholder:'例：近未来の新東京',         rows:1 },
-    { id:'era',        label:'時代・時期設定',    placeholder:'例：2045年、AIが人権を獲得した時代', rows:1 },
-    { id:'setting',    label:'舞台・場所',         placeholder:'例：海面上昇後の東京。高層都市と水上スラムが並立する', rows:2 },
-    { id:'rules',      label:'世界のルール（物理法則・超自然）', placeholder:'例：特定の感情を持つ者だけが「境界」を越えられる', rows:2 },
-    { id:'geography',  label:'地理・地図',         placeholder:'例：三つの島に分かれた都市構造。北島は富裕層、南島は労働者層', rows:2 },
-    { id:'culture',    label:'文化・習慣・宗教',   placeholder:'例：死者の日は年に一度全市民が白い仮面を着けて外出する', rows:2 },
-    { id:'politics',   label:'政治・権力構造',     placeholder:'例：三つの財閥が都市を分割支配。警察は財閥傭兵が担当', rows:2 },
-    { id:'technology', label:'科学技術・魔法体系', placeholder:'例：記憶を「書き換え」できるナノマシン技術が普及している', rows:2 },
-    { id:'history',    label:'重要な歴史・出来事', placeholder:'例：30年前の「大分断」で旧東京が三分割された', rows:2 },
-    { id:'conflicts',  label:'内在する葛藤・矛盾', placeholder:'例：AI市民権vs人間優位主義の対立が社会の根底にある', rows:2 },
-  ];
 
   return `
   <!-- ヘッダー -->
   <div style="background:linear-gradient(135deg,var(--asagi-bg),var(--bg-subtle));border:1px solid var(--asagi-border);border-radius:var(--radius-lg);padding:18px 22px;margin-bottom:18px;position:relative;overflow:hidden">
     <div style="position:absolute;right:16px;top:50%;transform:translateY(-50%);font-size:60px;font-weight:900;font-family:'Noto Serif JP',serif;color:var(--asagi);opacity:0.05">世</div>
-    <div style="display:flex;align-items:center;justify-content:space-between">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
       <div>
         <h2 style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary);margin:0"><i class="fas fa-globe" style="color:var(--asagi);margin-right:10px"></i>世界観設計ノート</h2>
-        <div style="font-size:12.5px;color:var(--text-muted);margin-top:3px">作品の舞台・世界観・設定を詳細に設計・記録します</div>
+        <div style="font-size:12.5px;color:var(--text-muted);margin-top:3px"><i class="fas fa-film" style="font-size:10px;margin-right:4px"></i>${esc(proj.title)} の世界観・設定を詳細に設計・記録します</div>
       </div>
-      <button class="btn btn-primary" onclick="saveWorldBuilding()"><i class="fas fa-floppy-disk"></i> 保存</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${renderHubAutoSaveIndicator(statusId)}
+        <button class="btn btn-secondary btn-sm" onclick="exportWorldBuilding('${proj.id}')"><i class="fas fa-file-export"></i> 資料として書き出す</button>
+      </div>
     </div>
   </div>
 
   <!-- タブナビ -->
   <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:18px">
     ${[
-      { id:'main',     label:'基本設定',  icon:'fa-earth-asia' },
-      { id:'society',  label:'社会・政治', icon:'fa-landmark' },
-      { id:'factions', label:'勢力・組織', icon:'fa-shield-halved' },
-      { id:'timeline', label:'歴史・年表', icon:'fa-timeline' },
-      { id:'glossary', label:'用語集',     icon:'fa-book' },
+      { id:'main',      label:'基本設定',   icon:'fa-earth-asia' },
+      { id:'society',   label:'社会・政治', icon:'fa-landmark' },
+      { id:'locations', label:'場所',       icon:'fa-map-location-dot' },
+      { id:'factions',  label:'勢力・組織', icon:'fa-shield-halved' },
+      { id:'timeline',  label:'歴史・年表', icon:'fa-timeline' },
+      { id:'glossary',  label:'用語集',     icon:'fa-book' },
     ].map(t => `<button class="btn btn-sm ${wbTab===t.id?'btn-primary':'btn-ghost'}" onclick="DB.set('wb_active_tab','${t.id}');render()">
       <i class="fas ${t.icon}" style="font-size:10px"></i> ${t.label}
     </button>`).join('')}
@@ -33116,17 +33174,10 @@ function renderWorldBuildingPage() {
     <div>
       <div class="card" style="margin-bottom:16px">
         <div class="card-header"><div class="card-title"><i class="fas fa-earth-asia icon" style="color:var(--asagi)"></i> 世界設定の基本</div></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
-          ${fields.slice(0,2).map(f => `
-            <div class="form-group">
-              <label class="form-label">${f.label}</label>
-              <input class="form-input" id="wb-${f.id}" value="${esc(wb[f.id]||'')}" placeholder="${f.placeholder}">
-            </div>`).join('')}
-        </div>
-        ${fields.slice(2).map(f => `
+        ${mainFields.map(f => `
           <div class="form-group">
             <label class="form-label">${f.label}</label>
-            <textarea class="form-textarea" id="wb-${f.id}" rows="${f.rows}" placeholder="${f.placeholder}">${esc(wb[f.id]||'')}</textarea>
+            ${renderHubRichEditor('wb-'+f.id, wb[f.id+'Html'] || plainTextToRichHtml(wb[f.id]||''), f.placeholder, autoSaveCall)}
           </div>`).join('')}
       </div>
     </div>
@@ -33136,7 +33187,7 @@ function renderWorldBuildingPage() {
       <div class="card">
         <div class="card-header">
           <div class="card-title"><i class="fas fa-book icon" style="color:var(--kon-lt)"></i> 用語集</div>
-          <button class="btn btn-primary btn-sm" onclick="openAddWbGlossary()"><i class="fas fa-plus"></i></button>
+          <button class="btn btn-primary btn-sm" onclick="openAddWbGlossary('${proj.id}')"><i class="fas fa-plus"></i></button>
         </div>
         ${(wb.glossary||[]).length === 0 ?
           `<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:12.5px">用語を追加しましょう</div>`
@@ -33159,29 +33210,22 @@ function renderWorldBuildingPage() {
   ${wbTab === 'society' ? `
   <div class="card">
     <div class="card-title" style="margin-bottom:16px"><i class="fas fa-landmark icon" style="color:var(--asagi)"></i> 社会・政治・経済設定</div>
-    ${[
-      { id:'social_structure', label:'社会構造・階級', placeholder:'例：貴族・平民・奴隷の3層構造。貴族は全人口の3%だが国富の80%を支配', rows:2 },
-      { id:'economy', label:'経済・通貨・交易', placeholder:'例：魔石が通貨。北部は鉱業、南部は農業に依存。海上交易ルートが要塞化されている', rows:2 },
-      { id:'law', label:'法律・司法制度', placeholder:'例：魔法師は特別裁判所に従う。一般市民は12人制陪審員制度', rows:2 },
-      { id:'religion', label:'宗教・信仰体系', placeholder:'例：太陽神と月神の二神教。神殿が国政に強い影響力を持つ', rows:2 },
-      { id:'education', label:'教育・知識の伝達', placeholder:'例：文字は貴族のみ学べる。口伝の伝承が一般民衆の文化を支える', rows:2 },
-      { id:'military', label:'軍事・治安組織', placeholder:'例：王国軍5万人。国境守備隊は独自の自治権を持つ', rows:2 },
-    ].map(f => `
+    ${societyFields.map(f => `
     <div class="form-group">
       <label class="form-label">${f.label}</label>
-      <textarea class="form-textarea" id="wbs-${f.id}" rows="${f.rows}" placeholder="${f.placeholder}" onblur="saveWbExtra('${f.id}',this.value)">${esc(wb[f.id]||'')}</textarea>
+      ${renderHubRichEditor('wb-'+f.id, wb[f.id+'Html'] || plainTextToRichHtml(wb[f.id]||''), f.placeholder, autoSaveCall)}
     </div>`).join('')}
-    <button class="btn btn-primary" onclick="saveWbSociety()"><i class="fas fa-floppy-disk"></i> 保存</button>
   </div>` : ''}
 
-  ${wbTab === 'factions' ? renderWbFactionsTab(wb) : ''}
-  ${wbTab === 'timeline' ? renderWbTimelineTab(wb) : ''}
+  ${wbTab === 'locations' ? renderWbLocationsTab(proj, wb) : ''}
+  ${wbTab === 'factions' ? renderWbFactionsTab(proj, wb) : ''}
+  ${wbTab === 'timeline' ? renderWbTimelineTab(proj, wb) : ''}
 
   ${wbTab === 'glossary' ? `
   <div class="card">
     <div class="card-header">
       <div class="card-title"><i class="fas fa-book icon" style="color:var(--kon-lt)"></i> 世界観用語集・固有名詞</div>
-      <button class="btn btn-primary btn-sm" onclick="openAddWbGlossary()"><i class="fas fa-plus"></i> 追加</button>
+      <button class="btn btn-primary btn-sm" onclick="openAddWbGlossary('${proj.id}')"><i class="fas fa-plus"></i> 追加</button>
     </div>
     ${(wb.glossary||[]).length === 0 ?
       `<div style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-book" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.2"></i>まだ用語が登録されていません</div>` :
@@ -33190,20 +33234,160 @@ function renderWorldBuildingPage() {
         <div style="display:flex;align-items:flex-start;gap:8px;padding:10px 0;border-bottom:1px solid var(--border)">
           <div style="flex:0 0 120px;font-size:13px;font-weight:700;color:var(--kon-lt);font-family:'Noto Serif JP',serif">${esc(g.term)}</div>
           <div style="flex:1;font-size:12.5px;color:var(--text-secondary);line-height:1.6">${esc(g.def)}</div>
-          <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteWbGlossary(${i})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteWbGlossary('${proj.id}',${i})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
         </div>`).join('')}
       </div>`}
   </div>` : ''}`;
 }
 
-function renderWbFactionsTab(wb) {
+// 基本設定タブ・社会タブの全リッチエディタフィールドを一括保存
+// （renderHubRichEditorのoninputは1フィールド単位で発火するが、DBへは
+//   常に現在表示中タブの全フィールドをまとめて読み直して保存する）
+function persistWbMainFields(projId) {
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const wb = getProjWorldbuilding(proj);
+  const allIds = ['title','era','setting','rules','geography','culture','politics','technology','history','conflicts',
+                   'social_structure','economy','law','religion','education','military'];
+  allIds.forEach(id => {
+    const html = getHubRichValue('wb-' + id);
+    if (html === '' && document.getElementById('wb-' + id) === null) return; // タブに存在しないフィールドは触らない
+    if (document.getElementById('wb-' + id) === null) return;
+    wb[id + 'Html'] = html;
+    wb[id] = richHtmlToPlainText(html);
+  });
+  proj.updatedAt = now();
+  DB.saveProject(proj);
+}
+
+function renderWbLocationsTab(proj, wb) {
+  const locations = wb.locations || [];
+  const LOC_COLORS = ['var(--accent)','var(--fuji)','var(--momo)','var(--asagi)','var(--kogane)','var(--matcha)'];
+  return `
+  <div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="font-size:14px;font-weight:600;color:var(--text-primary)"><i class="fas fa-map-location-dot" style="color:var(--asagi);margin-right:8px"></i>場所・ロケーション一覧 (${locations.length})</div>
+      <button class="btn btn-primary btn-sm" onclick="openAddWbLocation('${proj.id}')"><i class="fas fa-plus"></i> 場所を追加</button>
+    </div>
+    ${locations.length === 0 ?
+      `<div style="text-align:center;padding:60px;color:var(--text-muted);border:2px dashed var(--border);border-radius:var(--radius-md)">
+        <i class="fas fa-map-location-dot" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.2"></i>
+        まだ場所・ロケーションが登録されていません
+      </div>` :
+      `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
+        ${locations.map((l, i) => {
+          const col = LOC_COLORS[i % LOC_COLORS.length];
+          return `
+          <div class="card" style="border-top:3px solid ${col};cursor:pointer" onclick="openEditWbLocation('${proj.id}',${i})">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+              <div style="font-size:15px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary)"><i class="fas fa-location-dot" style="color:${col};font-size:12px;margin-right:5px"></i>${esc(l.name)}</div>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();deleteWbLocation('${proj.id}',${i})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+            </div>
+            ${l.type ? `<div style="font-size:11px;padding:2px 8px;background:var(--bg-hover);border-radius:var(--radius-full);color:${col};border:1px solid ${col}33;display:inline-block;margin-bottom:6px">${esc(l.type)}</div>` : ''}
+            ${l.desc ? `<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;margin-bottom:6px">${esc(l.desc.slice(0,90))}${l.desc.length>90?'…':''}</div>` : ''}
+            ${l.atmosphere ? `<div style="font-size:11.5px;color:var(--text-muted)"><strong>雰囲気：</strong>${esc(l.atmosphere)}</div>` : ''}
+          </div>`;
+        }).join('')}
+      </div>`}
+  </div>`;
+}
+
+function openAddWbLocation(projId) {
+  openModal(
+    `<i class="fas fa-map-location-dot" style="color:var(--asagi)"></i> 場所・ロケーションを追加`,
+    `<div class="form-group"><label class="form-label">場所名 <span style="color:var(--accent)">*</span></label><input class="form-input" id="wbl-name" placeholder="例：北島・銀灯区"></div>
+     <div class="form-group"><label class="form-label">種類</label>
+       <select class="form-select" id="wbl-type">
+         <option>都市・街</option><option>建物・施設</option><option>自然・地形</option><option>国・地域</option><option>異空間・特殊領域</option><option>その他</option>
+       </select>
+     </div>
+     <div class="form-group"><label class="form-label">説明・特徴</label><textarea class="form-textarea" id="wbl-desc" rows="3" placeholder="この場所の外観・機能・歴史など"></textarea></div>
+     <div class="grid-2">
+       <div class="form-group"><label class="form-label">雰囲気・印象</label><input class="form-input" id="wbl-atmosphere" placeholder="例：ネオンと排煙が混ざる退廃的な下町"></div>
+       <div class="form-group"><label class="form-label">関連する勢力・住人</label><input class="form-input" id="wbl-residents" placeholder="例：暁の騎士団の拠点がある"></div>
+     </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="addWbLocation('${projId}')"><i class="fas fa-plus"></i> 追加</button>`
+  );
+}
+
+function addWbLocation(projId) {
+  const name = $('#wbl-name')?.value?.trim();
+  if (!name) { toast('場所名を入力してください', 'error'); return; }
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const wb = getProjWorldbuilding(proj);
+  wb.locations.push({
+    name, type: $('#wbl-type')?.value || 'その他',
+    desc: $('#wbl-desc')?.value?.trim() || '',
+    atmosphere: $('#wbl-atmosphere')?.value?.trim() || '',
+    residents: $('#wbl-residents')?.value?.trim() || '',
+  });
+  proj.updatedAt = now();
+  DB.saveProject(proj);
+  closeModal(); toast('場所を追加しました', 'success'); render();
+}
+
+function openEditWbLocation(projId, idx) {
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const wb = getProjWorldbuilding(proj);
+  const l = wb.locations[idx];
+  if (!l) return;
+  openModal(
+    `<i class="fas fa-map-location-dot" style="color:var(--asagi)"></i> 場所・ロケーションを編集`,
+    `<div class="form-group"><label class="form-label">場所名 <span style="color:var(--accent)">*</span></label><input class="form-input" id="wbl-name" value="${esc(l.name)}"></div>
+     <div class="form-group"><label class="form-label">種類</label>
+       <select class="form-select" id="wbl-type">
+         ${['都市・街','建物・施設','自然・地形','国・地域','異空間・特殊領域','その他'].map(t=>`<option ${t===l.type?'selected':''}>${t}</option>`).join('')}
+       </select>
+     </div>
+     <div class="form-group"><label class="form-label">説明・特徴</label><textarea class="form-textarea" id="wbl-desc" rows="3">${esc(l.desc||'')}</textarea></div>
+     <div class="grid-2">
+       <div class="form-group"><label class="form-label">雰囲気・印象</label><input class="form-input" id="wbl-atmosphere" value="${esc(l.atmosphere||'')}"></div>
+       <div class="form-group"><label class="form-label">関連する勢力・住人</label><input class="form-input" id="wbl-residents" value="${esc(l.residents||'')}"></div>
+     </div>`,
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-primary" onclick="saveWbLocationEdit('${projId}',${idx})"><i class="fas fa-floppy-disk"></i> 保存</button>`
+  );
+}
+
+function saveWbLocationEdit(projId, idx) {
+  const name = $('#wbl-name')?.value?.trim();
+  if (!name) { toast('場所名を入力してください', 'error'); return; }
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const wb = getProjWorldbuilding(proj);
+  if (!wb.locations[idx]) return;
+  wb.locations[idx] = {
+    name, type: $('#wbl-type')?.value || 'その他',
+    desc: $('#wbl-desc')?.value?.trim() || '',
+    atmosphere: $('#wbl-atmosphere')?.value?.trim() || '',
+    residents: $('#wbl-residents')?.value?.trim() || '',
+  };
+  proj.updatedAt = now();
+  DB.saveProject(proj);
+  closeModal(); toast('場所を更新しました', 'success'); render();
+}
+
+function deleteWbLocation(projId, idx) {
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const wb = getProjWorldbuilding(proj);
+  wb.locations.splice(idx, 1);
+  proj.updatedAt = now();
+  DB.saveProject(proj);
+  toast('削除しました', 'success'); render();
+}
+
+function renderWbFactionsTab(proj, wb) {
   const factions = wb.factions || [];
   const FACTION_COLORS = ['var(--accent)','var(--fuji)','var(--momo)','var(--asagi)','var(--kogane)','var(--matcha)'];
   return `
   <div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <div style="font-size:14px;font-weight:600;color:var(--text-primary)"><i class="fas fa-shield-halved" style="color:var(--asagi);margin-right:8px"></i>勢力・組織一覧 (${factions.length})</div>
-      <button class="btn btn-primary btn-sm" onclick="openAddWbFaction()"><i class="fas fa-plus"></i> 勢力を追加</button>
+      <button class="btn btn-primary btn-sm" onclick="openAddWbFaction('${proj.id}')"><i class="fas fa-plus"></i> 勢力を追加</button>
     </div>
     ${factions.length === 0 ?
       `<div style="text-align:center;padding:60px;color:var(--text-muted);border:2px dashed var(--border);border-radius:var(--radius-md)">
@@ -33217,7 +33401,7 @@ function renderWbFactionsTab(wb) {
           <div class="card" style="border-top:3px solid ${col}">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
               <div style="font-size:15px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary)">${esc(f.name)}</div>
-              <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteWbFaction(${i})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteWbFaction('${proj.id}',${i})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
             </div>
             ${f.type ? `<div style="font-size:11px;padding:2px 8px;background:var(--bg-hover);border-radius:var(--radius-full);color:${col};border:1px solid ${col}33;display:inline-block;margin-bottom:6px">${esc(f.type)}</div>` : ''}
             ${f.desc ? `<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;margin-bottom:6px">${esc(f.desc)}</div>` : ''}
@@ -33229,13 +33413,13 @@ function renderWbFactionsTab(wb) {
   </div>`;
 }
 
-function renderWbTimelineTab(wb) {
+function renderWbTimelineTab(proj, wb) {
   const timeline = [...(wb.timeline || [])].sort((a,b) => (a.year||0) - (b.year||0));
   return `
   <div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
       <div style="font-size:14px;font-weight:600;color:var(--text-primary)"><i class="fas fa-timeline" style="color:var(--asagi);margin-right:8px"></i>歴史・年表 (${timeline.length}件)</div>
-      <button class="btn btn-primary btn-sm" onclick="openAddWbTimeline()"><i class="fas fa-plus"></i> 出来事を追加</button>
+      <button class="btn btn-primary btn-sm" onclick="openAddWbTimeline('${proj.id}')"><i class="fas fa-plus"></i> 出来事を追加</button>
     </div>
     ${timeline.length === 0 ?
       `<div style="text-align:center;padding:60px;color:var(--text-muted);border:2px dashed var(--border);border-radius:var(--radius-md)">
@@ -33253,7 +33437,7 @@ function renderWbTimelineTab(wb) {
                 <span style="font-size:11px;font-weight:700;color:var(--asagi)">${esc(String(e.year||'?'))}年</span>
                 <div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-top:2px">${esc(e.event)}</div>
               </div>
-              <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteWbTimeline(${i})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteWbTimeline('${proj.id}',${i})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
             </div>
             ${e.desc ? `<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;margin-top:5px">${esc(e.desc)}</div>` : ''}
             ${e.impact ? `<div style="font-size:11.5px;color:var(--text-muted);margin-top:4px"><i class="fas fa-bolt" style="font-size:9px;color:var(--kogane);margin-right:3px"></i>影響: ${esc(e.impact)}</div>` : ''}
@@ -33263,24 +33447,7 @@ function renderWbTimelineTab(wb) {
   </div>`;
 }
 
-function saveWbSociety() {
-  const ids = ['social_structure','economy','law','religion','education','military'];
-  const wb = DB.get('worldbuilding', { glossary: [] });
-  ids.forEach(id => {
-    const el = document.getElementById(`wbs-${id}`);
-    if (el) wb[id] = el.value.trim();
-  });
-  DB.set('worldbuilding', wb);
-  toast('社会・政治設定を保存しました', 'success');
-}
-
-function saveWbExtra(field, value) {
-  const wb = DB.get('worldbuilding', { glossary: [] });
-  wb[field] = value;
-  DB.set('worldbuilding', wb);
-}
-
-function openAddWbFaction() {
+function openAddWbFaction(projId) {
   openModal(
     `<i class="fas fa-shield-halved" style="color:var(--asagi)"></i> 勢力・組織を追加`,
     `<div class="form-group"><label class="form-label">名称 <span style="color:var(--accent)">*</span></label><input class="form-input" id="wbf-name" placeholder="例：暁の騎士団"></div>
@@ -33295,34 +33462,38 @@ function openAddWbFaction() {
        <div class="form-group"><label class="form-label">リーダー</label><input class="form-input" id="wbf-leader" placeholder="例：影の皇帝ヴァロン"></div>
      </div>`,
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     <button class="btn btn-primary" onclick="addWbFaction()"><i class="fas fa-plus"></i> 追加</button>`
+     <button class="btn btn-primary" onclick="addWbFaction('${projId}')"><i class="fas fa-plus"></i> 追加</button>`
   );
 }
 
-function addWbFaction() {
+function addWbFaction(projId) {
   const name = $('#wbf-name')?.value?.trim();
   if (!name) { toast('名称を入力してください', 'error'); return; }
-  const wb = DB.get('worldbuilding', { glossary: [], factions: [], timeline: [] });
-  if (!wb.factions) wb.factions = [];
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const wb = getProjWorldbuilding(proj);
   wb.factions.push({
     name, type: $('#wbf-type')?.value || 'その他',
     desc: $('#wbf-desc')?.value?.trim() || '',
     goal: $('#wbf-goal')?.value?.trim() || '',
     leader: $('#wbf-leader')?.value?.trim() || '',
   });
-  DB.set('worldbuilding', wb);
+  proj.updatedAt = now();
+  DB.saveProject(proj);
   closeModal(); toast('勢力を追加しました', 'success'); render();
 }
 
-function deleteWbFaction(idx) {
-  const wb = DB.get('worldbuilding', { glossary: [], factions: [] });
-  if (!wb.factions) return;
+function deleteWbFaction(projId, idx) {
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const wb = getProjWorldbuilding(proj);
   wb.factions.splice(idx, 1);
-  DB.set('worldbuilding', wb);
+  proj.updatedAt = now();
+  DB.saveProject(proj);
   toast('削除しました', 'success'); render();
 }
 
-function openAddWbTimeline() {
+function openAddWbTimeline(projId) {
   openModal(
     `<i class="fas fa-timeline" style="color:var(--asagi)"></i> 歴史的出来事を追加`,
     `<div class="grid-2">
@@ -33332,74 +33503,142 @@ function openAddWbTimeline() {
      <div class="form-group"><label class="form-label">詳細説明</label><textarea class="form-textarea" id="wbt-desc" rows="3" placeholder="この出来事の詳細・背景"></textarea></div>
      <div class="form-group"><label class="form-label">現在への影響</label><input class="form-input" id="wbt-impact" placeholder="例：この事件が現在の南北対立の根本原因になっている"></div>`,
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     <button class="btn btn-primary" onclick="addWbTimeline()"><i class="fas fa-plus"></i> 追加</button>`
+     <button class="btn btn-primary" onclick="addWbTimeline('${projId}')"><i class="fas fa-plus"></i> 追加</button>`
   );
 }
 
-function addWbTimeline() {
+function addWbTimeline(projId) {
   const year = parseInt($('#wbt-year')?.value);
   const event = $('#wbt-event')?.value?.trim();
   if (!event) { toast('出来事の名前を入力してください', 'error'); return; }
-  const wb = DB.get('worldbuilding', { glossary: [], factions: [], timeline: [] });
-  if (!wb.timeline) wb.timeline = [];
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const wb = getProjWorldbuilding(proj);
   wb.timeline.push({
     year: isNaN(year) ? 0 : year, event,
     desc: $('#wbt-desc')?.value?.trim() || '',
     impact: $('#wbt-impact')?.value?.trim() || '',
   });
-  DB.set('worldbuilding', wb);
+  proj.updatedAt = now();
+  DB.saveProject(proj);
   closeModal(); toast('出来事を追加しました', 'success'); render();
 }
 
-function deleteWbTimeline(idx) {
-  const wb = DB.get('worldbuilding', { glossary: [], timeline: [] });
-  if (!wb.timeline) return;
+function deleteWbTimeline(projId, idx) {
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const wb = getProjWorldbuilding(proj);
   wb.timeline.splice(idx, 1);
-  DB.set('worldbuilding', wb);
+  proj.updatedAt = now();
+  DB.saveProject(proj);
   toast('削除しました', 'success'); render();
 }
 
-function saveWorldBuilding() {
-  const fields = ['title','era','setting','rules','geography','culture','politics','technology','history','conflicts'];
-  const wb = DB.get('worldbuilding', { glossary: [] });
-  fields.forEach(f => {
-    const el = $(`#wb-${f}`);
-    if (el) wb[f] = el.value.trim();
-  });
-  DB.set('worldbuilding', wb);
-  toast('世界観設計を保存しました', 'success');
-}
-
-function openAddWbGlossary() {
+function openAddWbGlossary(projId) {
   openModal(
     `<i class="fas fa-plus" style="color:var(--kon-lt)"></i> 用語を追加`,
     `<div class="form-group"><label class="form-label">用語・固有名詞 <span style="color:var(--accent)">*</span></label><input class="form-input" id="wbg-term" placeholder="例：境界石"></div>
      <div class="form-group"><label class="form-label">説明</label><textarea class="form-textarea" id="wbg-def" rows="3" placeholder="例：二つの世界の境界に存在する古代の石柱。特定の血筋を持つ者にのみ反応する"></textarea></div>`,
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     <button class="btn btn-primary" onclick="addWbGlossary()">追加</button>`
+     <button class="btn btn-primary" onclick="addWbGlossary('${projId}')">追加</button>`
   );
 }
 
-function addWbGlossary() {
+function addWbGlossary(projId) {
   const term = $('#wbg-term')?.value?.trim();
   const def = $('#wbg-def')?.value?.trim();
   if (!term) { toast('用語を入力してください', 'error'); return; }
-  const wb = DB.get('worldbuilding', { glossary: [] });
-  if (!wb.glossary) wb.glossary = [];
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const wb = getProjWorldbuilding(proj);
   wb.glossary.push({ term, def });
-  DB.set('worldbuilding', wb);
+  proj.updatedAt = now();
+  DB.saveProject(proj);
   closeModal();
   toast('用語を追加しました', 'success');
-  navigate('worldbuilding');
+  render();
 }
 
-function deleteWbGlossary(idx) {
-  const wb = DB.get('worldbuilding', { glossary: [] });
-  if (!wb.glossary) return;
+function deleteWbGlossary(projId, idx) {
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const wb = getProjWorldbuilding(proj);
   wb.glossary.splice(idx, 1);
-  DB.set('worldbuilding', wb);
+  proj.updatedAt = now();
+  DB.saveProject(proj);
   toast('削除しました', 'info');
-  navigate('worldbuilding');
+  render();
+}
+
+// 世界観設計データ全体をMarkdown資料として書き出す
+function exportWorldBuilding(projId) {
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const wb = getProjWorldbuilding(proj);
+  const lines = [];
+  lines.push(`# ${proj.title} — 世界観設計資料`, '');
+  const mainLabels = {
+    title:'世界観タイトル', era:'時代・時期設定', setting:'舞台・場所', rules:'世界のルール',
+    geography:'地理・地図', culture:'文化・習慣・宗教', politics:'政治・権力構造',
+    technology:'科学技術・魔法体系', history:'重要な歴史・出来事', conflicts:'内在する葛藤・矛盾',
+  };
+  lines.push('## 基本設定');
+  Object.keys(mainLabels).forEach(k => {
+    if (wb[k]) lines.push(`### ${mainLabels[k]}`, wb[k], '');
+  });
+  const societyLabels = {
+    social_structure:'社会構造・階級', economy:'経済・通貨・交易', law:'法律・司法制度',
+    religion:'宗教・信仰体系', education:'教育・知識の伝達', military:'軍事・治安組織',
+  };
+  const hasSociety = Object.keys(societyLabels).some(k => wb[k]);
+  if (hasSociety) {
+    lines.push('## 社会・政治・経済設定');
+    Object.keys(societyLabels).forEach(k => {
+      if (wb[k]) lines.push(`### ${societyLabels[k]}`, wb[k], '');
+    });
+  }
+  if ((wb.locations||[]).length) {
+    lines.push('## 場所・ロケーション');
+    wb.locations.forEach(l => {
+      lines.push(`### ${l.name}${l.type ? '（' + l.type + '）' : ''}`);
+      if (l.desc) lines.push(l.desc);
+      if (l.atmosphere) lines.push(`- 雰囲気: ${l.atmosphere}`);
+      if (l.residents) lines.push(`- 関連する勢力・住人: ${l.residents}`);
+      lines.push('');
+    });
+  }
+  if ((wb.factions||[]).length) {
+    lines.push('## 勢力・組織');
+    wb.factions.forEach(f => {
+      lines.push(`### ${f.name}${f.type ? '（' + f.type + '）' : ''}`);
+      if (f.desc) lines.push(f.desc);
+      if (f.goal) lines.push(`- 目的: ${f.goal}`);
+      if (f.leader) lines.push(`- リーダー: ${f.leader}`);
+      lines.push('');
+    });
+  }
+  if ((wb.timeline||[]).length) {
+    lines.push('## 歴史・年表');
+    [...wb.timeline].sort((a,b)=>(a.year||0)-(b.year||0)).forEach(e => {
+      lines.push(`### ${e.year || '?'}年 — ${e.event}`);
+      if (e.desc) lines.push(e.desc);
+      if (e.impact) lines.push(`- 影響: ${e.impact}`);
+      lines.push('');
+    });
+  }
+  if ((wb.glossary||[]).length) {
+    lines.push('## 用語集');
+    wb.glossary.forEach(g => lines.push(`- **${g.term}**: ${g.def}`));
+    lines.push('');
+  }
+  const output = lines.join('\n');
+  const safeTitle = (proj.title || '無題').replace(/[\\/:*?"<>|]/g, '_');
+  const blob = new Blob([output], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `${safeTitle}_世界観設計資料.md`;
+  a.click(); URL.revokeObjectURL(url);
+  toast('世界観設計資料を書き出しました', 'success');
 }
 
 // ================================================================
