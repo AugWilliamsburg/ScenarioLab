@@ -10777,6 +10777,8 @@ body.modal-open-lock {
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 .hub-rich-editor s, .hub-rich-editor strike, .hub-rich-editor del { opacity: .7; }
+.hub-rich-editor a { color: var(--fuji); text-decoration: underline; cursor: pointer; }
+.hub-rich-editor a:hover { color: var(--fuji-lt); }
 .hub-rich-footer {
   display: flex;
   justify-content: flex-end;

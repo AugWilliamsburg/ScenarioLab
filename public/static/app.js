@@ -627,11 +627,22 @@ function renderHubAutoSaveIndicator(statusId) {
 //  ── 見出し・小見出し・太字・取り消し線・箇条書き・引用に対応した
 //     contenteditable ベースの軽量エディタ。保存前に必ずサニタイズする。
 // ================================================================
-const HUB_RICH_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','S','STRIKE','DEL','U','UL','OL','LI','BLOCKQUOTE','H1','H2','H3','H4','BR','DIV','P','SPAN']);
+const HUB_RICH_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','S','STRIKE','DEL','U','UL','OL','LI','BLOCKQUOTE','H1','H2','H3','H4','BR','DIV','P','SPAN','A']);
+// href が http/https スキームの絶対URLの場合のみ許可し、それ以外（javascript:等の
+// XSSベクター・相対パス・素性不明なスキーム）は無効とみなす
+function _hubRichIsSafeHref(href) {
+  if (!href) return false;
+  try {
+    const u = new URL(href, 'https://example.invalid/');
+    return u.protocol === 'http:' || u.protocol === 'https:';
+  } catch (e) { return false; }
+}
 // 許可タグ以外は「タグだけ外して中の文字は残す」方式で除去し、属性は
-// 許可タグからも全て剥がす（onerror等のイベント属性・style・href等の
-// XSSベクターを完全に除去するため）。<script>等はテンプレート内で
-// そもそも実行されないため実害はないが、念のため中身もテキスト化する。
+// 許可タグからも全て剥がす（onerror等のイベント属性・style等の
+// XSSベクターを完全に除去するため）。<a>タグのみ例外的にhrefを検査の上で
+// 保持し、target="_blank" rel="noopener noreferrer"を強制付与する。
+// <script>等はテンプレート内でそもそも実行されないため実害はないが、
+// 念のため中身もテキスト化する。
 function sanitizeRichHtml(html) {
   if (!html) return '';
   const tpl = document.createElement('template');
@@ -649,6 +660,23 @@ function sanitizeRichHtml(html) {
           parent.insertBefore(node.firstChild, node);
         }
         parent.removeChild(node);
+      } else if (node.tagName === 'A') {
+        const href = node.getAttribute('href');
+        Array.from(node.attributes).forEach(a => node.removeAttribute(a.name));
+        if (_hubRichIsSafeHref(href)) {
+          node.setAttribute('href', href);
+          node.setAttribute('target', '_blank');
+          node.setAttribute('rel', 'noopener noreferrer');
+          queue.push(...Array.from(node.childNodes));
+        } else {
+          // 危険/不正なリンクはタグだけ外して文字だけ残す
+          const parent = node.parentNode;
+          while (node.firstChild) {
+            queue.push(node.firstChild);
+            parent.insertBefore(node.firstChild, node);
+          }
+          parent.removeChild(node);
+        }
       } else {
         Array.from(node.attributes).forEach(a => node.removeAttribute(a.name));
         queue.push(...Array.from(node.childNodes));
@@ -667,6 +695,11 @@ function richHtmlToPlainText(html) {
   tpl.content.querySelectorAll('br').forEach(b => b.replaceWith('\n'));
   tpl.content.querySelectorAll('div,p,h1,h2,h3,h4,li,blockquote').forEach(elm => {
     elm.appendChild(document.createTextNode('\n'));
+  });
+  // リンクはテキストの後にURLを括弧書きで残す（検索・エクスポート時にURL自体も引っかかるように）
+  tpl.content.querySelectorAll('a[href]').forEach(a => {
+    const href = a.getAttribute('href');
+    if (href && href !== (a.textContent || '').trim()) a.appendChild(document.createTextNode(` (${href})`));
   });
   return (tpl.content.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
 }
@@ -700,6 +733,11 @@ function renderHubRichEditor(fieldId, htmlValue, placeholder, oninputExpr) {
       <button type="button" class="hub-rich-btn" id="hub-rich-btn-${fieldId}-ol" title="番号付きリスト" onclick="hubRichExec('${fieldId}','ol')"><i class="fas fa-list-ol"></i></button>
       <button type="button" class="hub-rich-btn" title="引用" onclick="hubRichExec('${fieldId}','quote')"><i class="fas fa-quote-right"></i></button>
       <span class="hub-rich-sep"></span>
+      <button type="button" class="hub-rich-btn" id="hub-rich-btn-${fieldId}-link" title="リンクを挿入/解除" onclick="hubRichExec('${fieldId}','link')"><i class="fas fa-link"></i></button>
+      <span class="hub-rich-sep"></span>
+      <button type="button" class="hub-rich-btn" title="元に戻す (Ctrl+Z)" onclick="hubRichExec('${fieldId}','undo')"><i class="fas fa-rotate-left"></i></button>
+      <button type="button" class="hub-rich-btn" title="やり直し (Ctrl+Y)" onclick="hubRichExec('${fieldId}','redo')"><i class="fas fa-rotate-right"></i></button>
+      <span class="hub-rich-sep"></span>
       <button type="button" class="hub-rich-btn" title="書式をクリア" onclick="hubRichExec('${fieldId}','clear')"><i class="fas fa-eraser"></i></button>
     </div>
     <div class="hub-rich-editor form-textarea" id="${fieldId}" contenteditable="true"
@@ -729,11 +767,36 @@ function hubRichExec(fieldId, type) {
     else if (type === 'quote') document.execCommand('formatBlock', false, 'blockquote');
     else if (type === 'h3') document.execCommand('formatBlock', false, 'h3');
     else if (type === 'h4') document.execCommand('formatBlock', false, 'h4');
+    else if (type === 'undo') document.execCommand('undo');
+    else if (type === 'redo') document.execCommand('redo');
+    else if (type === 'link') hubRichToggleLink(fieldId);
     else if (type === 'clear') { document.execCommand('formatBlock', false, 'p'); document.execCommand('removeFormat'); }
   } catch (e) { /* execCommandが使えない環境では無視 */ }
   // ツールバー操作で内容が変わったことを自動保存側に伝える
   editor.dispatchEvent(new Event('input', { bubbles: true }));
   hubRichUpdateToolbarState(fieldId);
+}
+// リンク挿入/解除：選択範囲がすでにリンク内ならリンクを解除し、そうでなければ
+// URLをプロンプトで入力してリンク化する（http/https以外は拒否）
+function hubRichToggleLink(fieldId) {
+  try {
+    if (document.queryCommandState('createLink') || document.queryCommandState('unlink')) {
+      document.execCommand('unlink');
+      return;
+    }
+  } catch (e) { /* 環境によっては非対応 */ }
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
+    toast('リンクにしたい文字列を選択してください', 'error');
+    return;
+  }
+  const url = window.prompt('リンク先のURL（http:// または https:// で始まるもの）を入力してください');
+  if (!url) return;
+  if (!_hubRichIsSafeHref(url)) {
+    toast('http:// または https:// で始まる有効なURLを入力してください', 'error');
+    return;
+  }
+  try { document.execCommand('createLink', false, url); } catch (e) { /* 非対応環境では無視 */ }
 }
 // 入力時：文字数カウンターを更新する（自動保存トリガーとは別に常に呼ばれる）
 function hubRichOnInput(fieldId) {
@@ -744,9 +807,10 @@ function hubRichOnInput(fieldId) {
     counter.textContent = `${len.toLocaleString()}文字`;
   }
 }
-// カーソル位置の書式（太字/斜体/下線/取り消し線/箇条書き/番号付き）に応じてツールバーボタンをハイライト
+// カーソル位置の書式（太字/斜体/下線/取り消し線/箇条書き/番号付き/リンク）に応じてツールバーボタンをハイライト
 function hubRichUpdateToolbarState(fieldId) {
   const toolbar = document.getElementById(`hub-rich-toolbar-${fieldId}`);
+  const editor = document.getElementById(fieldId);
   if (!toolbar) return;
   Object.entries(HUB_RICH_TOOLBAR_STATE_MAP).forEach(([key, cmd]) => {
     const btn = document.getElementById(`hub-rich-btn-${fieldId}-${key}`);
@@ -755,6 +819,20 @@ function hubRichUpdateToolbarState(fieldId) {
     try { active = document.queryCommandState(cmd); } catch (e) { /* 環境によっては非対応 */ }
     btn.classList.toggle('active', !!active);
   });
+  // リンクボタン：queryCommandStateは信頼性が低いため、カーソル位置の祖先要素を直接走査
+  const linkBtn = document.getElementById(`hub-rich-btn-${fieldId}-link`);
+  if (linkBtn && editor) {
+    let inLink = false;
+    const sel = window.getSelection();
+    if (sel && sel.anchorNode) {
+      let node = sel.anchorNode;
+      while (node && node !== editor) {
+        if (node.nodeType === 1 && node.tagName === 'A') { inLink = true; break; }
+        node = node.parentNode;
+      }
+    }
+    linkBtn.classList.toggle('active', inLink);
+  }
 }
 // 貼り付け時：外部（Word/Webページ等）からの装飾過多なHTMLをそのまま挿入せず、
 // 許可タグのみを残したサニタイズ済みHTMLとして挿入する（プレーンテキストのみの場合は改行を<br>に変換）
