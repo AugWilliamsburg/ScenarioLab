@@ -41239,27 +41239,34 @@ function studyDeleteInput(id) {
 function studyNewInput() { studyEditInput(null); }
 
 // ── 書斎インプットメモ：詳細ハブポップアップ（編集＋関連原稿・コレクションの集約表示） ──
+// id が null の場合は「新規作成」モード：この時点ではDBにまだ保存されておらず、
+// 関連(related)タブ・自動保存は使えない（保存先IDが確定していないため）。
+// 最初の自動保存 or 明示保存が走った時点でDBに登録され、以降は同じ item.id で
+// 自動保存され続ける（studyEditInput自体は再オープンしない）。
 function studyEditInput(id) {
   const item = id ? StudyDB.getInput(id) : newStudyInput();
   if (!item) return;
+  const isNew = !id;
+  const statusId = 'studyinput-autosave-'+item.id;
+  const autoSaveCall = isNew ? '' : `hubAutoSave('studyinput-${item.id}', ()=>persistStudyInputEdit('${item.id}'), '${statusId}')`;
   const catOpts = STUDY_INPUT_CATEGORIES.map(c => `<option value="${c.id}" ${item.category===c.id?'selected':''}>${c.label}</option>`).join('');
   const editPanel = `
     <div class="form-group"><label class="form-label">カテゴリー</label>
-      <select class="form-select" id="si-category">${catOpts}</select></div>
+      <select class="form-select" id="si-category" onchange="${autoSaveCall}">${catOpts}</select></div>
     <div class="grid-2">
       <div class="form-group"><label class="form-label">作家名</label>
-        <input class="form-input" id="si-author" value="${esc(item.author)}" placeholder="例：向田邦子"></div>
+        <input class="form-input" id="si-author" value="${esc(item.author)}" placeholder="例：向田邦子" oninput="${autoSaveCall}"></div>
       <div class="form-group"><label class="form-label">作品名</label>
-        <input class="form-input" id="si-worktitle" value="${esc(item.workTitle)}" placeholder="例：阿修羅のごとく"></div>
+        <input class="form-input" id="si-worktitle" value="${esc(item.workTitle)}" placeholder="例：阿修羅のごとく" oninput="${autoSaveCall}"></div>
     </div>
     <div class="form-group"><label class="form-label">引用・原文（任意）</label>
-      <textarea class="form-textarea" id="si-quote" rows="3" placeholder="印象に残ったセリフ・文章をそのまま">${esc(item.quote)}</textarea></div>
+      ${renderHubRichEditor('si-quote', item.quoteHtml || plainTextToRichHtml(item.quote||''), '印象に残ったセリフ・文章をそのまま', autoSaveCall)}</div>
     <div class="form-group"><label class="form-label">気づき・メモ</label>
-      <textarea class="form-textarea" id="si-memo" rows="4" placeholder="なぜ印象的だったか、どう自分の執筆に活かせるか…">${esc(item.memo)}</textarea></div>
+      ${renderHubRichEditor('si-memo', item.memoHtml || plainTextToRichHtml(item.memo||''), 'なぜ印象的だったか、どう自分の執筆に活かせるか…', autoSaveCall)}</div>
     <div class="form-group"><label class="form-label"><i class="fas fa-tags" style="color:var(--fuji);margin-right:4px"></i>タグ</label>
-      ${renderHubTagEditor('studyinput-'+item.id, item.tags||[])}</div>
+      ${renderHubTagEditor('studyinput-'+item.id, item.tags||[], autoSaveCall)}</div>
     <div class="form-group"><label class="form-label">フォルダ</label>
-      <select class="form-select" id="si-folder">${folderOptionsHtml(studyInputFolderScope, item.folderId)}</select></div>`;
+      <select class="form-select" id="si-folder" onchange="${autoSaveCall}">${folderOptionsHtml(studyInputFolderScope, item.folderId)}</select></div>`;
 
   let relatedPanel = `<div class="hub-empty-mini">まず一度保存すると、関連する原稿・コレクションがここに集約表示されます</div>`;
   if (id) {
@@ -41278,36 +41285,68 @@ function studyEditInput(id) {
             <span class="hub-link-remove" onclick="event.stopPropagation();studyRemoveFromCollection('${c.id}','${id}');studyEditInput('${id}')" title="外す"><i class="fas fa-xmark"></i></span></div>`).join('')}
       </div>`;
   }
-  const metaPanel = id ? (renderHubMetaGrid([
-    { label:'作成日', value: fmtDate(item.createdAt) },
-    { label:'更新日', value: fmtDate(item.updatedAt) },
-    { label:'お気に入り', value: item.favorite ? '★ あり' : '－' },
-  ]) || `<div class="hub-empty-mini">メタ情報はまだありません</div>`) : `<div class="hub-empty-mini">保存後に表示されます</div>`;
+  const supplementPanel = isNew
+    ? `<div class="hub-empty-mini">保存後に補足を追加できます</div>`
+    : `<div class="form-group"><label class="form-label"><i class="fas fa-note-sticky" style="color:var(--matcha);margin-right:4px"></i>補足</label>
+        <textarea class="form-textarea" id="si-note" rows="6" placeholder="関連する背景・気づいたきっかけ・他の作品との比較など自由に書いてください…" oninput="${autoSaveCall}">${esc(item.note||'')}</textarea></div>`;
 
   openModal(
     `<i class="fas fa-inbox" style="color:var(--fuji)"></i> ${id ? 'インプット詳細' : '新しいインプットを追加'}`,
     id ? renderHubTabs('studyinput', [
       { key:'edit', label:'編集', icon:'fa-pen' },
+      { key:'supplement', label:'補足', icon:'fa-note-sticky' },
       { key:'related', label:'関連', icon:'fa-link', badge: (StudyDB.getDrafts().filter(d=>(d.linkedInputIds||[]).includes(id)).length + StudyCollectionDB.getAll().filter(c=>(c.inputIds||[]).includes(id)).length) || null },
-      { key:'meta', label:'メタ情報', icon:'fa-chart-simple' },
-    ], { edit: editPanel, related: relatedPanel, meta: metaPanel }) : editPanel,
-    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+    ], { edit: editPanel, supplement: supplementPanel, related: relatedPanel }) : editPanel,
+    `${isNew ? '' : renderHubAutoSaveIndicator(statusId)}
+     <button class="btn btn-secondary" onclick="${isNew ? 'closeModal()' : `closeStudyInputHub('${item.id}')`}">${isNew ? 'キャンセル' : '閉じる'}</button>
      ${id ? `<button class="btn btn-danger" onclick="studyDeleteInput('${id}')"><i class="fas fa-trash"></i> 削除</button>` : ''}
      <button class="btn btn-primary" onclick="studySaveInputModal('${item.id}')"><i class="fas fa-save"></i> 保存</button>`,
     { size: 'modal-lg' }
   );
 }
 
+// 自動保存・明示的保存の両方から呼ばれる、DBへの書き込みのみを行う関数
+// （closeModal/renderは呼ばない）
+function persistStudyInputEdit(itemId) {
+  const existing = StudyDB.getInput(itemId);
+  if (!existing) return;
+  existing.category = $('#si-category')?.value || 'quote';
+  existing.author = $('#si-author')?.value?.trim() || '';
+  existing.workTitle = $('#si-worktitle')?.value?.trim() || '';
+  const quoteHtml = getHubRichValue('si-quote');
+  const memoHtml = getHubRichValue('si-memo');
+  existing.quoteHtml = quoteHtml;
+  existing.quote = richHtmlToPlainText(quoteHtml);
+  existing.memoHtml = memoHtml;
+  existing.memo = richHtmlToPlainText(memoHtml);
+  existing.tags = getHubTags('studyinput-'+itemId);
+  existing.folderId = $('#si-folder')?.value || '';
+  const noteEl = document.getElementById('si-note');
+  if (noteEl) existing.note = noteEl.value?.trim() || '';
+  existing.updatedAt = now();
+  StudyDB.saveInput(existing);
+}
+function closeStudyInputHub(itemId) {
+  hubFlushAutoSave('studyinput-'+itemId, () => persistStudyInputEdit(itemId));
+  closeModal();
+  render();
+}
 function studySaveInputModal(itemId) {
-  const existing = StudyDB.getInput(itemId) || newStudyInput({ });
+  const existing = StudyDB.getInput(itemId) || newStudyInput({ id: itemId });
   existing.id = itemId;
   existing.category = $('#si-category')?.value || 'quote';
   existing.author = $('#si-author')?.value?.trim() || '';
   existing.workTitle = $('#si-worktitle')?.value?.trim() || '';
-  existing.quote = $('#si-quote')?.value?.trim() || '';
-  existing.memo = $('#si-memo')?.value?.trim() || '';
+  const quoteHtml = getHubRichValue('si-quote');
+  const memoHtml = getHubRichValue('si-memo');
+  existing.quoteHtml = quoteHtml;
+  existing.quote = richHtmlToPlainText(quoteHtml);
+  existing.memoHtml = memoHtml;
+  existing.memo = richHtmlToPlainText(memoHtml);
   existing.tags = getHubTags('studyinput-'+itemId);
   existing.folderId = $('#si-folder')?.value || '';
+  const noteEl = document.getElementById('si-note');
+  if (noteEl) existing.note = noteEl.value?.trim() || '';
   existing.updatedAt = now();
   if (!existing.createdAt) existing.createdAt = now();
   StudyDB.saveInput(existing);
