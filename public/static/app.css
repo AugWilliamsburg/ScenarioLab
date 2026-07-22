@@ -10704,6 +10704,95 @@ body.modal-open-lock {
   color: var(--text-primary);
 }
 
+/* 簡易リッチテキストエディタ（見出し・太字・取り消し線・箇条書き・引用対応） */
+.hub-rich-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.hub-rich-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 6px;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.hub-rich-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  width: 28px;
+  height: 26px;
+  border-radius: 5px;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background .12s, color .12s;
+}
+.hub-rich-btn:hover { background: var(--fuji-bg); color: var(--fuji); }
+.hub-rich-btn:active { background: var(--fuji-border); }
+.hub-rich-btn-sub sub { font-size: 8px; margin-left: 1px; }
+.hub-rich-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border);
+  margin: 0 4px;
+}
+.hub-rich-editor {
+  min-height: 120px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-primary);
+  outline: none;
+  border: none;
+  border-radius: 0;
+}
+.hub-rich-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+}
+.hub-rich-editor h1, .hub-rich-editor h2, .hub-rich-editor h3, .hub-rich-editor h4 {
+  margin: 10px 0 6px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.hub-rich-editor h3 { font-size: 16px; color: var(--fuji); }
+.hub-rich-editor h4 { font-size: 13.5px; color: var(--fuji-lt); }
+.hub-rich-editor ul, .hub-rich-editor ol { margin: 6px 0 6px 18px; padding: 0; }
+.hub-rich-editor li { margin-bottom: 3px; }
+.hub-rich-editor blockquote {
+  margin: 8px 0;
+  padding: 6px 12px;
+  border-left: 3px solid var(--fuji-border);
+  background: var(--fuji-bg);
+  color: var(--text-secondary);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+.hub-rich-editor s, .hub-rich-editor strike, .hub-rich-editor del { opacity: .7; }
+
+/* ハブ共通：自動保存インジケーター（フッターに置く「自動保存」表示） */
+.hub-autosave-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-right: auto;
+  transition: color .2s;
+}
+.hub-autosave-indicator.hub-autosave-flash { color: var(--matcha); }
+.hub-autosave-indicator i { font-size: 10px; }
+
+/* ハブ共通：補足欄（旧メタ情報タブに代わる自由記述欄） */
+.hub-supplement-textarea { min-height: 140px; }
+
 /* ハブ内の関連付けリスト（原稿・コレクション・参照先などのリンク表示） */
 .hub-link-list { display: flex; flex-direction: column; gap: 6px; }
 .hub-link-item {

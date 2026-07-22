@@ -521,9 +521,12 @@ function switchHubTab(hubId, key) {
 
 // タグチップエディタ：クリックで削除できるチップ＋Enterで追加できる入力欄
 // _hubTagState[fieldId] に現在のタグ配列を保持し、保存時にそこから読む
+// onChangeExpr: タグの追加/削除があった時に評価するJS式（呼び出し元の自動保存トリガー用・省略可）
 const _hubTagState = {};
-function renderHubTagEditor(fieldId, tags) {
+const _hubTagOnChange = {};
+function renderHubTagEditor(fieldId, tags, onChangeExpr) {
   _hubTagState[fieldId] = (tags || []).slice();
+  _hubTagOnChange[fieldId] = onChangeExpr || '';
   return `<div class="hub-tag-editor" id="hub-tagwrap-${fieldId}" onclick="document.getElementById('hub-taginput-${fieldId}').focus()">
     ${_hubTagEditorInner(fieldId)}
   </div>`;
@@ -536,6 +539,11 @@ function _hubTagEditorInner(fieldId) {
         onkeydown="if(event.key==='Enter'){event.preventDefault();addHubTag('${fieldId}');}"
         onclick="event.stopPropagation()">`;
 }
+function _hubTagFireOnChange(fieldId) {
+  const expr = _hubTagOnChange[fieldId];
+  if (!expr) return;
+  try { (new Function(expr))(); } catch (e) { console.error('タグ変更コールバックエラー:', e); }
+}
 function addHubTag(fieldId) {
   const input = document.getElementById(`hub-taginput-${fieldId}`);
   const val = input?.value?.trim();
@@ -545,18 +553,22 @@ function addHubTag(fieldId) {
   const wrap = document.getElementById(`hub-tagwrap-${fieldId}`);
   if (wrap) wrap.innerHTML = _hubTagEditorInner(fieldId);
   document.getElementById(`hub-taginput-${fieldId}`)?.focus();
+  _hubTagFireOnChange(fieldId);
 }
 function removeHubTag(fieldId, idx) {
   if (!_hubTagState[fieldId]) return;
   _hubTagState[fieldId].splice(idx, 1);
   const wrap = document.getElementById(`hub-tagwrap-${fieldId}`);
   if (wrap) wrap.innerHTML = _hubTagEditorInner(fieldId);
+  _hubTagFireOnChange(fieldId);
 }
 function getHubTags(fieldId) {
   return (_hubTagState[fieldId] || []).slice();
 }
 
 // メタ情報チップ（作成日・更新日・文字数など）の並び生成
+// ※ 2026年改修で「メタ情報」タブは廃止され「補足」タブに置き換えられたため、
+//    現在はどのハブからも呼ばれていない（後方互換のため関数のみ残す）
 function renderHubMetaGrid(items) {
   // items: [{label, value}]
   const filtered = items.filter(it => it && it.value != null && it.value !== '');
@@ -566,6 +578,150 @@ function renderHubMetaGrid(items) {
       <div class="hub-meta-chip-label">${esc(it.label)}</div>
       <div class="hub-meta-chip-value">${it.value}</div>
     </div>`).join('')}</div>`;
+}
+
+// ================================================================
+//  ハブ共通：自動保存インフラ
+//  ── 「保存」ボタンを押さなくても、入力するたびに自動でDBへ保存される
+//     ようにするための共通ヘルパー群。各ハブの persist 関数（DBへの
+//     書き込みのみ・closeModal/render を呼ばない）をデバウンスして呼ぶ。
+// ================================================================
+const _hubAutoSaveTimers = {};
+// 入力があるたびに呼ぶ。600ms後、直前の呼び出しがなければ実際に保存する
+function hubAutoSave(key, persistFn, statusId, delay = 600) {
+  clearTimeout(_hubAutoSaveTimers[key]);
+  _hubAutoSaveTimers[key] = setTimeout(() => {
+    delete _hubAutoSaveTimers[key];
+    try { persistFn(); } catch (e) { console.error('自動保存エラー:', e); }
+    hubFlashSaved(statusId);
+  }, delay);
+}
+// モーダルを閉じる際など、保留中の自動保存タイマーがあれば即時実行して確定させる
+function hubFlushAutoSave(key, persistFn) {
+  if (_hubAutoSaveTimers[key]) {
+    clearTimeout(_hubAutoSaveTimers[key]);
+    delete _hubAutoSaveTimers[key];
+  }
+  try { persistFn(); } catch (e) { console.error('自動保存エラー:', e); }
+}
+// フッターの「自動保存」インジケーターを一時的に「保存しました」表示にする
+function hubFlashSaved(statusId) {
+  if (!statusId) return;
+  const elm = document.getElementById(statusId);
+  if (!elm) return;
+  elm.classList.add('hub-autosave-flash');
+  elm.innerHTML = '<i class="fas fa-check-circle"></i> 保存しました';
+  clearTimeout(elm._hubFadeTimer);
+  elm._hubFadeTimer = setTimeout(() => {
+    elm.classList.remove('hub-autosave-flash');
+    elm.innerHTML = '<i class="fas fa-cloud"></i> 自動保存';
+  }, 1800);
+}
+// ハブのフッターに置く「自動保存」ステータス表示の共通HTML
+function renderHubAutoSaveIndicator(statusId) {
+  return `<span class="hub-autosave-indicator" id="${statusId}"><i class="fas fa-cloud"></i> 自動保存</span>`;
+}
+
+// ================================================================
+//  ハブ共通：簡易リッチテキストエディタ
+//  ── 見出し・小見出し・太字・取り消し線・箇条書き・引用に対応した
+//     contenteditable ベースの軽量エディタ。保存前に必ずサニタイズする。
+// ================================================================
+const HUB_RICH_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','S','STRIKE','DEL','U','UL','OL','LI','BLOCKQUOTE','H1','H2','H3','H4','BR','DIV','P','SPAN']);
+// 許可タグ以外は「タグだけ外して中の文字は残す」方式で除去し、属性は
+// 許可タグからも全て剥がす（onerror等のイベント属性・style・href等の
+// XSSベクターを完全に除去するため）。<script>等はテンプレート内で
+// そもそも実行されないため実害はないが、念のため中身もテキスト化する。
+function sanitizeRichHtml(html) {
+  if (!html) return '';
+  const tpl = document.createElement('template');
+  tpl.innerHTML = String(html);
+  const root = tpl.content;
+  const queue = Array.from(root.childNodes);
+  while (queue.length) {
+    const node = queue.shift();
+    if (!node || !node.parentNode) continue;
+    if (node.nodeType === 1) {
+      if (!HUB_RICH_ALLOWED_TAGS.has(node.tagName)) {
+        const parent = node.parentNode;
+        while (node.firstChild) {
+          queue.push(node.firstChild);
+          parent.insertBefore(node.firstChild, node);
+        }
+        parent.removeChild(node);
+      } else {
+        Array.from(node.attributes).forEach(a => node.removeAttribute(a.name));
+        queue.push(...Array.from(node.childNodes));
+      }
+    } else if (node.nodeType !== 3) {
+      node.parentNode.removeChild(node);
+    }
+  }
+  return Array.from(root.childNodes).map(n => n.nodeType === 1 ? n.outerHTML : (n.textContent || '')).join('');
+}
+// リッチHTML → プレーンテキスト変換（検索・エクスポート・カード抜粋表示・他機能への送信用）
+function richHtmlToPlainText(html) {
+  if (!html) return '';
+  const tpl = document.createElement('template');
+  tpl.innerHTML = String(html);
+  tpl.content.querySelectorAll('br').forEach(b => b.replaceWith('\n'));
+  tpl.content.querySelectorAll('div,p,h1,h2,h3,h4,li,blockquote').forEach(elm => {
+    elm.appendChild(document.createTextNode('\n'));
+  });
+  return (tpl.content.textContent || '').replace(/\n{3,}/g, '\n\n').trim();
+}
+// 素のプレーンテキスト（旧データ・改行のみ）をエディタ初期表示用HTMLに変換
+function plainTextToRichHtml(text) {
+  return esc(text || '').replace(/\n/g, '<br>');
+}
+// ツールバー付きリッチエディタ本体のHTML生成
+//   fieldId: contenteditable要素のid（ツールバー操作の対象を特定するために使う）
+//   htmlValue: 初期表示するHTML（すでにサニタイズ済みの想定）
+//   placeholder: 空のときに表示するプレースホルダ文言
+//   oninputExpr: contenteditableのoninput属性に渡すJS式（呼び出し元の自動保存関数呼び出し等）
+function renderHubRichEditor(fieldId, htmlValue, placeholder, oninputExpr) {
+  const safeHtml = sanitizeRichHtml(htmlValue || '');
+  return `
+  <div class="hub-rich-wrap">
+    <div class="hub-rich-toolbar">
+      <button type="button" class="hub-rich-btn" title="見出し" onclick="hubRichExec('${fieldId}','h3')"><i class="fas fa-heading"></i></button>
+      <button type="button" class="hub-rich-btn hub-rich-btn-sub" title="小見出し" onclick="hubRichExec('${fieldId}','h4')"><i class="fas fa-heading"></i><sub>2</sub></button>
+      <span class="hub-rich-sep"></span>
+      <button type="button" class="hub-rich-btn" title="太字" onclick="hubRichExec('${fieldId}','bold')"><i class="fas fa-bold"></i></button>
+      <button type="button" class="hub-rich-btn" title="取り消し線" onclick="hubRichExec('${fieldId}','strike')"><i class="fas fa-strikethrough"></i></button>
+      <span class="hub-rich-sep"></span>
+      <button type="button" class="hub-rich-btn" title="箇条書き" onclick="hubRichExec('${fieldId}','ul')"><i class="fas fa-list-ul"></i></button>
+      <button type="button" class="hub-rich-btn" title="引用" onclick="hubRichExec('${fieldId}','quote')"><i class="fas fa-quote-right"></i></button>
+      <span class="hub-rich-sep"></span>
+      <button type="button" class="hub-rich-btn" title="書式をクリア" onclick="hubRichExec('${fieldId}','clear')"><i class="fas fa-eraser"></i></button>
+    </div>
+    <div class="hub-rich-editor form-textarea" id="${fieldId}" contenteditable="true"
+         data-placeholder="${esc(placeholder || '')}"
+         oninput="${esc(oninputExpr || '')}">${safeHtml}</div>
+  </div>`;
+}
+// ツールバーボタンのクリックハンドラ（document.execCommandで簡易的に書式適用）
+function hubRichExec(fieldId, type) {
+  const editor = document.getElementById(fieldId);
+  if (!editor) return;
+  editor.focus();
+  try {
+    if (type === 'bold') document.execCommand('bold');
+    else if (type === 'strike') document.execCommand('strikeThrough');
+    else if (type === 'ul') document.execCommand('insertUnorderedList');
+    else if (type === 'quote') document.execCommand('formatBlock', false, 'blockquote');
+    else if (type === 'h3') document.execCommand('formatBlock', false, 'h3');
+    else if (type === 'h4') document.execCommand('formatBlock', false, 'h4');
+    else if (type === 'clear') { document.execCommand('formatBlock', false, 'p'); document.execCommand('removeFormat'); }
+  } catch (e) { /* execCommandが使えない環境では無視 */ }
+  // ツールバー操作で内容が変わったことを自動保存側に伝える
+  editor.dispatchEvent(new Event('input', { bubbles: true }));
+}
+// contenteditableの現在の中身をサニタイズ済みHTMLとして取得
+function getHubRichValue(fieldId) {
+  const editor = document.getElementById(fieldId);
+  if (!editor) return '';
+  return sanitizeRichHtml(editor.innerHTML);
 }
 
 // ── Project Factory ────────────────────────────────────────────
@@ -3051,46 +3207,46 @@ function openIdeaHub(projId, ideaId) {
   const proj = DB.getProject(projId);
   const idea = (proj?.ideas||[]).find(i => i.id === ideaId);
   if (!idea) return;
-  const wordCount = (idea.body||'').length;
+  const autoSaveKey = 'idea-'+ideaId;
+  const statusId = 'idea-autosave-'+ideaId;
+  const autoSaveCall = `hubAutoSave('${autoSaveKey}', ()=>persistIdeaEdit('${projId}','${ideaId}'), '${statusId}')`;
   const panels = {
     edit: `
       <div class="form-group">
         <label class="form-label">タイトル</label>
-        <input class="form-input" id="ei-title" value="${esc(idea.title||'')}">
+        <input class="form-input" id="ei-title" value="${esc(idea.title||'')}" oninput="${autoSaveCall}">
       </div>
       <div class="form-group">
         <label class="form-label">内容</label>
-        <textarea class="form-textarea" id="ei-body" rows="6">${esc(idea.body||'')}</textarea>
+        ${renderHubRichEditor('ei-body', idea.bodyHtml || plainTextToRichHtml(idea.body||''), '思いついたことを書いてみましょう…', autoSaveCall)}
       </div>
       <div class="grid-2">
         <div class="form-group">
           <label class="form-label">種類</label>
-          <select class="form-select" id="ei-type">
+          <select class="form-select" id="ei-type" onchange="${autoSaveCall}">
             ${['メモ','シーン','セリフ','テーマ','キャラクター','設定'].map(t=>`<option ${t===idea.type?'selected':''}>${t}</option>`).join('')}
           </select>
         </div>
         <div class="form-group">
           <label class="form-label">優先度</label>
-          <select class="form-select" id="ei-priority">
+          <select class="form-select" id="ei-priority" onchange="${autoSaveCall}">
             ${['普通','高','低'].map(t=>`<option ${t===idea.priority?'selected':''}>${t}</option>`).join('')}
           </select>
         </div>
       </div>
       <div class="form-group">
         <label class="form-label">フォルダ</label>
-        <select class="form-select" id="ei-folder">${folderOptionsHtml('ideas_'+projId, idea.folderId||'')}</select>
+        <select class="form-select" id="ei-folder" onchange="${autoSaveCall}">${folderOptionsHtml('ideas_'+projId, idea.folderId||'')}</select>
       </div>
       <div class="form-group">
         <label class="form-label"><i class="fas fa-tags" style="color:var(--fuji);margin-right:4px"></i>タグ</label>
-        ${renderHubTagEditor('idea-'+ideaId, idea.tags||[])}
+        ${renderHubTagEditor('idea-'+ideaId, idea.tags||[], autoSaveCall)}
       </div>`,
-    meta: `
-      ${renderHubMetaGrid([
-        { label:'作成日', value: fmtDate(idea.createdAt) },
-        { label:'文字数', value: wordCount + ' 文字' },
-        { label:'種類', value: esc(idea.type||'メモ') },
-        { label:'優先度', value: esc(idea.priority||'普通') },
-      ])}
+    supplement: `
+      <div class="form-group">
+        <label class="form-label"><i class="fas fa-note-sticky" style="color:var(--matcha);margin-right:4px"></i>補足</label>
+        <textarea class="form-textarea" id="ei-note" rows="6" placeholder="関連する背景・参考にしたもの・思いついたきっかけなど自由に書いてください…" oninput="${autoSaveCall}">${esc(idea.note||'')}</textarea>
+      </div>
       <div class="form-group" style="margin-top:6px">
         <label class="form-label"><i class="fas fa-share" style="color:var(--matcha);margin-right:4px"></i>他機能へ送る</label>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
@@ -3102,28 +3258,43 @@ function openIdeaHub(projId, ideaId) {
     `<i class="fas fa-lightbulb" style="color:#f7c56a"></i> アイデア詳細`,
     renderHubTabs('idea', [
       { key:'edit', label:'編集', icon:'fa-pen' },
-      { key:'meta', label:'メタ情報', icon:'fa-chart-simple' },
+      { key:'supplement', label:'補足', icon:'fa-note-sticky' },
     ], panels),
-    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     <button class="btn btn-danger" onclick="confirmDeleteIdea('${projId}','${ideaId}')"><i class="fas fa-trash"></i> 削除</button>
-     <button class="btn btn-primary" onclick="saveEditIdea('${projId}','${ideaId}')"><i class="fas fa-floppy-disk"></i> 保存</button>`,
+    `${renderHubAutoSaveIndicator(statusId)}
+     <button class="btn btn-secondary" onclick="closeIdeaHub('${projId}','${ideaId}')">閉じる</button>
+     <button class="btn btn-danger" onclick="confirmDeleteIdea('${projId}','${ideaId}')"><i class="fas fa-trash"></i> 削除</button>`,
     { size: 'modal-lg' }
   );
 }
 function editIdea(projId, ideaId) { openIdeaHub(projId, ideaId); }
 
-function saveEditIdea(projId, ideaId) {
+// 自動保存・明示的保存の両方から呼ばれる、DBへの書き込みのみを行う関数
+// （closeModal/renderは呼ばない。内容欄はリッチHTML(bodyHtml)を保存し、
+//   一覧カード表示等で使うプレーンテキスト(body)も同時に同期させる）
+function persistIdeaEdit(projId, ideaId) {
   const proj = DB.getProject(projId);
   const idea = (proj?.ideas||[]).find(i => i.id === ideaId);
   if (!idea) return;
   idea.title = $('#ei-title')?.value?.trim() || '';
-  idea.body  = $('#ei-body')?.value?.trim() || '';
-  idea.type  = $('#ei-type')?.value || 'メモ';
+  idea.bodyHtml = getHubRichValue('ei-body');
+  idea.body = richHtmlToPlainText(idea.bodyHtml);
+  idea.type = $('#ei-type')?.value || 'メモ';
   idea.priority = $('#ei-priority')?.value || '普通';
   idea.folderId = $('#ei-folder')?.value || '';
   idea.tags = getHubTags('idea-'+ideaId);
+  idea.note = $('#ei-note')?.value?.trim() || '';
   proj.updatedAt = now();
   DB.saveProject(proj);
+}
+// モーダルを閉じる際、保留中の自動保存があれば即時確定してから閉じる
+function closeIdeaHub(projId, ideaId) {
+  hubFlushAutoSave('idea-'+ideaId, () => persistIdeaEdit(projId, ideaId));
+  closeModal();
+  render();
+}
+// 後方互換：他コードから直接呼ばれる可能性がある旧関数名（保存して閉じる）
+function saveEditIdea(projId, ideaId) {
+  persistIdeaEdit(projId, ideaId);
   closeModal(); toast('更新しました', 'success'); render();
 }
 
@@ -3191,32 +3362,41 @@ function deleteKeyword(projId, kw) {
 function editMoodItem(projId, category) {
   const proj = DB.getProject(projId);
   const item = (proj?.moodboard||[]).find(m => m.category === category);
-  const metaHtml = item ? (renderHubMetaGrid([
-    { label:'更新日', value: fmtDate(item.updatedAt) },
-    { label:'文字数', value: (item.content||'').length ? (item.content||'').length + '文字' : null },
-  ]) || '') : '';
+  const autoSaveKey = 'mood-'+projId+'-'+category;
+  const statusId = 'mood-autosave-'+projId;
+  const autoSaveCall = `hubAutoSave('${autoSaveKey}', ()=>persistMoodItem('${projId}','${esc(category).replace(/'/g,"\\'")}'), '${statusId}')`;
   openModal(
     `<i class="fas fa-palette" style="color:var(--accent2)"></i> ${esc(category)}`,
-    `${metaHtml}
-    <div class="form-group">
+    `<div class="form-group">
       <label class="form-label">内容・イメージ</label>
-      <textarea class="form-textarea" id="mood-content" rows="5" placeholder="${esc(category)}について自由に書いてください…">${esc(item?.content||'')}</textarea>
+      ${renderHubRichEditor('mood-content', item?.contentHtml || plainTextToRichHtml(item?.content||''), category+'について自由に書いてください…', autoSaveCall)}
     </div>`,
-    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     <button class="btn btn-primary" onclick="saveMoodItem('${projId}','${esc(category)}')">保存</button>`
+    `${renderHubAutoSaveIndicator(statusId)}
+     <button class="btn btn-secondary" onclick="closeMoodItemHub('${projId}','${esc(category).replace(/'/g,"\\'")}')">閉じる</button>`
   );
 }
 
-function saveMoodItem(projId, category) {
+// 自動保存・閉じる時の両方から呼ばれる、DBへの書き込みのみを行う関数
+function persistMoodItem(projId, category) {
   const proj = DB.getProject(projId);
   if (!proj) return;
   proj.moodboard = proj.moodboard || [];
   const idx = proj.moodboard.findIndex(m => m.category === category);
-  const content = $('#mood-content')?.value?.trim() || '';
-  if (idx >= 0) { proj.moodboard[idx].content = content; proj.moodboard[idx].updatedAt = now(); }
-  else proj.moodboard.push({ category, content, updatedAt: now() });
+  const contentHtml = getHubRichValue('mood-content');
+  const content = richHtmlToPlainText(contentHtml);
+  if (idx >= 0) { proj.moodboard[idx].content = content; proj.moodboard[idx].contentHtml = contentHtml; proj.moodboard[idx].updatedAt = now(); }
+  else proj.moodboard.push({ category, content, contentHtml, updatedAt: now() });
   proj.updatedAt = now();
   DB.saveProject(proj);
+}
+function closeMoodItemHub(projId, category) {
+  hubFlushAutoSave('mood-'+projId+'-'+category, () => persistMoodItem(projId, category));
+  closeModal();
+  render();
+}
+// 後方互換：旧関数名（保存して閉じる）
+function saveMoodItem(projId, category) {
+  persistMoodItem(projId, category);
   closeModal(); render();
 }
 
@@ -3463,61 +3643,76 @@ function openResearchNoteHub(projId, id) {
   const proj = DB.getProject(projId);
   const n = (proj?.research?.notes||[]).find(x => x.id === id);
   if (!n) return;
+  const autoSaveKey = 'research-'+id;
+  const statusId = 'research-autosave-'+id;
+  const autoSaveCall = `hubAutoSave('${autoSaveKey}', ()=>persistResearchNoteEdit('${projId}','${id}'), '${statusId}')`;
   const panels = {
     edit: `
     <div class="form-group">
       <label class="form-label">タイトル</label>
-      <input class="form-input" id="ern-title" value="${esc(n.title||'')}">
+      <input class="form-input" id="ern-title" value="${esc(n.title||'')}" oninput="${autoSaveCall}">
     </div>
     <div class="form-group">
       <label class="form-label">カテゴリ</label>
-      <select class="form-select" id="ern-cat">
+      <select class="form-select" id="ern-cat" onchange="${autoSaveCall}">
         ${['職業・専門知識','時代・歴史','地理・場所','人物・実在モデル','法律・制度','文化・慣習','その他'].map(c=>`<option ${c===n.category?'selected':''}>${c}</option>`).join('')}
       </select>
     </div>
     <div class="form-group">
       <label class="form-label">内容</label>
-      <textarea class="form-textarea" id="ern-body" rows="6">${esc(n.body||'')}</textarea>
+      ${renderHubRichEditor('ern-body', n.bodyHtml || plainTextToRichHtml(n.body||''), '調べたことを書いてみましょう…', autoSaveCall)}
     </div>
     <div class="form-group">
       <label class="form-label">フォルダ</label>
-      <select class="form-select" id="ern-folder">${folderOptionsHtml('researchnotes_'+projId, n.folderId||'')}</select>
+      <select class="form-select" id="ern-folder" onchange="${autoSaveCall}">${folderOptionsHtml('researchnotes_'+projId, n.folderId||'')}</select>
     </div>
     <div class="form-group">
       <label class="form-label"><i class="fas fa-tags" style="color:var(--fuji);margin-right:4px"></i>タグ</label>
-      ${renderHubTagEditor('research-'+id, n.tags||[])}
+      ${renderHubTagEditor('research-'+id, n.tags||[], autoSaveCall)}
     </div>`,
-    meta: renderHubMetaGrid([
-      { label:'作成日', value: fmtDate(n.createdAt) },
-      { label:'文字数', value: (n.body||'').length + ' 文字' },
-      { label:'カテゴリ', value: esc(n.category||'その他') },
-    ]) || `<div class="hub-empty-mini">メタ情報はまだありません</div>`,
+    supplement: `
+    <div class="form-group">
+      <label class="form-label"><i class="fas fa-note-sticky" style="color:var(--matcha);margin-right:4px"></i>補足</label>
+      <textarea class="form-textarea" id="ern-note" rows="6" placeholder="出典・参考文献・補足情報など自由に書いてください…" oninput="${autoSaveCall}">${esc(n.note||'')}</textarea>
+    </div>`,
   };
   openModal(
     `<i class="fas fa-book-open" style="color:var(--kon-lt)"></i> リサーチノート詳細`,
     renderHubTabs('research', [
       { key:'edit', label:'編集', icon:'fa-pen' },
-      { key:'meta', label:'メタ情報', icon:'fa-chart-simple' },
+      { key:'supplement', label:'補足', icon:'fa-note-sticky' },
     ], panels),
-    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     <button class="btn btn-danger" onclick="confirmDeleteResearchNote('${projId}','${id}')"><i class="fas fa-trash"></i> 削除</button>
-     <button class="btn btn-primary" onclick="saveEditResearchNote('${projId}','${id}')"><i class="fas fa-floppy-disk"></i> 保存</button>`,
+    `${renderHubAutoSaveIndicator(statusId)}
+     <button class="btn btn-secondary" onclick="closeResearchNoteHub('${projId}','${id}')">閉じる</button>
+     <button class="btn btn-danger" onclick="confirmDeleteResearchNote('${projId}','${id}')"><i class="fas fa-trash"></i> 削除</button>`,
     { size: 'modal-lg' }
   );
 }
 function editResearchNote(projId, id) { openResearchNoteHub(projId, id); }
 
-function saveEditResearchNote(projId, id) {
+// 自動保存・閉じる時の両方から呼ばれる、DBへの書き込みのみを行う関数
+function persistResearchNoteEdit(projId, id) {
   const proj = DB.getProject(projId);
   const n = (proj?.research?.notes||[]).find(x => x.id === id);
   if (!n) return;
   n.title = $('#ern-title')?.value?.trim() || '';
   n.category = $('#ern-cat')?.value || 'その他';
-  n.body = $('#ern-body')?.value?.trim() || '';
+  n.bodyHtml = getHubRichValue('ern-body');
+  n.body = richHtmlToPlainText(n.bodyHtml);
   n.folderId = $('#ern-folder')?.value || '';
   n.tags = getHubTags('research-'+id);
+  n.note = $('#ern-note')?.value?.trim() || '';
   proj.updatedAt = now();
   DB.saveProject(proj);
+}
+function closeResearchNoteHub(projId, id) {
+  hubFlushAutoSave('research-'+id, () => persistResearchNoteEdit(projId, id));
+  closeModal();
+  render();
+}
+// 後方互換：旧関数名（保存して閉じる）
+function saveEditResearchNote(projId, id) {
+  persistResearchNoteEdit(projId, id);
   closeModal(); toast('更新しました','success'); render();
 }
 
@@ -26388,46 +26583,60 @@ function openWorldNoteHub(idx) {
   const n = notes[idx];
   if (!n) return;
   const WORLD_CATS = ['設定・ルール','地名・場所','用語・専門語','キャラ設定メモ','時代・時系列','その他'];
+  const statusId = 'world-autosave-'+idx;
+  const autoSaveCall = `hubAutoSave('world-${idx}', ()=>persistWorldNoteEdit(${idx}), '${statusId}')`;
   const panels = {
     edit: `
-     <div class="form-group"><label class="form-label">タイトル</label><input class="form-input" id="ewn-title" value="${esc(n.title||'')}"></div>
-     <div class="form-group"><label class="form-label">カテゴリ</label><select class="form-select" id="ewn-category">${WORLD_CATS.map(c=>`<option ${c===n.category?'selected':''}>${c}</option>`).join('')}</select></div>
-     <div class="form-group"><label class="form-label">内容</label><textarea class="form-textarea" id="ewn-body" rows="4">${esc(n.body||'')}</textarea></div>
-     <div class="form-group"><label class="form-label">フォルダ</label><select class="form-select" id="ewn-folder">${folderOptionsHtml('world_notes', n.folderId||'')}</select></div>
+     <div class="form-group"><label class="form-label">タイトル</label><input class="form-input" id="ewn-title" value="${esc(n.title||'')}" oninput="${autoSaveCall}"></div>
+     <div class="form-group"><label class="form-label">カテゴリ</label><select class="form-select" id="ewn-category" onchange="${autoSaveCall}">${WORLD_CATS.map(c=>`<option ${c===n.category?'selected':''}>${c}</option>`).join('')}</select></div>
+     <div class="form-group"><label class="form-label">内容</label>${renderHubRichEditor('ewn-body', n.bodyHtml || plainTextToRichHtml(n.body||''), '世界観の設定を書いてみましょう…', autoSaveCall)}</div>
+     <div class="form-group"><label class="form-label">フォルダ</label><select class="form-select" id="ewn-folder" onchange="${autoSaveCall}">${folderOptionsHtml('world_notes', n.folderId||'')}</select></div>
      <div class="form-group">
        <label class="form-label"><i class="fas fa-tags" style="color:var(--fuji);margin-right:4px"></i>タグ</label>
-       ${renderHubTagEditor('world-'+idx, n.tags||[])}
+       ${renderHubTagEditor('world-'+idx, n.tags||[], autoSaveCall)}
      </div>`,
-    meta: renderHubMetaGrid([
-      { label:'作成日', value: n.createdAt?.slice(0,10)||'' },
-      { label:'文字数', value: (n.body||'').length + ' 文字' },
-      { label:'カテゴリ', value: esc(n.category||'その他') },
-    ]) || `<div class="hub-empty-mini">メタ情報はまだありません</div>`,
+    supplement: `
+     <div class="form-group">
+       <label class="form-label"><i class="fas fa-note-sticky" style="color:var(--matcha);margin-right:4px"></i>補足</label>
+       <textarea class="form-textarea" id="ewn-note" rows="6" placeholder="関連する設定・参考資料・思いついたきっかけなど自由に書いてください…" oninput="${autoSaveCall}">${esc(n.note||'')}</textarea>
+     </div>`,
   };
   openModal(
     `<i class="fas fa-globe" style="color:var(--asagi)"></i> 世界観メモ詳細`,
     renderHubTabs('world', [
       { key:'edit', label:'編集', icon:'fa-pen' },
-      { key:'meta', label:'メタ情報', icon:'fa-chart-simple' },
+      { key:'supplement', label:'補足', icon:'fa-note-sticky' },
     ], panels),
-    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     <button class="btn btn-danger" onclick="confirmDeleteWorldNote(${idx})"><i class="fas fa-trash"></i> 削除</button>
-     <button class="btn btn-primary" onclick="saveEditWorldNote(${idx})"><i class="fas fa-floppy-disk"></i> 保存</button>`,
+    `${renderHubAutoSaveIndicator(statusId)}
+     <button class="btn btn-secondary" onclick="closeWorldNoteHub(${idx})">閉じる</button>
+     <button class="btn btn-danger" onclick="confirmDeleteWorldNote(${idx})"><i class="fas fa-trash"></i> 削除</button>`,
     { size: 'modal-lg' }
   );
 }
 function editWorldNote(idx) { openWorldNoteHub(idx); }
 
-function saveEditWorldNote(idx) {
+// 自動保存・閉じる時の両方から呼ばれる、localStorageへの書き込みのみを行う関数
+function persistWorldNoteEdit(idx) {
   const notes = JSON.parse(localStorage.getItem('sl_world_notes') || '[]');
   const n = notes[idx];
   if (!n) return;
   n.title = document.getElementById('ewn-title')?.value.trim() || n.title;
   n.category = document.getElementById('ewn-category')?.value || n.category;
-  n.body = document.getElementById('ewn-body')?.value.trim() || '';
+  n.bodyHtml = getHubRichValue('ewn-body');
+  n.body = richHtmlToPlainText(n.bodyHtml);
   n.folderId = document.getElementById('ewn-folder')?.value || '';
   n.tags = getHubTags('world-'+idx);
+  n.note = document.getElementById('ewn-note')?.value.trim() || '';
   localStorage.setItem('sl_world_notes', JSON.stringify(notes));
+}
+function closeWorldNoteHub(idx) {
+  hubFlushAutoSave('world-'+idx, () => persistWorldNoteEdit(idx));
+  closeModal();
+  render();
+}
+// 後方互換：旧関数名（保存して閉じる）
+function saveEditWorldNote(idx) {
+  persistWorldNoteEdit(idx);
   closeModal(); toast('更新しました', 'success'); render();
 }
 
@@ -34017,57 +34226,75 @@ function editProjectNote(projId, idx) {
   const notes = DB.get('project_notes_' + projId, []);
   const n = notes[idx];
   if (!n) return;
+  const statusId = 'pn-autosave-'+projId+'-'+idx;
+  const autoSaveCall = `hubAutoSave('pn-${projId}-${idx}', ()=>persistProjectNoteEdit('${projId}',${idx}), '${statusId}')`;
   openModal(
     '<i class="fas fa-pen" style="color:var(--fuji)"></i> ノートを編集',
     `<div class="form-group">
       <label class="form-label">タイトル</label>
-      <input class="form-input" id="pn-title" value="${esc(n.title||'')}">
+      <input class="form-input" id="pn-title" value="${esc(n.title||'')}" oninput="${autoSaveCall}">
     </div>
     <div class="form-group">
       <label class="form-label">内容</label>
-      <textarea class="form-textarea" id="pn-body" rows="6">${esc(n.body||'')}</textarea>
+      ${renderHubRichEditor('pn-body', n.bodyHtml || plainTextToRichHtml(n.body||''), '内容を書いてみましょう…', autoSaveCall)}
     </div>
     <div class="grid-2">
       <div class="form-group">
         <label class="form-label">カテゴリ</label>
-        <select class="form-select" id="pn-cat">
+        <select class="form-select" id="pn-cat" onchange="${autoSaveCall}">
           ${['一般','プロット','キャラクター','世界観','セリフ','構成','テーマ','リサーチ'].map(c=>`<option value="${c}" ${c===n.category?'selected':''}>${c}</option>`).join('')}
         </select>
       </div>
       <div class="form-group">
         <label class="form-label">タグ</label>
-        <input class="form-input" id="pn-tags" value="${esc((n.tags||[]).join(' '))}">
+        <input class="form-input" id="pn-tags" value="${esc((n.tags||[]).join(' '))}" oninput="${autoSaveCall}">
       </div>
     </div>
     <div class="form-group">
       <label class="form-label">フォルダ</label>
-      <select class="form-select" id="pn-folder">
+      <select class="form-select" id="pn-folder" onchange="${autoSaveCall}">
         ${folderOptionsHtml('projectnotes_' + projId, n.folderId || '')}
       </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label"><i class="fas fa-note-sticky" style="color:var(--matcha);margin-right:4px"></i>補足</label>
+      <textarea class="form-textarea" id="pn-note" rows="4" placeholder="補足情報を自由に書いてください…" oninput="${autoSaveCall}">${esc(n.note||'')}</textarea>
     </div>`,
-    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     <button class="btn btn-primary" onclick="updateProjectNote('${projId}',${idx})">保存</button>`
+    `${renderHubAutoSaveIndicator(statusId)}
+     <button class="btn btn-secondary" onclick="closeProjectNoteHub('${projId}',${idx})">閉じる</button>`
   );
 }
 
-function updateProjectNote(projId, idx) {
+// 自動保存・閉じる時の両方から呼ばれる、DBへの書き込みのみを行う関数
+function persistProjectNoteEdit(projId, idx) {
   const notes = DB.get('project_notes_' + projId, []);
   if (!notes[idx]) return;
   const tagsRaw = $('#pn-tags')?.value?.trim() || '';
+  const bodyHtml = getHubRichValue('pn-body');
   notes[idx] = {
     ...notes[idx],
     title: $('#pn-title')?.value?.trim() || '',
-    body: $('#pn-body')?.value?.trim() || '',
+    bodyHtml,
+    body: richHtmlToPlainText(bodyHtml),
     category: $('#pn-cat')?.value || '一般',
     tags: tagsRaw ? tagsRaw.split(/\s+/).filter(Boolean) : [],
     folderId: $('#pn-folder')?.value || '',
+    note: $('#pn-note')?.value?.trim() || '',
     updatedAt: now(),
   };
   DB.set('project_notes_' + projId, notes);
-  closeModal();
-  toast('ノートを更新しました', 'success');
   const el = document.getElementById('insp-tab-content');
   if (el) el.innerHTML = renderInspirationNotes();
+}
+function closeProjectNoteHub(projId, idx) {
+  hubFlushAutoSave('pn-'+projId+'-'+idx, () => persistProjectNoteEdit(projId, idx));
+  closeModal();
+}
+// 後方互換：旧関数名（保存して閉じる）
+function updateProjectNote(projId, idx) {
+  persistProjectNoteEdit(projId, idx);
+  closeModal();
+  toast('ノートを更新しました', 'success');
 }
 
 function confirmDeleteProjectNote(projId, idx) {
