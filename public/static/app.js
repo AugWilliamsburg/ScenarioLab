@@ -628,6 +628,23 @@ function navigate(page, projectId = null) {
   }
   _isPopStateNav = false;
 }
+// ── オンライン/オフライン検知 ──────────────────────────────────
+// データはlocalStorageのため保存自体はオフラインでも継続できるが、
+// PDF抽出等の通信を要する操作が使えないことをネイティブアプリらしく
+// ひと目で伝える。トップバーのインジケーター表示切替＋復帰時トースト。
+// toast()は内部でtype別に触覚フィードバックを既に発火するため
+// （success→light, error→warning）、ここでの明示的なhaptic()呼び出しは不要
+window.addEventListener('offline', () => {
+  const ind = document.getElementById('offline-indicator');
+  if (ind) ind.style.display = 'flex';
+  toast('オフラインになりました。データはこの端末に保存されます', 'error');
+});
+window.addEventListener('online', () => {
+  const ind = document.getElementById('offline-indicator');
+  if (ind) ind.style.display = 'none';
+  toast('オンラインに復帰しました', 'success');
+});
+
 // ブラウザ/Androidの「戻る」ボタンをページ内遷移に接続する
 window.addEventListener('popstate', (e) => {
   // モーダルが開いた状態で「戻る」が押された場合は、モーダルを閉じる
@@ -1036,6 +1053,13 @@ function renderLayout(content, proj = null) {
     <div class="main-content">
       <div class="topbar">
         ${topbarContent}
+        <!-- オフライン状態インジケーター（オンライン時は非表示）。
+             データはlocalStorageのため保存自体は継続できるが、通信を
+             要する操作（PDF抽出等）が使えないことをネイティブアプリ的に
+             ひと目で伝える -->
+        <div class="offline-indicator" id="offline-indicator" style="display:${navigator.onLine === false ? 'flex' : 'none'}" title="オフラインです。保存データはこの端末内に保持されます">
+          <i class="fas fa-wifi-slash"></i><span>オフライン</span>
+        </div>
         <!-- グローバルタイマーウィジェット（常に右端に表示） -->
         <div class="global-timer-widget" id="global-timer-widget" onclick="toggleTimerPopup()" title="執筆タイマーを開く">
           <div class="gtimer-icon ${TimerState.isRunning ? (TimerState.isBreak ? 'break' : 'running') : ''}">
