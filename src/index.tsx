@@ -1,8 +1,22 @@
 import { Hono } from 'hono'
 import { serveStatic } from 'hono/cloudflare-workers'
 import { cors } from 'hono/cors'
+import swSource from '../public/static/sw.js?raw'
 
 const app = new Hono()
+
+// Service Workerはルート直下（/sw.js）で配信する。
+// /static/* はCloudflare Pagesの_routes.jsonでexcludeされ、Workerを
+// バイパスして静的アセットとして直接配信される（=Honoミドルウェアで
+// ヘッダーを付与できない）ため、SWだけはWorker側のルートとして
+// 明示的に処理し、ここでScope拡張ヘッダーを付与する。
+// （ファイル本体は public/static/sw.js を単一の原本として保持し、
+//   ?raw インポートでビルド時に文字列として取り込むだけ。二重管理はしない）
+app.get('/sw.js', (c) => {
+  c.header('Content-Type', 'application/javascript; charset=UTF-8')
+  c.header('Service-Worker-Allowed', '/')
+  return c.body(swSource)
+})
 
 app.use('/static/*', serveStatic({ root: './' }))
 app.use('/api/*', cors())
@@ -115,6 +129,16 @@ app.get('*', (c) => {
     })();
   </script>
   <script src="/static/app.js"></script>
+  <script>
+    // Service Worker登録：ホーム画面追加時のオフライン起動対応。
+    // 対応ブラウザのみ実行（try/catchで非対応環境は安全に無視）。
+    // メイン処理をブロックしないよう、ページのload完了後に登録する。
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function() {
+        try { navigator.serviceWorker.register('/sw.js', { scope: '/' }); } catch (e) {}
+      });
+    }
+  </script>
 </body>
 </html>`)
 })
