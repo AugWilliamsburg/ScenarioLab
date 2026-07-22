@@ -32330,6 +32330,35 @@ function renderSettingsPage() {
         </div>
       </div>
 
+      <!-- テーマ・表示設定 -->
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-circle-half-stroke icon" style="color:var(--kon-lt)"></i> テーマ・表示設定</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          ${[
+            { id:'light',  label:'ライト',   icon:'fa-sun' },
+            { id:'dark',   label:'ダーク',   icon:'fa-moon' },
+            { id:'system', label:'自動(OS設定)', icon:'fa-display' },
+          ].map(t => `<button class="btn btn-sm ${getThemeSetting()===t.id?'btn-primary':'btn-ghost'}" style="flex:1;min-width:90px" onclick="setThemeSetting('${t.id}');render()">
+            <i class="fas ${t.icon}" style="font-size:11px"></i> ${t.label}
+          </button>`).join('')}
+        </div>
+        <div style="font-size:11.5px;color:var(--text-muted);margin-top:10px;line-height:1.6">画面の明るさをお好みで切り替えられます。「自動」を選ぶとOS/ブラウザのダークモード設定に追従します。</div>
+      </div>
+
+      <!-- プロジェクト別エクスポート -->
+      <div class="card">
+        <div class="card-header"><div class="card-title"><i class="fas fa-file-arrow-down icon" style="color:var(--fuji)"></i> プロジェクト別エクスポート</div></div>
+        ${projects.length === 0 ? `<div style="font-size:12.5px;color:var(--text-muted);text-align:center;padding:12px">まだ作品がありません</div>` : `
+        <div style="display:flex;flex-direction:column;gap:6px;max-height:220px;overflow-y:auto">
+          ${projects.map(p => `
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;background:var(--bg-subtle);border-radius:var(--radius-sm)">
+            <div style="font-size:12.5px;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"><i class="fas fa-film" style="font-size:10px;color:var(--accent);margin-right:6px"></i>${esc(p.title)}</div>
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="exportSingleProject('${p.id}')" title="この作品だけをJSONで書き出す"><i class="fas fa-download" style="font-size:11px"></i></button>
+          </div>`).join('')}
+        </div>`}
+        <div style="font-size:11.5px;color:var(--text-muted);margin-top:10px;line-height:1.6">作品ごとに個別のバックアップファイルを作成できます。共同制作者への共有や、特定作品だけの復元に便利です。</div>
+      </div>
+
       <!-- 執筆目標設定 -->
       <div class="card">
         <div class="card-header">
@@ -32483,6 +32512,29 @@ function exportAllData() {
   a.click();
   URL.revokeObjectURL(url);
   toast('エクスポートしました', 'success');
+}
+
+// 単一プロジェクトだけをバックアップJSONとして書き出す
+// （importData()は`data.projects`配列を丸ごと上書きする仕様のため、
+//   単一プロジェクトも同じ{projects:[...]}形式にラップして互換性を保つ）
+function exportSingleProject(projId) {
+  const proj = DB.getProject(projId);
+  if (!proj) { toast('作品が見つかりません', 'error'); return; }
+  const data = {
+    version: '4.0.0',
+    exportedAt: new Date().toISOString(),
+    singleProject: true,
+    projects: [proj],
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeTitle = (proj.title || '無題作品').replace(/[\\/:*?"<>|]/g, '_');
+  a.href = url;
+  a.download = `${safeTitle}_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`「${proj.title}」を書き出しました`, 'success');
 }
 
 function confirmClearAllData() {
@@ -40023,9 +40075,44 @@ function renderProjectDash(proj) {
 }
 
 // ================================================================
+//  THEME（ダークモード）
+// ================================================================
+// 'light' | 'dark' | 'system'（システム設定に追従）
+function getThemeSetting() {
+  return DB.get('theme_setting', 'light');
+}
+function resolveEffectiveTheme(setting) {
+  if (setting === 'system') {
+    return (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+  }
+  return setting === 'dark' ? 'dark' : 'light';
+}
+function applyTheme(setting) {
+  const effective = resolveEffectiveTheme(setting);
+  document.documentElement.setAttribute('data-theme', effective);
+  // トップバーのブラウザテーマカラーもダークモードに追従させる
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) metaTheme.setAttribute('content', effective === 'dark' ? '#24201a' : '#e8593f');
+}
+function setThemeSetting(setting) {
+  DB.set('theme_setting', setting);
+  applyTheme(setting);
+}
+// システム設定（OSのライト/ダーク切替）の変化を'system'選択時のみ追従
+if (window.matchMedia) {
+  try {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (getThemeSetting() === 'system') applyTheme('system');
+    });
+  } catch (e) {}
+}
+
+// ================================================================
 //  INIT
 // ================================================================
 function init() {
+  // 保存済みのテーマ設定を即時適用（初回はライトテーマがデフォルト）
+  applyTheme(getThemeSetting());
   // Seed sample project if empty
   if (DB.getProjects().length === 0) {
     const sample = newProject({

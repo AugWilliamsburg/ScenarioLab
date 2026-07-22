@@ -118,6 +118,91 @@
 }
 
 /* ================================================================
+   ダークモード — [data-theme="dark"] を <html> に付与すると有効化
+   和モダンの配色トーンを保ったまま、背景・テキスト・境界線・シャドウのみ
+   暗色向けに再定義する（アクセントカラー本体は明度を保ち視認性を確保）
+   ================================================================ */
+html[data-theme="dark"] {
+  /* 背景系 */
+  --bg-base:        #1a1712;
+  --bg-white:       #24201a;
+  --bg-card:        #24201a;
+  --bg-hover:       #2f2a22;
+  --bg-subtle:      #211d17;
+  --bg-input:       #1e1a15;
+
+  /* サイドバー（元から暗色なのでわずかに調整のみ） */
+  --bg-sidebar:     #14100c;
+  --bg-sidebar-hover: rgba(255,255,255,0.06);
+  --bg-sidebar-active: rgba(224,90,58,0.22);
+
+  /* アクセント — 朱（暗背景で視認しやすいよう少し明るく） */
+  --accent:         #e0724f;
+  --accent-lt:      #ea9375;
+  --accent-dk:      #c0371c;
+  --accent-bg:      #3a2420;
+  --accent-border:  #6b3a2e;
+
+  /* 紺 */
+  --kon:            #7ba0d8;
+  --kon-lt:         #96b6e4;
+  --kon-bg:         #1c2636;
+  --kon-border:     #35496e;
+
+  /* 桃 */
+  --momo:           #e590b0;
+  --momo-lt:        #eeaac4;
+  --momo-bg:        #362029;
+  --momo-border:    #5e3548;
+
+  /* 抹茶 */
+  --matcha:         #8ec283;
+  --matcha-lt:      #a8d29e;
+  --matcha-bg:      #1e2e1c;
+  --matcha-border:  #3c5936;
+
+  /* 黄金 */
+  --kogane:         #dcb04e;
+  --kogane-lt:      #e6c374;
+  --kogane-bg:      #332a16;
+  --kogane-border:  #5c4a20;
+
+  /* 藤 */
+  --fuji:           #a596d6;
+  --fuji-lt:        #b8abe0;
+  --fuji-bg:        #26223a;
+  --fuji-border:    #453d68;
+
+  /* 浅葱 */
+  --asagi:          #5cb8b8;
+  --asagi-lt:       #7ecaca;
+  --asagi-bg:       #16292c;
+  --asagi-border:   #2c5252;
+
+  /* テキスト */
+  --text-primary:   #ece6da;
+  --text-secondary: #c8bfae;
+  --text-muted:     #928878;
+  --text-light:     #6e6456;
+  --text-sidebar:   #ddd0bc;
+  --text-sidebar-sub: #7a6c58;
+
+  /* ボーダー */
+  --border:         #3a352c;
+  --border-mid:     #4a443a;
+  --border-dark:    #5c554a;
+  --border-sidebar: #2a2018;
+
+  /* シャドウ（暗背景では黒よりも沈み込みを弱める） */
+  --shadow-xs:  0 1px 2px rgba(0,0,0,0.25);
+  --shadow-sm:  0 1px 4px rgba(0,0,0,0.32), 0 0 1px rgba(0,0,0,0.2);
+  --shadow-md:  0 3px 12px rgba(0,0,0,0.38), 0 1px 4px rgba(0,0,0,0.22);
+  --shadow-lg:  0 8px 28px rgba(0,0,0,0.45), 0 2px 8px rgba(0,0,0,0.26);
+  --shadow-xl:  0 16px 48px rgba(0,0,0,0.52), 0 4px 14px rgba(0,0,0,0.3);
+  --shadow-card: 0 1px 3px rgba(0,0,0,0.3), 0 0 1px rgba(0,0,0,0.18);
+}
+
+/* ================================================================
    ベース・リセット
    ================================================================ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }

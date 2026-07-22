@@ -82,14 +82,30 @@ app.get('*', (c) => {
   <link rel="stylesheet" href="/static/app.css">
   <style>
     /* Tailwind 競合防止 — カスタムCSSが必ず優先 */
+    /* ダークモード対応: !importantでのハードコード指定は data-theme切替後の
+       app.css側のCSS変数を上書きしてしまうため、CSS変数経由に変更 */
     html { font-size: 14px; }
-    body { background: #f4f1eb !important; color: #16120a !important; font-family: 'Noto Sans JP', sans-serif !important; margin: 0; padding: 0; }
+    body { background: var(--bg-base, #f4f1eb); color: var(--text-primary, #16120a); font-family: 'Noto Sans JP', sans-serif; margin: 0; padding: 0; }
     #app { min-height: 100vh; }
   </style>
+  <script>
+    // ダークモード設定を最初のペイント前に適用（フラッシュ防止）。
+    // app.js本体の読み込み前に実行する必要があるため、ここに直接記述する。
+    (function() {
+      try {
+        var raw = localStorage.getItem('sl_theme_setting');
+        var setting = raw ? JSON.parse(raw) : 'light';
+        var effective = setting === 'dark' ? 'dark'
+          : setting === 'system' ? ((window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light')
+          : 'light';
+        document.documentElement.setAttribute('data-theme', effective);
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <div id="app">
-    <div id="initial-loader" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f4f1eb;flex-direction:column;gap:16px">
+    <div id="initial-loader" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg-base,#f4f1eb);flex-direction:column;gap:16px">
       <div style="text-align:center;color:#7a6050">
         <div style="font-size:28px;margin-bottom:6px;font-family:'Noto Serif JP',serif;font-weight:700;color:#3d2b1e">シナリオラボ</div>
         <div style="font-size:12px;color:#a0896a;margin-bottom:16px">脚本執筆支援ツール — 起動中</div>
