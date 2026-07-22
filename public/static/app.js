@@ -34577,35 +34577,42 @@ function openScratchHub(id) {
     { key:'5w1h', label:'5W1Hで展開', body:`【5W1Hで展開】\n${s.body||''}\n↓\nWho: \nWhat: \nWhen: \nWhere: \nWhy: \nHow: ` },
   ];
   const projects = DB.getProjects();
+  const statusId = 'scratch-autosave-'+id;
+  const autoSaveCall = `hubAutoSave('scratch-${id}', ()=>persistScratchEdit('${id}'), '${statusId}')`;
   const panels = {
     edit: `
      <div class="form-group">
        <label class="form-label">タイトル</label>
-       <input class="form-input" id="es-title" value="${esc(s.title||'')}" placeholder="タイトル（任意）">
+       <input class="form-input" id="es-title" value="${esc(s.title||'')}" placeholder="タイトル（任意）" oninput="${autoSaveCall}">
      </div>
      <div class="grid-2" style="gap:8px">
        <div class="form-group">
          <label class="form-label">タイプ</label>
-         <select class="form-select" id="es-type">
+         <select class="form-select" id="es-type" onchange="${autoSaveCall}">
            ${['着想','シーン','セリフ','テーマ','キャラ','設定','その他'].map(t=>`<option ${t===s.type?'selected':''}>${t}</option>`).join('')}
          </select>
        </div>
        <div class="form-group">
          <label class="form-label">フォルダ</label>
-         <select class="form-select" id="es-folder">${folderOptionsHtml('inspiration_scratches', s.folderId||'')}</select>
+         <select class="form-select" id="es-folder" onchange="${autoSaveCall}">${folderOptionsHtml('inspiration_scratches', s.folderId||'')}</select>
        </div>
      </div>
      <div class="form-group">
        <label class="form-label">本文</label>
-       <textarea class="form-textarea" id="es-body" rows="5">${esc(s.body||'')}</textarea>
+       ${renderHubRichEditor('es-body', s.bodyHtml || plainTextToRichHtml(s.body||''), '思いついたことを書いてみましょう…', autoSaveCall)}
      </div>
      <div class="form-group">
        <label class="form-label"><i class="fas fa-tags" style="color:var(--fuji);margin-right:4px"></i>タグ</label>
-       ${renderHubTagEditor('scratch-'+id, s.tags||[])}
+       ${renderHubTagEditor('scratch-'+id, s.tags||[], autoSaveCall)}
      </div>
      <label class="hub-tab-panel-checkbox" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);cursor:pointer">
-       <input type="checkbox" id="es-pinned" ${s.pinned?'checked':''} style="width:14px;height:14px;cursor:pointer"> ピン留めする
+       <input type="checkbox" id="es-pinned" ${s.pinned?'checked':''} style="width:14px;height:14px;cursor:pointer" onchange="${autoSaveCall}"> ピン留めする
      </label>`,
+    supplement: `
+     <div class="form-group">
+       <label class="form-label"><i class="fas fa-note-sticky" style="color:var(--matcha);margin-right:4px"></i>補足</label>
+       <textarea class="form-textarea" id="es-note" rows="6" placeholder="関連する背景・参考にしたもの・思いついたきっかけなど自由に書いてください…" oninput="${autoSaveCall}">${esc(s.note||'')}</textarea>
+     </div>`,
     develop: `
      <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;padding:10px;background:var(--bg-subtle);border-radius:var(--radius-sm);font-style:italic">元メモ: ${esc((s.body||'').slice(0,80))}${(s.body||'').length>80?'…':''}</div>
      <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:10px">展開パターンを選択 — クリックで展開メモを新規作成</div>
@@ -34633,29 +34640,43 @@ function openScratchHub(id) {
     `<i class="fas fa-note-sticky" style="color:var(--fuji)"></i> メモ詳細`,
     renderHubTabs('scratch', [
       { key:'edit', label:'編集', icon:'fa-pen' },
+      { key:'supplement', label:'補足', icon:'fa-note-sticky' },
       { key:'develop', label:'展開する', icon:'fa-wand-magic-sparkles' },
       { key:'send', label:'作品へ送る', icon:'fa-share' },
     ], panels),
-    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     <button class="btn btn-danger" onclick="confirmDeleteScratch('${id}')"><i class="fas fa-trash"></i> 削除</button>
-     <button class="btn btn-primary" onclick="saveEditScratch('${id}')"><i class="fas fa-floppy-disk"></i> 保存</button>`,
+    `${renderHubAutoSaveIndicator(statusId)}
+     <button class="btn btn-secondary" onclick="closeScratchHub('${id}')">閉じる</button>
+     <button class="btn btn-danger" onclick="confirmDeleteScratch('${id}')"><i class="fas fa-trash"></i> 削除</button>`,
     { size: 'modal-lg' }
   );
 }
 function openEditScratch(id) { openScratchHub(id); }
 
-function saveEditScratch(id) {
+// 自動保存・閉じる時の両方から呼ばれる、DBへの書き込みのみを行う関数
+function persistScratchEdit(id) {
   const scratches = DB.get('inspiration_scratches', []);
   const idx = scratches.findIndex(s => s.id === id);
   if (idx < 0) return;
+  const bodyHtml = getHubRichValue('es-body');
   scratches[idx].title = $('#es-title')?.value?.trim() || '';
-  scratches[idx].body  = $('#es-body')?.value?.trim()  || '';
+  scratches[idx].bodyHtml = bodyHtml;
+  scratches[idx].body  = richHtmlToPlainText(bodyHtml);
   scratches[idx].type  = $('#es-type')?.value           || 'その他';
   scratches[idx].tags  = getHubTags('scratch-'+id);
   scratches[idx].folderId = $('#es-folder')?.value || '';
+  scratches[idx].note = $('#es-note')?.value?.trim() || '';
   const pinnedEl = document.getElementById('es-pinned');
   if (pinnedEl) scratches[idx].pinned = pinnedEl.checked;
   DB.set('inspiration_scratches', scratches);
+}
+function closeScratchHub(id) {
+  hubFlushAutoSave('scratch-'+id, () => persistScratchEdit(id));
+  closeModal();
+  navigate('inspiration');
+}
+// 後方互換：旧関数名（保存して閉じる）
+function saveEditScratch(id) {
+  persistScratchEdit(id);
   closeModal();
   toast('保存しました', 'success');
   navigate('inspiration');
@@ -38352,10 +38373,13 @@ function openCardEditModal(cardId, boardId) {
   if (!card) return;
   const back = card.back || {};
   const checklist = back.checklist || [];
+  const statusId = 'card-autosave-'+cardId;
+  const autoSaveCall = `hubAutoSave('card-${cardId}', ()=>persistCardEdit('${cardId}','${boardId}'), '${statusId}')`;
+  _cardEditCurrentIds = { cardId, boardId };
   const checklistHtml = checklist.map((item, idx) => `
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px" id="cl-item-${idx}">
-      <input type="checkbox" id="cl-done-${idx}" ${item.done?'checked':''} style="width:14px;height:14px;cursor:pointer">
-      <input class="form-input" id="cl-text-${idx}" value="${esc(item.text)}" style="flex:1;padding:4px 8px;font-size:12px">
+      <input type="checkbox" id="cl-done-${idx}" ${item.done?'checked':''} style="width:14px;height:14px;cursor:pointer" onchange="${autoSaveCall}">
+      <input class="form-input" id="cl-text-${idx}" value="${esc(item.text)}" style="flex:1;padding:4px 8px;font-size:12px" oninput="${autoSaveCall}">
       <button class="btn btn-ghost btn-icon btn-sm" onclick="removeChecklistItem(${idx})" title="削除">
         <i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i>
       </button>
@@ -38368,30 +38392,30 @@ function openCardEditModal(cardId, boardId) {
       <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:16px">
         <button class="card-edit-tab active" id="ced-tab-front" onclick="switchCardEditTab('front')">表面</button>
         <button class="card-edit-tab" id="ced-tab-back" onclick="switchCardEditTab('back')">裏面・詳細</button>
-        <button class="card-edit-tab" id="ced-tab-meta" onclick="switchCardEditTab('meta')">メタ情報</button>
+        <button class="card-edit-tab" id="ced-tab-meta" onclick="switchCardEditTab('meta')">補足</button>
       </div>
 
       <!-- 表面 -->
       <div id="ced-front">
         <div class="form-group">
           <label class="form-label">タイトル <span style="color:var(--accent)">*</span></label>
-          <input class="form-input" id="ced-title" value="${esc(card.title)}">
+          <input class="form-input" id="ced-title" value="${esc(card.title)}" oninput="${autoSaveCall}">
         </div>
         <div class="form-group">
           <label class="form-label">内容・メモ</label>
-          <textarea class="form-textarea" id="ced-body" rows="4">${esc(card.body||'')}</textarea>
+          ${renderHubRichEditor('ced-body', card.bodyHtml || plainTextToRichHtml(card.body||''), '内容やメモを自由に書いてください…', autoSaveCall)}
         </div>
         <div class="grid-2">
           <div class="form-group">
             <label class="form-label">ラベル</label>
-            <select class="form-select" id="ced-label">
+            <select class="form-select" id="ced-label" onchange="${autoSaveCall}">
               <option value="">なし</option>
               ${CARD_LABELS.map(l => `<option value="${l.name}" ${card.label===l.name?'selected':''}>${l.name}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
             <label class="form-label">優先度</label>
-            <select class="form-select" id="ced-priority">
+            <select class="form-select" id="ced-priority" onchange="${autoSaveCall}">
               ${Object.entries(PRIORITY_CONFIG).map(([k,v]) => `<option value="${k}" ${card.priority===k?'selected':''}>${v.label}</option>`).join('')}
             </select>
           </div>
@@ -38401,20 +38425,20 @@ function openCardEditModal(cardId, boardId) {
             <label class="form-label">カードカラー</label>
             <div style="display:flex;gap:6px;flex-wrap:wrap;padding:8px 0">
               ${['#ffffff','#fff9e6','#e8f4fd','#fde8e8','#e8fde8','#f3e8fd','#fde8f0','#e8fdfd'].map(c=>`
-                <div onclick="document.getElementById('ced-color').value='${c}'" 
+                <div onclick="document.getElementById('ced-color').value='${c}';${esc(autoSaveCall).replace(/"/g,'&quot;')}" 
                      style="width:22px;height:22px;border-radius:50%;background:${c};border:2px solid ${card.color===c?'var(--fuji)':'var(--border)'};cursor:pointer" 
                      title="${c}"></div>`).join('')}
-              <input type="color" id="ced-color" value="${card.color||'#ffffff'}" style="width:22px;height:22px;border:none;padding:0;cursor:pointer;border-radius:50%">
+              <input type="color" id="ced-color" value="${card.color||'#ffffff'}" style="width:22px;height:22px;border:none;padding:0;cursor:pointer;border-radius:50%" onchange="${autoSaveCall}">
             </div>
           </div>
           <div class="form-group">
             <label class="form-label">期限日</label>
-            <input class="form-input" type="date" id="ced-due" value="${card.dueDate||''}">
+            <input class="form-input" type="date" id="ced-due" value="${card.dueDate||''}" onchange="${autoSaveCall}">
           </div>
         </div>
         <div class="form-group">
           <label class="form-label">タグ（スペース区切り）</label>
-          <input class="form-input" id="ced-tags" value="${esc((card.tags||[]).join(' '))}">
+          <input class="form-input" id="ced-tags" value="${esc((card.tags||[]).join(' '))}" oninput="${autoSaveCall}">
         </div>
       </div>
 
@@ -38422,7 +38446,7 @@ function openCardEditModal(cardId, boardId) {
       <div id="ced-back" style="display:none">
         <div class="form-group">
           <label class="form-label"><i class="fas fa-theater-masks" style="color:var(--fuji);margin-right:4px"></i>物語機能</label>
-          <select class="form-select" id="ced-storyfunc">
+          <select class="form-select" id="ced-storyfunc" onchange="${autoSaveCall}">
             <option value="">未設定</option>
             ${STORY_FUNCTIONS.map(f => `<option value="${f}" ${back.storyFunction===f?'selected':''}>${f}</option>`).join('')}
           </select>
@@ -38430,27 +38454,27 @@ function openCardEditModal(cardId, boardId) {
         <div class="grid-2">
           <div class="form-group">
             <label class="form-label"><i class="fas fa-heart" style="color:var(--momo);margin-right:4px"></i>感情・トーン</label>
-            <select class="form-select" id="ced-emotion">
+            <select class="form-select" id="ced-emotion" onchange="${autoSaveCall}">
               <option value="">未設定</option>
               ${EMOTION_LIST.map(e => `<option value="${e}" ${back.emotion===e?'selected':''}>${e}</option>`).join('')}
             </select>
           </div>
           <div class="form-group">
             <label class="form-label">テンション (${back.tension||5}/10)</label>
-            <input type="range" id="ced-tension" min="1" max="10" value="${back.tension||5}" style="width:100%;margin-top:8px" oninput="document.querySelector('[for=ced-tension]').textContent='テンション ('+this.value+'/10)'">
+            <input type="range" id="ced-tension" min="1" max="10" value="${back.tension||5}" style="width:100%;margin-top:8px" oninput="document.querySelector('[for=ced-tension]').textContent='テンション ('+this.value+'/10)';${esc(autoSaveCall).replace(/"/g,'&quot;')}">
           </div>
         </div>
         <div class="form-group">
           <label class="form-label"><i class="fas fa-users" style="color:var(--fuji);margin-right:4px"></i>登場キャラクター（カンマ区切り）</label>
-          <input class="form-input" id="ced-chars" value="${esc((back.characters||[]).join(', '))}" placeholder="例: 田中, 山田, 鈴木">
+          <input class="form-input" id="ced-chars" value="${esc((back.characters||[]).join(', '))}" placeholder="例: 田中, 山田, 鈴木" oninput="${autoSaveCall}">
         </div>
         <div class="form-group">
           <label class="form-label"><i class="fas fa-film" style="color:var(--matcha);margin-right:4px"></i>シーン詳細</label>
-          <textarea class="form-textarea" id="ced-scenedtl" rows="3" placeholder="場所・時間・状況など">${esc(back.sceneDetail||'')}</textarea>
+          <textarea class="form-textarea" id="ced-scenedtl" rows="3" placeholder="場所・時間・状況など" oninput="${autoSaveCall}">${esc(back.sceneDetail||'')}</textarea>
         </div>
         <div class="form-group">
           <label class="form-label"><i class="fas fa-note-sticky" style="color:var(--kogane);margin-right:4px"></i>メモ</label>
-          <textarea class="form-textarea" id="ced-notes" rows="2" placeholder="自由メモ…">${esc(back.notes||'')}</textarea>
+          ${renderHubRichEditor('ced-notes', back.notesHtml || plainTextToRichHtml(back.notes||''), '自由メモ…', autoSaveCall)}
         </div>
         <div class="form-group">
           <label class="form-label" style="display:flex;justify-content:space-between">
@@ -38461,22 +38485,21 @@ function openCardEditModal(cardId, boardId) {
         </div>
         <div class="form-group">
           <label class="form-label"><i class="fas fa-link" style="color:var(--text-muted);margin-right:4px"></i>参考資料・URL</label>
-          <input class="form-input" id="ced-refs" value="${esc(back.references||'')}" placeholder="https://...">
+          <input class="form-input" id="ced-refs" value="${esc(back.references||'')}" placeholder="https://..." oninput="${autoSaveCall}">
         </div>
       </div>
 
-      <!-- メタ情報 -->
+      <!-- 補足 -->
       <div id="ced-meta" style="display:none">
-        ${renderHubMetaGrid([
-          { label:'作成日', value: fmtDate(card.createdAt) },
-          { label:'更新日', value: fmtDate(card.updatedAt) },
-          { label:'文字数', value: (card.body||'').length ? (card.body||'').length + '文字' : null },
-          { label:'チェック', value: checklist.length ? `${checklist.filter(i=>i.done).length}/${checklist.length}` : null },
-        ]) || `<div class="hub-empty-mini">メタ情報はまだありません</div>`}
+        <div class="form-group">
+          <label class="form-label"><i class="fas fa-note-sticky" style="color:var(--matcha);margin-right:4px"></i>補足</label>
+          <textarea class="form-textarea" id="ced-supplement" rows="6" placeholder="関連する背景・参考にしたもの・思いついたきっかけなど自由に書いてください…" oninput="${autoSaveCall}">${esc(card.supplement||'')}</textarea>
+        </div>
       </div>
     </div>`,
-    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     <button class="btn btn-primary" onclick="saveCardEdit('${cardId}','${boardId}')"><i class="fas fa-floppy-disk"></i> 保存</button>`,
+    `${renderHubAutoSaveIndicator(statusId)}
+     <button class="btn btn-secondary" onclick="closeCardEditModal('${cardId}','${boardId}')">閉じる</button>
+     <button class="btn btn-danger" onclick="confirmDeleteCard('${cardId}','${boardId}')"><i class="fas fa-trash"></i> 削除</button>`,
     { size: 'modal-lg' }
   );
 }
@@ -38491,7 +38514,6 @@ function switchCardEditTab(tab) {
   });
 }
 
-let _tempChecklist = [];
 function addChecklistItem() {
   const container = document.getElementById('checklist-editor');
   if (!container) return;
@@ -38500,27 +38522,43 @@ function addChecklistItem() {
   newItem.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:6px';
   newItem.id = `cl-item-${idx}`;
   newItem.innerHTML = `
-    <input type="checkbox" id="cl-done-${idx}" style="width:14px;height:14px;cursor:pointer">
-    <input class="form-input" id="cl-text-${idx}" placeholder="チェック項目…" style="flex:1;padding:4px 8px;font-size:12px">
-    <button class="btn btn-ghost btn-icon btn-sm" onclick="this.closest('[id^=cl-item]').remove()" title="削除">
+    <input type="checkbox" id="cl-done-${idx}" style="width:14px;height:14px;cursor:pointer" onchange="_cardEditChecklistChanged()">
+    <input class="form-input" id="cl-text-${idx}" placeholder="チェック項目…" style="flex:1;padding:4px 8px;font-size:12px" oninput="_cardEditChecklistChanged()">
+    <button class="btn btn-ghost btn-icon btn-sm" onclick="this.closest('[id^=cl-item]').remove();_cardEditChecklistChanged()" title="削除">
       <i class="fas fa-xmark" style="font-size:10px;color:var(--accent)"></i>
     </button>`;
   container.appendChild(newItem);
   newItem.querySelector('input[type=text], .form-input:not([type=checkbox])')?.focus?.();
+  _cardEditChecklistChanged();
 }
 
 function removeChecklistItem(idx) {
   document.getElementById(`cl-item-${idx}`)?.remove();
+  _cardEditChecklistChanged();
 }
 
-function saveCardEdit(cardId, boardId) {
+// チェックリストの追加/削除など動的DOM操作の直後に自動保存をトリガーするための
+// 汎用フック。編集中のカードIDはモーダル内の保存ボタンから逆引きできないため、
+// 開いているモーダルのDOMから直接 persistCardEdit を呼べるよう、現在編集中の
+// cardId/boardId を openCardEditModal 側でグローバルに記録しておく。
+let _cardEditCurrentIds = null;
+function _cardEditChecklistChanged() {
+  if (!_cardEditCurrentIds) return;
+  const { cardId, boardId } = _cardEditCurrentIds;
+  hubAutoSave('card-'+cardId, () => persistCardEdit(cardId, boardId), 'card-autosave-'+cardId);
+}
+
+// 自動保存・明示的保存の両方から呼ばれる、DBへの書き込みのみを行う関数
+// （closeModal/renderは呼ばない。タイトル未入力の場合は保存自体をスキップする
+//   ことで、空タイトルでの上書きを防ぐ）
+function persistCardEdit(cardId, boardId) {
   const board = BOARD_DB.getBoard(boardId);
   if (!board) return;
   const cardIdx = (board.cards||[]).findIndex(c => c.id === cardId);
   if (cardIdx < 0) return;
 
   const title = document.getElementById('ced-title')?.value?.trim();
-  if (!title) { toast('タイトルを入力してください', 'error'); return; }
+  if (!title) return;
 
   // チェックリスト収集
   const container = document.getElementById('checklist-editor');
@@ -38537,11 +38575,15 @@ function saveCardEdit(cardId, boardId) {
   }
 
   const chars = document.getElementById('ced-chars')?.value?.split(/[,、]/).map(s=>s.trim()).filter(Boolean) || [];
+  const bodyHtml = getHubRichValue('ced-body');
+  const notesHtml = getHubRichValue('ced-notes');
 
   board.cards[cardIdx] = {
     ...board.cards[cardIdx],
     title,
-    body: document.getElementById('ced-body')?.value || '',
+    bodyHtml,
+    body: richHtmlToPlainText(bodyHtml),
+    supplement: document.getElementById('ced-supplement')?.value?.trim() || '',
     label: document.getElementById('ced-label')?.value || '',
     priority: document.getElementById('ced-priority')?.value || 'medium',
     color: document.getElementById('ced-color')?.value || '#ffffff',
@@ -38554,7 +38596,8 @@ function saveCardEdit(cardId, boardId) {
       tension: parseInt(document.getElementById('ced-tension')?.value || '5'),
       characters: chars,
       sceneDetail: document.getElementById('ced-scenedtl')?.value || '',
-      notes: document.getElementById('ced-notes')?.value || '',
+      notesHtml,
+      notes: richHtmlToPlainText(notesHtml),
       checklist,
       references: document.getElementById('ced-refs')?.value || '',
     },
@@ -38562,6 +38605,19 @@ function saveCardEdit(cardId, boardId) {
   };
   board.updatedAt = now();
   BOARD_DB.saveBoard(board);
+}
+function closeCardEditModal(cardId, boardId) {
+  hubFlushAutoSave('card-'+cardId, () => persistCardEdit(cardId, boardId));
+  _cardEditCurrentIds = null;
+  closeModal();
+  render();
+}
+// 後方互換：旧関数名（保存して閉じる）
+function saveCardEdit(cardId, boardId) {
+  const title = document.getElementById('ced-title')?.value?.trim();
+  if (!title) { toast('タイトルを入力してください', 'error'); return; }
+  persistCardEdit(cardId, boardId);
+  _cardEditCurrentIds = null;
   closeModal();
   toast('カードを保存しました', 'success');
   render();
