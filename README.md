@@ -99,7 +99,7 @@
   pm2 start ecosystem.config.cjs       # メインアプリ (port 3000)
   pm2 start pdf_ecosystem.config.cjs   # PDF抽出サーバー (port 3001)
   ```
-- **Last Updated**: 2026-07-21（モバイル版 構造独立化 第2弾＋起動速度改善＋ページ遷移アニメーション＋トップバーCSS優先順位バグ修正＋フォーム自動ズーム対策の実効性修正＋hover依存カードアクションのタッチ対応＋スクラッチパッド/かんばん/シーンマップ/ストーリーボードのD&Dタッチ対応（全4箇所完了）＋長押し時のネイティブ挙動抑制＋アイコン画像の軽量化＋モーダルのボトムシート化＋「戻る」ボタン対応(history.pushState連携)＋フェーズバーのモバイルUX改善(現在地の視認性・自動追従)＋モーダルのhistory非連動を解消＋触覚フィードバック(Vibration API)導入を反映）
+- **Last Updated**: 2026-07-22（モバイル版 構造独立化 第2弾＋起動速度改善＋ページ遷移アニメーション＋トップバーCSS優先順位バグ修正＋フォーム自動ズーム対策の実効性修正＋hover依存カードアクションのタッチ対応＋スクラッチパッド/かんばん/シーンマップ/ストーリーボードのD&Dタッチ対応（全4箇所完了）＋長押し時のネイティブ挙動抑制＋アイコン画像の軽量化＋モーダルのボトムシート化＋「戻る」ボタン対応(history.pushState連携)＋フェーズバーのモバイルUX改善(現在地の視認性・自動追従)＋モーダルのhistory非連動を解消＋触覚フィードバック(Vibration API)導入・適用箇所拡大(トグル・移動系11箇所)を反映）
 
 ## モバイル版 構造独立化 第2弾：PC版とは別の独自モバイルUXへ（NEW・進行中）
 「モバイル版はWebサイト版とはまた別の独自のものとして改良・進化させていこう」という要望に基づき、モバイル版を単なるPC版の縮小レイアウトから、構造そのものが異なる独立したモバイルアプリ的UXへ刷新した。
@@ -144,17 +144,24 @@
 ### 実装内容
 - 共通ヘルパー`haptic(kind)`を新設（`kind`: `'light'`=軽いタップ確認・8ms、`'medium'`=標準操作・15ms、`'warning'`=エラー・削除等の強め・[12,40,12]msパターン）
 - `navigator.vibrate`未対応の環境（iOS Safariなど）では`try/catch`で安全に無視され、エラーは発生しない
-- 適用箇所：
+- 適用箇所（第1弾）：
   - `toast()`：`success`表示時に`light`、`error`表示時に`warning`
   - ボトムナビ（`mobileNavGo`）タップ時：`light`
   - 「メモ」ボトムナビ（`goToScratchpad`）・クイックメモFAB（`openQuickMemo`）タップ時：`light`
   - 削除確認モーダル（`confirmDeleteGeneric`）の「削除する」実行時：`warning`
   - モーダルのボトムシートをスワイプで閉じきった瞬間：`light`
+- **適用箇所拡大（第2弾・NEW）**：トグル系・移動系の操作全11箇所にも追加し、タップした瞬間に確実にフィードバックが返る網羅性を高めた
+  - タスク完了トグル（`toggleTaskDone`）：完了にする瞬間は達成感のある`medium`、未完了に戻す時は`light`（トグル方向で強度を変える唯一の箇所）
+  - サブタスク完了トグル（`toggleSubtask`）：`light`
+  - ピン留めトグル4種（学習メモ`toggleNotePin`／プロジェクトノート`togglePinProjectNote`／スクラッチ`togglePinScratch`／ストーリーボードカード`togglePinCard`、書斎`studyTogglePin`）：`light`
+  - 書斎インプットのお気に入りトグル（`studyToggleInputFavorite`）：`light`
+  - D&D代替の「⇄移動」メニュー確定時（かんばん`moveKanbanTaskToColumn`／シーンマップ`moveSceneCardToAct`／ストーリーボード`moveBoardCardToColumn`）：`light`
 
 ### 検証
 - Node.js `vm`モジュールで`haptic()`を抽出実行し、各`kind`で正しいバイブレーションパターンが`navigator.vibrate`に渡されることを確認
 - `navigator.vibrate`が存在しない環境（iOS Safari相当）でも例外を投げず安全に動作することを確認
-- `node -c`で構文チェックOK、ビルド成功、PM2再起動・HTTP 200確認、Playwrightコンソールキャプチャでエラー0件確認
+- 第2弾では`toggleTaskDone`のトグル方向依存ロジック（完了時`medium`／未完了復帰時`light`）をVMサンドボックスで2回連続トグルさせ、`navigator.vibrate`への引数が`[15, 8]`の順で正しく渡ることを確認
+- `node -c`で構文チェックOK、ビルド成功、PM2再起動・HTTP 200確認、Playwrightコンソールキャプチャ（公開URL経由）でエラー0件確認
 
 ## フェーズバーのモバイルUX改善：現在地の視認性・自動追従（NEW・完了）
 12フェーズを横スクロールで一覧するトップの「フェーズバー」について、モバイル幅（768px以下）ではアイコンのみになりラベルが完全に消えるため「今どのフェーズにいるか」がタップしないと分からない問題があった。

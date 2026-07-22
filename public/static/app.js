@@ -14553,6 +14553,7 @@ function deleteLearnNote(noteId) {
 }
 
 function toggleNotePin(noteId) {
+  haptic('light');
   const notes = DB.get('learn_notes', []);
   const idx = notes.findIndex(n => n.id === noteId);
   if (idx === -1) return;
@@ -33856,6 +33857,7 @@ function deleteProjectNote(projId, idx) {
 }
 
 function togglePinProjectNote(projId, idx) {
+  haptic('light');
   const notes = DB.get('project_notes_' + projId, []);
   if (!notes[idx]) return;
   notes[idx].pinned = !notes[idx].pinned;
@@ -34098,6 +34100,7 @@ function addScratch(pinned = false) {
 }
 
 function togglePinScratch(id) {
+  haptic('light');
   const scratches = DB.get('inspiration_scratches', []);
   const idx = scratches.findIndex(s => s.id === id);
   if (idx < 0) return;
@@ -35533,6 +35536,7 @@ function onKanbanCardDrop(evt, colId) {
 // onKanbanCardDrop(D&D)とモバイル用moveKanbanTaskMobile(ボタン操作)の両方から呼ばれる共通処理
 const KANBAN_COL_LABELS = { urgent:'🔥 緊急', todo:'📋 To Do', today:'📅 今日', upcoming:'📆 予定', done:'✅ 完了' };
 function moveKanbanTaskToColumn(taskId, colId) {
+  haptic('light');
   const task = TASK_DB.getTask(taskId);
   if (!task) return;
   const today = new Date().toISOString().slice(0,10);
@@ -35792,6 +35796,8 @@ function toggleTaskGroup(key) {
 function toggleTaskDone(taskId) {
   const task = TASK_DB.getTask(taskId);
   if (!task) return;
+  // 完了にする瞬間は達成感のある少し強めの触覚、未完了に戻す時は軽めの触覚
+  haptic(task.done ? 'light' : 'medium');
   task.done = !task.done;
   task.completedAt = task.done ? now() : null;
   task.updatedAt = now();
@@ -36331,6 +36337,7 @@ function updateTaskField(taskId, field, value) {
 }
 
 function toggleSubtask(taskId, subtaskId) {
+  haptic('light');
   const task = TASK_DB.getTask(taskId);
   if (!task) return;
   const sub = (task.subtasks||[]).find(s=>s.id===subtaskId);
@@ -37137,6 +37144,7 @@ function smapDrop(ev, mapId, toActIdx) {
 // ── シーンカードを指定の幕へ移動するコアロジック ──
 // smapDrop(D&D)とモバイル用openSmapMoveMenu(ボタン操作)の両方から呼ばれる共通処理
 function moveSceneCardToAct(cardId, mapId, fromActIdx, toActIdx) {
+  haptic('light');
   const map = STORYMAP_DB.getMap(mapId);
   if (!map) return;
   const fromAct = map.acts[fromActIdx];
@@ -37784,6 +37792,7 @@ function flipCard(cardId) {
 }
 
 function togglePinCard(cardId, boardId) {
+  haptic('light');
   const board = BOARD_DB.getBoard(boardId);
   if (!board) return;
   const card = (board.cards || []).find(c => c.id === cardId);
@@ -38124,6 +38133,7 @@ function boardDrop(event, boardId, colIdx) {
 // ── ボードカードを指定列へ移動するコアロジック ──
 // boardDrop(D&D)とモバイル用openBoardMoveMenu(ボタン操作)の両方から呼ばれる共通処理
 function moveBoardCardToColumn(cardId, boardId, colIdx) {
+  haptic('light');
   const board = BOARD_DB.getBoard(boardId);
   if (!board) return;
   const cardIdx = (board.cards||[]).findIndex(c => c.id === cardId);
@@ -39667,6 +39677,7 @@ function studyBulkDeleteSelected() {
 
 function studyTogglePin(id, evt) {
   if (evt) evt.stopPropagation();
+  haptic('light');
   const d = StudyDB.getDraft(id);
   if (!d) return;
   d.pinned = !d.pinned;
@@ -40625,6 +40636,7 @@ function toggleStudyInputFav() { State.currentTab['study-input-fav'] = !State.cu
 
 function studyToggleInputFavorite(id, evt) {
   if (evt) evt.stopPropagation();
+  haptic('light');
   const item = StudyDB.getInput(id);
   if (!item) return;
   item.favorite = !item.favorite;
