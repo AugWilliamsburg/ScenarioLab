@@ -3206,7 +3206,7 @@ function openAddIdeaModal(projId) {
     </div>
     <div class="form-group">
       <label class="form-label">内容 <span style="color:var(--red)">*</span></label>
-      <textarea class="form-textarea" id="idea-body" rows="5" placeholder="思いついたことをそのまま書いてください…"></textarea>
+      ${renderHubRichEditor('idea-body-new', '', '思いついたことをそのまま書いてください…見出し・太字・箇条書きなどが使えます')}
     </div>
     <div class="grid-2">
       <div class="form-group">
@@ -3230,18 +3230,19 @@ function openAddIdeaModal(projId) {
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
      <button class="btn btn-primary" onclick="addIdea('${projId}')"><i class="fas fa-plus"></i> 追加</button>`
   );
-  setTimeout(() => $('#idea-body')?.focus(), 50);
+  setTimeout(() => document.getElementById('idea-body-new')?.focus(), 50);
 }
 
 function addIdea(projId) {
-  const body = $('#idea-body')?.value?.trim();
+  const bodyHtml = getHubRichValue('idea-body-new');
+  const body = richHtmlToPlainText(bodyHtml);
   if (!body) { toast('内容を入力してください', 'error'); return; }
   const proj = DB.getProject(projId);
   if (!proj) return;
   proj.ideas = proj.ideas || [];
   proj.ideas.unshift({
     id: uid(), title: $('#idea-title')?.value?.trim() || '',
-    body, type: $('#idea-type')?.value || 'メモ',
+    body, bodyHtml, type: $('#idea-type')?.value || 'メモ',
     priority: $('#idea-priority')?.value || '普通',
     folderId: $('#idea-folder')?.value || '',
     createdAt: now(),
@@ -3661,7 +3662,7 @@ function openAddResearchNote(projId) {
     </div>
     <div class="form-group">
       <label class="form-label">内容</label>
-      <textarea class="form-textarea" id="rn-body" rows="6" placeholder="調べた内容を書いてください…"></textarea>
+      ${renderHubRichEditor('rn-body-new', '', '調べた内容を書いてください…')}
     </div>
     <div class="form-group">
       <label class="form-label">フォルダ</label>
@@ -3673,7 +3674,8 @@ function openAddResearchNote(projId) {
 }
 
 function addResearchNote(projId) {
-  const body = $('#rn-body')?.value?.trim();
+  const bodyHtml = getHubRichValue('rn-body-new');
+  const body = richHtmlToPlainText(bodyHtml);
   if (!body) { toast('内容を入力してください','error'); return; }
   const proj = DB.getProject(projId);
   if (!proj) return;
@@ -3681,7 +3683,7 @@ function addResearchNote(projId) {
   proj.research.notes = proj.research.notes || [];
   proj.research.notes.unshift({
     id: uid(), title: $('#rn-title')?.value?.trim()||'',
-    category: $('#rn-cat')?.value||'その他', body,
+    category: $('#rn-cat')?.value||'その他', body, bodyHtml,
     folderId: $('#rn-folder')?.value || '', createdAt: now()
   });
   proj.updatedAt = now();
@@ -26586,7 +26588,7 @@ function renderToolWorldNotes() {
             ${WORLD_CATS.map(c=>`<option>${c}</option>`).join('')}
           </select>
         </div>
-        <div class="form-group"><label class="form-label">内容</label><textarea class="form-textarea" id="wn-body" rows="4" placeholder="詳細を記入…"></textarea></div>
+        <div class="form-group"><label class="form-label">内容</label>${renderHubRichEditor('wn-body-new', '', '詳細を記入…')}</div>
         <div class="form-group"><label class="form-label">フォルダ</label><select class="form-select" id="wn-folder">${folderOptionsHtml(worldFolderScope, '')}</select></div>
         <button class="btn btn-primary" style="width:100%" onclick="addWorldNote()"><i class="fas fa-plus"></i> 追加する</button>
       </div>
@@ -26640,11 +26642,12 @@ function renderToolWorldNotes() {
 function addWorldNote() {
   const title = document.getElementById('wn-title')?.value.trim();
   const category = document.getElementById('wn-category')?.value;
-  const body = document.getElementById('wn-body')?.value.trim();
+  const bodyHtml = getHubRichValue('wn-body-new');
+  const body = richHtmlToPlainText(bodyHtml);
   const folderId = document.getElementById('wn-folder')?.value || '';
   if (!title) { toast('タイトルを入力してください', 'error'); return; }
   const notes = JSON.parse(localStorage.getItem('sl_world_notes') || '[]');
-  notes.unshift({ title, category, body, folderId, createdAt: new Date().toISOString() });
+  notes.unshift({ title, category, body, bodyHtml, folderId, createdAt: new Date().toISOString() });
   localStorage.setItem('sl_world_notes', JSON.stringify(notes));
   toast('メモを追加しました', 'success');
   render();
@@ -34245,7 +34248,7 @@ function openAddProjectNote(projId) {
     </div>
     <div class="form-group">
       <label class="form-label">内容 <span style="color:var(--accent)">*</span></label>
-      <textarea class="form-textarea" id="pn-body" rows="6" placeholder="詳細なメモを自由に書いてください…"></textarea>
+      ${renderHubRichEditor('pn-body-new', '', '詳細なメモを自由に書いてください…')}
     </div>
     <div class="grid-2">
       <div class="form-group">
@@ -34279,14 +34282,15 @@ function openAddProjectNote(projId) {
 
 function saveProjectNote(projId) {
   const title = $('#pn-title')?.value?.trim() || '';
-  const body = $('#pn-body')?.value?.trim() || '';
+  const bodyHtml = getHubRichValue('pn-body-new');
+  const body = richHtmlToPlainText(bodyHtml);
   const cat = $('#pn-cat')?.value || '一般';
   const tagsRaw = $('#pn-tags')?.value?.trim() || '';
   if (!body) { toast('内容を入力してください', 'error'); return; }
   const tags = tagsRaw ? tagsRaw.split(/\s+/).filter(Boolean) : [];
   const folderId = $('#pn-folder')?.value || '';
   const notes = DB.get('project_notes_' + projId, []);
-  const n = { id: genId(), title, body, category: cat, tags, folderId, pinned: false, createdAt: now(), updatedAt: now() };
+  const n = { id: genId(), title, body, bodyHtml, category: cat, tags, folderId, pinned: false, createdAt: now(), updatedAt: now() };
   notes.unshift(n);
   DB.set('project_notes_' + projId, notes);
   closeModal();
