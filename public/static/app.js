@@ -14800,25 +14800,34 @@ function renderLearnNotes(hero, subnav) {
 
   // ── エディタ ──
   const colorLabels = { asagi:'水色', beni:'赤', matcha:'緑', kogane:'金', fuji:'紫', momo:'桃', kon:'紺' };
+  const learnNoteStatusId = editingNote ? 'learnnote-autosave-'+editingNote.id : '';
+  const learnNoteAutoSaveCall = editingNote ? `hubAutoSave('learnnote-${editingNote.id}', ()=>persistLearnNoteEdit('${editingNote.id}'), '${learnNoteStatusId}')` : '';
   const editorHtml = editingNote ? `
   <div class="card" style="margin-bottom:20px;border-top:3px solid ${(COLOR_MAP[editingNote.color||'asagi']||COLOR_MAP['asagi']).color}">
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap">
       <div style="font-size:13px;font-weight:700;color:var(--text-primary)"><i class="fas fa-pen" style="color:${(COLOR_MAP[editingNote.color||'asagi']||COLOR_MAP['asagi']).color};margin-right:6px"></i>ノートを編集</div>
-      <div style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap">
+      <div style="margin-left:auto;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        ${renderHubAutoSaveIndicator(learnNoteStatusId)}
         <button class="btn btn-ghost btn-sm" onclick="exportLearnNote('${editingNote.id}')"><i class="fas fa-file-export"></i> エクスポート</button>
         <button class="btn btn-ghost btn-sm" onclick="cancelEditNote()"><i class="fas fa-times"></i></button>
       </div>
     </div>
-    <input id="note-edit-title" class="form-input" style="margin-bottom:8px;font-size:14px;font-weight:600" placeholder="タイトル（省略可）" value="${esc(editingNote.title||'')}">
-    <textarea id="note-edit-content" class="form-input" rows="10" style="font-size:13px;line-height:1.9;resize:vertical;font-family:'Noto Serif JP',serif" placeholder="メモを入力…&#10;&#10;Markdown風の記法も使えます：&#10;## 見出し  **太字**  - リスト">${esc(editingNote.content||'')}</textarea>
+    <input id="note-edit-title" class="form-input" style="margin-bottom:8px;font-size:14px;font-weight:600" placeholder="タイトル（省略可）" value="${esc(editingNote.title||'')}" oninput="${learnNoteAutoSaveCall}">
+    <div style="margin-bottom:8px">
+      ${renderHubRichEditor('note-edit-content', editingNote.contentHtml || plainTextToRichHtml(editingNote.content||''), 'メモを入力…見出し・太字・箇条書き・引用などが使えます', learnNoteAutoSaveCall)}
+    </div>
     <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center">
-      <input id="note-edit-tags" class="form-input" style="flex:1;min-width:140px;font-size:12px;height:32px" placeholder="タグ（カンマ区切り）例: 三幕構成, アイデア" value="${esc((editingNote.tags||[]).join(','))}">
-      <select id="note-edit-color" class="form-select" style="font-size:12px;height:32px;width:auto">
+      <input id="note-edit-tags" class="form-input" style="flex:1;min-width:140px;font-size:12px;height:32px" placeholder="タグ（カンマ区切り）例: 三幕構成, アイデア" value="${esc((editingNote.tags||[]).join(','))}" oninput="${learnNoteAutoSaveCall}">
+      <select id="note-edit-color" class="form-select" style="font-size:12px;height:32px;width:auto" onchange="${learnNoteAutoSaveCall}">
         ${Object.entries(colorLabels).map(([col,lbl])=>`<option value="${col}" ${(editingNote.color||'asagi')===col?'selected':''}>${lbl}</option>`).join('')}
       </select>
     </div>
+    <details style="margin-top:10px">
+      <summary style="cursor:pointer;font-size:12px;font-weight:700;color:var(--text-muted)"><i class="fas fa-note-sticky" style="margin-right:4px"></i>補足</summary>
+      <textarea id="note-edit-supplement" class="form-textarea" rows="4" style="margin-top:6px;font-size:12.5px" placeholder="関連する背景・気づいたきっかけ・他の記事との比較など自由に書いてください…" oninput="${learnNoteAutoSaveCall}">${esc(editingNote.note||'')}</textarea>
+    </details>
     <div style="display:flex;gap:8px;margin-top:10px;align-items:center;flex-wrap:wrap">
-      <button class="btn btn-primary btn-sm" onclick="saveLearnNote('${editingNote.id}')"><i class="fas fa-save"></i> 保存</button>
+      <button class="btn btn-primary btn-sm" onclick="saveLearnNote('${editingNote.id}')"><i class="fas fa-save"></i> 保存して閉じる</button>
       <button class="btn btn-ghost btn-sm" onclick="cancelEditNote()"><i class="fas fa-times"></i> キャンセル</button>
       <span id="note-char-count" style="font-size:11px;color:var(--text-muted);margin-left:auto"></span>
     </div>
@@ -14828,8 +14837,9 @@ function renderLearnNotes(hero, subnav) {
       const ta = document.getElementById('note-edit-content');
       const ct = document.getElementById('note-char-count');
       if (ta && ct) {
-        ct.textContent = ta.value.replace(/\\s/g,'').length + '字';
-        ta.addEventListener('input', () => { ct.textContent = ta.value.replace(/\\s/g,'').length + '字'; });
+        const update = () => { ct.textContent = (ta.innerText||'').replace(/\\s/g,'').length + '字'; };
+        update();
+        ta.addEventListener('input', update);
       }
     })();
   </script>` : '';
@@ -14932,27 +14942,39 @@ function editLearnNote(noteId) {
   setTimeout(() => document.getElementById('note-edit-title')?.focus(), 100);
 }
 
-function saveLearnNote(noteId) {
-  const notes  = DB.get('learn_notes', []);
-  const idx    = notes.findIndex(n => n.id === noteId);
+// 自動保存・明示的保存の両方から呼ばれる、DBへの書き込みのみを行う関数
+// （closeModal/renderは呼ばない）
+function persistLearnNoteEdit(noteId) {
+  const notes = DB.get('learn_notes', []);
+  const idx   = notes.findIndex(n => n.id === noteId);
   if (idx === -1) return;
-  const title   = document.getElementById('note-edit-title')?.value?.trim() || '';
-  const content = document.getElementById('note-edit-content')?.value?.trim() || '';
+  const title = document.getElementById('note-edit-title')?.value?.trim() || '';
+  const contentHtml = getHubRichValue('note-edit-content');
+  const content = richHtmlToPlainText(contentHtml);
   const tagsRaw = document.getElementById('note-edit-tags')?.value?.trim() || '';
   const color   = document.getElementById('note-edit-color')?.value || 'asagi';
   const tags    = tagsRaw ? tagsRaw.split(',').map(t=>t.trim()).filter(Boolean) : [];
-  if (!content && !title) { toast('内容を入力してください', 'error'); return; }
-  notes[idx] = { ...notes[idx], title, content, tags, color, updatedAt: Date.now() };
+  const noteEl  = document.getElementById('note-edit-supplement');
+  const note    = noteEl ? (noteEl.value?.trim() || '') : (notes[idx].note || '');
+  notes[idx] = { ...notes[idx], title, contentHtml, content, tags, color, note, updatedAt: Date.now() };
   DB.set('learn_notes', notes);
+}
+
+function saveLearnNote(noteId) {
+  hubFlushAutoSave('learnnote-'+noteId, () => persistLearnNoteEdit(noteId));
+  const notes = DB.get('learn_notes', []);
+  const n = notes.find(x => x.id === noteId);
+  if (n && !n.title && !n.content) { toast('内容を入力してください', 'error'); return; }
   DB.set('note_editing_id', null);
   toast('ノートを保存しました', 'success');
   render();
 }
 
 function cancelEditNote() {
-  const notes = DB.get('learn_notes', []);
   const editId = DB.get('note_editing_id', null);
   if (editId) {
+    hubFlushAutoSave('learnnote-'+editId, () => persistLearnNoteEdit(editId));
+    const notes = DB.get('learn_notes', []);
     const n = notes.find(x => x.id === editId);
     if (n && !n.title && !n.content) {
       DB.set('learn_notes', notes.filter(x => x.id !== editId));
