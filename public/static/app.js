@@ -679,25 +679,39 @@ function plainTextToRichHtml(text) {
 //   htmlValue: 初期表示するHTML（すでにサニタイズ済みの想定）
 //   placeholder: 空のときに表示するプレースホルダ文言
 //   oninputExpr: contenteditableのoninput属性に渡すJS式（呼び出し元の自動保存関数呼び出し等）
+// ツールバーの各ボタン定義（key: hubRichExecへ渡すtype／queryCommandState等でのアクティブ判定キー）
+const HUB_RICH_TOOLBAR_STATE_MAP = { bold: 'bold', italic: 'italic', underline: 'underline', strike: 'strikeThrough', ul: 'insertUnorderedList', ol: 'insertOrderedList' };
 function renderHubRichEditor(fieldId, htmlValue, placeholder, oninputExpr) {
   const safeHtml = sanitizeRichHtml(htmlValue || '');
+  const initialCount = richHtmlToPlainText(safeHtml).length;
+  const combinedOninput = `hubRichOnInput('${fieldId}');${oninputExpr || ''}`;
   return `
   <div class="hub-rich-wrap">
-    <div class="hub-rich-toolbar">
+    <div class="hub-rich-toolbar" id="hub-rich-toolbar-${fieldId}">
       <button type="button" class="hub-rich-btn" title="見出し" onclick="hubRichExec('${fieldId}','h3')"><i class="fas fa-heading"></i></button>
       <button type="button" class="hub-rich-btn hub-rich-btn-sub" title="小見出し" onclick="hubRichExec('${fieldId}','h4')"><i class="fas fa-heading"></i><sub>2</sub></button>
       <span class="hub-rich-sep"></span>
-      <button type="button" class="hub-rich-btn" title="太字" onclick="hubRichExec('${fieldId}','bold')"><i class="fas fa-bold"></i></button>
-      <button type="button" class="hub-rich-btn" title="取り消し線" onclick="hubRichExec('${fieldId}','strike')"><i class="fas fa-strikethrough"></i></button>
+      <button type="button" class="hub-rich-btn" id="hub-rich-btn-${fieldId}-bold" title="太字 (Ctrl+B)" onclick="hubRichExec('${fieldId}','bold')"><i class="fas fa-bold"></i></button>
+      <button type="button" class="hub-rich-btn" id="hub-rich-btn-${fieldId}-italic" title="斜体 (Ctrl+I)" onclick="hubRichExec('${fieldId}','italic')"><i class="fas fa-italic"></i></button>
+      <button type="button" class="hub-rich-btn" id="hub-rich-btn-${fieldId}-underline" title="下線 (Ctrl+U)" onclick="hubRichExec('${fieldId}','underline')"><i class="fas fa-underline"></i></button>
+      <button type="button" class="hub-rich-btn" id="hub-rich-btn-${fieldId}-strike" title="取り消し線" onclick="hubRichExec('${fieldId}','strike')"><i class="fas fa-strikethrough"></i></button>
       <span class="hub-rich-sep"></span>
-      <button type="button" class="hub-rich-btn" title="箇条書き" onclick="hubRichExec('${fieldId}','ul')"><i class="fas fa-list-ul"></i></button>
+      <button type="button" class="hub-rich-btn" id="hub-rich-btn-${fieldId}-ul" title="箇条書き" onclick="hubRichExec('${fieldId}','ul')"><i class="fas fa-list-ul"></i></button>
+      <button type="button" class="hub-rich-btn" id="hub-rich-btn-${fieldId}-ol" title="番号付きリスト" onclick="hubRichExec('${fieldId}','ol')"><i class="fas fa-list-ol"></i></button>
       <button type="button" class="hub-rich-btn" title="引用" onclick="hubRichExec('${fieldId}','quote')"><i class="fas fa-quote-right"></i></button>
       <span class="hub-rich-sep"></span>
       <button type="button" class="hub-rich-btn" title="書式をクリア" onclick="hubRichExec('${fieldId}','clear')"><i class="fas fa-eraser"></i></button>
     </div>
     <div class="hub-rich-editor form-textarea" id="${fieldId}" contenteditable="true"
          data-placeholder="${esc(placeholder || '')}"
-         oninput="${esc(oninputExpr || '')}">${safeHtml}</div>
+         oninput="${esc(combinedOninput)}"
+         onkeyup="hubRichUpdateToolbarState('${fieldId}')"
+         onmouseup="hubRichUpdateToolbarState('${fieldId}')"
+         onfocus="hubRichUpdateToolbarState('${fieldId}')"
+         onpaste="hubRichHandlePaste(event,'${fieldId}')">${safeHtml}</div>
+    <div class="hub-rich-footer">
+      <span class="hub-rich-charcount" id="hub-rich-charcount-${fieldId}">${initialCount.toLocaleString()}文字</span>
+    </div>
   </div>`;
 }
 // ツールバーボタンのクリックハンドラ（document.execCommandで簡易的に書式適用）
@@ -707,8 +721,11 @@ function hubRichExec(fieldId, type) {
   editor.focus();
   try {
     if (type === 'bold') document.execCommand('bold');
+    else if (type === 'italic') document.execCommand('italic');
+    else if (type === 'underline') document.execCommand('underline');
     else if (type === 'strike') document.execCommand('strikeThrough');
     else if (type === 'ul') document.execCommand('insertUnorderedList');
+    else if (type === 'ol') document.execCommand('insertOrderedList');
     else if (type === 'quote') document.execCommand('formatBlock', false, 'blockquote');
     else if (type === 'h3') document.execCommand('formatBlock', false, 'h3');
     else if (type === 'h4') document.execCommand('formatBlock', false, 'h4');
@@ -716,6 +733,40 @@ function hubRichExec(fieldId, type) {
   } catch (e) { /* execCommandが使えない環境では無視 */ }
   // ツールバー操作で内容が変わったことを自動保存側に伝える
   editor.dispatchEvent(new Event('input', { bubbles: true }));
+  hubRichUpdateToolbarState(fieldId);
+}
+// 入力時：文字数カウンターを更新する（自動保存トリガーとは別に常に呼ばれる）
+function hubRichOnInput(fieldId) {
+  const editor = document.getElementById(fieldId);
+  const counter = document.getElementById(`hub-rich-charcount-${fieldId}`);
+  if (editor && counter) {
+    const len = richHtmlToPlainText(editor.innerHTML).length;
+    counter.textContent = `${len.toLocaleString()}文字`;
+  }
+}
+// カーソル位置の書式（太字/斜体/下線/取り消し線/箇条書き/番号付き）に応じてツールバーボタンをハイライト
+function hubRichUpdateToolbarState(fieldId) {
+  const toolbar = document.getElementById(`hub-rich-toolbar-${fieldId}`);
+  if (!toolbar) return;
+  Object.entries(HUB_RICH_TOOLBAR_STATE_MAP).forEach(([key, cmd]) => {
+    const btn = document.getElementById(`hub-rich-btn-${fieldId}-${key}`);
+    if (!btn) return;
+    let active = false;
+    try { active = document.queryCommandState(cmd); } catch (e) { /* 環境によっては非対応 */ }
+    btn.classList.toggle('active', !!active);
+  });
+}
+// 貼り付け時：外部（Word/Webページ等）からの装飾過多なHTMLをそのまま挿入せず、
+// 許可タグのみを残したサニタイズ済みHTMLとして挿入する（プレーンテキストのみの場合は改行を<br>に変換）
+function hubRichHandlePaste(event, fieldId) {
+  event.preventDefault();
+  const cd = event.clipboardData || window.clipboardData;
+  if (!cd) return;
+  const html = cd.getData('text/html');
+  const inserted = html ? sanitizeRichHtml(html) : plainTextToRichHtml(cd.getData('text/plain') || '');
+  try { document.execCommand('insertHTML', false, inserted); } catch (e) { /* 非対応環境ではペースト無視 */ }
+  const editor = document.getElementById(fieldId);
+  if (editor) editor.dispatchEvent(new Event('input', { bubbles: true }));
 }
 // contenteditableの現在の中身をサニタイズ済みHTMLとして取得
 function getHubRichValue(fieldId) {

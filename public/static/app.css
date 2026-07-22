@@ -10735,6 +10735,7 @@ body.modal-open-lock {
 }
 .hub-rich-btn:hover { background: var(--fuji-bg); color: var(--fuji); }
 .hub-rich-btn:active { background: var(--fuji-border); }
+.hub-rich-btn.active { background: var(--fuji); color: #fff; }
 .hub-rich-btn-sub sub { font-size: 8px; margin-left: 1px; }
 .hub-rich-sep {
   width: 1px;
@@ -10776,6 +10777,14 @@ body.modal-open-lock {
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 .hub-rich-editor s, .hub-rich-editor strike, .hub-rich-editor del { opacity: .7; }
+.hub-rich-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 3px 10px 5px;
+  background: var(--bg-subtle);
+  border-top: 1px solid var(--border);
+}
+.hub-rich-charcount { font-size: 10.5px; color: var(--text-muted); }
 
 /* ハブ共通：自動保存インジケーター（フッターに置く「自動保存」表示） */
 .hub-autosave-indicator {
