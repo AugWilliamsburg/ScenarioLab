@@ -11212,6 +11212,38 @@ body.modal-open-lock {
 }
 
 /* ================================================================
+   エッジスワイプで戻る（モバイル専用・PWA standalone限定）
+   画面左端からの右方向スワイプに追従して現在のページを右へずらし、
+   左端に「戻る」を示す矢印インジケーターをフェードインさせることで、
+   ネイティブアプリの標準的な戻るジェスチャーの視覚的手応えを再現する。
+   実際のドラッグ量に応じたtransform/opacityの制御はJS側
+   (initEdgeSwipeBack)で行うため、ここでは初期状態と土台のみ定義する。
+   ================================================================ */
+.edge-back-indicator {
+  position: fixed;
+  top: 50%;
+  left: 0;
+  width: 40px;
+  height: 40px;
+  transform: translateX(-28px) translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-sidebar, #1c1510);
+  color: #fff;
+  border-radius: 0 50% 50% 0;
+  box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,.25));
+  font-size: 15px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 2100;
+  transition: opacity .1s;
+}
+@media (min-width: 901px) {
+  .edge-back-indicator { display: none; }
+}
+
+/* ================================================================
    hover依存カードアクションのタッチ対応（モバイル専用）
    .idea-card-actions / .board-card-actions / .task-item-actions /
    .scene-card-actions は「デフォルトopacity:0、:hoverでopacity:1」

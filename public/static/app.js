@@ -751,6 +751,105 @@ window.addEventListener('online', () => {
   document.addEventListener('touchcancel', onEnd, { passive: true });
 })();
 
+// ── エッジスワイプで戻る（モバイル専用・900px以下・PWA standalone限定）──
+// 画面左端付近から右方向へスワイプすると、iOS/Androidネイティブアプリの
+// 標準ナビゲーションジェスチャーのように1つ前のページへ戻れるようにする。
+// ブラウザのタブ内で通常表示している場合はOS/ブラウザ自身の「スワイプで
+// 戻る」機能と衝突する可能性があるため、ホーム画面追加後のPWA standalone
+// 起動時のみ有効化する（display-modeで判定。Safari独自のstandalone判定
+// にも対応）。サイドバーが開いている・モーダルが開いている・トップページ
+// （戻り先がない）場合は誤操作防止のため無効化する。
+(function initEdgeSwipeBack() {
+  const isStandalone = () =>
+    (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+    navigator.standalone === true;
+
+  const EDGE_ZONE = 24;    // 反応する左端の幅（px）
+  const THRESHOLD = 80;    // 戻る操作が確定するドラッグ量（px）
+  const MAX_DRAG = 140;    // 視覚的な最大追従量（px）
+  let tracking = false, dragging = false, axisLocked = null;
+  let startX = 0, startY = 0, dx = 0;
+  let indicator = null;
+
+  function canGoBack() {
+    // モーダル/サイドバーが開いている間は、既存のpopstateハンドラや
+    // スワイプで閉じる機能と競合するため、このジェスチャーは無効化する
+    if ($('#modal-overlay')) return false;
+    const overlay = document.getElementById('sidebar-overlay');
+    if (overlay && overlay.classList.contains('active')) return false;
+    // トップページ（戻り先がない画面）では発火させない
+    if (State.currentPage === 'top') return false;
+    return true;
+  }
+
+  function ensureIndicator() {
+    if (indicator) return indicator;
+    indicator = el('div', { id: 'edge-back-indicator', class: 'edge-back-indicator' },
+      '<i class="fas fa-chevron-left"></i>');
+    document.body.appendChild(indicator);
+    return indicator;
+  }
+
+  function onStart(e) {
+    if (window.innerWidth > 900) return;
+    if (!isStandalone()) return;
+    const t = e.touches[0];
+    if (t.clientX > EDGE_ZONE) return; // 左端付近のみ受け付ける
+    if (!canGoBack()) return;
+    tracking = true; dragging = false; axisLocked = null;
+    startX = t.clientX; startY = t.clientY; dx = 0;
+  }
+
+  function onMove(e) {
+    if (!tracking) return;
+    const t = e.touches[0];
+    const rawDx = t.clientX - startX;
+    const rawDy = t.clientY - startY;
+    if (!axisLocked) {
+      if (Math.abs(rawDx) < 6 && Math.abs(rawDy) < 6) return;
+      axisLocked = Math.abs(rawDx) > Math.abs(rawDy) ? 'x' : 'y';
+    }
+    if (axisLocked === 'y' || rawDx < 0) { tracking = false; return; }
+    dragging = true;
+    dx = Math.min(MAX_DRAG, rawDx);
+    const page = document.getElementById('page-content');
+    if (page) page.style.transform = `translateX(${dx}px)`;
+    const ind = ensureIndicator();
+    ind.style.opacity = String(Math.min(1, dx / THRESHOLD));
+    ind.style.transform = `translateX(${Math.min(dx, THRESHOLD) - 28}px) translateY(-50%)`;
+  }
+
+  function reset() {
+    const page = document.getElementById('page-content');
+    if (page) { page.style.transition = 'transform .2s ease'; page.style.transform = ''; }
+    if (indicator) indicator.style.opacity = '0';
+    setTimeout(() => { if (page) page.style.transition = ''; }, 220);
+    tracking = false; dragging = false; axisLocked = null; dx = 0;
+  }
+
+  function onEnd() {
+    if (!tracking) return;
+    if (dragging && dx >= THRESHOLD) {
+      haptic('medium');
+      const page = document.getElementById('page-content');
+      if (page) { page.style.transition = 'transform .18s ease'; page.style.transform = `translateX(${MAX_DRAG}px)`; }
+      if (indicator) indicator.style.opacity = '0';
+      setTimeout(() => {
+        if (page) { page.style.transition = ''; page.style.transform = ''; }
+        history.back();
+      }, 120);
+      tracking = false; dragging = false; axisLocked = null; dx = 0;
+    } else {
+      reset();
+    }
+  }
+
+  document.addEventListener('touchstart', onStart, { passive: true });
+  document.addEventListener('touchmove', onMove, { passive: true });
+  document.addEventListener('touchend', onEnd, { passive: true });
+  document.addEventListener('touchcancel', reset, { passive: true });
+})();
+
 // ブラウザ/Androidの「戻る」ボタンをページ内遷移に接続する
 window.addEventListener('popstate', (e) => {
   // モーダルが開いた状態で「戻る」が押された場合は、モーダルを閉じる
