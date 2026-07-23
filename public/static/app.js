@@ -4670,6 +4670,36 @@ function getCharArcStages(ch) {
     return { key: def.key, label: def.label, hint: def.hint, text: s.text || '', done: !!richHtmlToPlainText(s.text||'').trim() };
   });
 }
+// ── キャラクター深み診断 ──────────────────────────────────────
+// ツール「キャラクター診断シート」(runCharDiag)と同じロジックを、
+// proj.characters[] の1件から直接計算できる共通関数として抽出。
+// ダッシュボードのキャラクターカード／詳細ページ／一覧サマリーで再利用する。
+const CHAR_DEPTH_ITEMS = [
+  { key: 'want',   label: 'Want（目標）',       color: 'var(--accent)', icon: 'fa-arrow-up',    tip: 'Wantを設定しましょう。主人公が意識的に追い求める外的・具体的な目標です。' },
+  { key: 'need',   label: 'Need（内面）',       color: 'var(--matcha)', icon: 'fa-heart',        tip: 'Needを設定しましょう。Wantを追う過程で気づく、本当に必要なものです。WantとNeedの対立がドラマを生みます。' },
+  { key: 'wound',  label: 'ウーンド（傷）',      color: 'var(--momo)',   icon: 'fa-bandage',      tip: 'ウーンド（傷）を設定しましょう。主人公の行動を歪めている過去の傷が、ドラマに深みをもたらします。' },
+  { key: 'lie',    label: 'ライ（誤信念）',      color: 'var(--accent)', icon: 'fa-xmark',        tip: 'ライ（誤信念）を設定しましょう。ウーンドから生まれた「間違った世界観」が主人公の成長を妨げます。' },
+  { key: 'truth',  label: 'トゥルース（真実）',   color: 'var(--matcha)', icon: 'fa-check',        tip: 'トゥルース（真実）を設定しましょう。クライマックスで主人公が辿り着く真実が、アークを完成させます。' },
+  { key: 'speech', label: 'ボイス（口癖）',       color: 'var(--fuji)',   icon: 'fa-comment',      tip: '口癖を設定しましょう。台詞を読んで「誰が言ったかわかる」個性を作ります。' },
+  { key: 'never',  label: '禁止語彙',            color: 'var(--kon-lt,#4a5e9a)', icon: 'fa-ban',   tip: 'このキャラクターが絶対に使わない言葉を決めましょう。輪郭がはっきりします。' },
+  { key: 'ghost',  label: 'ゴースト（破壊パターン）', color: 'var(--kogane)', icon: 'fa-repeat',  tip: '繰り返す自己破壊的パターン（ゴースト）を設定しましょう。行動に一貫した弱さが生まれます。' },
+];
+function computeCharDepth(ch) {
+  const vals = {};
+  CHAR_DEPTH_ITEMS.forEach(it => { vals[it.key] = String(ch[it.key]||'').trim(); });
+  const filledCount = CHAR_DEPTH_ITEMS.filter(it => vals[it.key]).length;
+  const score = Math.round(filledCount / CHAR_DEPTH_ITEMS.length * 100);
+  const want = vals.want, need = vals.need, lie = vals.lie, truth = vals.truth;
+  let arcType = '未確定';
+  if (want && need) {
+    if (want.toLowerCase() === need.toLowerCase()) arcType = 'フラットアーク（不変・価値観の守護者）';
+    else if (lie && truth) arcType = 'ポジティブアーク（ライ→トゥルース：成長）';
+    else arcType = 'ポジティブアーク（成長型）';
+  }
+  const tension = want && need && want !== need ? '高い（ドラマ的対立あり）' : (want && need ? '低い（一致している）' : '未評価');
+  const missing = CHAR_DEPTH_ITEMS.filter(it => !vals[it.key]);
+  return { vals, filledCount, score, arcType, tension, missing };
+}
 // 役割選択肢（表示ラベルは CHAR_ROLE_COLORS のキーと完全一致させる。
 // 旧バージョンでは追加/編集モーダルの選択肢文言「敵・antagonist」がROLE_COLORSのキー
 // 「antagonist（敵）」と不一致で、選択してもロール別の色/アイコンが適用されない
@@ -4687,10 +4717,35 @@ const CHAR_REL_STYLES = {
   '敵':     { color: '#b0392f', dash: '6,4' },
   'その他': { color: '#8a8378', dash: '2,3' },
 };
+// キャスト全体の診断：平均深みスコア、役割の偏り、Want/Needの重複などを検出する
+function computeCastInsights(proj) {
+  const chars = proj.characters || [];
+  const warnings = [];
+  if (chars.length === 0) return { avgScore: 0, warnings };
+  const depths = chars.map(ch => ({ ch, depth: computeCharDepth(ch) }));
+  const avgScore = Math.round(depths.reduce((s,d)=>s+d.depth.score,0) / depths.length);
+  const protagonists = chars.filter(c => c.role === '主人公');
+  if (protagonists.length === 0) chars.length >= 2 && warnings.push({ icon:'fa-star', color:'var(--kogane)', text:'「主人公」役割のキャラクターがいません。物語の中心人物を明確にしましょう。' });
+  if (protagonists.length >= 2) warnings.push({ icon:'fa-star', color:'var(--kogane)', text:`「主人公」が${protagonists.length}人います。視点が分散していないか確認しましょう（群像劇なら問題ありません）。` });
+  // Want/Need の重複ペア検出
+  for (let i = 0; i < chars.length; i++) {
+    for (let j = i + 1; j < chars.length; j++) {
+      const a = chars[i], b = chars[j];
+      const aw = (a.want||'').trim().toLowerCase(), bw = (b.want||'').trim().toLowerCase();
+      const an = (a.need||'').trim().toLowerCase(), bn = (b.need||'').trim().toLowerCase();
+      if (aw && bw && aw === bw) warnings.push({ icon:'fa-arrow-up', color:'var(--accent)', text:`「${a.name}」と「${b.name}」のWantが同じ文言です。役割の差別化を検討しましょう。` });
+      if (an && bn && an === bn) warnings.push({ icon:'fa-heart', color:'var(--matcha)', text:`「${a.name}」と「${b.name}」のNeedが同じ文言です。内面の違いを出せないか確認しましょう。` });
+    }
+  }
+  const lowChars = depths.filter(d => d.depth.score < 30).map(d => d.ch);
+  if (lowChars.length > 0) warnings.push({ icon:'fa-gem', color:'var(--text-muted)', text:`${lowChars.map(c=>c.name).join('、')} の深み診断スコアが低めです。Want/Need/バックストーリーなどの記入をおすすめします。` });
+  return { avgScore, warnings };
+}
 function renderCharacters(proj) {
   const chars = proj.characters || [];
   const charFilter = DB.get(`char_filter_${proj.id}`, { view: 'grouped', role: 'all', search: '' });
   const ROLE_COLORS = CHAR_ROLE_COLORS;
+  const castInsights = computeCastInsights(proj);
 
   // キャラクターのロール別分布
   const roleDistribution = chars.reduce((acc, ch) => {
@@ -4714,18 +4769,23 @@ function renderCharacters(proj) {
     );
   }
 
-  const makeCharCard = (ch) => {
+  // 並び替え矢印は「全員フラット表示」時のみ表示する（グループ表示は役割別に自動整列されるため）
+  const showReorder = charFilter.view === 'grid' && charFilter.role === 'all' && !charFilter.search && chars.length > 1;
+  const makeCharCard = (ch, idx, listLen) => {
     const rc = ROLE_COLORS[ch.role] || ROLE_COLORS['その他'];
     const wantFilled = (ch.want||'').trim().length > 0;
     const needFilled = (ch.need||'').trim().length > 0;
-    const backText = richHtmlToPlainText(ch.backHtml || ch.back || '');
-    const speechText = richHtmlToPlainText(ch.speechHtml || ch.speech || '');
-    const completeness = [ch.name, ch.role, ch.age, ch.want, ch.need, backText, speechText].filter(v => v && String(v).trim()).length;
+    const depth = computeCharDepth(ch);
     const arcStages = getCharArcStages(ch);
     const arcDone = arcStages.filter(s => s.done).length;
     const relCount = (proj.relationships||[]).filter(r => r.char1 === ch.id || r.char2 === ch.id).length;
+    const depthColor = depth.score >= 80 ? 'var(--matcha)' : depth.score >= 50 ? 'var(--kogane)' : 'var(--text-muted)';
     return `
-    <div class="character-card" onclick="openCharDetail('${proj.id}','${ch.id}')">
+    <div class="character-card" style="position:relative" onclick="openCharDetail('${proj.id}','${ch.id}')">
+      ${showReorder ? `<div style="position:absolute;top:6px;left:6px;z-index:2;display:flex;flex-direction:column;gap:2px">
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" style="width:20px;height:20px;background:rgba(255,255,255,0.85)" ${idx===0?'disabled':''} onclick="event.stopPropagation();moveCharacter('${proj.id}','${ch.id}',-1)" title="上へ"><i class="fas fa-chevron-up" style="font-size:9px"></i></button>
+        <button type="button" class="btn btn-ghost btn-icon btn-sm" style="width:20px;height:20px;background:rgba(255,255,255,0.85)" ${idx===listLen-1?'disabled':''} onclick="event.stopPropagation();moveCharacter('${proj.id}','${ch.id}',1)" title="下へ"><i class="fas fa-chevron-down" style="font-size:9px"></i></button>
+      </div>` : ''}
       <div class="character-avatar" style="background:linear-gradient(135deg,${rc.bg} 0%,${rc.border}55 100%)">
         <span style="font-size:42px">${ch.emoji||'👤'}</span>
         <div style="position:absolute;top:8px;right:8px">
@@ -4734,6 +4794,11 @@ function renderCharacters(proj) {
           </span>
         </div>
         ${relCount > 0 ? `<div style="position:absolute;top:8px;left:8px"><span style="display:inline-flex;align-items:center;gap:3px;background:rgba(255,255,255,0.85);color:var(--text-secondary);border-radius:10px;padding:2px 6px;font-size:9px;font-weight:700"><i class="fas fa-diagram-project" style="font-size:8px"></i> ${relCount}</span></div>` : ''}
+        <div style="position:absolute;bottom:8px;right:8px" title="キャラクター深み診断スコア">
+          <span style="display:inline-flex;align-items:center;gap:3px;background:rgba(255,255,255,0.9);color:${depthColor};border-radius:10px;padding:2px 7px;font-size:9.5px;font-weight:800">
+            <i class="fas fa-gem" style="font-size:8px"></i> ${depth.score}
+          </span>
+        </div>
       </div>
       <div class="character-info">
         <div class="character-name">${esc(ch.name||'名前未設定')}</div>
@@ -4753,8 +4818,8 @@ function renderCharacters(proj) {
           ${(ch.traits||[]).slice(0,3).map(t=>`<span class="tag tag-fuji" style="font-size:10px">${esc(t)}</span>`).join('')}
         </div>
         <div style="margin-top:8px">
-          <div class="progress-bar" style="height:3px"><div class="progress-fill" style="width:${Math.round(completeness/7*100)}%;background:linear-gradient(90deg,${rc.color},${rc.color}88)"></div></div>
-          <div style="font-size:9.5px;color:var(--text-muted);margin-top:2px">完成度 ${Math.round(completeness/7*100)}%</div>
+          <div class="progress-bar" style="height:3px"><div class="progress-fill" style="width:${depth.score}%;background:linear-gradient(90deg,${rc.color},${rc.color}88)"></div></div>
+          <div style="font-size:9.5px;color:var(--text-muted);margin-top:2px">深み診断 ${depth.score}%（${depth.filledCount}/${CHAR_DEPTH_ITEMS.length}要素）</div>
         </div>
       </div>
     </div>`;
@@ -4784,12 +4849,12 @@ function renderCharacters(proj) {
         <span style="font-size:11px;background:${rc.color};color:white;padding:1px 8px;border-radius:var(--radius-full)">${roleChars.length}人</span>
         ${roleChars.some(ch => (ch.want||'').trim() && (ch.need||'').trim()) ? '<span style="font-size:10px;color:var(--matcha);margin-left:auto"><i class="fas fa-check-circle"></i> Want/Need設定済み</span>' : ''}
       </div>
-      ${roleChars.map(ch => makeCharCard(ch)).join('')}`;
+      ${roleChars.map((ch,i) => makeCharCard(ch,i,roleChars.length)).join('')}`;
     }).join('');
   } else {
     charContent = (filtered.length === 0
       ? `<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-muted)">条件に一致するキャラクターが見つかりません</div>`
-      : filtered.map(ch => makeCharCard(ch)).join(''));
+      : filtered.map((ch,i) => makeCharCard(ch,i,filtered.length)).join(''));
   }
 
   // ロール分布サマリー
@@ -4810,6 +4875,18 @@ function renderCharacters(proj) {
     </div>
     <div class="section-desc">登場人物の内面・欲求・バックストーリーを深掘りして、生きたキャラクターを作りましょう</div>
   </div>
+
+  ${chars.length > 0 ? `
+  <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;padding:12px 16px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);flex-wrap:wrap">
+    <div style="display:flex;align-items:center;gap:8px">
+      <div style="font-size:22px;font-weight:800;font-family:'Noto Serif JP',serif;color:${castInsights.avgScore>=70?'var(--matcha)':castInsights.avgScore>=40?'var(--kogane)':'var(--text-muted)'}"><i class="fas fa-gem" style="font-size:14px;margin-right:3px"></i>${castInsights.avgScore}</div>
+      <div style="font-size:11px;color:var(--text-muted);line-height:1.4">キャスト平均<br>深み診断スコア</div>
+    </div>
+    ${castInsights.warnings.length > 0 ? `<div style="flex:1;min-width:200px;display:flex;flex-direction:column;gap:4px">
+      ${castInsights.warnings.slice(0,3).map(w => `<div style="display:flex;align-items:flex-start;gap:6px;font-size:11.5px;color:var(--text-secondary)"><i class="fas ${w.icon}" style="color:${w.color};font-size:10px;margin-top:2px;flex-shrink:0"></i><span>${esc(w.text)}</span></div>`).join('')}
+      ${castInsights.warnings.length > 3 ? `<div style="font-size:10.5px;color:var(--text-muted)">他 ${castInsights.warnings.length-3}件の提案があります</div>` : ''}
+    </div>` : `<div style="flex:1;font-size:11.5px;color:var(--matcha)"><i class="fas fa-circle-check"></i> 役割の重複やWant/Need重複などの問題は見つかりませんでした</div>`}
+  </div>` : ''}
 
   <!-- ロール分布 + アクション -->
   <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;flex-wrap:wrap">
@@ -4974,6 +5051,7 @@ function addCharacter(projId) {
     traits: ($('#ch-traits')?.value||'').split(',').map(t=>t.trim()).filter(Boolean),
     want: $('#ch-want')?.value?.trim()||'', need: $('#ch-need')?.value?.trim()||'',
     back: '', backHtml: '', speech: '', speechHtml: '',
+    wound: '', lie: '', truth: '', never: '', ghost: '',
     arcStages: CHAR_ARC_DEFAULT_STAGES.map(() => ({ text: '' })),
     color: ['#7c6af7','#f76ca0','#6af7c8','#f7c56a','#6ab8f7','#c86af7'][Math.floor(Math.random()*6)],
     createdAt: now(),
@@ -4993,8 +5071,75 @@ function addCharacter(projId) {
 const CHAR_DETAIL_TABS = [
   { key: 'basic', label: '基本情報', icon: 'fa-id-card' },
   { key: 'inner',  label: '内面・アーク', icon: 'fa-route' },
+  { key: 'diag',   label: '深み診断', icon: 'fa-gem' },
   { key: 'rel',    label: '関係性', icon: 'fa-diagram-project' },
 ];
+// 深み診断タブの本文（スコアボード + 8要素の入力欄 + 改善提案）を組み立てる。
+// wound/lie/truth/never/ghost は単純テキストのため saveCharField 経由で自動保存し、
+// 保存後は #cdiag-panel-<id> の中身だけを差し替えて即時にスコアを反映する。
+function renderCharDiagSummary(ch) {
+  const depth = computeCharDepth(ch);
+  const scoreColor = depth.score >= 80 ? 'var(--matcha)' : depth.score >= 50 ? 'var(--kogane)' : 'var(--accent)';
+  const scoreBg = depth.score >= 80 ? 'var(--matcha-bg)' : depth.score >= 50 ? 'var(--kogane-bg)' : 'var(--accent-bg)';
+  const scoreBorder = depth.score >= 80 ? 'var(--matcha-border)' : depth.score >= 50 ? 'var(--kogane-border)' : 'var(--accent-border)';
+  const scoreLabel = depth.score >= 80 ? '立体的なキャラクター' : depth.score >= 50 ? '発展途上' : '設計が必要';
+  return `
+  <div style="text-align:center;margin-bottom:16px;padding:16px;background:${scoreBg};border-radius:var(--radius-md);border:1px solid ${scoreBorder}">
+    <div style="font-size:38px;font-weight:700;font-family:'Noto Serif JP',serif;color:${scoreColor}">${depth.score}<span style="font-size:16px">点</span></div>
+    <div style="font-size:12.5px;font-weight:600;color:${scoreColor};margin-top:2px">${scoreLabel}</div>
+    <div style="font-size:10.5px;color:var(--text-muted);margin-top:2px">（${depth.filledCount}/${CHAR_DEPTH_ITEMS.length}要素 設定済み）</div>
+  </div>
+  <div style="background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 12px;margin-bottom:14px">
+    <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:3px">推定アークタイプ</div>
+    <div style="font-size:13.5px;font-weight:700;color:var(--fuji);font-family:'Noto Serif JP',serif">${esc(depth.arcType)}</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:3px">Want×Needの対立強度：<span style="color:var(--text-primary);font-weight:600">${esc(depth.tension)}</span></div>
+  </div>`;
+}
+function renderCharDiagSuggestions(ch) {
+  const depth = computeCharDepth(ch);
+  return depth.missing.length > 0 ? `
+    <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin:12px 0 8px">改善提案（${depth.missing.length}件）</div>
+    ${depth.missing.map(it => `<div style="display:flex;gap:9px;padding:9px 10px;background:var(--bg-primary);border:1px solid var(--border);border-radius:var(--radius-sm);border-left:3px solid ${it.color};margin-bottom:5px">
+      <i class="fas ${it.icon}" style="color:${it.color};flex-shrink:0;margin-top:2px;font-size:11px"></i>
+      <div><div style="font-size:11px;font-weight:700;color:var(--text-primary);margin-bottom:1px">${esc(it.label)}未設定</div><div style="font-size:11.5px;color:var(--text-secondary);line-height:1.5">${esc(it.tip)}</div></div>
+    </div>`).join('')}` : `<div class="success-box"><i class="fas fa-circle-check"></i><div>全8要素が設定されています！プロレベルの立体的なキャラクターです。</div></div>`;
+}
+// 深み診断タブの本文。スコア/提案部分と入力欄部分をそれぞれ別idで持ち、
+// 各テキスト欄の自動保存後は入力欄自体を壊さずスコア/提案部分だけを差し替える
+function renderCharDiagPanel(projId, charId, ch) {
+  return `
+  <div id="cdiag-summary-${charId}">${renderCharDiagSummary(ch)}</div>
+  <div class="grid-2">
+    <div class="form-group"><label class="form-label" style="color:var(--momo)">ウーンド（傷）— 過去のトラウマ</label>
+      <input class="form-input" id="ech-wound-${charId}" value="${esc(ch.wound||'')}" placeholder="主人公の行動を歪めている過去の出来事"
+        oninput="hubAutoSave('char-${charId}-wound',()=>{saveCharField('${projId}','${charId}','wound',$('#ech-wound-${charId}').value.trim());updateCharDiagPanel('${projId}','${charId}')},'char-autosave-${charId}')"></div>
+    <div class="form-group"><label class="form-label" style="color:var(--accent)">ライ（Lie）— 誤信念</label>
+      <input class="form-input" id="ech-lie-${charId}" value="${esc(ch.lie||'')}" placeholder="例：「誰かを信頼すると必ず裏切られる」"
+        oninput="hubAutoSave('char-${charId}-lie',()=>{saveCharField('${projId}','${charId}','lie',$('#ech-lie-${charId}').value.trim());updateCharDiagPanel('${projId}','${charId}')},'char-autosave-${charId}')"></div>
+  </div>
+  <div class="form-group"><label class="form-label" style="color:var(--matcha)">トゥルース（Truth）— 物語の末に辿り着く真実</label>
+    <input class="form-input" id="ech-truth-${charId}" value="${esc(ch.truth||'')}" placeholder="例：「信頼なくして本当の繋がりは得られない」"
+      oninput="hubAutoSave('char-${charId}-truth',()=>{saveCharField('${projId}','${charId}','truth',$('#ech-truth-${charId}').value.trim());updateCharDiagPanel('${projId}','${charId}')},'char-autosave-${charId}')"></div>
+  <div class="grid-2">
+    <div class="form-group"><label class="form-label">絶対に使わない言葉</label>
+      <input class="form-input" id="ech-never-${charId}" value="${esc(ch.never||'')}" placeholder="例：「ありがとう」「ごめんなさい」"
+        oninput="hubAutoSave('char-${charId}-never',()=>{saveCharField('${projId}','${charId}','never',$('#ech-never-${charId}').value.trim());updateCharDiagPanel('${projId}','${charId}')},'char-autosave-${charId}')"></div>
+    <div class="form-group"><label class="form-label">ゴースト（自己破壊的パターン）</label>
+      <input class="form-input" id="ech-ghost-${charId}" value="${esc(ch.ghost||'')}" placeholder="例：親しくなると自分から関係を壊す"
+        oninput="hubAutoSave('char-${charId}-ghost',()=>{saveCharField('${projId}','${charId}','ghost',$('#ech-ghost-${charId}').value.trim());updateCharDiagPanel('${projId}','${charId}')},'char-autosave-${charId}')"></div>
+  </div>
+  <div id="cdiag-suggest-${charId}">${renderCharDiagSuggestions(ch)}</div>`;
+}
+// 深み診断タブの1フィールド保存後、入力欄はそのまま残し、スコア/提案部分だけを再描画する
+function updateCharDiagPanel(projId, charId) {
+  const proj = DB.getProject(projId);
+  const ch = (proj?.characters||[]).find(c => c.id === charId);
+  if (!ch) return;
+  const summaryEl = document.getElementById(`cdiag-summary-${charId}`);
+  if (summaryEl) summaryEl.innerHTML = renderCharDiagSummary(ch);
+  const suggestEl = document.getElementById(`cdiag-suggest-${charId}`);
+  if (suggestEl) suggestEl.innerHTML = renderCharDiagSuggestions(ch);
+}
 function openCharDetail(projId, charId, tab = 'basic') {
   const proj = DB.getProject(projId);
   const ch = (proj?.characters||[]).find(c => c.id === charId);
@@ -5028,7 +5173,15 @@ function openCharDetail(projId, charId, tab = 'basic') {
           ${['男性','女性','その他','不明'].map(g=>`<option ${g===ch.gender?'selected':''}>${g}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group"><label class="form-label">絵文字</label><input class="form-input" id="ech-emoji" value="${esc(ch.emoji||'👤')}" maxlength="2" oninput="hubAutoSave('char-${charId}',()=>saveCharField('${projId}','${charId}','emoji',$('#ech-emoji').value||'👤'),'${statusId}')"></div>
+      <div class="form-group"><label class="form-label">絵文字</label>
+        <div style="display:flex;gap:6px">
+          <input class="form-input" id="ech-emoji" value="${esc(ch.emoji||'👤')}" maxlength="2" style="flex:1" oninput="hubAutoSave('char-${charId}',()=>saveCharField('${projId}','${charId}','emoji',$('#ech-emoji').value||'👤'),'${statusId}')">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="toggleCharEmojiPicker('${charId}')" title="よく使う絵文字から選ぶ"><i class="fas fa-face-smile"></i></button>
+        </div>
+        <div id="char-emoji-picker-${charId}" style="display:none;margin-top:6px;padding:8px;background:var(--bg-subtle);border:1px solid var(--border);border-radius:var(--radius-sm);flex-wrap:wrap;gap:4px">
+          ${CHAR_QUICK_EMOJIS.map(e=>`<button type="button" style="font-size:18px;background:none;border:none;cursor:pointer;padding:3px 5px;border-radius:6px" onmouseover="this.style.background='var(--bg-primary)'" onmouseout="this.style.background='none'" onclick="setCharEmoji('${projId}','${charId}','${e}')">${e}</button>`).join('')}
+        </div>
+      </div>
     </div>
     <div class="form-group"><label class="form-label">キャッチフレーズ</label><input class="form-input" id="ech-tagline" value="${esc(ch.tagline||'')}" oninput="hubAutoSave('char-${charId}',()=>saveCharField('${projId}','${charId}','tagline',$('#ech-tagline').value.trim()),'${statusId}')"></div>
     <div class="form-group"><label class="form-label">職業・立場</label><input class="form-input" id="ech-job" value="${esc(ch.job||'')}" oninput="hubAutoSave('char-${charId}',()=>saveCharField('${projId}','${charId}','job',$('#ech-job').value.trim()),'${statusId}')"></div>
@@ -5056,6 +5209,8 @@ function openCharDetail(projId, charId, tab = 'basic') {
     <div class="form-group"><label class="form-label">口癖・話し方の特徴</label>
       ${renderHubRichEditor(`ech-speech-${charId}`, ch.speechHtml || plainTextToRichHtml(ch.speech||''), '例：語尾に「…だよな？」が多い', `hubAutoSave('char-${charId}-speech',()=>saveCharRichField('${projId}','${charId}','speech','ech-speech-${charId}'),'${statusId}')`)}
     </div>`;
+  } else if (tab === 'diag') {
+    bodyHtml = renderCharDiagPanel(projId, charId, ch);
   } else {
     const rels = (proj.relationships||[]).filter(r => r.char1 === charId || r.char2 === charId);
     bodyHtml = `
@@ -5077,10 +5232,15 @@ function openCharDetail(projId, charId, tab = 'basic') {
       }).join('')}`;
   }
 
+  const detailDepth = computeCharDepth(ch);
+  const detailScoreColor = detailDepth.score >= 80 ? 'var(--matcha)' : detailDepth.score >= 50 ? 'var(--kogane)' : 'var(--text-muted)';
   openModal(
     `<span style="font-size:26px;margin-right:6px">${esc(ch.emoji||'👤')}</span>${esc(ch.name)}
      <span style="display:inline-flex;align-items:center;gap:3px;margin-left:8px;background:${rc.bg};color:${rc.color};border:1px solid ${rc.border};border-radius:10px;padding:2px 8px;font-size:10.5px;font-weight:700;vertical-align:middle">
        <i class="fas ${rc.icon}" style="font-size:9px"></i> ${esc(ch.role==='antagonist（敵）'?'敵役':ch.role||'？')}
+     </span>
+     <span style="display:inline-flex;align-items:center;gap:3px;margin-left:6px;color:${detailScoreColor};border:1px solid var(--border);border-radius:10px;padding:2px 8px;font-size:10.5px;font-weight:700;vertical-align:middle" title="キャラクター深み診断スコア">
+       <i class="fas fa-gem" style="font-size:9px"></i> ${detailDepth.score}点
      </span>`,
     `<div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">${tabsHtml}</div>${bodyHtml}`,
     `<button class="btn btn-danger btn-sm" onclick="deleteCharacter('${projId}','${charId}')"><i class="fas fa-trash"></i> 削除</button>
@@ -5088,6 +5248,20 @@ function openCharDetail(projId, charId, tab = 'basic') {
      <button class="btn btn-secondary" onclick="closeModal();render()">閉じる</button>`,
     { size: 'modal-xl' }
   );
+}
+// キャラクター基本情報タブの絵文字クイックピッカー用の候補一覧
+const CHAR_QUICK_EMOJIS = ['👤','👨','👩','🧑','👴','👵','🧒','👦','👧','😀','😎','🥷','🧑‍🎓','🧑‍💼','🧑‍🏫','🧑‍⚕️','🧑‍🚀','🧑‍🍳','🧑‍✈️','🕵️','🧙','👮','🧑‍🌾','🥸','😈','👻','🤖','🐱','🐶','🦁'];
+function toggleCharEmojiPicker(charId) {
+  const el = document.getElementById(`char-emoji-picker-${charId}`);
+  if (el) el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+}
+function setCharEmoji(projId, charId, emoji) {
+  saveCharField(projId, charId, 'emoji', emoji);
+  const input = document.getElementById('ech-emoji');
+  if (input) input.value = emoji;
+  hubFlashSaved(`char-autosave-${charId}`);
+  const picker = document.getElementById(`char-emoji-picker-${charId}`);
+  if (picker) picker.style.display = 'none';
 }
 // 単純フィールド（テキスト/セレクト/配列）の保存。closeModal/renderを呼ばず値のみ書き込む
 function saveCharField(projId, charId, field, value) {
@@ -5133,6 +5307,19 @@ function deleteCharacter(projId, charId) {
     `<button class="btn btn-secondary" onclick="closeModal();openCharDetail('${projId}','${charId}')">キャンセル</button>
      <button class="btn btn-danger" onclick="confirmDeleteCharacter('${projId}','${charId}')"><i class="fas fa-trash"></i> 削除する</button>`
   );
+}
+// キャラクター一覧内の並び順を1つ上下に入れ替える（グリッド表示・全員表示時のみ使用）
+function moveCharacter(projId, charId, dir) {
+  const proj = DB.getProject(projId);
+  if (!proj) return;
+  const chars = proj.characters || [];
+  const idx = chars.findIndex(c => c.id === charId);
+  const newIdx = idx + dir;
+  if (idx === -1 || newIdx < 0 || newIdx >= chars.length) return;
+  [chars[idx], chars[newIdx]] = [chars[newIdx], chars[idx]];
+  proj.updatedAt = now();
+  DB.saveProject(proj);
+  render();
 }
 function confirmDeleteCharacter(projId, charId) {
   const proj = DB.getProject(projId);
@@ -9156,14 +9343,21 @@ function exportCharacterList(projId) {
       const appearanceText = richHtmlToPlainText(c.appearanceHtml || c.appearance || '');
       const backText = richHtmlToPlainText(c.backHtml || c.back || '');
       const speechText = richHtmlToPlainText(c.speechHtml || c.speech || '');
+      const depth = computeCharDepth(c);
       return [
         `■ ${c.name}${c.kana?' ('+c.kana+')':''}`,
         `  役割: ${c.role||'—'}　年齢: ${c.age||'—'}　性別: ${c.gender||'—'}`,
+        `  深み診断スコア: ${depth.score}点（${depth.filledCount}/${CHAR_DEPTH_ITEMS.length}要素）　推定アークタイプ: ${depth.arcType}`,
         c.tagline ? `  キャラクター: 「${c.tagline}」` : '',
         c.job ? `  職業: ${c.job}` : '',
         (c.traits||[]).length ? `  特徴: ${(c.traits||[]).join('、')}` : '',
         c.want ? `  Want（目標）: ${c.want}` : '',
         c.need ? `  Need（内面）: ${c.need}` : '',
+        c.wound ? `  ウーンド（傷）: ${c.wound}` : '',
+        c.lie ? `  ライ（誤信念）: ${c.lie}` : '',
+        c.truth ? `  トゥルース（真実）: ${c.truth}` : '',
+        c.never ? `  絶対に使わない言葉: ${c.never}` : '',
+        c.ghost ? `  ゴースト（自己破壊的パターン）: ${c.ghost}` : '',
         appearanceText ? `  外見: ${appearanceText}` : '',
         backText ? `  バックストーリー: ${backText}` : '',
         speechText ? `  口癖・話し方: ${speechText}` : '',
@@ -40449,8 +40643,8 @@ function init() {
     ];
     sample.keywords = ['正義','裏切り','恩師','刑事','夜明け'];
     sample.characters = [
-      { id: uid(), name: '木村 拓也', kana: 'きむら たくや', role: '主人公', age: '38', gender: '男性', emoji: '🕵️', tagline: '法より人を信じたい刑事', job: '警察官（刑事）', traits: ['頑固','正義感が強い','不器用'], want: '事件の真相を解明すること', need: '恩師への感謝と怒りを超えること', color: '#7c6af7', createdAt: now() },
-      { id: uid(), name: '田中 教授', kana: 'たなか きょうじゅ', role: 'antagonist（敵）', age: '64', gender: '男性', emoji: '👴', tagline: '間違った正義を信じた男', job: '大学教授（元検察官）', traits: ['知的','カリスマ','歪んだ正義感'], want: '自分の計画を完遂すること', need: '過去の選択を認め赦されること', color: '#f76ca0', createdAt: now() },
+      { id: uid(), name: '木村 拓也', kana: 'きむら たくや', role: '主人公', age: '38', gender: '男性', emoji: '🕵️', tagline: '法より人を信じたい刑事', job: '警察官（刑事）', traits: ['頑固','正義感が強い','不器用'], want: '事件の真相を解明すること', need: '恩師への感謝と怒りを超えること', wound: '恩師である田中教授に、正義を教えられ憧れていた過去', lie: '恩を返すには、恩師の言うことを疑ってはいけない', truth: '本当の恩返しは、相手が間違っていると気づいた時に正しく指摘すること', never: 'もう終わりだ', ghost: '重要な局面で恩師との思い出に躊躇し判断が遅れる', speech: '「…すみません、もう一度だけ」を口癖のように言う', color: '#7c6af7', createdAt: now() },
+      { id: uid(), name: '田中 教授', kana: 'たなか きょうじゅ', role: 'antagonist（敵）', age: '64', gender: '男性', emoji: '👴', tagline: '間違った正義を信じた男', job: '大学教授（元検察官）', traits: ['知的','カリスマ','歪んだ正義感'], want: '自分の計画を完遂すること', need: '過去の選択を認め赦されること', wound: '若き検察官時代、法の限界により凶悪犯を取り逃がした経験', lie: '法で裁けない悪は、法の外で裁かねばならない', truth: '法を超えた正義は、いつか自分自身をも裁くことになる', never: '私は間違っていない', ghost: '弟子を自分の正義に引き込もうとしてしまう', color: '#f76ca0', createdAt: now() },
     ];
     DB.saveProject(sample);
   }

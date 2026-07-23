@@ -11686,3 +11686,10 @@ body.modal-open-lock {
 .rel-graph-node circle { transition: all 0.15s; }
 .rel-graph-node:hover circle { filter: brightness(0.97); transform-origin: center; }
 .rel-graph-node:hover text { font-weight: 800; }
+
+/* ================================================================
+   キャラクター機能拡張②：深み診断・並び替え・絵文字ピッカー
+   ================================================================ */
+.character-card:hover .character-avatar button,
+.character-card:hover .character-avatar .btn { opacity: 1; }
+
