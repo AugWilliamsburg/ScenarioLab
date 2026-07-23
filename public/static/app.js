@@ -4647,20 +4647,50 @@ function saveConcept(projId) {
 // ================================================================
 //  PAGE: キャラクター設計 — 個別最適化版
 // ================================================================
+// ロール別色設定（カード・詳細ページ・関係図など全キャラクター機能で共用するためモジュールレベルに定義）
+const CHAR_ROLE_COLORS = {
+  '主人公':            { color:'#d94f2a', bg:'#fef2ee', border:'#f5c4b4', icon:'fa-star',         rank:0 },
+  'ヒロイン/ヒーロー': { color:'#d44d7a', bg:'#fdf0f5', border:'#f0b8ce', icon:'fa-heart',        rank:1 },
+  'antagonist（敵）':  { color:'#1d3d6b', bg:'#eef3fb', border:'#b8cee8', icon:'fa-mask',         rank:2 },
+  '相棒':              { color:'#4a7c3f', bg:'#eff6ed', border:'#b8d4b2', icon:'fa-user-group',   rank:3 },
+  'メンター':          { color:'#c48a00', bg:'#fdf8e8', border:'#e8d088', icon:'fa-graduation-cap',rank:4 },
+  'サブキャラ':        { color:'#6a5aaa', bg:'#f4f2fb', border:'#ccc4e8', icon:'fa-users',        rank:5 },
+  'その他':            { color:'#7a6e5e', bg:'#f0ece4', border:'#e4ddd3', icon:'fa-user',         rank:6 },
+};
+// キャラクターアーク（変容の弧）の既定3ステージ。ch.arcStages が無い場合はこの雛形を返す
+const CHAR_ARC_DEFAULT_STAGES = [
+  { key: 'before', label: 'Before（幕開けの姿）', hint: '物語が始まる時点で、このキャラクターはどんな価値観・状況にいるか' },
+  { key: 'turn',   label: '転機（変化のきっかけ）', hint: '何が起き、何に気づき、何を選んだことで変わり始めるか' },
+  { key: 'after',  label: 'After（変容後の姿）',   hint: '物語の終わりに、このキャラクターは何を得て／失って、どう変わったか' },
+];
+function getCharArcStages(ch) {
+  const saved = ch.arcStages;
+  return CHAR_ARC_DEFAULT_STAGES.map((def, i) => {
+    const s = (saved && saved[i]) || {};
+    return { key: def.key, label: def.label, hint: def.hint, text: s.text || '', done: !!richHtmlToPlainText(s.text||'').trim() };
+  });
+}
+// 役割選択肢（表示ラベルは CHAR_ROLE_COLORS のキーと完全一致させる。
+// 旧バージョンでは追加/編集モーダルの選択肢文言「敵・antagonist」がROLE_COLORSのキー
+// 「antagonist（敵）」と不一致で、選択してもロール別の色/アイコンが適用されない
+// 潜在バグがあったため、この定数を単一のソースとして両方から参照するよう統一した。
+const CHAR_ROLE_OPTIONS = Object.keys(CHAR_ROLE_COLORS);
+// キャラクター種別ごとの関係線の見た目（色・線種）。人物関係図のビジュアルグラフで使用
+const CHAR_REL_STYLES = {
+  '恋愛':   { color: '#d44d7a', dash: '0' },
+  '友人':   { color: '#4a7c3f', dash: '0' },
+  'ライバル':{ color: '#c48a00', dash: '6,4' },
+  '親子':   { color: '#6a5aaa', dash: '0' },
+  '兄弟':   { color: '#6ab8d0', dash: '0' },
+  '師弟':   { color: '#c48a00', dash: '0' },
+  '上司部下':{ color: '#3d6bb8', dash: '4,3' },
+  '敵':     { color: '#b0392f', dash: '6,4' },
+  'その他': { color: '#8a8378', dash: '2,3' },
+};
 function renderCharacters(proj) {
   const chars = proj.characters || [];
   const charFilter = DB.get(`char_filter_${proj.id}`, { view: 'grouped', role: 'all', search: '' });
-
-  // ロール別色設定
-  const ROLE_COLORS = {
-    '主人公':            { color:'#d94f2a', bg:'#fef2ee', border:'#f5c4b4', icon:'fa-star',         rank:0 },
-    'ヒロイン/ヒーロー': { color:'#d44d7a', bg:'#fdf0f5', border:'#f0b8ce', icon:'fa-heart',        rank:1 },
-    'antagonist（敵）':  { color:'#1d3d6b', bg:'#eef3fb', border:'#b8cee8', icon:'fa-mask',         rank:2 },
-    '相棒':              { color:'#4a7c3f', bg:'#eff6ed', border:'#b8d4b2', icon:'fa-user-group',   rank:3 },
-    'メンター':          { color:'#c48a00', bg:'#fdf8e8', border:'#e8d088', icon:'fa-graduation-cap',rank:4 },
-    'サブキャラ':        { color:'#6a5aaa', bg:'#f4f2fb', border:'#ccc4e8', icon:'fa-users',        rank:5 },
-    'その他':            { color:'#7a6e5e', bg:'#f0ece4', border:'#e4ddd3', icon:'fa-user',         rank:6 },
-  };
+  const ROLE_COLORS = CHAR_ROLE_COLORS;
 
   // キャラクターのロール別分布
   const roleDistribution = chars.reduce((acc, ch) => {
@@ -4688,9 +4718,14 @@ function renderCharacters(proj) {
     const rc = ROLE_COLORS[ch.role] || ROLE_COLORS['その他'];
     const wantFilled = (ch.want||'').trim().length > 0;
     const needFilled = (ch.need||'').trim().length > 0;
-    const completeness = [ch.name, ch.role, ch.age, ch.want, ch.need, ch.back, ch.speech].filter(v => v && String(v).trim()).length;
+    const backText = richHtmlToPlainText(ch.backHtml || ch.back || '');
+    const speechText = richHtmlToPlainText(ch.speechHtml || ch.speech || '');
+    const completeness = [ch.name, ch.role, ch.age, ch.want, ch.need, backText, speechText].filter(v => v && String(v).trim()).length;
+    const arcStages = getCharArcStages(ch);
+    const arcDone = arcStages.filter(s => s.done).length;
+    const relCount = (proj.relationships||[]).filter(r => r.char1 === ch.id || r.char2 === ch.id).length;
     return `
-    <div class="character-card" onclick="openEditCharModal('${proj.id}','${ch.id}')">
+    <div class="character-card" onclick="openCharDetail('${proj.id}','${ch.id}')">
       <div class="character-avatar" style="background:linear-gradient(135deg,${rc.bg} 0%,${rc.border}55 100%)">
         <span style="font-size:42px">${ch.emoji||'👤'}</span>
         <div style="position:absolute;top:8px;right:8px">
@@ -4698,6 +4733,7 @@ function renderCharacters(proj) {
             <i class="fas ${rc.icon}" style="font-size:8px"></i> ${esc(ch.role||'？')}
           </span>
         </div>
+        ${relCount > 0 ? `<div style="position:absolute;top:8px;left:8px"><span style="display:inline-flex;align-items:center;gap:3px;background:rgba(255,255,255,0.85);color:var(--text-secondary);border-radius:10px;padding:2px 6px;font-size:9px;font-weight:700"><i class="fas fa-diagram-project" style="font-size:8px"></i> ${relCount}</span></div>` : ''}
       </div>
       <div class="character-info">
         <div class="character-name">${esc(ch.name||'名前未設定')}</div>
@@ -4711,6 +4747,7 @@ function renderCharacters(proj) {
         <div style="display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap">
           ${wantFilled ? '<span class="tag tag-beni" style="font-size:10px"><i class="fas fa-arrow-up" style="font-size:8px"></i> Want</span>' : '<span class="tag tag-gray" style="font-size:10px;opacity:0.5">Want 未入力</span>'}
           ${needFilled ? '<span class="tag tag-matcha" style="font-size:10px"><i class="fas fa-heart" style="font-size:8px"></i> Need</span>' : '<span class="tag tag-gray" style="font-size:10px;opacity:0.5">Need 未入力</span>'}
+          <span class="tag ${arcDone===3?'tag-kogane':'tag-gray'}" style="font-size:10px;${arcDone===3?'':'opacity:0.6'}"><i class="fas fa-route" style="font-size:8px"></i> アーク ${arcDone}/3</span>
         </div>
         <div class="character-traits">
           ${(ch.traits||[]).slice(0,3).map(t=>`<span class="tag tag-fuji" style="font-size:10px">${esc(t)}</span>`).join('')}
@@ -4813,16 +4850,62 @@ function renderCharacters(proj) {
   </div>`;
 }
 
+// 人物関係図：キャラクターを円状に配置し、関係線を種類ごとの色/線種で描くSVGビジュアルグラフ。
+// 下部には従来通りの編集用リスト（削除ボタン付き）も表示する。
 function renderRelationshipMap(proj) {
   const chars = proj.characters || [];
   const rels = proj.relationships || [];
+  const legendHtml = Object.entries(CHAR_REL_STYLES).map(([type, st]) =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--text-muted)">
+      <svg width="16" height="6"><line x1="0" y1="3" x2="16" y2="3" stroke="${st.color}" stroke-width="2" stroke-dasharray="${st.dash}"/></svg>${esc(type==='antagonist（敵）'?'敵':type)}
+    </span>`).join('');
+
+  let graphHtml = '';
+  if (rels.length > 0 && chars.length > 1) {
+    const usedIds = Array.from(new Set(rels.flatMap(r => [r.char1, r.char2]))).filter(id => chars.some(c=>c.id===id));
+    const nodeChars = usedIds.map(id => chars.find(c=>c.id===id)).filter(Boolean);
+    const n = nodeChars.length;
+    const size = Math.max(300, Math.min(560, 140 + n * 46));
+    const cx = size / 2, cy = size / 2, radius = size / 2 - 54;
+    const positions = {};
+    nodeChars.forEach((ch, i) => {
+      const angle = (Math.PI * 2 * i) / n - Math.PI / 2;
+      positions[ch.id] = { x: cx + radius * Math.cos(angle), y: cy + radius * Math.sin(angle) };
+    });
+    const linesHtml = rels.map(r => {
+      const p1 = positions[r.char1], p2 = positions[r.char2];
+      if (!p1 || !p2) return '';
+      const st = CHAR_REL_STYLES[r.type] || CHAR_REL_STYLES['その他'];
+      const mx = (p1.x + p2.x) / 2, my = (p1.y + p2.y) / 2;
+      return `<g>
+        <line x1="${p1.x.toFixed(1)}" y1="${p1.y.toFixed(1)}" x2="${p2.x.toFixed(1)}" y2="${p2.y.toFixed(1)}" stroke="${st.color}" stroke-width="2.2" stroke-dasharray="${st.dash}" opacity="0.75"/>
+        <rect x="${(mx-17).toFixed(1)}" y="${(my-8).toFixed(1)}" width="34" height="14" rx="7" fill="var(--bg-card)" stroke="${st.color}" stroke-width="1" opacity="0.95"/>
+        <text x="${mx.toFixed(1)}" y="${(my+3.5).toFixed(1)}" text-anchor="middle" font-size="8.5" font-weight="700" fill="${st.color}">${esc((r.type==='antagonist（敵）'?'敵':r.type||'関係').slice(0,4))}</text>
+      </g>`;
+    }).join('');
+    const nodesHtml = nodeChars.map(ch => {
+      const p = positions[ch.id];
+      const rc = CHAR_ROLE_COLORS[ch.role] || CHAR_ROLE_COLORS['その他'];
+      return `<g class="rel-graph-node" style="cursor:pointer" onclick="openCharDetail('${proj.id}','${ch.id}')">
+        <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="24" fill="${rc.bg}" stroke="${rc.color}" stroke-width="2"/>
+        <text x="${p.x.toFixed(1)}" y="${(p.y+7).toFixed(1)}" text-anchor="middle" font-size="20">${esc(ch.emoji||'👤')}</text>
+        <text x="${p.x.toFixed(1)}" y="${(p.y+38).toFixed(1)}" text-anchor="middle" font-size="11" font-weight="700" fill="var(--text-primary)">${esc((ch.name||'?').slice(0,8))}</text>
+      </g>`;
+    }).join('');
+    graphHtml = `
+    <div style="overflow-x:auto;display:flex;justify-content:center;padding:8px 0;background:var(--bg-primary);border-radius:var(--radius-md);border:1px solid var(--border);margin-bottom:12px">
+      <svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">${linesHtml}${nodesHtml}</svg>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:14px">${legendHtml}</div>`;
+  }
+
   return `
   <div class="card" style="margin-top:24px">
     <div class="card-header">
-      <div class="card-title"><i class="fas fa-diagram-project icon"></i> 人物関係図メモ</div>
+      <div class="card-title"><i class="fas fa-diagram-project icon"></i> 人物関係図</div>
       <button class="btn btn-secondary btn-sm" onclick="openAddRelModal('${proj.id}')"><i class="fas fa-plus"></i> 関係を追加</button>
     </div>
-    ${rels.length === 0 ? `<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px">関係性を登録してください</div>` :
+    ${rels.length === 0 ? `<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px">関係性を登録してください</div>` : graphHtml +
       `<div style="display:flex;flex-direction:column;gap:8px">` +
       rels.map(r => {
         const c1 = chars.find(c=>c.id===r.char1);
@@ -4848,8 +4931,7 @@ function openAddCharModal(projId) {
     <div class="grid-2">
       <div class="form-group"><label class="form-label">役割</label>
         <select class="form-select" id="ch-role">
-          <option>主人公</option><option>ヒロイン/ヒーロー</option><option>敵・antagonist</option>
-          <option>相棒</option><option>メンター</option><option>サブキャラ</option><option>その他</option>
+          ${CHAR_ROLE_OPTIONS.map(r=>`<option value="${esc(r)}">${esc(r==='antagonist（敵）'?'敵・antagonist':r)}</option>`).join('')}
         </select>
       </div>
       <div class="form-group"><label class="form-label">年齢</label><input class="form-input" id="ch-age" type="number" placeholder="0"></div>
@@ -4863,18 +4945,13 @@ function openAddCharModal(projId) {
     <div class="form-group"><label class="form-label">キャラクターのキャッチフレーズ</label>
       <input class="form-input" id="ch-tagline" placeholder="例：笑顔の裏に刃を隠す刑事"></div>
     <div class="form-group"><label class="form-label">職業・立場</label><input class="form-input" id="ch-job" placeholder="例：警察官、高校生、など"></div>
-    <div class="form-group"><label class="form-label">外見・風貌</label>
-      <textarea class="form-textarea" id="ch-appearance" rows="2" placeholder="容姿・服装の特徴"></textarea></div>
     <div class="form-group"><label class="form-label">性格・特徴（カンマ区切り）</label>
       <input class="form-input" id="ch-traits" placeholder="例：頑固,正義感が強い,人見知り"></div>
     <div class="form-group"><label class="form-label">欲求（Want）— 表面的に求めるもの</label>
       <input class="form-input" id="ch-want" placeholder="例：犯人を捕まえること"></div>
     <div class="form-group"><label class="form-label">必要（Need）— 内面に本当に必要なもの</label>
       <input class="form-input" id="ch-need" placeholder="例：自分を許すこと"></div>
-    <div class="form-group"><label class="form-label">バックストーリー・過去</label>
-      <textarea class="form-textarea" id="ch-back" rows="3" placeholder="過去の出来事・トラウマ・重要な経験"></textarea></div>
-    <div class="form-group"><label class="form-label">口癖・話し方の特徴</label>
-      <input class="form-input" id="ch-speech" placeholder="例：語尾に「…だよな？」が多い"></div>`,
+    <div class="info-box" style="margin-top:4px"><i class="fas fa-circle-info"></i><div>外見・バックストーリー・口癖・キャラクターアークなどの詳細は、追加後にカードを開いて「キャラクター詳細ページ」で記入できます（リッチテキスト対応）。</div></div>`,
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
      <button class="btn btn-primary" onclick="addCharacter('${projId}')"><i class="fas fa-plus"></i> 追加</button>`,
     { size: 'modal-lg' }
@@ -4888,91 +4965,186 @@ function addCharacter(projId) {
   const proj = DB.getProject(projId);
   if (!proj) return;
   proj.characters = proj.characters || [];
-  proj.characters.push({
+  const newChar = {
     id: uid(), name, kana: $('#ch-kana')?.value?.trim()||'',
     role: $('#ch-role')?.value||'その他', age: $('#ch-age')?.value||'',
     gender: $('#ch-gender')?.value||'不明', emoji: $('#ch-emoji')?.value||'👤',
     tagline: $('#ch-tagline')?.value?.trim()||'', job: $('#ch-job')?.value?.trim()||'',
-    appearance: $('#ch-appearance')?.value?.trim()||'',
+    appearance: '', appearanceHtml: '',
     traits: ($('#ch-traits')?.value||'').split(',').map(t=>t.trim()).filter(Boolean),
     want: $('#ch-want')?.value?.trim()||'', need: $('#ch-need')?.value?.trim()||'',
-    back: $('#ch-back')?.value?.trim()||'', speech: $('#ch-speech')?.value?.trim()||'',
+    back: '', backHtml: '', speech: '', speechHtml: '',
+    arcStages: CHAR_ARC_DEFAULT_STAGES.map(() => ({ text: '' })),
     color: ['#7c6af7','#f76ca0','#6af7c8','#f7c56a','#6ab8f7','#c86af7'][Math.floor(Math.random()*6)],
     createdAt: now(),
-  });
+  };
+  proj.characters.push(newChar);
   proj.updatedAt = now();
   DB.saveProject(proj);
-  closeModal(); toast(`${name}を追加しました`,'success'); render();
+  closeModal(); toast(`${name}を追加しました`,'success');
+  openCharDetail(projId, newChar.id);
 }
 
-function openEditCharModal(projId, charId) {
+// ================================================================
+//  キャラクター詳細ページ（大型モーダル + タブ切替）
+//  ── 基本情報／内面・アーク／関係性 の3タブ構成。各リッチテキスト
+//     欄は9ハブと同じ hubAutoSave 経由で自動保存される。
+// ================================================================
+const CHAR_DETAIL_TABS = [
+  { key: 'basic', label: '基本情報', icon: 'fa-id-card' },
+  { key: 'inner',  label: '内面・アーク', icon: 'fa-route' },
+  { key: 'rel',    label: '関係性', icon: 'fa-diagram-project' },
+];
+function openCharDetail(projId, charId, tab = 'basic') {
   const proj = DB.getProject(projId);
   const ch = (proj?.characters||[]).find(c => c.id === charId);
   if (!ch) return;
-  openModal(
-    `<i class="fas fa-user" style="color:#c86af7"></i> ${esc(ch.name)} — キャラクター詳細`,
-    `<div class="grid-2">
-      <div class="form-group"><label class="form-label">名前</label><input class="form-input" id="ech-name" value="${esc(ch.name||'')}"></div>
-      <div class="form-group"><label class="form-label">ふりがな</label><input class="form-input" id="ech-kana" value="${esc(ch.kana||'')}"></div>
+  const rc = CHAR_ROLE_COLORS[ch.role] || CHAR_ROLE_COLORS['その他'];
+  const statusId = `char-autosave-${charId}`;
+
+  const tabsHtml = CHAR_DETAIL_TABS.map(t => `
+    <button type="button" class="btn btn-sm ${t.key===tab?'btn-primary':'btn-ghost'}" onclick="openCharDetail('${projId}','${charId}','${t.key}')">
+      <i class="fas ${t.icon}" style="font-size:10.5px"></i> ${t.label}
+    </button>`).join('');
+
+  let bodyHtml = '';
+  if (tab === 'basic') {
+    bodyHtml = `
+    <div class="grid-2">
+      <div class="form-group"><label class="form-label">名前</label><input class="form-input" id="ech-name" value="${esc(ch.name||'')}" oninput="hubAutoSave('char-${charId}',()=>saveCharField('${projId}','${charId}','name',$('#ech-name').value.trim()),'${statusId}')"></div>
+      <div class="form-group"><label class="form-label">ふりがな</label><input class="form-input" id="ech-kana" value="${esc(ch.kana||'')}" oninput="hubAutoSave('char-${charId}',()=>saveCharField('${projId}','${charId}','kana',$('#ech-kana').value.trim()),'${statusId}')"></div>
     </div>
     <div class="grid-2">
       <div class="form-group"><label class="form-label">役割</label>
-        <select class="form-select" id="ech-role">
-          ${['主人公','ヒロイン/ヒーロー','敵・antagonist','相棒','メンター','サブキャラ','その他'].map(r=>`<option ${r===ch.role?'selected':''}>${r}</option>`).join('')}
+        <select class="form-select" id="ech-role" onchange="saveCharField('${projId}','${charId}','role',$('#ech-role').value);openCharDetail('${projId}','${charId}','basic')">
+          ${CHAR_ROLE_OPTIONS.map(r=>`<option value="${esc(r)}" ${r===ch.role?'selected':''}>${esc(r==='antagonist（敵）'?'敵・antagonist':r)}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group"><label class="form-label">年齢</label><input class="form-input" id="ech-age" value="${esc(ch.age||'')}"></div>
+      <div class="form-group"><label class="form-label">年齢</label><input class="form-input" id="ech-age" value="${esc(ch.age||'')}" oninput="hubAutoSave('char-${charId}',()=>saveCharField('${projId}','${charId}','age',$('#ech-age').value),'${statusId}')"></div>
     </div>
-    <div class="form-group"><label class="form-label">キャッチフレーズ</label><input class="form-input" id="ech-tagline" value="${esc(ch.tagline||'')}"></div>
-    <div class="form-group"><label class="form-label">職業・立場</label><input class="form-input" id="ech-job" value="${esc(ch.job||'')}"></div>
-    <div class="form-group"><label class="form-label">外見・風貌</label><textarea class="form-textarea" id="ech-appearance" rows="2">${esc(ch.appearance||'')}</textarea></div>
-    <div class="form-group"><label class="form-label">性格・特徴（カンマ区切り）</label><input class="form-input" id="ech-traits" value="${esc((ch.traits||[]).join(','))}"></div>
     <div class="grid-2">
-      <div class="form-group"><label class="form-label">欲求（Want）</label><input class="form-input" id="ech-want" value="${esc(ch.want||'')}"></div>
-      <div class="form-group"><label class="form-label">必要（Need）</label><input class="form-input" id="ech-need" value="${esc(ch.need||'')}"></div>
+      <div class="form-group"><label class="form-label">性別</label>
+        <select class="form-select" id="ech-gender" onchange="saveCharField('${projId}','${charId}','gender',$('#ech-gender').value)">
+          ${['男性','女性','その他','不明'].map(g=>`<option ${g===ch.gender?'selected':''}>${g}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">絵文字</label><input class="form-input" id="ech-emoji" value="${esc(ch.emoji||'👤')}" maxlength="2" oninput="hubAutoSave('char-${charId}',()=>saveCharField('${projId}','${charId}','emoji',$('#ech-emoji').value||'👤'),'${statusId}')"></div>
     </div>
-    <div class="form-group"><label class="form-label">バックストーリー</label><textarea class="form-textarea" id="ech-back" rows="3">${esc(ch.back||'')}</textarea></div>
-    <div class="form-group"><label class="form-label">口癖・話し方</label><input class="form-input" id="ech-speech" value="${esc(ch.speech||'')}"></div>
-    <div class="form-group"><label class="form-label">絵文字</label><input class="form-input" id="ech-emoji" value="${esc(ch.emoji||'👤')}" maxlength="2"></div>`,
+    <div class="form-group"><label class="form-label">キャッチフレーズ</label><input class="form-input" id="ech-tagline" value="${esc(ch.tagline||'')}" oninput="hubAutoSave('char-${charId}',()=>saveCharField('${projId}','${charId}','tagline',$('#ech-tagline').value.trim()),'${statusId}')"></div>
+    <div class="form-group"><label class="form-label">職業・立場</label><input class="form-input" id="ech-job" value="${esc(ch.job||'')}" oninput="hubAutoSave('char-${charId}',()=>saveCharField('${projId}','${charId}','job',$('#ech-job').value.trim()),'${statusId}')"></div>
+    <div class="form-group"><label class="form-label">性格・特徴（カンマ区切り）</label><input class="form-input" id="ech-traits" value="${esc((ch.traits||[]).join(','))}" oninput="hubAutoSave('char-${charId}',()=>saveCharField('${projId}','${charId}','traits',$('#ech-traits').value.split(',').map(t=>t.trim()).filter(Boolean)),'${statusId}')"></div>
+    <div class="grid-2">
+      <div class="form-group"><label class="form-label">欲求（Want）— 表面的に求めるもの</label><input class="form-input" id="ech-want" value="${esc(ch.want||'')}" oninput="hubAutoSave('char-${charId}',()=>saveCharField('${projId}','${charId}','want',$('#ech-want').value.trim()),'${statusId}')"></div>
+      <div class="form-group"><label class="form-label">必要（Need）— 内面に本当に必要なもの</label><input class="form-input" id="ech-need" value="${esc(ch.need||'')}" oninput="hubAutoSave('char-${charId}',()=>saveCharField('${projId}','${charId}','need',$('#ech-need').value.trim()),'${statusId}')"></div>
+    </div>
+    <div class="form-group"><label class="form-label">外見・風貌</label>
+      ${renderHubRichEditor(`ech-appearance-${charId}`, ch.appearanceHtml || plainTextToRichHtml(ch.appearance||''), '容姿・服装の特徴', `hubAutoSave('char-${charId}-appearance',()=>saveCharRichField('${projId}','${charId}','appearance','ech-appearance-${charId}'),'${statusId}')`)}
+    </div>`;
+  } else if (tab === 'inner') {
+    const stages = getCharArcStages(ch);
+    bodyHtml = `
+    <div class="info-box" style="margin-bottom:14px"><i class="fas fa-route"></i><div><strong>キャラクターアーク</strong>：Before→転機→Afterの3段階で、このキャラクターの変容を設計しましょう。3段階すべて記入すると「アーク完成」として一覧カードにバッジが表示されます。</div></div>
+    ${stages.map((s, i) => `
+      <div class="form-group">
+        <label class="form-label">${esc(s.label)} ${s.done?'<i class="fas fa-check-circle" style="color:var(--matcha);font-size:11px"></i>':''}</label>
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">${esc(s.hint)}</div>
+        ${renderHubRichEditor(`ech-arc-${i}-${charId}`, s.text, 'ここに記述...', `hubAutoSave('char-${charId}-arc${i}',()=>saveCharArcStage('${projId}','${charId}',${i},'ech-arc-${i}-${charId}'),'${statusId}')`)}
+      </div>`).join('')}
+    <div class="form-group" style="margin-top:8px"><label class="form-label">バックストーリー・過去</label>
+      ${renderHubRichEditor(`ech-back-${charId}`, ch.backHtml || plainTextToRichHtml(ch.back||''), '過去の出来事・トラウマ・重要な経験', `hubAutoSave('char-${charId}-back',()=>saveCharRichField('${projId}','${charId}','back','ech-back-${charId}'),'${statusId}')`)}
+    </div>
+    <div class="form-group"><label class="form-label">口癖・話し方の特徴</label>
+      ${renderHubRichEditor(`ech-speech-${charId}`, ch.speechHtml || plainTextToRichHtml(ch.speech||''), '例：語尾に「…だよな？」が多い', `hubAutoSave('char-${charId}-speech',()=>saveCharRichField('${projId}','${charId}','speech','ech-speech-${charId}'),'${statusId}')`)}
+    </div>`;
+  } else {
+    const rels = (proj.relationships||[]).filter(r => r.char1 === charId || r.char2 === charId);
+    bodyHtml = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:700;color:var(--text-primary)">この人物の関係性（${rels.length}件）</div>
+      <button class="btn btn-secondary btn-sm" onclick="closeModal();openAddRelModal('${projId}','${charId}')"><i class="fas fa-plus"></i> 関係を追加</button>
+    </div>
+    ${rels.length === 0 ? `<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px">まだ関係性が登録されていません</div>` :
+      rels.map(r => {
+        const other = (proj.characters||[]).find(c => c.id === (r.char1===charId?r.char2:r.char1));
+        const st = CHAR_REL_STYLES[r.type] || CHAR_REL_STYLES['その他'];
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-primary);border-radius:8px;border:1px solid var(--border);margin-bottom:8px;cursor:pointer" onclick="${other?`closeModal();openCharDetail('${projId}','${other.id}')`:''}">
+          <span style="font-size:20px">${esc(other?.emoji||'❓')}</span>
+          <span style="font-size:13px;font-weight:700;color:var(--text-primary)">${esc(other?.name||'(削除済み)')}</span>
+          <span style="font-size:11px;color:${st.color};background:${st.color}18;padding:2px 8px;border-radius:10px;font-weight:600">${esc(r.type==='antagonist（敵）'?'敵':r.type||'関係')}</span>
+          ${r.note ? `<span style="font-size:11px;color:var(--text-muted);flex:1">${esc(r.note)}</span>` : '<span style="flex:1"></span>'}
+          <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();deleteRel('${projId}','${r.id}');closeModal();openCharDetail('${projId}','${charId}','rel')"><i class="fas fa-xmark" style="color:var(--red);font-size:10px"></i></button>
+        </div>`;
+      }).join('')}`;
+  }
+
+  openModal(
+    `<span style="font-size:26px;margin-right:6px">${esc(ch.emoji||'👤')}</span>${esc(ch.name)}
+     <span style="display:inline-flex;align-items:center;gap:3px;margin-left:8px;background:${rc.bg};color:${rc.color};border:1px solid ${rc.border};border-radius:10px;padding:2px 8px;font-size:10.5px;font-weight:700;vertical-align:middle">
+       <i class="fas ${rc.icon}" style="font-size:9px"></i> ${esc(ch.role==='antagonist（敵）'?'敵役':ch.role||'？')}
+     </span>`,
+    `<div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">${tabsHtml}</div>${bodyHtml}`,
     `<button class="btn btn-danger btn-sm" onclick="deleteCharacter('${projId}','${charId}')"><i class="fas fa-trash"></i> 削除</button>
-     <button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     <button class="btn btn-primary" onclick="saveEditChar('${projId}','${charId}')"><i class="fas fa-floppy-disk"></i> 保存</button>`,
-    { size: 'modal-lg' }
+     ${renderHubAutoSaveIndicator(statusId)}
+     <button class="btn btn-secondary" onclick="closeModal();render()">閉じる</button>`,
+    { size: 'modal-xl' }
   );
 }
-
-function saveEditChar(projId, charId) {
+// 単純フィールド（テキスト/セレクト/配列）の保存。closeModal/renderを呼ばず値のみ書き込む
+function saveCharField(projId, charId, field, value) {
   const proj = DB.getProject(projId);
   const ch = (proj?.characters||[]).find(c => c.id === charId);
   if (!ch) return;
-  ch.name       = $('#ech-name')?.value?.trim()||ch.name;
-  ch.kana       = $('#ech-kana')?.value?.trim()||'';
-  ch.role       = $('#ech-role')?.value||'その他';
-  ch.age        = $('#ech-age')?.value||'';
-  ch.tagline    = $('#ech-tagline')?.value?.trim()||'';
-  ch.job        = $('#ech-job')?.value?.trim()||'';
-  ch.appearance = $('#ech-appearance')?.value?.trim()||'';
-  ch.traits     = ($('#ech-traits')?.value||'').split(',').map(t=>t.trim()).filter(Boolean);
-  ch.want       = $('#ech-want')?.value?.trim()||'';
-  ch.need       = $('#ech-need')?.value?.trim()||'';
-  ch.back       = $('#ech-back')?.value?.trim()||'';
-  ch.speech     = $('#ech-speech')?.value?.trim()||'';
-  ch.emoji      = $('#ech-emoji')?.value||'👤';
+  ch[field] = value;
   proj.updatedAt = now();
   DB.saveProject(proj);
-  closeModal(); toast('保存しました','success'); render();
+}
+// リッチテキストフィールド（appearance/back/speech）の保存：contenteditableの中身を
+// サニタイズしてHtml側に保存し、プレーンテキストも同期させて検索・エクスポート・カード表示に使う
+function saveCharRichField(projId, charId, field, editorId) {
+  const proj = DB.getProject(projId);
+  const ch = (proj?.characters||[]).find(c => c.id === charId);
+  if (!ch) return;
+  const html = getHubRichValue(editorId);
+  ch[field + 'Html'] = html;
+  ch[field] = richHtmlToPlainText(html);
+  proj.updatedAt = now();
+  DB.saveProject(proj);
+}
+// キャラクターアークの1ステージ分を保存
+function saveCharArcStage(projId, charId, stageIdx, editorId) {
+  const proj = DB.getProject(projId);
+  const ch = (proj?.characters||[]).find(c => c.id === charId);
+  if (!ch) return;
+  if (!ch.arcStages) ch.arcStages = CHAR_ARC_DEFAULT_STAGES.map(() => ({ text: '' }));
+  while (ch.arcStages.length < CHAR_ARC_DEFAULT_STAGES.length) ch.arcStages.push({ text: '' });
+  ch.arcStages[stageIdx] = { text: getHubRichValue(editorId) };
+  proj.updatedAt = now();
+  DB.saveProject(proj);
 }
 
 function deleteCharacter(projId, charId) {
   const proj = DB.getProject(projId);
   if (!proj) return;
+  const ch = (proj.characters||[]).find(c => c.id === charId);
+  const label = ch ? ch.name : 'このキャラクター';
+  openModal(
+    `<i class="fas fa-triangle-exclamation" style="color:var(--accent)"></i> ${esc(label)}を削除`,
+    `<p style="font-size:13px;color:var(--text-secondary)">このキャラクターに関連する人物関係もすべて削除されます。この操作は取り消せません。</p>`,
+    `<button class="btn btn-secondary" onclick="closeModal();openCharDetail('${projId}','${charId}')">キャンセル</button>
+     <button class="btn btn-danger" onclick="confirmDeleteCharacter('${projId}','${charId}')"><i class="fas fa-trash"></i> 削除する</button>`
+  );
+}
+function confirmDeleteCharacter(projId, charId) {
+  const proj = DB.getProject(projId);
+  if (!proj) return;
   proj.characters = (proj.characters||[]).filter(c => c.id !== charId);
+  proj.relationships = (proj.relationships||[]).filter(r => r.char1 !== charId && r.char2 !== charId);
   proj.updatedAt = now();
   DB.saveProject(proj);
   closeModal(); toast('削除しました','info'); render();
 }
 
-function openAddRelModal(projId) {
+function openAddRelModal(projId, presetCharId = null) {
   const proj = DB.getProject(projId);
   const chars = proj?.characters || [];
   if (chars.length < 2) { toast('キャラクターを2人以上登録してください','error'); return; }
@@ -4980,9 +5152,9 @@ function openAddRelModal(projId) {
     `<i class="fas fa-diagram-project" style="color:var(--accent)"></i> 関係性を追加`,
     `<div class="grid-2">
       <div class="form-group"><label class="form-label">キャラクター1</label>
-        <select class="form-select" id="rel-c1">${chars.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
+        <select class="form-select" id="rel-c1">${chars.map(c=>`<option value="${c.id}" ${presetCharId===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>
       <div class="form-group"><label class="form-label">キャラクター2</label>
-        <select class="form-select" id="rel-c2">${chars.map((c,i)=>`<option value="${c.id}" ${i===1?'selected':''}>${esc(c.name)}</option>`).join('')}</select></div>
+        <select class="form-select" id="rel-c2">${chars.map((c,i)=>`<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></div>
     </div>
     <div class="form-group"><label class="form-label">関係の種類</label>
       <select class="form-select" id="rel-type">
@@ -4994,14 +5166,24 @@ function openAddRelModal(projId) {
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
      <button class="btn btn-primary" onclick="addRel('${projId}')"><i class="fas fa-plus"></i> 追加</button>`
   );
+  // キャラクター2の初期選択は「キャラクター1と異なる最初の人物」にする（presetCharId指定時のUX改善）
+  setTimeout(() => {
+    const c1 = $('#rel-c1'), c2 = $('#rel-c2');
+    if (c1 && c2 && c1.value === c2.value) {
+      const alt = chars.find(c => c.id !== c1.value);
+      if (alt) c2.value = alt.id;
+    }
+  }, 30);
 }
 
 function addRel(projId) {
   const proj = DB.getProject(projId);
   if (!proj) return;
+  const c1 = $('#rel-c1')?.value, c2 = $('#rel-c2')?.value;
+  if (!c1 || !c2 || c1 === c2) { toast('異なる2人のキャラクターを選んでください','error'); return; }
   proj.relationships = proj.relationships || [];
   proj.relationships.push({
-    id: uid(), char1: $('#rel-c1')?.value, char2: $('#rel-c2')?.value,
+    id: uid(), char1: c1, char2: c2,
     type: $('#rel-type')?.value||'その他', note: $('#rel-note')?.value?.trim()||''
   });
   proj.updatedAt = now();
@@ -8959,21 +9141,38 @@ function exportCharacterList(projId) {
   if (!proj) return;
   const chars = proj.characters || [];
   if (chars.length === 0) { toast('キャラクターが登録されていません', 'error'); return; }
+  const rels = proj.relationships || [];
   const lines = [
     `【登場人物リスト】 ${proj.title}`,
     `出力日: ${new Date().toLocaleDateString('ja-JP')}`,
     `総人数: ${chars.length}人`,
     '',
-    ...chars.map(c => [
-      `■ ${c.name}${c.kana?' ('+c.kana+')':''}`,
-      `  役割: ${c.role||'—'}　年齢: ${c.age||'—'}　性別: ${c.gender||'—'}`,
-      c.tagline ? `  キャラクター: 「${c.tagline}」` : '',
-      c.job ? `  職業: ${c.job}` : '',
-      c.want ? `  Want（目標）: ${c.want}` : '',
-      c.need ? `  Need（内面）: ${c.need}` : '',
-    ].filter(Boolean).join('\n'))
+    ...chars.map(c => {
+      const arc = getCharArcStages(c);
+      const relLines = rels.filter(r => r.char1===c.id || r.char2===c.id).map(r => {
+        const other = chars.find(x => x.id === (r.char1===c.id?r.char2:r.char1));
+        return other ? `    - ${other.name}：${r.type||'関係'}${r.note?'（'+r.note+'）':''}` : '';
+      }).filter(Boolean);
+      const appearanceText = richHtmlToPlainText(c.appearanceHtml || c.appearance || '');
+      const backText = richHtmlToPlainText(c.backHtml || c.back || '');
+      const speechText = richHtmlToPlainText(c.speechHtml || c.speech || '');
+      return [
+        `■ ${c.name}${c.kana?' ('+c.kana+')':''}`,
+        `  役割: ${c.role||'—'}　年齢: ${c.age||'—'}　性別: ${c.gender||'—'}`,
+        c.tagline ? `  キャラクター: 「${c.tagline}」` : '',
+        c.job ? `  職業: ${c.job}` : '',
+        (c.traits||[]).length ? `  特徴: ${(c.traits||[]).join('、')}` : '',
+        c.want ? `  Want（目標）: ${c.want}` : '',
+        c.need ? `  Need（内面）: ${c.need}` : '',
+        appearanceText ? `  外見: ${appearanceText}` : '',
+        backText ? `  バックストーリー: ${backText}` : '',
+        speechText ? `  口癖・話し方: ${speechText}` : '',
+        arc.some(s=>s.done) ? `  キャラクターアーク:\n${arc.map(s=>`    ${s.label}: ${richHtmlToPlainText(s.text)||'（未記入）'}`).join('\n')}` : '',
+        relLines.length ? `  関係性:\n${relLines.join('\n')}` : '',
+      ].filter(Boolean).join('\n');
+    })
   ];
-  const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+  const blob = new Blob([lines.join('\n\n')], { type: 'text/plain;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = `charlist_${proj.title}_${new Date().toLocaleDateString('ja-JP').replace(/\//g,'-')}.txt`;
@@ -40251,7 +40450,7 @@ function init() {
     sample.keywords = ['正義','裏切り','恩師','刑事','夜明け'];
     sample.characters = [
       { id: uid(), name: '木村 拓也', kana: 'きむら たくや', role: '主人公', age: '38', gender: '男性', emoji: '🕵️', tagline: '法より人を信じたい刑事', job: '警察官（刑事）', traits: ['頑固','正義感が強い','不器用'], want: '事件の真相を解明すること', need: '恩師への感謝と怒りを超えること', color: '#7c6af7', createdAt: now() },
-      { id: uid(), name: '田中 教授', kana: 'たなか きょうじゅ', role: '敵・antagonist', age: '64', gender: '男性', emoji: '👴', tagline: '間違った正義を信じた男', job: '大学教授（元検察官）', traits: ['知的','カリスマ','歪んだ正義感'], want: '自分の計画を完遂すること', need: '過去の選択を認め赦されること', color: '#f76ca0', createdAt: now() },
+      { id: uid(), name: '田中 教授', kana: 'たなか きょうじゅ', role: 'antagonist（敵）', age: '64', gender: '男性', emoji: '👴', tagline: '間違った正義を信じた男', job: '大学教授（元検察官）', traits: ['知的','カリスマ','歪んだ正義感'], want: '自分の計画を完遂すること', need: '過去の選択を認め赦されること', color: '#f76ca0', createdAt: now() },
     ];
     DB.saveProject(sample);
   }

@@ -11679,3 +11679,10 @@ body.modal-open-lock {
   70%  { box-shadow: 0 0 0 3px var(--asagi); }
   100% { box-shadow: none; }
 }
+
+/* ================================================================
+   キャラクター機能拡張：人物関係図（SVGビジュアルグラフ）
+   ================================================================ */
+.rel-graph-node circle { transition: all 0.15s; }
+.rel-graph-node:hover circle { filter: brightness(0.97); transform-origin: center; }
+.rel-graph-node:hover text { font-weight: 800; }
