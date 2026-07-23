@@ -32273,12 +32273,29 @@ function renderSettingsPage() {
   const totalWords = projects.reduce((a,p) => a + (p.drafts||[]).reduce((b,d)=>b+countWords(d.content||''),0), 0);
   const totalChars = projects.reduce((a,p) => a + (p.characters||[]).length, 0);
   const totalDrafts = projects.reduce((a,p) => a + (p.drafts||[]).length, 0);
-  const journalEntries = DB.get('journal_entries', []).length;
+  const journalEntriesList = DB.get('journal_entries', []);
+  const journalEntries = journalEntriesList.length;
   const readArticles   = DB.get('read_articles', []).length;
   const scratchCount   = DB.get('inspiration_scratches', []).length;
   const nameDictCount  = DB.get('name_dict', []).length;
 
   const writingGoal = DB.get('writing_goal', { daily: 500, weekly: 2000 });
+
+  // 執筆目標④：直近30日の達成率履歴（journal_entriesから逆算。履歴専用データは持たず動的算出）
+  const goalHistDays = Array.from({length:30}, (_,i) => {
+    const d = new Date(); d.setDate(d.getDate() - (29-i));
+    return d.toISOString().slice(0,10);
+  });
+  const goalHistData = goalHistDays.map(day => {
+    const e = journalEntriesList.find(en => en.date === day);
+    const wc = e?.wordCount || 0;
+    return { day, wc, achieved: writingGoal.daily > 0 && wc >= writingGoal.daily, hasEntry: !!e };
+  });
+  const goalAchievedDays = goalHistData.filter(d => d.achieved).length;
+  const goalLoggedDays = goalHistData.filter(d => d.hasEntry).length;
+  const goalAchieveRate = goalLoggedDays > 0 ? Math.round(goalAchievedDays / goalLoggedDays * 100) : 0;
+  const goalHistMax = Math.max(...goalHistData.map(d=>d.wc), writingGoal.daily, 1);
+  const goalCurrentStreak = calcWritingStreak(journalEntriesList);
 
   return `
   <div class="section-header">
@@ -32374,6 +32391,33 @@ function renderSettingsPage() {
             <label class="form-label">1週間の目標文字数</label>
             <input class="form-input" id="cfg-weekly" type="number" value="${writingGoal.weekly}" min="500" max="200000" step="500">
           </div>
+        </div>
+
+        <!-- 執筆目標④：達成率・履歴トラッキング -->
+        <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+          <div style="display:flex;gap:10px;margin-bottom:12px">
+            <div style="flex:1;padding:10px;background:var(--bg-subtle);border-radius:var(--radius-sm);text-align:center">
+              <div style="font-size:18px;font-weight:700;color:var(--matcha)">${goalAchieveRate}%</div>
+              <div style="font-size:10.5px;color:var(--text-muted)">直近30日 達成率</div>
+            </div>
+            <div style="flex:1;padding:10px;background:var(--bg-subtle);border-radius:var(--radius-sm);text-align:center">
+              <div style="font-size:18px;font-weight:700;color:var(--fuji)">${goalAchievedDays}<span style="font-size:11px;font-weight:400">/${goalLoggedDays}日</span></div>
+              <div style="font-size:10.5px;color:var(--text-muted)">目標達成日数</div>
+            </div>
+            <div style="flex:1;padding:10px;background:var(--bg-subtle);border-radius:var(--radius-sm);text-align:center">
+              <div style="font-size:18px;font-weight:700;color:var(--accent)">${goalCurrentStreak}<span style="font-size:11px;font-weight:400">日</span></div>
+              <div style="font-size:10.5px;color:var(--text-muted)">連続執筆🔥</div>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-bottom:6px">直近30日の執筆量（緑=目標達成日）</div>
+          <div style="display:flex;align-items:flex-end;gap:1.5px;height:44px">
+            ${goalHistData.map(d => {
+              const h = d.wc > 0 ? Math.max(3, Math.round((d.wc / goalHistMax) * 40)) : 1;
+              const barColor = !d.hasEntry ? 'var(--bg-hover)' : (d.achieved ? 'var(--matcha)' : 'var(--fuji-border)');
+              return `<div style="flex:1;height:${h}px;background:${barColor};border-radius:1px" title="${d.day}: ${d.wc}字${d.hasEntry?(d.achieved?' (達成)':''):' (記録なし)'}"></div>`;
+            }).join('')}
+          </div>
+          ${goalLoggedDays === 0 ? `<div style="font-size:11px;color:var(--text-muted);margin-top:8px;text-align:center">まだ執筆日誌の記録がありません。<a href="#" onclick="navigate('journal');return false" style="color:var(--accent)">執筆日誌</a>に記録すると達成率が表示されます</div>` : ''}
         </div>
       </div>
 
@@ -32538,16 +32582,33 @@ function exportSingleProject(projId) {
 }
 
 function confirmClearAllData() {
+  const projects = DB.getProjects();
+  const journalCount = DB.get('journal_entries', []).length;
+  const draftCount = projects.reduce((a,p) => a + (p.drafts||[]).length, 0);
+  const charCount = projects.reduce((a,p) => a + (p.characters||[]).length, 0);
+  const CONFIRM_WORD = '削除';
   openModal(
     `<i class="fas fa-triangle-exclamation" style="color:var(--accent)"></i> 全データを削除`,
-    `<p style="color:var(--text-secondary)">すべてのプロジェクトデータを削除します。<br><strong style="color:var(--accent)">この操作は元に戻せません。</strong></p>
-     <p style="font-size:12.5px;color:var(--text-muted);margin-top:8px">削除前に「全データをエクスポート」でバックアップすることをお勧めします。</p>`,
+    `<p style="color:var(--text-secondary)">以下のデータがすべて削除されます。<strong style="color:var(--accent)">この操作は元に戻せません。</strong></p>
+     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0;font-size:12.5px">
+       <div style="padding:8px 10px;background:var(--bg-subtle);border-radius:var(--radius-sm)">プロジェクト <strong style="float:right">${projects.length}件</strong></div>
+       <div style="padding:8px 10px;background:var(--bg-subtle);border-radius:var(--radius-sm)">稿データ <strong style="float:right">${draftCount}稿</strong></div>
+       <div style="padding:8px 10px;background:var(--bg-subtle);border-radius:var(--radius-sm)">登場人物 <strong style="float:right">${charCount}人</strong></div>
+       <div style="padding:8px 10px;background:var(--bg-subtle);border-radius:var(--radius-sm)">執筆日誌 <strong style="float:right">${journalCount}件</strong></div>
+     </div>
+     <p style="font-size:12.5px;color:var(--text-muted);margin-bottom:14px">削除前に「全データをエクスポート」でバックアップすることをお勧めします。</p>
+     <div class="form-group" style="margin-bottom:0">
+       <label class="form-label">続行するには「<strong style="color:var(--accent)">${CONFIRM_WORD}</strong>」と入力してください</label>
+       <input class="form-input" id="clear-confirm-input" placeholder="${CONFIRM_WORD}" autocomplete="off"
+         oninput="$('#clear-confirm-btn').disabled = (this.value !== '${CONFIRM_WORD}')">
+     </div>`,
     `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
-     <button class="btn btn-danger" onclick="clearAllData()"><i class="fas fa-trash"></i> すべて削除する</button>`
+     <button class="btn btn-danger" id="clear-confirm-btn" disabled onclick="clearAllData()"><i class="fas fa-trash"></i> すべて削除する</button>`
   );
 }
 
 function clearAllData() {
+  if ($('#clear-confirm-btn')?.disabled) return;
   localStorage.clear();
   closeModal();
   toast('データを削除しました', 'info');
