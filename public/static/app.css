@@ -11659,3 +11659,23 @@ body.modal-open-lock {
   .task-swipe-wrap.swiping .task-item { transition: none; }
   .task-swipe-wrap:not(.swiping) .task-item { transition: transform .2s ease; }
 }
+
+/* ================================================================
+   世界観設計：相互リンク（用語集/勢力/場所/年表の名前を自動リンク化）
+   ================================================================ */
+.wb-xlink {
+  color: var(--asagi);
+  text-decoration: underline dotted;
+  text-decoration-color: var(--asagi-border);
+  font-weight: 600;
+  cursor: pointer;
+}
+.wb-xlink:hover { color: var(--accent); text-decoration-color: var(--accent); }
+.wb-entry-highlight {
+  animation: wbEntryFlash 1.6s ease;
+}
+@keyframes wbEntryFlash {
+  0%   { box-shadow: 0 0 0 3px var(--asagi); }
+  70%  { box-shadow: 0 0 0 3px var(--asagi); }
+  100% { box-shadow: none; }
+}

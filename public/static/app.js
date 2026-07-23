@@ -33196,6 +33196,64 @@ function bindNameDictPage() {}
 // ================================================================
 //  PAGE: 世界観設計
 // ================================================================
+
+// 用語集・勢力・場所・年表の全エントリ名を集約し、テキスト中に出現した
+// 名前を該当タブへジャンプするリンクに変換するための相互リンク機能
+// ── ジャンプ対象となる名前と行き先タブの一覧を作る
+function getWbLinkTargets(wb) {
+  const targets = [];
+  (wb.glossary || []).forEach((g, i) => { if (g.term) targets.push({ name: g.term, tab: 'glossary', idx: i, kind: '用語' }); });
+  (wb.factions || []).forEach((f, i) => { if (f.name) targets.push({ name: f.name, tab: 'factions', idx: i, kind: '勢力' }); });
+  (wb.locations || []).forEach((l, i) => { if (l.name) targets.push({ name: l.name, tab: 'locations', idx: i, kind: '場所' }); });
+  (wb.timeline || []).forEach((e, i) => { if (e.event) targets.push({ name: e.event, tab: 'timeline', idx: i, kind: '出来事' }); });
+  // 長い名前を先にマッチさせることで、短い名前が長い名前の一部を誤って
+  // 食ってしまう問題（部分一致の入れ子）を避ける
+  targets.sort((a,b) => b.name.length - a.name.length);
+  return targets;
+}
+
+// 平文テキストに含まれる登録済み固有名詞をリンク化してHTML化する
+// （selfName/selfKindを渡すと「自分自身」への自己参照リンクを避けられる）
+function linkifyWbText(text, wb, opts = {}) {
+  if (!text) return '';
+  const targets = getWbLinkTargets(wb).filter(t => !(opts.selfKind === t.kind && opts.selfIdx === t.idx));
+  if (targets.length === 0) return esc(text);
+  // 名前の重複（用語集と勢力名が同名等）を除去しつつ、esc後の文字列に対して置換する
+  const seen = new Set();
+  const uniqTargets = targets.filter(t => {
+    const key = t.name;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  let html = esc(text);
+  uniqTargets.forEach(t => {
+    const escName = esc(t.name);
+    if (!escName || html.indexOf(escName) === -1) return;
+    // 既にリンク化された領域(タグ内)を壊さないよう、タグの外側のプレーンテキスト部分だけを対象に置換する
+    const re = new RegExp(escName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+    html = html.split(/(<[^>]*>)/).map(seg => {
+      if (seg.startsWith('<')) return seg; // タグはそのまま
+      return seg.replace(re, `<a href="#" class="wb-xlink" data-wb-kind="${t.kind}" onclick="event.preventDefault();event.stopPropagation();jumpToWbEntry('${t.tab}',${t.idx})" title="${t.kind}「${escName}」を見る">${escName}</a>`);
+    }).join('');
+  });
+  return html;
+}
+
+// リンククリック時：対象タブに切り替えて該当カードへスクロール・ハイライトする
+function jumpToWbEntry(tab, idx) {
+  DB.set('wb_active_tab', tab);
+  render();
+  setTimeout(() => {
+    const target = $(`#wb-entry-${tab}-${idx}`);
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.classList.add('wb-entry-highlight');
+      setTimeout(() => target.classList.remove('wb-entry-highlight'), 1600);
+    }
+  }, 60);
+}
+
 function renderWorldBuildingPage() {
   const proj = State.currentProjectId ? DB.getProject(State.currentProjectId) : null;
   if (!proj) {
@@ -33246,9 +33304,9 @@ function renderWorldBuildingPage() {
   ];
 
   const glossaryHtml = (wb.glossary || []).map((g, i) => `
-    <div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+    <div id="wb-entry-glossary-${i}" style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
       <div style="flex:0 0 100px;font-size:12.5px;font-weight:700;color:var(--kon-lt);font-family:'Noto Serif JP',serif">${esc(g.term)}</div>
-      <div style="flex:1;font-size:12.5px;color:var(--text-secondary);line-height:1.6">${esc(g.def)}</div>
+      <div style="flex:1;font-size:12.5px;color:var(--text-secondary);line-height:1.6">${linkifyWbText(g.def, wb, {selfKind:'用語', selfIdx:i})}</div>
       <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteWbGlossary('${proj.id}',${i})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
     </div>`).join('');
 
@@ -33344,9 +33402,9 @@ function renderWorldBuildingPage() {
       `<div style="text-align:center;padding:40px;color:var(--text-muted)"><i class="fas fa-book" style="font-size:32px;display:block;margin-bottom:12px;opacity:0.2"></i>まだ用語が登録されていません</div>` :
       `<div>
         ${(wb.glossary||[]).map((g, i) => `
-        <div style="display:flex;align-items:flex-start;gap:8px;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div id="wb-entry-glossary-${i}" style="display:flex;align-items:flex-start;gap:8px;padding:10px 0;border-bottom:1px solid var(--border)">
           <div style="flex:0 0 120px;font-size:13px;font-weight:700;color:var(--kon-lt);font-family:'Noto Serif JP',serif">${esc(g.term)}</div>
-          <div style="flex:1;font-size:12.5px;color:var(--text-secondary);line-height:1.6">${esc(g.def)}</div>
+          <div style="flex:1;font-size:12.5px;color:var(--text-secondary);line-height:1.6">${linkifyWbText(g.def, wb, {selfKind:'用語', selfIdx:i})}</div>
           <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteWbGlossary('${proj.id}',${i})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
         </div>`).join('')}
       </div>`}
@@ -33390,14 +33448,15 @@ function renderWbLocationsTab(proj, wb) {
       `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px">
         ${locations.map((l, i) => {
           const col = LOC_COLORS[i % LOC_COLORS.length];
+          const descTrunc = (l.desc||'').slice(0,90) + ((l.desc||'').length>90?'…':'');
           return `
-          <div class="card" style="border-top:3px solid ${col};cursor:pointer" onclick="openEditWbLocation('${proj.id}',${i})">
+          <div id="wb-entry-locations-${i}" class="card" style="border-top:3px solid ${col};cursor:pointer" onclick="openEditWbLocation('${proj.id}',${i})">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
               <div style="font-size:15px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary)"><i class="fas fa-location-dot" style="color:${col};font-size:12px;margin-right:5px"></i>${esc(l.name)}</div>
               <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();deleteWbLocation('${proj.id}',${i})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
             </div>
             ${l.type ? `<div style="font-size:11px;padding:2px 8px;background:var(--bg-hover);border-radius:var(--radius-full);color:${col};border:1px solid ${col}33;display:inline-block;margin-bottom:6px">${esc(l.type)}</div>` : ''}
-            ${l.desc ? `<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;margin-bottom:6px">${esc(l.desc.slice(0,90))}${l.desc.length>90?'…':''}</div>` : ''}
+            ${l.desc ? `<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;margin-bottom:6px">${linkifyWbText(descTrunc, wb, {selfKind:'場所', selfIdx:i})}</div>` : ''}
             ${l.atmosphere ? `<div style="font-size:11.5px;color:var(--text-muted)"><strong>雰囲気：</strong>${esc(l.atmosphere)}</div>` : ''}
           </div>`;
         }).join('')}
@@ -33511,14 +33570,14 @@ function renderWbFactionsTab(proj, wb) {
         ${factions.map((f, i) => {
           const col = FACTION_COLORS[i % FACTION_COLORS.length];
           return `
-          <div class="card" style="border-top:3px solid ${col}">
+          <div id="wb-entry-factions-${i}" class="card" style="border-top:3px solid ${col}">
             <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
               <div style="font-size:15px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary)">${esc(f.name)}</div>
               <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteWbFaction('${proj.id}',${i})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
             </div>
             ${f.type ? `<div style="font-size:11px;padding:2px 8px;background:var(--bg-hover);border-radius:var(--radius-full);color:${col};border:1px solid ${col}33;display:inline-block;margin-bottom:6px">${esc(f.type)}</div>` : ''}
-            ${f.desc ? `<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;margin-bottom:6px">${esc(f.desc)}</div>` : ''}
-            ${f.goal ? `<div style="font-size:11.5px;color:var(--text-muted)"><strong>目的：</strong>${esc(f.goal)}</div>` : ''}
+            ${f.desc ? `<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;margin-bottom:6px">${linkifyWbText(f.desc, wb, {selfKind:'勢力', selfIdx:i})}</div>` : ''}
+            ${f.goal ? `<div style="font-size:11.5px;color:var(--text-muted)"><strong>目的：</strong>${linkifyWbText(f.goal, wb, {selfKind:'勢力', selfIdx:i})}</div>` : ''}
             ${f.leader ? `<div style="font-size:11.5px;color:var(--text-muted)"><strong>リーダー：</strong>${esc(f.leader)}</div>` : ''}
           </div>`;
         }).join('')}
@@ -33527,7 +33586,9 @@ function renderWbFactionsTab(proj, wb) {
 }
 
 function renderWbTimelineTab(proj, wb) {
-  const timeline = [...(wb.timeline || [])].sort((a,b) => (a.year||0) - (b.year||0));
+  // 元配列でのindexを保持したまま年代順に並び替える
+  // （並び替え後のindexで削除/リンクすると別の項目を指してしまうバグを回避）
+  const timeline = (wb.timeline || []).map((e, idx) => ({ e, idx })).sort((a,b) => (a.e.year||0) - (b.e.year||0));
   return `
   <div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
@@ -33541,8 +33602,8 @@ function renderWbTimelineTab(proj, wb) {
       </div>` :
       `<div style="position:relative;padding-left:24px">
         <div style="position:absolute;left:8px;top:0;bottom:0;width:2px;background:var(--asagi-border)"></div>
-        ${timeline.map((e, i) => `
-        <div style="position:relative;margin-bottom:16px">
+        ${timeline.map(({e, idx}) => `
+        <div id="wb-entry-timeline-${idx}" style="position:relative;margin-bottom:16px">
           <div style="position:absolute;left:-20px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--asagi);border:2px solid white;box-shadow:0 0 0 2px var(--asagi-border)"></div>
           <div class="card" style="padding:12px 14px">
             <div style="display:flex;justify-content:space-between;align-items:flex-start">
@@ -33550,10 +33611,10 @@ function renderWbTimelineTab(proj, wb) {
                 <span style="font-size:11px;font-weight:700;color:var(--asagi)">${esc(String(e.year||'?'))}年</span>
                 <div style="font-size:13.5px;font-weight:700;color:var(--text-primary);margin-top:2px">${esc(e.event)}</div>
               </div>
-              <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteWbTimeline('${proj.id}',${i})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="deleteWbTimeline('${proj.id}',${idx})"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
             </div>
-            ${e.desc ? `<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;margin-top:5px">${esc(e.desc)}</div>` : ''}
-            ${e.impact ? `<div style="font-size:11.5px;color:var(--text-muted);margin-top:4px"><i class="fas fa-bolt" style="font-size:9px;color:var(--kogane);margin-right:3px"></i>影響: ${esc(e.impact)}</div>` : ''}
+            ${e.desc ? `<div style="font-size:12.5px;color:var(--text-secondary);line-height:1.6;margin-top:5px">${linkifyWbText(e.desc, wb, {selfKind:'出来事', selfIdx:idx})}</div>` : ''}
+            ${e.impact ? `<div style="font-size:11.5px;color:var(--text-muted);margin-top:4px"><i class="fas fa-bolt" style="font-size:9px;color:var(--kogane);margin-right:3px"></i>影響: ${linkifyWbText(e.impact, wb, {selfKind:'出来事', selfIdx:idx})}</div>` : ''}
           </div>
         </div>`).join('')}
       </div>`}
