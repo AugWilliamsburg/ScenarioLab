@@ -42691,9 +42691,14 @@ function newPlanSeed(data = {}) {
     title: data.title || '',
     seedText: data.seedText || '',
     stage: data.stage || 'seed', // seed(種) / sprout(発芽) / bud(つぼみ) / bloom(開花) / brief(企画書)
-    growthLog: data.growthLog || [], // [{id, kind, body, createdAt}] 新しい順
+    growthLog: data.growthLog || [], // [{id, kind, body, createdAt, lensKey?}] 新しい順
     tags: data.tags || [],
     genre: data.genre || '',
+    // ── 「作品ダッシュボード」相当の深度で育てるための拡張フィールド ──
+    concept: data.concept || { theme: '', premise: '', tone: '', target: '', usp: '' },
+    characters: data.characters || [], // [{id,name,role,want,need,oneLiner,createdAt}]
+    synopsis: data.synopsis || '',
+    synopsisHtml: data.synopsisHtml || '',
     chosenLogline: data.chosenLogline || '',
     briefDoc: data.briefDoc || '',
     sentProjectId: data.sentProjectId || null,
@@ -42711,12 +42716,15 @@ const PLANLAB_STAGES = [
 ];
 
 const PLANLAB_LOG_KINDS = {
-  sow:     { label: '種まき',     color: 'var(--matcha)', bg: 'var(--matcha-bg)' },
-  note:    { label: '育成メモ',   color: 'var(--asagi)',  bg: 'var(--asagi-bg)' },
-  lens:    { label: '視点転換',   color: 'var(--fuji)',   bg: 'var(--fuji-bg)' },
-  logline: { label: 'ログライン', color: 'var(--momo)',   bg: 'var(--momo-bg)' },
-  brief:   { label: '企画書',     color: 'var(--kogane)', bg: 'var(--kogane-bg)' },
-  stage:   { label: 'ステージ変化', color: 'var(--accent)', bg: 'var(--accent-bg)' },
+  sow:       { label: '種まき',       color: 'var(--matcha)', bg: 'var(--matcha-bg)' },
+  note:      { label: '育成メモ',     color: 'var(--asagi)',  bg: 'var(--asagi-bg)' },
+  concept:   { label: 'コンセプト',   color: 'var(--asagi)',  bg: 'var(--asagi-bg)' },
+  character: { label: 'キャラクター', color: 'var(--fuji)',   bg: 'var(--fuji-bg)' },
+  synopsis:  { label: 'あらすじ',     color: 'var(--kon-lt)', bg: 'var(--kon-bg)' },
+  lens:      { label: '視点転換',     color: 'var(--fuji)',   bg: 'var(--fuji-bg)' },
+  logline:   { label: 'ログライン',   color: 'var(--momo)',   bg: 'var(--momo-bg)' },
+  brief:     { label: '企画書',       color: 'var(--kogane)', bg: 'var(--kogane-bg)' },
+  stage:     { label: 'ステージ変化', color: 'var(--accent)', bg: 'var(--accent-bg)' },
 };
 
 // 「視点を変える」— AIを使わない、着眼点を変えるための固定の発想フレーム集
@@ -42736,6 +42744,33 @@ const PLANLAB_LENSES = [
 ];
 
 function planlabStageInfo(key) { return PLANLAB_STAGES.find(s => s.key === key) || PLANLAB_STAGES[0]; }
+
+// 企画の「育ち具合」を、作品ダッシュボードの computeCharDepth() / コンセプト完成度と
+// 同じ発想で6要素の充足度から算出する（AIは使わず、記入済みかどうかのみで判定）。
+// コンセプト・ログライン・キャラクター・あらすじ・視点転換・企画書、の6軸。
+const PLANLAB_READINESS_ITEMS = [
+  { key: 'concept',   label: 'コンセプト',   icon: 'fa-compass-drafting', color: 'var(--asagi)',  tab: 'concept',   tip: 'テーマ・プレミスを固めましょう。作品の「軸」が定まります。' },
+  { key: 'lens',      label: '視点転換',     icon: 'fa-lightbulb',        color: 'var(--fuji)',   tab: 'lens',      tip: '「視点を変える」で、着想を別の角度から見つめ直してみましょう。' },
+  { key: 'logline',   label: 'ログライン',   icon: 'fa-quote-left',       color: 'var(--momo)',   tab: 'logline',   tip: 'ログライン工房で、一文で語れる形に磨き上げましょう。' },
+  { key: 'character', label: 'キャラクター', icon: 'fa-user',             color: 'var(--fuji)',   tab: 'character', tip: '主人公になりそうな人物を、一人だけでも描いてみましょう。' },
+  { key: 'synopsis',  label: 'あらすじ',     icon: 'fa-align-left',       color: 'var(--kon-lt)', tab: 'synopsis',  tip: '起承転結の大まかな流れを、数行でも書いてみましょう。' },
+  { key: 'brief',     label: '企画書',       icon: 'fa-file-lines',       color: 'var(--kogane)', tab: 'brief',     tip: 'ここまでの育成ログをもとに、企画書を生成してみましょう。' },
+];
+function computePlanSeedReadiness(s) {
+  const c = s.concept || {};
+  const conceptOk   = !!((c.theme||'').trim() || (c.premise||'').trim());
+  const lensOk       = (s.growthLog||[]).some(g => g.kind === 'lens');
+  const loglineOk     = !!(s.chosenLogline||'').trim();
+  const characterOk  = (s.characters||[]).length > 0;
+  const synopsisOk   = !!(s.synopsis||'').trim();
+  const briefOk       = !!(s.briefDoc||'').trim();
+  const flags = { concept: conceptOk, lens: lensOk, logline: loglineOk, character: characterOk, synopsis: synopsisOk, brief: briefOk };
+  const filledCount = PLANLAB_READINESS_ITEMS.filter(it => flags[it.key]).length;
+  const score = Math.round(filledCount / PLANLAB_READINESS_ITEMS.length * 100);
+  const missing = PLANLAB_READINESS_ITEMS.filter(it => !flags[it.key]);
+  const lensesTried = new Set((s.growthLog||[]).filter(g => g.kind === 'lens' && g.lensKey).map(g => g.lensKey));
+  return { flags, filledCount, score, missing, lensesTried };
+}
 
 // ── メインページ ────────────────────────────────────────────────
 function renderPlanLabPage() {
@@ -42776,6 +42811,8 @@ function renderPlanLabSeedCard(s) {
   const stageIdx = PLANLAB_STAGES.findIndex(st => st.key === s.stage);
   const latest = (s.growthLog || [])[0];
   const latestText = latest ? latest.body : s.seedText;
+  const readiness = computePlanSeedReadiness(s);
+  const rColor = readiness.score >= 80 ? 'var(--matcha)' : readiness.score >= 40 ? 'var(--kogane)' : 'var(--text-muted)';
   return `<div class="planlab-seed-card" style="--seed-stage-color:${stageInfo.color};--seed-stage-bg:${stageInfo.bg}" onclick="openPlanSeedHub('${s.id}')">
     <div class="planlab-seed-top">
       <div class="planlab-seed-title">${esc(s.title || (s.seedText||'').slice(0,24) || '無題のタネ')}</div>
@@ -42785,6 +42822,7 @@ function renderPlanLabSeedCard(s) {
     <div class="planlab-seed-meta">
       <span><i class="fas fa-clock"></i> ${fmtDatetime(s.updatedAt)}</span>
       <span><i class="fas fa-timeline"></i> 成長ログ ${(s.growthLog||[]).length}件</span>
+      <span style="color:${rColor};font-weight:700"><i class="fas fa-gem" style="font-size:9px"></i> 育成度 ${readiness.score}%</span>
       ${s.sentProjectId ? `<span><i class="fas fa-share" style="color:var(--matcha)"></i> 送出済み</span>` : ''}
     </div>
     <div class="planlab-growth-track">
@@ -42827,7 +42865,16 @@ function renderPlanLabLogEntry(g) {
 }
 
 function renderPlanLabGrowPanel(s, statusId, autoSaveCall) {
+  const readiness = computePlanSeedReadiness(s);
+  const rColor = readiness.score >= 80 ? 'var(--matcha)' : readiness.score >= 40 ? 'var(--kogane)' : 'var(--accent)';
   return `
+   <div style="text-align:center;margin-bottom:14px;padding:14px;background:${readiness.score>=80?'var(--matcha-bg)':readiness.score>=40?'var(--kogane-bg)':'var(--bg-subtle)'};border-radius:var(--radius-md);border:1px solid ${readiness.score>=80?'var(--matcha-border)':readiness.score>=40?'var(--kogane-border)':'var(--border)'}">
+     <div style="font-size:30px;font-weight:700;font-family:'Noto Serif JP',serif;color:${rColor}">${readiness.score}<span style="font-size:13px">%</span></div>
+     <div style="font-size:11.5px;color:var(--text-muted)">育成度（${readiness.filledCount}/${PLANLAB_READINESS_ITEMS.length}要素）</div>
+     <div style="display:flex;justify-content:center;gap:6px;margin-top:8px;flex-wrap:wrap">
+       ${PLANLAB_READINESS_ITEMS.map(it => `<span title="${esc(it.label)}" style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:3px 7px;border-radius:var(--radius-full);background:${readiness.flags[it.key]?it.color:'var(--bg-hover)'};color:${readiness.flags[it.key]?'#fff':'var(--text-light)'}"><i class="fas ${it.icon}" style="font-size:9px"></i>${esc(it.label)}</span>`).join('')}
+     </div>
+   </div>
    <div class="form-group">
      <label class="form-label">タイトル</label>
      <input class="form-input" id="ps-title" value="${esc(s.title||'')}" oninput="${autoSaveCall}" placeholder="このタネに名前をつけましょう（任意）">
@@ -42842,6 +42889,17 @@ function renderPlanLabGrowPanel(s, statusId, autoSaveCall) {
      <label class="form-label"><i class="fas fa-tags" style="color:var(--fuji);margin-right:4px"></i>タグ</label>
      ${renderHubTagEditor('planlab-'+s.id, s.tags||[], autoSaveCall)}
    </div>
+   ${readiness.missing.length > 0 ? `
+   <div class="form-group">
+     <label class="form-label">次に育てるとよさそうなこと</label>
+     <div style="display:flex;flex-direction:column;gap:6px">
+       ${readiness.missing.slice(0,3).map(it => `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg-subtle);border-left:3px solid ${it.color};border-radius:var(--radius-sm);cursor:pointer" onclick="switchHubTab('planlab','${it.tab}')">
+         <i class="fas ${it.icon}" style="color:${it.color};font-size:11px"></i>
+         <div style="flex:1;font-size:11.5px;color:var(--text-secondary)">${esc(it.tip)}</div>
+         <i class="fas fa-arrow-right" style="font-size:10px;color:var(--text-light)"></i>
+       </div>`).join('')}
+     </div>
+   </div>` : `<div class="success-box" style="margin-bottom:14px"><i class="fas fa-circle-check"></i><div>6要素すべてが育ちました！「送る」タブから作品として送り出せます。</div></div>`}
    <div class="form-group">
      <label class="form-label">新しい成長ログを書く</label>
      <textarea class="form-textarea" id="ps-newlog" rows="3" placeholder="育ってきた考え・気づき・調べたことなどを書き足していきましょう…"></textarea>
@@ -42852,32 +42910,249 @@ function renderPlanLabGrowPanel(s, statusId, autoSaveCall) {
    </div>`;
 }
 
-function renderPlanLabLensPanel(s) {
-  return `<div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;padding:10px;background:var(--bg-subtle);border-radius:var(--radius-sm);font-style:italic">元のタネ: ${esc((s.seedText||s.title||'').slice(0,100))}</div>
-  <div class="planlab-lens-grid">
-    ${PLANLAB_LENSES.map(l => `<div class="planlab-lens-card" onclick="planlabApplyLens('${s.id}','${l.key}')">
-      <div class="planlab-lens-card-title"><i class="fas ${l.icon}"></i> ${esc(l.label)}</div>
-      <div class="planlab-lens-card-desc">${esc(l.desc)}</div>
-    </div>`).join('')}
-  </div>`;
+// ── コンセプトを固める ──────────────────────────────────────────
+// 作品ダッシュボードの renderConcept() に対応する簡易版。テーマ・プレミス・
+// トーン・ターゲット・USP を、タネの段階から育てられるようにする。
+const PLANLAB_TONE_OPTIONS = ['', 'シリアス', 'ダーク', 'コミカル', 'ヒューマン', 'サスペンス', '感動', 'ホラー', '爽快', '詩的'];
+const PLANLAB_TARGET_OPTIONS = ['', '全年齢', '10〜20代', '20〜30代', '30〜40代', '40代以上', '家族向け', '女性向け', '男性向け'];
+function renderPlanLabConceptPanel(s, statusId, autoSaveCall) {
+  const c = s.concept || {};
+  const filled = ['theme','premise','tone','target','usp'].filter(k => (c[k]||'').trim()).length;
+  return `
+  <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;padding:10px;background:var(--bg-subtle);border-radius:var(--radius-sm);font-style:italic">元のタネ: ${esc((s.seedText||s.title||'').slice(0,100))}</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <div style="font-size:11.5px;color:var(--text-muted)">この企画の核となる「軸」を言語化しましょう</div>
+    <span style="font-size:11px;font-weight:700;color:${filled>=4?'var(--matcha)':'var(--kogane)'}">${filled}/5 記入済み</span>
+  </div>
+  <div class="form-group">
+    <label class="form-label">メインテーマ <span style="font-size:10px;font-weight:400;color:var(--text-muted)">一文で言い切れるほど明確に</span></label>
+    <input class="form-input" id="pc-theme" value="${esc(c.theme||'')}" placeholder="例：真の勇気とは、恐れを感じながらも前に進むこと" oninput="${autoSaveCall}">
+  </div>
+  <div class="form-group">
+    <label class="form-label">プレミス・問い <span style="font-size:10px;font-weight:400;color:var(--text-muted)">「もし〜ならば…するか？」</span></label>
+    <textarea class="form-textarea" id="pc-premise" rows="3" placeholder="例：もし愛する人を助けるために犯罪を犯した人間が、法の裁きを受けたとき何を選ぶか？" oninput="${autoSaveCall}">${esc(c.premise||'')}</textarea>
+  </div>
+  <div class="grid-2">
+    <div class="form-group">
+      <label class="form-label">トーン・雰囲気</label>
+      <select class="form-select" id="pc-tone" onchange="${autoSaveCall}">
+        ${PLANLAB_TONE_OPTIONS.map(t=>`<option ${t===c.tone?'selected':''}>${t}</option>`).join('')}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ターゲット層</label>
+      <select class="form-select" id="pc-target" onchange="${autoSaveCall}">
+        ${PLANLAB_TARGET_OPTIONS.map(t=>`<option ${t===c.target?'selected':''}>${t}</option>`).join('')}
+      </select>
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">ユニーク・セリング・ポイント <span style="font-size:10px;font-weight:400;color:var(--text-muted)">なぜ今この話を語るのか？</span></label>
+    <textarea class="form-textarea" id="pc-usp" rows="3" placeholder="この企画にしか描けない「何か」を書いてください" oninput="${autoSaveCall}">${esc(c.usp||'')}</textarea>
+  </div>
+  <button class="btn btn-secondary btn-sm" onclick="planlabSaveConceptToLog('${s.id}')"><i class="fas fa-bookmark"></i> コンセプトを成長ログに記録する</button>`;
+}
+function planlabSaveConceptToLog(id) {
+  const s = PlanLabDB.getSeed(id);
+  if (!s) return;
+  persistPlanSeedEdit(id);
+  const c = s.concept || {};
+  if (!(c.theme||'').trim() && !(c.premise||'').trim()) { toast('テーマかプレミスを入力してください', 'error'); return; }
+  const body = `テーマ:「${c.theme||'（未設定）'}」 / プレミス: ${c.premise||'（未設定）'}`;
+  s.growthLog.unshift({ id: uid(), kind: 'concept', body, createdAt: now() });
+  if (s.stage === 'seed') s.stage = 'sprout';
+  PlanLabDB.saveSeed(s);
+  toast('コンセプトを成長ログに記録しました', 'success');
+  openPlanSeedHub(id, 'concept');
 }
 
+// ── 視点を変える ────────────────────────────────────────────────
+function renderPlanLabLensPanel(s) {
+  const readiness = computePlanSeedReadiness(s);
+  const triedCount = readiness.lensesTried.size;
+  return `<div style="font-size:12px;color:var(--text-muted);margin-bottom:10px;padding:10px;background:var(--bg-subtle);border-radius:var(--radius-sm);font-style:italic">元のタネ: ${esc((s.seedText||s.title||'').slice(0,100))}</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <div style="font-size:11.5px;color:var(--text-muted)">複数の視点を試すことで、着想に奥行きが生まれます</div>
+    <span style="font-size:11px;font-weight:700;color:${triedCount>=3?'var(--matcha)':'var(--kogane)'}"><i class="fas fa-lightbulb" style="font-size:10px"></i> ${triedCount}/${PLANLAB_LENSES.length} 視点を試した</span>
+  </div>
+  <div class="planlab-lens-grid">
+    ${PLANLAB_LENSES.map(l => {
+      const tried = readiness.lensesTried.has(l.key);
+      return `<div class="planlab-lens-card ${tried?'tried':''}" onclick="planlabApplyLens('${s.id}','${l.key}')">
+      <div class="planlab-lens-card-title"><i class="fas ${l.icon}"></i> ${esc(l.label)} ${tried?'<i class=\"fas fa-check-circle\" style=\"color:var(--matcha);font-size:10px;margin-left:3px\"></i>':''}</div>
+      <div class="planlab-lens-card-desc">${esc(l.desc)}</div>
+    </div>`;
+    }).join('')}
+  </div>
+  ${triedCount >= PLANLAB_LENSES.length ? `<div class="success-box" style="margin-top:12px"><i class="fas fa-circle-check"></i><div>全ての視点を試しました！多角的に鍛えられた企画です。</div></div>` : ''}`;
+}
+
+// ── ログライン工房 ──────────────────────────────────────────────
+// 作品ダッシュボードの generateLoglines() と同等の入力項目・パターン数・
+// 字数品質判定・個別/一括コピー機能を備える。
 function renderPlanLabLoglinePanel(s) {
   return `
-  <div class="form-group"><label class="form-label">主人公</label><input class="form-input" id="pl-protagonist" placeholder="例：借金を抱えた元教師"></div>
-  <div class="form-group"><label class="form-label">ゴール</label><input class="form-input" id="pl-goal" placeholder="例：失踪した娘を見つける"></div>
-  <div class="form-group"><label class="form-label">障害</label><input class="form-input" id="pl-obstacle" placeholder="例：手がかりが元教え子の犯罪組織に繋がっている"></div>
-  <button class="btn btn-primary btn-sm" onclick="planlabGenerateLoglines('${s.id}')"><i class="fas fa-magic"></i> ログラインを生成</button>
+  <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;padding:10px;background:var(--bg-subtle);border-radius:var(--radius-sm);font-style:italic">元のタネ: ${esc((s.seedText||s.title||'').slice(0,100))}</div>
+  <div class="grid-2">
+    <div class="form-group"><label class="form-label">主人公 <span style="color:var(--accent)">*</span></label><input class="form-input" id="pl-protagonist" placeholder="例：借金を抱えた元教師"></div>
+    <div class="form-group"><label class="form-label">欠点・弱み（任意）</label><input class="form-input" id="pl-flaw" placeholder="例：他人を信じられない"></div>
+  </div>
+  <div class="form-group"><label class="form-label">ゴール <span style="color:var(--accent)">*</span></label><input class="form-input" id="pl-goal" placeholder="例：失踪した娘を見つける"></div>
+  <div class="form-group"><label class="form-label">障害 <span style="color:var(--accent)">*</span></label><input class="form-input" id="pl-obstacle" placeholder="例：手がかりが元教え子の犯罪組織に繋がっている"></div>
+  <div class="form-group"><label class="form-label">テーマ・問い（任意）</label><input class="form-input" id="pl-theme" placeholder="例：赦しは可能か"></div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <button class="btn btn-primary btn-sm" onclick="planlabGenerateLoglines('${s.id}')"><i class="fas fa-magic"></i> ログラインを生成</button>
+    <button class="btn btn-ghost btn-sm" id="pl-copy-all" style="display:none" onclick="planlabCopyAllLoglines()"><i class="fas fa-copy"></i> 全パターンをコピー</button>
+  </div>
   <div id="pl-results" style="margin-top:14px">
     ${s.chosenLogline ? `<div style="padding:10px;background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-sm);font-size:12.5px;color:var(--text-primary)"><i class="fas fa-star" style="color:var(--matcha)"></i> 採用中: ${esc(s.chosenLogline)}</div>` : ''}
   </div>`;
 }
 
-function renderPlanLabBriefPanel(s) {
+// ── キャラクターを描く ──────────────────────────────────────────
+// 作品ダッシュボードのキャラクター機能をタネの段階に合わせて簡略化した版。
+// Want/Needの2要素と一言紹介から、簡易的な深み判定を行う。
+function planlabComputeCharSimpleDepth(ch) {
+  const items = ['want','need','oneLiner'];
+  const filled = items.filter(k => (ch[k]||'').trim()).length;
+  return Math.round(filled / items.length * 100);
+}
+function renderPlanLabCharacterPanel(s) {
+  const chars = s.characters || [];
   return `
-  <div class="form-group"><label class="form-label">ジャンル</label><input class="form-input" id="pb-genre" value="${esc(s.genre||'')}" placeholder="例：サスペンス"></div>
-  <div class="form-group"><label class="form-label">テーマ・問い（任意）</label><input class="form-input" id="pb-theme" placeholder="例：赦しは可能か"></div>
-  <div class="form-group"><label class="form-label">ターゲット（任意）</label><input class="form-input" id="pb-target" placeholder="例：30代〜50代の男性層"></div>
+  <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;padding:10px;background:var(--bg-subtle);border-radius:var(--radius-sm);font-style:italic">元のタネ: ${esc((s.seedText||s.title||'').slice(0,100))}</div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <div style="font-size:11.5px;color:var(--text-muted)">主人公になりそうな人物を、一人からでも描いてみましょう</div>
+    <button class="btn btn-primary btn-sm" onclick="planlabOpenAddCharacter('${s.id}')"><i class="fas fa-user-plus"></i> 人物を追加</button>
+  </div>
+  <div id="pl-char-list">
+    ${chars.length === 0 ? '<div class="hub-empty-mini">まだ人物がいません。「人物を追加」から描き始めましょう。</div>' :
+      chars.map(ch => renderPlanLabCharCard(s.id, ch)).join('')}
+  </div>`;
+}
+function renderPlanLabCharCard(seedId, ch) {
+  const depth = planlabComputeCharSimpleDepth(ch);
+  const dColor = depth >= 80 ? 'var(--matcha)' : depth >= 40 ? 'var(--kogane)' : 'var(--text-muted)';
+  return `<div class="card" style="padding:12px 14px;margin-bottom:8px">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+      <div>
+        <div style="font-size:13.5px;font-weight:700;color:var(--text-primary)">${esc(ch.name||'無題の人物')} ${ch.role?`<span style="font-size:10px;font-weight:400;color:var(--text-muted)">（${esc(ch.role)}）</span>`:''}</div>
+        ${ch.oneLiner ? `<div style="font-size:11.5px;color:var(--text-secondary);margin-top:3px;font-style:italic">${esc(ch.oneLiner)}</div>` : ''}
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <span style="font-size:10px;font-weight:700;color:${dColor}"><i class="fas fa-gem" style="font-size:9px"></i> ${depth}%</span>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="planlabOpenAddCharacter('${seedId}','${ch.id}')"><i class="fas fa-pen" style="font-size:10px"></i></button>
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="planlabDeleteCharacter('${seedId}','${ch.id}')"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+      </div>
+    </div>
+    ${(ch.want || ch.need) ? `<div class="grid-2" style="margin-top:8px">
+      ${ch.want ? `<div style="font-size:11px;color:var(--text-secondary)"><span style="color:var(--accent);font-weight:600">Want</span>: ${esc(ch.want)}</div>` : '<div></div>'}
+      ${ch.need ? `<div style="font-size:11px;color:var(--text-secondary)"><span style="color:var(--matcha);font-weight:600">Need</span>: ${esc(ch.need)}</div>` : ''}
+    </div>` : ''}
+  </div>`;
+}
+function planlabOpenAddCharacter(seedId, charId) {
+  const s = PlanLabDB.getSeed(seedId);
+  if (!s) return;
+  const ch = charId ? (s.characters||[]).find(c => c.id === charId) : null;
+  openModal(
+    `<i class="fas fa-user" style="color:var(--fuji)"></i> ${ch ? '人物を編集' : '人物を追加'}`,
+    `<div class="form-group"><label class="form-label">名前 <span style="color:var(--accent)">*</span></label><input class="form-input" id="plc-name" value="${esc(ch?.name||'')}" placeholder="例：木村 拓也"></div>
+     <div class="grid-2">
+       <div class="form-group"><label class="form-label">役割</label>
+         <select class="form-select" id="plc-role">
+           ${CHAR_ROLE_OPTIONS.map(r => `<option ${ch?.role===r?'selected':''}>${r}</option>`).join('')}
+         </select>
+       </div>
+       <div class="form-group"><label class="form-label">一言紹介</label><input class="form-input" id="plc-oneliner" value="${esc(ch?.oneLiner||'')}" placeholder="例：正義感が強すぎる元刑事"></div>
+     </div>
+     <div class="form-group"><label class="form-label" style="color:var(--accent)">Want（意識的・外的目標）</label><textarea class="form-textarea" id="plc-want" rows="2" placeholder="意識的に求めるもの">${esc(ch?.want||'')}</textarea></div>
+     <div class="form-group"><label class="form-label" style="color:var(--matcha)">Need（無意識・内的成長）</label><textarea class="form-textarea" id="plc-need" rows="2" placeholder="無意識に必要なもの">${esc(ch?.need||'')}</textarea></div>`,
+    `<button class="btn btn-secondary" onclick="openPlanSeedHub('${seedId}','character')">キャンセル</button>
+     <button class="btn btn-primary" onclick="planlabSaveCharacter('${seedId}','${charId||''}')"><i class="fas fa-check"></i> 保存</button>`
+  );
+}
+function planlabSaveCharacter(seedId, charId) {
+  const name = $('#plc-name')?.value?.trim();
+  if (!name) { toast('名前を入力してください', 'error'); return; }
+  const s = PlanLabDB.getSeed(seedId);
+  if (!s) return;
+  s.characters = s.characters || [];
+  const data = {
+    name,
+    role: $('#plc-role')?.value || 'その他',
+    oneLiner: $('#plc-oneliner')?.value?.trim() || '',
+    want: $('#plc-want')?.value?.trim() || '',
+    need: $('#plc-need')?.value?.trim() || '',
+  };
+  let isNew = false;
+  let ch = charId ? s.characters.find(c => c.id === charId) : null;
+  if (ch) { Object.assign(ch, data); }
+  else { isNew = true; ch = { id: uid(), createdAt: now(), ...data }; s.characters.push(ch); }
+  if (isNew) {
+    s.growthLog.unshift({ id: uid(), kind: 'character', body: `人物「${name}」が生まれました${ch.oneLiner?'：'+ch.oneLiner:''}`, createdAt: now() });
+    if (s.stage === 'seed') s.stage = 'sprout';
+  }
+  PlanLabDB.saveSeed(s);
+  closeModal();
+  toast(isNew ? '人物を追加しました' : '人物を更新しました', 'success');
+  openPlanSeedHub(seedId, 'character');
+}
+function planlabDeleteCharacter(seedId, charId) {
+  const s = PlanLabDB.getSeed(seedId);
+  if (!s) return;
+  s.characters = (s.characters||[]).filter(c => c.id !== charId);
+  PlanLabDB.saveSeed(s);
+  toast('削除しました', 'success');
+  openPlanSeedHub(seedId, 'character');
+}
+
+// ── あらすじを紡ぐ ──────────────────────────────────────────────
+function renderPlanLabSynopsisPanel(s, statusId, autoSaveCall) {
+  const len = richHtmlToPlainText(s.synopsisHtml || plainTextToRichHtml(s.synopsis||'')).length;
+  return `
+  <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;padding:10px;background:var(--bg-subtle);border-radius:var(--radius-sm);font-style:italic">元のタネ: ${esc((s.seedText||s.title||'').slice(0,100))}</div>
+  <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:8px;line-height:1.6">起承転結の大まかな流れを、数行からでも書いてみましょう。企画書に自動的に組み込まれます。</div>
+  ${renderHubRichEditor('pl-synopsis-'+s.id, s.synopsisHtml || plainTextToRichHtml(s.synopsis||''), '物語の始まりから終わりまでの流れを書いてみましょう…', `hubAutoSave('planlab-${s.id}-synopsis',()=>planlabSaveSynopsis('${s.id}'),'${statusId}')`)}
+  <button class="btn btn-secondary btn-sm" style="margin-top:10px" onclick="planlabLogSynopsisMilestone('${s.id}')"><i class="fas fa-bookmark"></i> 成長ログに記録する</button>`;
+}
+function planlabSaveSynopsis(id) {
+  const s = PlanLabDB.getSeed(id);
+  if (!s) return;
+  const html = getHubRichValue('pl-synopsis-'+id);
+  s.synopsisHtml = html;
+  s.synopsis = richHtmlToPlainText(html);
+  PlanLabDB.saveSeed(s);
+}
+function planlabLogSynopsisMilestone(id) {
+  planlabSaveSynopsis(id);
+  const s = PlanLabDB.getSeed(id);
+  if (!s) return;
+  if (!(s.synopsis||'').trim()) { toast('あらすじを入力してください', 'error'); return; }
+  s.growthLog.unshift({ id: uid(), kind: 'synopsis', body: (s.synopsis||'').slice(0,80), createdAt: now() });
+  if (s.stage === 'seed' || s.stage === 'sprout') s.stage = 'bud';
+  PlanLabDB.saveSeed(s);
+  toast('あらすじを成長ログに記録しました', 'success');
+  openPlanSeedHub(id, 'synopsis');
+}
+
+// ── 企画書 ──────────────────────────────────────────────────────
+// 作品ダッシュボードの generatePitch() 相当。主人公・作者コメント欄を含め、
+// コンセプト・キャラクター・あらすじタブで育てた内容を自動的に組み込む。
+function renderPlanLabBriefPanel(s) {
+  const c = s.concept || {};
+  const mainChar = (s.characters||[])[0];
+  return `
+  <div class="grid-2">
+    <div class="form-group"><label class="form-label">ジャンル</label><input class="form-input" id="pb-genre" value="${esc(s.genre||'')}" placeholder="例：サスペンス"></div>
+    <div class="form-group"><label class="form-label">フォーマット</label>
+      <select class="form-select" id="pb-format">${FORMATS.map(f=>`<option>${f}</option>`).join('')}</select>
+    </div>
+  </div>
+  <div class="form-group"><label class="form-label">主人公（任意）</label><input class="form-input" id="pb-hero" value="${esc(mainChar?(mainChar.name+(mainChar.oneLiner?'：'+mainChar.oneLiner:'')):'')}" placeholder="例：木村拓也：正義感が強すぎる元刑事"></div>
+  <div class="form-group"><label class="form-label">テーマ・問い（任意）</label><input class="form-input" id="pb-theme" value="${esc(c.theme||'')}" placeholder="例：赦しは可能か"></div>
+  <div class="form-group"><label class="form-label">ターゲット（任意）</label><input class="form-input" id="pb-target" value="${esc(c.target||'')}" placeholder="例：30代〜50代の男性層"></div>
+  <div class="form-group"><label class="form-label">作者より（任意）</label><textarea class="form-textarea" id="pb-statement" rows="3" placeholder="この企画に込めた想い・作者としてのコメント"></textarea></div>
   <button class="btn btn-primary btn-sm" onclick="planlabGenerateBrief('${s.id}')"><i class="fas fa-file-lines"></i> 企画書を生成</button>
   <div id="pb-result" style="margin-top:14px">
     ${s.briefDoc ? `<div class="planlab-brief-doc">${esc(s.briefDoc)}</div><button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="planlabCopyBrief('${s.id}')"><i class="fas fa-copy"></i> コピー</button>` : ''}
@@ -42885,8 +43160,12 @@ function renderPlanLabBriefPanel(s) {
 }
 
 function renderPlanLabSendPanel(s) {
+  const readiness = computePlanSeedReadiness(s);
   return `
-  <div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;line-height:1.7">この企画を新しい「作品」として作品ダッシュボードに送り出します。ログライン・ジャンル・企画書メモが引き継がれます。</div>
+  <div style="font-size:12.5px;color:var(--text-secondary);margin-bottom:12px;line-height:1.7">この企画を新しい「作品」として作品ダッシュボードに送り出します。コンセプト・ログライン・キャラクター・あらすじ・企画書が、そのまま作品の各フェーズに引き継がれます。</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px">
+    ${PLANLAB_READINESS_ITEMS.map(it => `<span style="display:inline-flex;align-items:center;gap:3px;font-size:10px;padding:3px 7px;border-radius:var(--radius-full);background:${readiness.flags[it.key]?it.color:'var(--bg-hover)'};color:${readiness.flags[it.key]?'#fff':'var(--text-light)'}"><i class="fas ${readiness.flags[it.key]?'fa-check':it.icon}" style="font-size:9px"></i>${esc(it.label)}</span>`).join('')}
+  </div>
   <div class="form-group"><label class="form-label">作品タイトル</label><input class="form-input" id="ps-send-title" value="${esc(s.title||'')}"></div>
   <button class="btn btn-primary" onclick="planlabSendToProject('${s.id}')"><i class="fas fa-share"></i> 作品として送り出す</button>
   ${s.sentProjectId ? `<div class="planlab-bloom-banner" style="margin-top:12px"><i class="fas fa-check-circle"></i> すでに作品として送り出し済みです</div>` : ''}
@@ -42898,26 +43177,33 @@ function openPlanSeedHub(id, activeKey) {
   if (!s) return;
   const statusId = 'planlab-autosave-' + id;
   const autoSaveCall = `hubAutoSave('planlab-${id}', ()=>persistPlanSeedEdit('${id}'), '${statusId}')`;
+  const readiness = computePlanSeedReadiness(s);
   const panels = {
-    grow:    renderPlanLabGrowPanel(s, statusId, autoSaveCall),
-    lens:    renderPlanLabLensPanel(s),
-    logline: renderPlanLabLoglinePanel(s),
-    brief:   renderPlanLabBriefPanel(s),
-    send:    renderPlanLabSendPanel(s),
+    grow:      renderPlanLabGrowPanel(s, statusId, autoSaveCall),
+    concept:   renderPlanLabConceptPanel(s, statusId, autoSaveCall),
+    lens:      renderPlanLabLensPanel(s),
+    logline:   renderPlanLabLoglinePanel(s),
+    character: renderPlanLabCharacterPanel(s),
+    synopsis:  renderPlanLabSynopsisPanel(s, statusId, autoSaveCall),
+    brief:     renderPlanLabBriefPanel(s),
+    send:      renderPlanLabSendPanel(s),
   };
   openModal(
     `<i class="fas fa-seedling" style="color:var(--matcha)"></i> タネの詳細`,
     renderHubTabs('planlab', [
-      { key: 'grow',    label: '育てる',       icon: 'fa-seedling' },
-      { key: 'lens',    label: '視点を変える', icon: 'fa-lightbulb' },
-      { key: 'logline', label: 'ログライン工房', icon: 'fa-quote-left' },
-      { key: 'brief',   label: '企画書',       icon: 'fa-file-lines' },
-      { key: 'send',    label: '送る',         icon: 'fa-share' },
+      { key: 'grow',      label: '育てる',         icon: 'fa-seedling' },
+      { key: 'concept',   label: 'コンセプト',     icon: 'fa-compass-drafting', badge: readiness.flags.concept ? '✓' : '' },
+      { key: 'lens',      label: '視点を変える',   icon: 'fa-lightbulb', badge: readiness.lensesTried.size || '' },
+      { key: 'logline',   label: 'ログライン工房', icon: 'fa-quote-left', badge: readiness.flags.logline ? '✓' : '' },
+      { key: 'character', label: 'キャラクター',   icon: 'fa-user', badge: (s.characters||[]).length || '' },
+      { key: 'synopsis',  label: 'あらすじ',       icon: 'fa-align-left', badge: readiness.flags.synopsis ? '✓' : '' },
+      { key: 'brief',     label: '企画書',         icon: 'fa-file-lines', badge: readiness.flags.brief ? '✓' : '' },
+      { key: 'send',      label: '送る',           icon: 'fa-share' },
     ], panels, activeKey),
     `${renderHubAutoSaveIndicator(statusId)}
      <button class="btn btn-secondary" onclick="hubFlushAutoSave('planlab-${id}',()=>persistPlanSeedEdit('${id}'));closeModal();render()">閉じる</button>
      <button class="btn btn-danger" onclick="confirmDeletePlanSeed('${id}')"><i class="fas fa-trash"></i> 削除</button>`,
-    { size: 'modal-lg' }
+    { size: 'modal-xl' }
   );
 }
 
@@ -42927,6 +43213,16 @@ function persistPlanSeedEdit(id) {
   const titleVal = $('#ps-title')?.value?.trim();
   if (titleVal !== undefined) s.title = titleVal;
   s.tags = getHubTags('planlab-' + id);
+  // コンセプトタブの入力欄が描画されている場合のみ保存する（他タブ表示中は要素が存在しない）
+  if ($('#pc-theme')) {
+    s.concept = {
+      theme: $('#pc-theme')?.value || '',
+      premise: $('#pc-premise')?.value || '',
+      tone: $('#pc-tone')?.value || '',
+      target: $('#pc-target')?.value || '',
+      usp: $('#pc-usp')?.value || '',
+    };
+  }
   PlanLabDB.saveSeed(s);
 }
 
@@ -42964,7 +43260,7 @@ function confirmDeletePlanSeed(id) {
   );
 }
 
-// ── 視点を変える ────────────────────────────────────────────────
+// ── 視点を変える（ロジック） ────────────────────────────────────
 function planlabApplyLens(id, lensKey) {
   const s = PlanLabDB.getSeed(id);
   if (!s) return;
@@ -42972,33 +43268,80 @@ function planlabApplyLens(id, lensKey) {
   if (!lens) return;
   const base = s.seedText || s.title || '';
   const body = lens.apply(base);
-  s.growthLog.unshift({ id: uid(), kind: 'lens', body, createdAt: now() });
+  s.growthLog.unshift({ id: uid(), kind: 'lens', lensKey: lens.key, body, createdAt: now() });
   if (s.stage === 'seed') s.stage = 'sprout'; // 視点転換を行うと自然に「発芽」段階へ進む
   PlanLabDB.saveSeed(s);
-  toast('新しい視点を書き加えました', 'success');
+  toast(`「${lens.label}」の視点を書き加えました`, 'success');
   openPlanSeedHub(id, 'lens');
 }
 
-// ── ログライン工房 ──────────────────────────────────────────────
+// ── ログライン工房（ロジック） ──────────────────────────────────
+// generateLoglines() と同様、7パターン生成＋字数品質判定＋個別/一括コピー。
 function planlabGenerateLoglines(id) {
   const protagonist = $('#pl-protagonist')?.value?.trim();
   const goal = $('#pl-goal')?.value?.trim();
   const obstacle = $('#pl-obstacle')?.value?.trim();
-  if (!protagonist || !goal || !obstacle) { toast('主人公・ゴール・障害を入力してください', 'error'); return; }
+  const theme = $('#pl-theme')?.value?.trim();
+  const flaw = $('#pl-flaw')?.value?.trim() || '';
+  if (!protagonist || !goal || !obstacle) { toast('主人公・ゴール・障害は必須です', 'error'); return; }
+
+  const flawText = flaw ? `${flaw}を抱えた` : '';
+  const themeText = theme ? `「${theme}」——` : '';
+
   const patterns = [
-    `${protagonist}は${goal}ために立ち上がるが、${obstacle}。`,
-    `${obstacle}——それでもなお、${protagonist}は${goal}ことを諦めない。`,
-    `${protagonist}が${goal}ために戦う、${obstacle}の物語。`,
-    `${goal}を追い求める${protagonist}が、${obstacle}という代償を突きつけられる。`,
-  ];
-  window._planlabLoglineCache = patterns;
+    `${flawText}${protagonist}は${goal}ために立ち上がるが、${obstacle}。`,
+    `${obstacle}——それでもなお、${flawText}${protagonist}は${goal}ことを諦めない。`,
+    theme ? `${themeText}${flawText}${protagonist}が${goal}ために戦う、${obstacle}の物語。` : null,
+    flaw ? `${flaw}を持ち続けた${protagonist}が、${goal}という使命の前で、${obstacle}という究極の試練に直面する。` : `${goal}を追い求める${protagonist}が、${obstacle}という代償を突きつけられる。`,
+    theme ? `${protagonist}は${goal}ために、どこまで${obstacle}と戦えるか。「${theme}」を問う物語。` : `${protagonist}は${goal}ために、どこまで${obstacle}と戦い続けられるか。`,
+    flaw ? `${flaw}ゆえに${goal}ことを誰より望みながら、${protagonist}は${obstacle}という皮肉な現実に直面する。` : null,
+    `「${goal}——それが、${protagonist}の最後の使命。」${obstacle}に打ち勝てるか。`,
+  ].filter(Boolean);
+
+  const countChars = str => str.replace(/\s/g, '').length;
   const resultsEl = $('#pl-results');
   if (!resultsEl) return;
-  resultsEl.innerHTML = patterns.map((p, i) => `
-    <div class="tool-result-card" style="margin-bottom:8px">
-      <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.7;margin-bottom:6px">${esc(p)}</div>
+
+  resultsEl.innerHTML = patterns.map((p, i) => {
+    const charCount = countChars(p);
+    const charColor = charCount <= 65 ? 'var(--matcha)' : charCount <= 80 ? 'var(--kogane)' : 'var(--accent)';
+    const charLabel = charCount <= 65 ? '◎最適' : charCount <= 80 ? '△やや長め' : '✕長すぎ';
+    return `
+    <div style="padding:13px 14px;background:var(--bg-subtle);border-radius:var(--radius-md);border:1px solid var(--border);margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+        <div style="font-size:10px;font-weight:700;color:var(--accent);letter-spacing:0.08em">パターン ${i+1}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:10px;color:${charColor};font-weight:600">${charCount}字 ${charLabel}</span>
+          <button class="btn btn-ghost btn-sm" style="font-size:10.5px" onclick="planlabCopyLogline(${i})"><i class="fas fa-copy"></i> コピー</button>
+        </div>
+      </div>
+      <div style="font-size:13.5px;color:var(--text-primary);line-height:1.8;font-family:'Noto Serif JP',serif;margin-bottom:8px" id="pl-p-${i}">${esc(p)}</div>
       <button class="btn btn-ghost btn-sm" onclick="planlabChooseLogline('${id}', ${i})"><i class="fas fa-check"></i> このログラインを採用</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+
+  const bestIdx = patterns.map((p,i) => ({i, len: countChars(p)})).filter(x => x.len <= 65).map(x => x.i);
+  if (bestIdx.length > 0) {
+    resultsEl.innerHTML += `<div style="padding:10px 14px;background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-md);margin-top:8px;font-size:12px;color:var(--text-secondary)"><i class="fas fa-star" style="color:var(--matcha);margin-right:5px"></i>パターン${bestIdx.map(i=>i+1).join('・')}が字数基準内（65字以内）でプロ水準のバランスです。</div>`;
+  }
+
+  const copyBtn = $('#pl-copy-all');
+  if (copyBtn) copyBtn.style.display = '';
+
+  window._planlabLoglineCache = patterns;
+  toast('ログラインを生成しました！', 'success');
+}
+
+function planlabCopyLogline(idx) {
+  const el = $(`#pl-p-${idx}`);
+  if (!el) return;
+  navigator.clipboard?.writeText(el.textContent || '').then(() => toast('コピーしました', 'success'));
+}
+
+function planlabCopyAllLoglines() {
+  const patterns = window._planlabLoglineCache || [];
+  if (!patterns.length) return;
+  navigator.clipboard?.writeText(patterns.join('\n\n')).then(() => toast('全パターンをコピーしました', 'success'));
 }
 
 function planlabChooseLogline(id, idx) {
@@ -43013,24 +43356,30 @@ function planlabChooseLogline(id, idx) {
   openPlanSeedHub(id, 'logline');
 }
 
-// ── 企画書 ──────────────────────────────────────────────────────
+// ── 企画書（ロジック） ──────────────────────────────────────────
+// generatePitch() と同様、主人公・作者コメント欄を含む本格ドキュメントを生成し、
+// コンセプト・キャラクター・あらすじタブで育てた内容を自動的に組み込む。
 function planlabGenerateBrief(id) {
   const s = PlanLabDB.getSeed(id);
   if (!s) return;
   const title = s.title || '（無題のタネ）';
   const genre = $('#pb-genre')?.value?.trim() || s.genre || '未設定';
-  const theme = $('#pb-theme')?.value?.trim();
-  const target = $('#pb-target')?.value?.trim();
+  const format = $('#pb-format')?.value || 'テレビドラマ（連続）';
+  const hero = $('#pb-hero')?.value?.trim();
+  const theme = $('#pb-theme')?.value?.trim() || (s.concept||{}).theme || '';
+  const target = $('#pb-target')?.value?.trim() || (s.concept||{}).target || '';
+  const statement = $('#pb-statement')?.value?.trim();
   const logline = s.chosenLogline || s.seedText || '（ログライン未設定）';
   const today = new Date();
   const dateStr = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`;
-  const growthSummary = (s.growthLog||[]).slice(0,5).map(g => `・${(g.body||'').slice(0,60)}`).join('\n') || '（まだ育成ログがありません）';
+
   let doc = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 企　画　書（企画ラボ発）
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ■ タイトル　　：${title}
 ■ ジャンル　　：${genre}
+■ フォーマット：${format}
 ■ 作成日　　　：${dateStr}
 ■ 現在のステージ：${planlabStageInfo(s.stage).label}
 
@@ -43039,10 +43388,21 @@ function planlabGenerateBrief(id) {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 ${logline}
+
 `;
-  if (theme) doc += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【テーマ・問い】\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${theme}\n`;
-  if (target) doc += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【ターゲット】\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${target}\n`;
-  doc += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【着想からの成長の軌跡】\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${growthSummary}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n（以上）\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+  if (hero) doc += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【主人公】\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${hero}\n\n`;
+  if (theme) doc += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【テーマ・物語の核】\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${theme}\n\nこの作品は「${theme}」という問いを観客・読者に投げかけます。\n\n`;
+  if ((s.concept||{}).premise) doc += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【プレミス】\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${s.concept.premise}\n\n`;
+  if ((s.concept||{}).usp) doc += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【ユニーク・セリング・ポイント】\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${s.concept.usp}\n\n`;
+  if ((s.synopsis||'').trim()) doc += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【あらすじ】\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${s.synopsis}\n\n`;
+  if ((s.characters||[]).length > 0) {
+    doc += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【登場人物】\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
+    doc += s.characters.map(ch => `・${ch.name}${ch.role?`（${ch.role}）`:''}${ch.oneLiner?`：${ch.oneLiner}`:''}${ch.want?`\n  Want: ${ch.want}`:''}${ch.need?`\n  Need: ${ch.need}`:''}`).join('\n\n') + '\n\n';
+  }
+  if (target) doc += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【ターゲット】\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${target}\n\n`;
+  if (statement) doc += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【作者より】\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${statement}\n\n`;
+  const growthSummary = (s.growthLog||[]).slice(0,5).map(g => `・${(g.body||'').slice(0,60)}`).join('\n') || '（まだ育成ログがありません）';
+  doc += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【着想からの成長の軌跡】\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n${growthSummary}\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n（以上）\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
 
   s.briefDoc = doc;
   s.genre = genre;
@@ -43060,6 +43420,7 @@ function planlabCopyBrief(id) {
 }
 
 // ── 作品ダッシュボードへの送出 ──────────────────────────────────
+// コンセプト・キャラクター・あらすじも作品の各フェーズへそのまま引き継ぐ。
 function planlabSendToProject(id) {
   const s = PlanLabDB.getSeed(id);
   if (!s) return;
@@ -43068,8 +43429,26 @@ function planlabSendToProject(id) {
     title,
     genre: s.genre || 'ドラマ',
     logline: s.chosenLogline || '',
-    synopsis: s.briefDoc || s.seedText || '',
+    synopsis: s.briefDoc || s.synopsis || s.seedText || '',
   });
+  const c = s.concept || {};
+  proj.concept = {
+    theme: c.theme || '', premise: c.premise || '', subtheme: '',
+    tone: c.tone || '', target: c.target || '', length: '', pov: '', usp: c.usp || '', emotion: '', ref: '',
+  };
+  if ((s.synopsis||'').trim()) {
+    proj.research = proj.research || { notes: [], links: [], worldbuilding: '' };
+  }
+  proj.characters = (s.characters||[]).map(ch => ({
+    id: uid(), name: ch.name, kana: '', role: ch.role || 'その他', age: '', gender: '不明', emoji: '👤',
+    tagline: ch.oneLiner || '', job: '', appearance: '', appearanceHtml: '',
+    traits: [], want: ch.want || '', need: ch.need || '',
+    back: '', backHtml: '', speech: '', speechHtml: '',
+    wound: '', lie: '', truth: '', never: '', ghost: '',
+    arcStages: CHAR_ARC_DEFAULT_STAGES.map(() => ({ text: '' })),
+    color: ['#7c6af7','#f76ca0','#6af7c8','#f7c56a','#6ab8f7','#c86af7'][Math.floor(Math.random()*6)],
+    createdAt: now(),
+  }));
   DB.saveProject(proj);
   s.sentProjectId = proj.id;
   s.growthLog.unshift({ id: uid(), kind: 'stage', body: `作品「${title}」として送り出されました`, createdAt: now() });
