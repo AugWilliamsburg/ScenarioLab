@@ -36,6 +36,7 @@ function renderChecklistItems(done, checks, getFn) {
 const State = {
   currentPage: 'top',
   currentProjectId: null,
+  currentSeedId: null, // 企画ラボ：現在表示中の「タネ」専用ダッシュボードページのID
   currentTab: {},
   projects: [],
   modal: null,
@@ -953,6 +954,9 @@ let _isPopStateNav = false;
 function navigate(page, projectId = null) {
   State.currentPage = page;
   if (projectId) State.currentProjectId = projectId;
+  // 企画ラボの「タネ」専用ダッシュボードページ以外へ移動する場合は、
+  // 前回開いていたタネIDを引きずらないようクリアする
+  if (page !== 'planlab-seed') State.currentSeedId = null;
   // モバイルではナビゲート時にサイドバーを強制的に閉じる
   if (window.innerWidth <= 900) {
     const overlay = document.getElementById('sidebar-overlay');
@@ -967,9 +971,20 @@ function navigate(page, projectId = null) {
   // ブラウザ/Androidの戻るボタンでアプリが唐突に終了する問題を解消する
   // （popstateから呼ばれた場合は積み直さない）
   if (!_isPopStateNav) {
-    try { history.pushState({ slPage: page, slProjectId: State.currentProjectId }, '', location.href); } catch (e) {}
+    try { history.pushState({ slPage: page, slProjectId: State.currentProjectId, slSeedId: State.currentSeedId }, '', location.href); } catch (e) {}
   }
   _isPopStateNav = false;
+}
+
+// ── 企画ラボ：タネ専用ダッシュボードページへの遷移 ──────────────
+// 作品の navigate(page, projectId) と同じ発想で、タネIDを State に保持した上で
+// 専用ページ 'planlab-seed' へ遷移する。activeKey は初期表示する育成タブのキー
+// （'grow'/'concept'/'lens'/'logline'/'character'/'synopsis'/'brief'/'send'。省略時は
+// 前回開いていたタブ、それも無ければ「育てる」タブ）。
+function navigateToPlanSeed(id, activeKey) {
+  State.currentSeedId = id;
+  if (activeKey) State.currentTab['planlab-seed'] = activeKey;
+  navigate('planlab-seed');
 }
 // ── オンライン/オフライン検知 ──────────────────────────────────
 // データはlocalStorageのため保存自体はオフラインでも継続できるが、
@@ -1192,6 +1207,7 @@ window.addEventListener('popstate', (e) => {
   }
   if (e.state && e.state.slPage) {
     _isPopStateNav = true;
+    if (e.state.slPage === 'planlab-seed') State.currentSeedId = e.state.slSeedId || null;
     navigate(e.state.slPage, e.state.slProjectId);
   }
 });
@@ -1233,6 +1249,15 @@ function render() {
   if (p === 'planlab') {
     app.innerHTML = renderLayout(renderPlanLabPage());
     bindPlanLabPage();
+    return;
+  }
+
+  // 企画ラボ：タネ専用ダッシュボードページ（旧ポップアップを置き換える独立ページ）
+  if (p === 'planlab-seed') {
+    const seed = PlanLabDB.getSeed(State.currentSeedId);
+    if (!seed) { navigate('planlab'); return; }
+    app.innerHTML = renderLayout(renderPlanLabSeedDash(seed));
+    bindPlanLabSeedDash(seed);
     return;
   }
 
@@ -1348,7 +1373,7 @@ function renderLayout(content, proj = null) {
   const isNameDictPage = cp === 'namedict';
   const isWorldPage = cp === 'worldbuilding';
   const isInspirationPage = cp === 'inspiration';
-  const isPlanLabPage = cp === 'planlab';
+  const isPlanLabPage = cp === 'planlab' || cp === 'planlab-seed';
   const isBoardPage = cp === 'board' || cp === 'storymap';
   const isTasksPage = cp === 'tasks';
   const isStorymapPage = cp === 'storymap';
@@ -1382,6 +1407,7 @@ function renderLayout(content, proj = null) {
     templates:        { icon:'fa-copy',      color:'var(--kogane)', title:'テンプレート集',     sub:'すぐに使えるフォーマット' },
     study:            { icon:'fa-feather-pointed', color:'var(--fuji)', title:'書斎',          sub:'自由に書き、学びを集め、磨き上げる執筆空間' },
     planlab:          { icon:'fa-seedling', color:'var(--matcha)', title:'企画ラボ',        sub:'着想を蒔き、育て、企画書として実らせるダッシュボード' },
+    'planlab-seed':   { icon:'fa-seedling', color:'var(--matcha)', title:'タネのダッシュボード', sub:'このタネだけの育成ハブ' },
     settings:         { icon:'fa-gear',      color:'var(--text-muted)', title:'設定',           sub:'アプリの設定' },
     journal:          { icon:'fa-book',      color:'var(--matcha)', title:'執筆日誌',           sub:'毎日の執筆記録・進捗管理' },
     namedict:         { icon:'fa-spell-check',color:'var(--kon-lt)',title:'キャラクター名辞典', sub:'登場人物の名前・読みを管理' },
@@ -1459,6 +1485,15 @@ function renderLayout(content, proj = null) {
     <div class="topbar-actions">
       <button class="btn btn-secondary btn-sm" onclick="navigate('dashboard')"><i class="fas fa-house"></i><span class="topbar-btn-label"> 一覧</span></button>
       <button class="btn btn-primary btn-sm" onclick="quickSaveProject('${proj.id}')"><i class="fas fa-floppy-disk"></i><span class="topbar-btn-label"> 保存</span></button>
+    </div>` : (cp === 'planlab-seed') ? `
+    ${collapsedLogo}
+    <div class="topbar-divider"></div>
+    <div class="topbar-page-info">
+      <div class="topbar-title"><i class="fas fa-seedling" style="color:var(--matcha);margin-right:7px"></i>${esc((PlanLabDB.getSeed(State.currentSeedId)||{}).title || 'タネのダッシュボード')}</div>
+      <div class="topbar-subtitle">企画ラボ — このタネ専用の育成ハブ</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-secondary btn-sm" onclick="navigate('planlab')"><i class="fas fa-seedling"></i><span class="topbar-btn-label"> 企画ラボへ</span></button>
     </div>` : tbData && !isTopPage ? `
     ${collapsedLogo}
     <div class="topbar-divider"></div>
@@ -42813,7 +42848,7 @@ function renderPlanLabSeedCard(s) {
   const latestText = latest ? latest.body : s.seedText;
   const readiness = computePlanSeedReadiness(s);
   const rColor = readiness.score >= 80 ? 'var(--matcha)' : readiness.score >= 40 ? 'var(--kogane)' : 'var(--text-muted)';
-  return `<div class="planlab-seed-card" style="--seed-stage-color:${stageInfo.color};--seed-stage-bg:${stageInfo.bg}" onclick="openPlanSeedHub('${s.id}')">
+  return `<div class="planlab-seed-card" style="--seed-stage-color:${stageInfo.color};--seed-stage-bg:${stageInfo.bg}" onclick="navigateToPlanSeed('${s.id}')">
     <div class="planlab-seed-top">
       <div class="planlab-seed-title">${esc(s.title || (s.seedText||'').slice(0,24) || '無題のタネ')}</div>
       <div class="planlab-seed-stage-badge"><i class="fas ${stageInfo.icon}"></i> ${stageInfo.label}</div>
@@ -42963,7 +42998,7 @@ function planlabSaveConceptToLog(id) {
   if (s.stage === 'seed') s.stage = 'sprout';
   PlanLabDB.saveSeed(s);
   toast('コンセプトを成長ログに記録しました', 'success');
-  openPlanSeedHub(id, 'concept');
+  navigateToPlanSeed(id, 'concept');
 }
 
 // ── 視点を変える ────────────────────────────────────────────────
@@ -43068,7 +43103,7 @@ function planlabOpenAddCharacter(seedId, charId) {
      </div>
      <div class="form-group"><label class="form-label" style="color:var(--accent)">Want（意識的・外的目標）</label><textarea class="form-textarea" id="plc-want" rows="2" placeholder="意識的に求めるもの">${esc(ch?.want||'')}</textarea></div>
      <div class="form-group"><label class="form-label" style="color:var(--matcha)">Need（無意識・内的成長）</label><textarea class="form-textarea" id="plc-need" rows="2" placeholder="無意識に必要なもの">${esc(ch?.need||'')}</textarea></div>`,
-    `<button class="btn btn-secondary" onclick="openPlanSeedHub('${seedId}','character')">キャンセル</button>
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
      <button class="btn btn-primary" onclick="planlabSaveCharacter('${seedId}','${charId||''}')"><i class="fas fa-check"></i> 保存</button>`
   );
 }
@@ -43096,7 +43131,7 @@ function planlabSaveCharacter(seedId, charId) {
   PlanLabDB.saveSeed(s);
   closeModal();
   toast(isNew ? '人物を追加しました' : '人物を更新しました', 'success');
-  openPlanSeedHub(seedId, 'character');
+  navigateToPlanSeed(seedId, 'character');
 }
 function planlabDeleteCharacter(seedId, charId) {
   const s = PlanLabDB.getSeed(seedId);
@@ -43104,7 +43139,7 @@ function planlabDeleteCharacter(seedId, charId) {
   s.characters = (s.characters||[]).filter(c => c.id !== charId);
   PlanLabDB.saveSeed(s);
   toast('削除しました', 'success');
-  openPlanSeedHub(seedId, 'character');
+  navigateToPlanSeed(seedId, 'character');
 }
 
 // ── あらすじを紡ぐ ──────────────────────────────────────────────
@@ -43133,7 +43168,7 @@ function planlabLogSynopsisMilestone(id) {
   if (s.stage === 'seed' || s.stage === 'sprout') s.stage = 'bud';
   PlanLabDB.saveSeed(s);
   toast('あらすじを成長ログに記録しました', 'success');
-  openPlanSeedHub(id, 'synopsis');
+  navigateToPlanSeed(id, 'synopsis');
 }
 
 // ── 企画書 ──────────────────────────────────────────────────────
@@ -43172,12 +43207,27 @@ function renderPlanLabSendPanel(s) {
   `;
 }
 
-function openPlanSeedHub(id, activeKey) {
-  const s = PlanLabDB.getSeed(id);
-  if (!s) return;
-  const statusId = 'planlab-autosave-' + id;
-  const autoSaveCall = `hubAutoSave('planlab-${id}', ()=>persistPlanSeedEdit('${id}'), '${statusId}')`;
+// ════════════════════════════════════════════════════════════════
+//  企画ラボ：タネ専用ダッシュボードページ（v1）
+//  ── 旧ポップアップ(openPlanSeedHub)を置き換える独立ページ。
+//     作品ダッシュボード(renderProjectDash / pdv3-*)と同じ「ヒーロー＋
+//     統計＋2カラムボディ」構造を踏襲しつつ、企画ラボならではの
+//     「育成ジャーニー（ステージロードマップ）」「育成タブ群」
+//     「成長ログのタイムライン」を融合させ、より豊かな体験にする。
+// ════════════════════════════════════════════════════════════════
+function renderPlanLabSeedDash(s) {
+  const stageInfo = planlabStageInfo(s.stage);
+  const stageIdx = PLANLAB_STAGES.findIndex(st => st.key === s.stage);
   const readiness = computePlanSeedReadiness(s);
+  const rColor = readiness.score >= 80 ? 'var(--matcha)' : readiness.score >= 40 ? 'var(--kogane)' : 'var(--kogane)';
+  const chars = s.characters || [];
+  const log = s.growthLog || [];
+  const activeKey = State.currentTab['planlab-seed'] || 'grow';
+  const daysSinceSow = Math.max(0, Math.round((Date.now() - new Date(s.createdAt).getTime()) / 86400000));
+
+  const statusId = 'planlab-autosave-' + s.id;
+  const autoSaveCall = `hubAutoSave('planlab-${s.id}', ()=>persistPlanSeedEdit('${s.id}'), '${statusId}')`;
+
   const panels = {
     grow:      renderPlanLabGrowPanel(s, statusId, autoSaveCall),
     concept:   renderPlanLabConceptPanel(s, statusId, autoSaveCall),
@@ -43188,23 +43238,169 @@ function openPlanSeedHub(id, activeKey) {
     brief:     renderPlanLabBriefPanel(s),
     send:      renderPlanLabSendPanel(s),
   };
-  openModal(
-    `<i class="fas fa-seedling" style="color:var(--matcha)"></i> タネの詳細`,
-    renderHubTabs('planlab', [
-      { key: 'grow',      label: '育てる',         icon: 'fa-seedling' },
-      { key: 'concept',   label: 'コンセプト',     icon: 'fa-compass-drafting', badge: readiness.flags.concept ? '✓' : '' },
-      { key: 'lens',      label: '視点を変える',   icon: 'fa-lightbulb', badge: readiness.lensesTried.size || '' },
-      { key: 'logline',   label: 'ログライン工房', icon: 'fa-quote-left', badge: readiness.flags.logline ? '✓' : '' },
-      { key: 'character', label: 'キャラクター',   icon: 'fa-user', badge: (s.characters||[]).length || '' },
-      { key: 'synopsis',  label: 'あらすじ',       icon: 'fa-align-left', badge: readiness.flags.synopsis ? '✓' : '' },
-      { key: 'brief',     label: '企画書',         icon: 'fa-file-lines', badge: readiness.flags.brief ? '✓' : '' },
-      { key: 'send',      label: '送る',           icon: 'fa-share' },
-    ], panels, activeKey),
-    `${renderHubAutoSaveIndicator(statusId)}
-     <button class="btn btn-secondary" onclick="hubFlushAutoSave('planlab-${id}',()=>persistPlanSeedEdit('${id}'));closeModal();render()">閉じる</button>
-     <button class="btn btn-danger" onclick="confirmDeletePlanSeed('${id}')"><i class="fas fa-trash"></i> 削除</button>`,
-    { size: 'modal-xl' }
-  );
+
+  // ── ①ヒーローヘッダー：作品ダッシュボードの pdv3-hero を踏襲しつつ、
+  //    「育成度リング」「ステージロードマップ」を組み合わせる ──
+  const stageRoad = PLANLAB_STAGES.map((st, i) => {
+    const status = i < stageIdx ? 'done' : i === stageIdx ? 'cur' : 'todo';
+    return `<button class="pls-road-step ${status}" onclick="planlabSetSeedStage('${s.id}','${st.key}')" style="${status==='cur'?`--rc:${st.color};--rbg:${st.bg}`:''}" title="${esc(st.label)}">
+      <div class="pls-road-dot">${status==='done'?`<i class="fas fa-check"></i>`:`<i class="fas ${st.icon}"></i>`}</div>
+      <span class="pls-road-lbl">${esc(st.label)}</span>
+    </button>`;
+  }).join('<div class="pls-road-sep"></div>');
+
+  return `
+  <!-- ═══ 企画ラボ：タネ専用ダッシュボード ═══ -->
+  <div class="pls-wrap">
+
+    <!-- ① ヒーローヘッダー -->
+    <div class="pls-hero" style="--ph-color:${stageInfo.color};--ph-bg:${stageInfo.bg}">
+      <div class="pls-hero-content">
+        <div class="pls-hero-main">
+          <div class="pls-hero-top">
+            <button class="pls-back-btn" onclick="navigate('planlab')" title="企画ラボ一覧へ"><i class="fas fa-arrow-left"></i> 企画ラボ</button>
+            <div class="pls-hero-badge" style="background:${stageInfo.bg};color:${stageInfo.color};border-color:${stageInfo.color}55">
+              <i class="fas ${stageInfo.icon}"></i> ${stageInfo.label}
+            </div>
+          </div>
+          <h1 class="pls-hero-title">${esc(s.title || (s.seedText||'').slice(0,30) || '無題のタネ')}</h1>
+          <div class="pls-hero-meta">
+            <span><i class="fas fa-seedling"></i> 種まきから${daysSinceSow}日</span>
+            <span><i class="fas fa-timeline"></i> 成長ログ ${log.length}件</span>
+            ${s.genre ? `<span><i class="fas fa-tags"></i> ${esc(s.genre)}</span>` : ''}
+            ${s.sentProjectId ? `<span class="pls-sent-chip"><i class="fas fa-circle-check"></i> 作品送出済み</span>` : `<span style="color:var(--text-muted);font-size:11px"><i class="fas fa-clock"></i> 更新: ${fmtDate(s.updatedAt)}</span>`}
+          </div>
+          ${s.seedText ? `<p class="pls-seedtext">${esc(s.seedText)}</p>` : ''}
+          ${s.chosenLogline ? `<p class="pls-logline"><i class="fas fa-quote-left" style="margin-right:5px;opacity:.6"></i>${esc(s.chosenLogline)}</p>` : ''}
+        </div>
+        <div class="pls-hero-aside">
+          <div class="pdv3-ring-wrap">
+            <svg viewBox="0 0 72 72" width="72" height="72">
+              <circle cx="36" cy="36" r="30" fill="none" stroke="var(--border)" stroke-width="6"/>
+              <circle cx="36" cy="36" r="30" fill="none" stroke="${rColor}" stroke-width="6"
+                stroke-dasharray="${Math.round(2*Math.PI*30*readiness.score/100)} ${Math.round(2*Math.PI*30*(100-readiness.score)/100)}"
+                stroke-dashoffset="${Math.round(2*Math.PI*30*0.25)}"
+                stroke-linecap="round"/>
+              <text x="36" y="40" text-anchor="middle" font-size="14" font-weight="800" fill="${rColor}" font-family="inherit">${readiness.score}%</text>
+            </svg>
+            <div class="pdv3-ring-lbl">育成度</div>
+          </div>
+          <div class="pdv3-hero-btns">
+            <button class="btn btn-primary" onclick="switchHubTab('planlab-seed-hub','${readiness.missing[0]?readiness.missing[0].tab:'send'}')"><i class="fas fa-seedling"></i><span> ${readiness.missing[0]?'次を育てる':'送り出す'}</span></button>
+            <div class="pdv3-hero-sub-btns">
+              <button class="btn btn-secondary btn-sm" onclick="planlabOpenAddCharacter('${s.id}')" title="人物を追加"><i class="fas fa-user-plus"></i></button>
+              <button class="btn btn-ghost btn-sm btn-icon" onclick="confirmDeletePlanSeed('${s.id}')" title="削除"><i class="fas fa-trash"></i></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ② 育成度サマリー（6要素バッジ） -->
+    <div class="pls-stats">
+      ${PLANLAB_READINESS_ITEMS.map(it => `
+      <div class="pls-stat ${readiness.flags[it.key]?'done':''}" style="--sc:${it.color}" onclick="switchHubTab('planlab-seed-hub','${it.tab}')">
+        <div class="pls-stat-icon"><i class="fas ${readiness.flags[it.key]?'fa-check':it.icon}"></i></div>
+        <div class="pls-stat-lbl">${esc(it.label)}</div>
+      </div>`).join('')}
+    </div>
+
+    <!-- ③ ステージロードマップ -->
+    <div class="pls-road-wrap">
+      <div class="pls-road">${stageRoad}</div>
+    </div>
+
+    <!-- ④ メインボディ（2カラム） -->
+    <div class="pdv3-body">
+
+      <!-- 左メイン：育成タブハブ -->
+      <div class="pdv3-col-main">
+        <div class="pdv3-card">
+          <div class="pdv3-card-head" style="--hc:${stageInfo.color}">
+            <i class="fas fa-seedling" style="color:${stageInfo.color}"></i>
+            <span>育成ハブ</span>
+            <span class="pdv3-head-chip" style="background:${stageInfo.bg};color:${stageInfo.color};border-color:${stageInfo.color}55">${readiness.filledCount}/${PLANLAB_READINESS_ITEMS.length} 要素</span>
+          </div>
+          <div class="pdv3-card-body" style="padding-top:6px">
+            ${renderHubTabs('planlab-seed-hub', [
+              { key: 'grow',      label: '育てる',         icon: 'fa-seedling' },
+              { key: 'concept',   label: 'コンセプト',     icon: 'fa-compass-drafting', badge: readiness.flags.concept ? '✓' : '' },
+              { key: 'lens',      label: '視点を変える',   icon: 'fa-lightbulb', badge: readiness.lensesTried.size || '' },
+              { key: 'logline',   label: 'ログライン工房', icon: 'fa-quote-left', badge: readiness.flags.logline ? '✓' : '' },
+              { key: 'character', label: 'キャラクター',   icon: 'fa-user', badge: chars.length || '' },
+              { key: 'synopsis',  label: 'あらすじ',       icon: 'fa-align-left', badge: readiness.flags.synopsis ? '✓' : '' },
+              { key: 'brief',     label: '企画書',         icon: 'fa-file-lines', badge: readiness.flags.brief ? '✓' : '' },
+              { key: 'send',      label: '送る',           icon: 'fa-share' },
+            ], panels, activeKey)}
+          </div>
+        </div>
+      </div>
+
+      <!-- 右サイド：成長タイムライン + キャラプレビュー -->
+      <div class="pdv3-col-side">
+
+        <div class="pdv3-card">
+          <div class="pdv3-card-head" style="--hc:var(--fuji)">
+            <i class="fas fa-users" style="color:var(--fuji)"></i>
+            <span>登場人物</span>
+            <span class="pdv3-head-chip" style="background:var(--fuji-bg);color:var(--fuji);border-color:var(--fuji-border)">${chars.length}人</span>
+            <button class="btn btn-ghost btn-sm" onclick="switchHubTab('planlab-seed-hub','character')" style="margin-left:auto;font-size:11px">見る <i class="fas fa-arrow-right" style="font-size:9px"></i></button>
+          </div>
+          <div class="pdv3-card-body">
+            ${chars.length === 0
+              ? `<div class="pdv3-empty"><i class="fas fa-user-plus"></i><span>まだ人物がいません</span><button class="btn btn-secondary btn-sm" onclick="planlabOpenAddCharacter('${s.id}')">追加する</button></div>`
+              : `<div class="pdv3-char-grid">
+                  ${chars.slice(0,6).map(ch=>`<div class="pdv3-char-card" onclick="switchHubTab('planlab-seed-hub','character')">
+                    <div class="pdv3-char-avatar" style="background:var(--fuji-bg)">👤</div>
+                    <div class="pdv3-char-name">${esc(ch.name)}</div>
+                    <div class="pdv3-char-role">${esc(ch.role||'')}</div>
+                  </div>`).join('')}
+                  ${chars.length>6?`<div class="pdv3-char-more" onclick="switchHubTab('planlab-seed-hub','character')">+${chars.length-6}人</div>`:''}
+                </div>`
+            }
+          </div>
+        </div>
+
+        <div class="pdv3-card">
+          <div class="pdv3-card-head" style="--hc:var(--kogane)">
+            <i class="fas fa-timeline" style="color:var(--kogane)"></i>
+            <span>成長の軌跡</span>
+            <span class="pdv3-head-chip" style="background:var(--kogane-bg);color:var(--kogane);border-color:var(--kogane-border)">${log.length}件</span>
+          </div>
+          <div class="pdv3-card-body">
+            ${log.length===0 ? `<div class="pdv3-empty-sm"><i class="fas fa-seedling"></i> まだ成長ログがありません</div>` :
+              `<div class="planlab-growthlog-timeline pls-side-timeline">${log.slice(0,8).map(g => renderPlanLabLogEntry(g)).join('')}</div>
+               ${log.length>8?`<div style="text-align:center;font-size:10.5px;color:var(--text-muted);margin-top:6px">他 ${log.length-8}件（「育てる」タブで全件表示）</div>`:''}`
+            }
+          </div>
+        </div>
+
+        <div class="pdv3-card">
+          <div class="pdv3-card-head" style="--hc:var(--text-muted)">
+            <i class="fas fa-compass" style="color:var(--text-muted)"></i>
+            <span>クイックアクション</span>
+          </div>
+          <div class="pdv3-card-body pdv3-links-grid">
+            <button class="pdv3-link-btn" onclick="navigate('planlab')"><i class="fas fa-seedling" style="color:var(--matcha)"></i>企画ラボ一覧</button>
+            ${s.sentProjectId ? `<button class="pdv3-link-btn" onclick="navigate('proj-dash','${s.sentProjectId}')"><i class="fas fa-film" style="color:var(--fuji)"></i>送出先の作品へ</button>` : ''}
+            <div class="pdv3-links-sep"></div>
+            <button class="pdv3-link-btn pdv3-link-danger" onclick="confirmDeletePlanSeed('${s.id}')"><i class="fas fa-trash"></i>このタネを削除</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>`;
+}
+
+function bindPlanLabSeedDash(s) {
+  // 育成ハブのタブ切替を State に永続化し、他ページから戻っても直前のタブを保持する
+  $$(`[id^="hub-tab-planlab-seed-hub-"]`).forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.id.replace('hub-tab-planlab-seed-hub-', '');
+      State.currentTab['planlab-seed'] = key;
+    });
+  });
 }
 
 function persistPlanSeedEdit(id) {
@@ -43234,7 +43430,7 @@ function planlabSetSeedStage(id, stage) {
   s.growthLog.unshift({ id: uid(), kind: 'stage', body: `ステージが「${stObj.label}」に進みました`, createdAt: now() });
   PlanLabDB.saveSeed(s);
   toast(`ステージを「${stObj.label}」に進めました`, 'success');
-  openPlanSeedHub(id, 'grow');
+  navigateToPlanSeed(id, 'grow');
 }
 
 function planlabAddGrowthLog(id) {
@@ -43246,7 +43442,7 @@ function planlabAddGrowthLog(id) {
   s.growthLog.unshift({ id: uid(), kind: 'note', body: val, createdAt: now() });
   PlanLabDB.saveSeed(s);
   toast('成長ログに追加しました', 'success');
-  openPlanSeedHub(id, 'grow');
+  navigateToPlanSeed(id, 'grow');
 }
 
 function confirmDeletePlanSeed(id) {
@@ -43255,8 +43451,8 @@ function confirmDeletePlanSeed(id) {
   openModal(
     `<i class="fas fa-triangle-exclamation" style="color:var(--accent)"></i> タネを削除`,
     `<div>「${esc(s.title||'無題のタネ')}」を削除します。この操作は取り消せません。</div>`,
-    `<button class="btn btn-secondary" onclick="openPlanSeedHub('${id}')">キャンセル</button>
-     <button class="btn btn-danger" onclick="PlanLabDB.deleteSeed('${id}');closeModal();render();toast('削除しました','success')"><i class="fas fa-trash"></i> 削除する</button>`
+    `<button class="btn btn-secondary" onclick="closeModal()">キャンセル</button>
+     <button class="btn btn-danger" onclick="PlanLabDB.deleteSeed('${id}');closeModal();navigate('planlab');toast('削除しました','success')"><i class="fas fa-trash"></i> 削除する</button>`
   );
 }
 
@@ -43272,7 +43468,7 @@ function planlabApplyLens(id, lensKey) {
   if (s.stage === 'seed') s.stage = 'sprout'; // 視点転換を行うと自然に「発芽」段階へ進む
   PlanLabDB.saveSeed(s);
   toast(`「${lens.label}」の視点を書き加えました`, 'success');
-  openPlanSeedHub(id, 'lens');
+  navigateToPlanSeed(id, 'lens');
 }
 
 // ── ログライン工房（ロジック） ──────────────────────────────────
@@ -43353,7 +43549,7 @@ function planlabChooseLogline(id, idx) {
   if (s.stage === 'seed' || s.stage === 'sprout') s.stage = 'bud'; // ログライン確定で「つぼみ」段階へ
   PlanLabDB.saveSeed(s);
   toast('ログラインを採用しました', 'success');
-  openPlanSeedHub(id, 'logline');
+  navigateToPlanSeed(id, 'logline');
 }
 
 // ── 企画書（ロジック） ──────────────────────────────────────────
@@ -43410,7 +43606,7 @@ ${logline}
   s.growthLog.unshift({ id: uid(), kind: 'brief', body: '企画書を生成しました', createdAt: now() });
   PlanLabDB.saveSeed(s);
   toast('企画書を生成しました。企画ラボのタネが実りました🌸', 'success');
-  openPlanSeedHub(id, 'brief');
+  navigateToPlanSeed(id, 'brief');
 }
 
 function planlabCopyBrief(id) {
