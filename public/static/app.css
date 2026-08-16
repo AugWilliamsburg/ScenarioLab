@@ -10231,6 +10231,107 @@ body.modal-open-lock {
   .folder-chip { font-size: 11px; padding: 4px 10px; }
 }
 
+/* ================================================================
+   メモページ（グループ＞フォルダ＞メモの高機能メモ機能）
+   ================================================================ */
+.memo-page-layout {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+.memo-page-nav { position: sticky; top: 14px; }
+.memo-page-main { min-width: 0; }
+.memo-group-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px;
+}
+.memo-group-item {
+  --gc: var(--fuji);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background .12s, color .12s;
+}
+.memo-group-item i { width: 16px; text-align: center; flex-shrink: 0; }
+.memo-group-item span:first-of-type,
+.memo-group-item > span:not(.memo-group-count) {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.memo-group-item:hover { background: var(--bg-hover); }
+.memo-group-item.active {
+  background: color-mix(in srgb, var(--gc) 14%, transparent);
+  color: var(--gc);
+}
+.memo-group-count {
+  flex: 0 0 auto !important;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-light);
+  background: var(--bg-subtle);
+  border-radius: var(--radius-full);
+  padding: 1px 7px;
+  min-width: 18px;
+  text-align: center;
+}
+.memo-group-item.active .memo-group-count { color: var(--gc); background: rgba(255,255,255,.5); }
+.memo-group-divider { height: 1px; background: var(--border); margin: 6px 2px; }
+.memo-group-add { color: var(--text-muted); font-weight: 500; }
+.memo-group-add:hover { color: var(--fuji); }
+
+.memo-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.memo-card {
+  background: var(--bg-white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  position: relative;
+  transition: box-shadow .15s, border-color .15s;
+}
+.memo-card:hover { border-color: var(--fuji-border); box-shadow: var(--shadow-sm); }
+.memo-card.pinned { border-color: var(--kogane-border); background: var(--kogane-bg); }
+.memo-card.selecting { cursor: pointer; padding-left: 38px; }
+.memo-card.selected { border-color: var(--fuji-border); background: var(--fuji-bg); }
+.memo-seed-chip {
+  background: var(--matcha-bg) !important;
+  color: var(--matcha) !important;
+  border-color: var(--matcha-border) !important;
+  cursor: pointer;
+}
+.memo-seed-chip:hover { filter: brightness(1.08); }
+
+@media (max-width: 900px) {
+  .memo-page-layout { grid-template-columns: 1fr; }
+  .memo-page-nav { position: static; }
+  .memo-group-nav { flex-direction: row; overflow-x: auto; gap: 6px; padding: 8px; }
+  .memo-group-item { width: auto; flex-shrink: 0; }
+  .memo-group-divider { width: 1px; height: 22px; margin: 0 2px; }
+  .memo-card-grid { grid-template-columns: 1fr; }
+}
+
 /* ── ツールカード：お気に入りボタン ── */
 .tool-card { position: relative; }
 .tool-fav-btn {

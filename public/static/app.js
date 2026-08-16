@@ -194,6 +194,134 @@ function doDeleteFolder(scopeKey, folderId) {
   reopenFolderManageModal(scopeKey);
 }
 
+// ================================================================
+//  MemoDB — 「メモ」ページ専用：グループ ＞ フォルダ ＞ メモ の3階層データ
+//  ── 既存の FolderDB（単一階層）とは独立した、より高度な分類システム。
+//     グループは大分類（例：作品別・テーマ別）、フォルダはグループ内の
+//     小分類。メモはフォルダ未所属でもグループのみ所属、グループも
+//     フォルダも未所属（＝完全未分類）でも成立する。
+//     また各メモは任意で seedId（企画ラボの「タネ」ID）を持てる。これに
+//     より、企画ラボのタネダッシュボード内のメモ欄と、この「メモ」ページ
+//     とで同じメモを双方から参照・集約できる。
+// ================================================================
+const MEMO_COLORS = ['#5c4696','#c0371c','#ae7600','#387030','#1c6666','#c23466','#2656a0','#7a6e5e'];
+
+const MemoGroupDB = {
+  getGroups() { return DB.get('memo_groups', []); },
+  saveGroups(list) { DB.set('memo_groups', list); },
+  getGroup(id) { return this.getGroups().find(g => g.id === id) || null; },
+  addGroup(name, color, icon) {
+    const groups = this.getGroups();
+    const g = { id: 'mg-' + uid(), name: (name||'').trim() || '新しいグループ', color: color || MEMO_COLORS[groups.length % MEMO_COLORS.length], icon: icon || 'fa-layer-group', createdAt: now() };
+    groups.push(g);
+    this.saveGroups(groups);
+    return g;
+  },
+  renameGroup(id, name) {
+    const groups = this.getGroups();
+    const g = groups.find(x => x.id === id);
+    if (g) { g.name = (name||'').trim() || g.name; this.saveGroups(groups); }
+  },
+  recolorGroup(id, color) {
+    const groups = this.getGroups();
+    const g = groups.find(x => x.id === id);
+    if (g) { g.color = color; this.saveGroups(groups); }
+  },
+  // グループを削除すると、配下のフォルダも削除され、配下のメモ（フォルダ経由・直属含む）は
+  // すべて「未分類」（groupId='', folderId=''）に戻る。メモ自体は失われない。
+  deleteGroup(id) {
+    this.saveGroups(this.getGroups().filter(g => g.id !== id));
+    const folders = MemoFolderDB.getAllFolders().filter(f => f.groupId === id);
+    const folderIds = new Set(folders.map(f => f.id));
+    MemoFolderDB.saveFolders(MemoFolderDB.getAllFolders().filter(f => f.groupId !== id));
+    const memos = MemoDB.getAll();
+    memos.forEach(m => {
+      if (m.groupId === id || folderIds.has(m.folderId)) { m.groupId = ''; m.folderId = ''; }
+    });
+    MemoDB.saveAll(memos);
+  },
+};
+
+const MemoFolderDB = {
+  getAllFolders() { return DB.get('memo_folders', []); },
+  saveFolders(list) { DB.set('memo_folders', list); },
+  // groupId省略時は全フォルダ、'' なら「グループ未所属フォルダ」、それ以外は該当グループのフォルダのみ
+  getFolders(groupId) {
+    const all = this.getAllFolders();
+    if (groupId === undefined) return all;
+    return all.filter(f => (f.groupId || '') === (groupId || ''));
+  },
+  getFolder(id) { return this.getAllFolders().find(f => f.id === id) || null; },
+  addFolder(groupId, name, color) {
+    const folders = this.getAllFolders();
+    const f = { id: 'mf-' + uid(), groupId: groupId || '', name: (name||'').trim() || '新しいフォルダ', color: color || MEMO_COLORS[folders.length % MEMO_COLORS.length], createdAt: now() };
+    folders.push(f);
+    this.saveFolders(folders);
+    return f;
+  },
+  renameFolder(id, name) {
+    const folders = this.getAllFolders();
+    const f = folders.find(x => x.id === id);
+    if (f) { f.name = (name||'').trim() || f.name; this.saveFolders(folders); }
+  },
+  recolorFolder(id, color) {
+    const folders = this.getAllFolders();
+    const f = folders.find(x => x.id === id);
+    if (f) { f.color = color; this.saveFolders(folders); }
+  },
+  // フォルダを削除すると、配下のメモは「フォルダ未所属」（そのグループ内の未分類）に戻る
+  deleteFolder(id) {
+    this.saveFolders(this.getAllFolders().filter(f => f.id !== id));
+    const memos = MemoDB.getAll();
+    memos.forEach(m => { if (m.folderId === id) m.folderId = ''; });
+    MemoDB.saveAll(memos);
+  },
+};
+
+const MemoDB = {
+  getAll() { return DB.get('memo_items', []); },
+  saveAll(list) { DB.set('memo_items', list); },
+  get(id) { return this.getAll().find(m => m.id === id) || null; },
+  add(data = {}) {
+    const list = this.getAll();
+    const m = {
+      id: 'memo-' + uid(),
+      groupId: data.groupId || '',
+      folderId: data.folderId || '',
+      title: data.title || '',
+      body: data.body || '',
+      bodyHtml: data.bodyHtml || '',
+      tags: data.tags || [],
+      pinned: !!data.pinned,
+      seedId: data.seedId || null, // 企画ラボの「タネ」に紐づく場合そのIDを保持
+      createdAt: now(),
+      updatedAt: now(),
+    };
+    list.unshift(m);
+    this.saveAll(list);
+    return m;
+  },
+  update(id, patch) {
+    const list = this.getAll();
+    const idx = list.findIndex(m => m.id === id);
+    if (idx < 0) return null;
+    list[idx] = { ...list[idx], ...patch, updatedAt: now() };
+    this.saveAll(list);
+    return list[idx];
+  },
+  delete(id) {
+    this.saveAll(this.getAll().filter(m => m.id !== id));
+  },
+  getBySeed(seedId) {
+    return this.getAll().filter(m => m.seedId === seedId).sort((a,b) => new Date(b.createdAt)-new Date(a.createdAt));
+  },
+  // アクティブなグループ/フォルダの選択状態（メモページのナビ状態として保持）
+  getActiveGroup() { return DB.get('memo_active_group', ''); },
+  setActiveGroup(groupId) { DB.set('memo_active_group', groupId || ''); DB.set('memo_active_folder', ''); },
+  getActiveFolder() { return DB.get('memo_active_folder', ''); },
+  setActiveFolder(folderId) { DB.set('memo_active_folder', folderId || ''); },
+};
+
 // ── ToolFavDB：ツール／テンプレートの「お気に入り」共通管理 ─────────
 // kind: 'tool' | 'template' で名前空間を分ける
 const ToolFavDB = {
@@ -1294,6 +1422,13 @@ function render() {
     return;
   }
 
+  // メモページ（グループ＞フォルダ＞メモの高機能メモ機能）
+  if (p === 'memo') {
+    app.innerHTML = renderLayout(renderMemoPage());
+    bindMemoPage();
+    return;
+  }
+
   // ストーリーボードページ
   if (p === 'board') {
     app.innerHTML = renderLayout(renderBoardPage());
@@ -1373,11 +1508,12 @@ function renderLayout(content, proj = null) {
   const isNameDictPage = cp === 'namedict';
   const isWorldPage = cp === 'worldbuilding';
   const isInspirationPage = cp === 'inspiration';
+  const isMemoPage = cp === 'memo';
   const isPlanLabPage = cp === 'planlab' || cp === 'planlab-seed';
   const isBoardPage = cp === 'board' || cp === 'storymap';
   const isTasksPage = cp === 'tasks';
   const isStorymapPage = cp === 'storymap';
-  const isSpecialPage = isLearnPage || isToolsPage || isTemplatesPage || isStudyPage || isSettingsPage || isJournalPage || isNameDictPage || isWorldPage || isInspirationPage || isBoardPage || isTasksPage || isStorymapPage;
+  const isSpecialPage = isLearnPage || isToolsPage || isTemplatesPage || isStudyPage || isSettingsPage || isJournalPage || isNameDictPage || isWorldPage || isInspirationPage || isMemoPage || isBoardPage || isTasksPage || isStorymapPage;
 
   const projectFooter = proj ? `
     <div class="sidebar-footer">
@@ -1413,6 +1549,7 @@ function renderLayout(content, proj = null) {
     namedict:         { icon:'fa-spell-check',color:'var(--kon-lt)',title:'キャラクター名辞典', sub:'登場人物の名前・読みを管理' },
     worldbuilding:    { icon:'fa-globe',     color:'var(--asagi)',  title:'世界観設計',         sub:'舞台・設定・世界観を構築' },
     inspiration:      { icon:'fa-bolt',      color:'var(--kogane)', title:'インスピレーション・ライブラリ', sub:'アイデア・メモ・ノート・マインドマップを整理' },
+    memo:             { icon:'fa-note-sticky', color:'var(--fuji)', title:'メモ',               sub:'グループ・フォルダ・タグで整理する万能メモ帳' },
     board:            { icon:'fa-film',              color:'var(--fuji)',   title:'ストーリーボード',  sub:'カンバンボード＆シーンマップで物語を視覚設計' },
     tasks:            { icon:'fa-calendar-check',   color:'var(--matcha)', title:'タスク管理',        sub:'執筆タスク・スケジュール・習慣管理' },
     storymap:         { icon:'fa-film',              color:'var(--fuji)',   title:'ストーリーボード',  sub:'カンバンボード＆シーンマップで物語を視覚設計' },
@@ -1597,6 +1734,9 @@ function renderLayout(content, proj = null) {
             <div class="nav-item ${isPlanLabPage?'active':''}" onclick="navigate('planlab')">
               <span class="nav-icon"><i class="fas fa-seedling" style="color:#8ed6a0"></i></span><span class="nav-label">企画ラボ</span>
             </div>
+            <div class="nav-item ${isMemoPage?'active':''}" onclick="navigate('memo')">
+              <span class="nav-icon"><i class="fas fa-note-sticky" style="color:#b8a8f0"></i></span><span class="nav-label">メモ</span>
+            </div>
             <div class="nav-item ${isToolsPage?'active':''}" onclick="navigate('tools')">
               <span class="nav-icon"><i class="fas fa-toolbox" style="color:#6ddede"></i></span><span class="nav-label">ツール</span>
             </div>
@@ -1717,7 +1857,7 @@ function renderLayout(content, proj = null) {
     <button class="mbn-item ${isTasksPage?'active':''}" onclick="mobileNavGo('tasks')">
       <i class="fas fa-calendar-check"></i><span>タスク</span>${dueBadge ? '<span class="mbn-dot"></span>' : ''}
     </button>
-    <button class="mbn-item ${isInspirationPage?'active':''}" onclick="goToScratchpad()">
+    <button class="mbn-item ${isMemoPage?'active':''}" onclick="goToMemoPage()">
       <i class="fas fa-note-sticky"></i><span>メモ</span>
     </button>
     <button class="mbn-item ${cp==='menu-hub'?'active':''}" id="mbn-menu-btn" onclick="mobileNavGo('menu-hub')">
@@ -1737,16 +1877,6 @@ function mobileNavGo(page, arg) {
   haptic('light');
   if (window.innerWidth <= 900) closeSidebar();
   navigate(page, arg);
-}
-
-// ── モバイルナビ「メモ」：インスピレーション・スクラッチパッドへ直接遷移 ──
-// （サイドバー／ハンバーガーメニューへのアクセスはトップバーの sidebar-toggle-btn が
-//   モバイル幅でも常時表示されているため引き続き利用できる）
-function goToScratchpad() {
-  haptic('light');
-  if (window.innerWidth <= 900) closeSidebar();
-  State.currentTab['inspiration'] = 'scratch';
-  navigate('inspiration');
 }
 
 // ── サイドバートグル ────────────────────────────────────────────
@@ -1878,6 +2008,7 @@ function renderMenuHubPage() {
         { page: 'learn', icon: 'fa-graduation-cap', color: '#c0b8ff', label: '学習センター', desc: '理論・記事・練習' },
         { page: 'study', icon: 'fa-feather-pointed', color: '#e0a8ff', label: '書斎', desc: '自由執筆スペース' },
         { page: 'planlab', icon: 'fa-seedling', color: '#8ed6a0', label: '企画ラボ', desc: '着想から企画書まで育てる' },
+        { page: 'memo', icon: 'fa-note-sticky', color: '#b8a8f0', label: 'メモ', desc: 'グループ・フォルダで整理' },
         { page: 'tools', icon: 'fa-toolbox', color: '#6ddede', label: 'ツール', desc: '執筆支援ツール集' },
         { page: 'templates', icon: 'fa-copy', color: '#f7d07a', label: 'テンプレート', desc: 'すぐ使える書式' },
       ]
@@ -43171,6 +43302,58 @@ function planlabLogSynopsisMilestone(id) {
   navigateToPlanSeed(id, 'synopsis');
 }
 
+// ── メモ（このタネに関連した雑案の集約） ──────────────────────────
+// グローバルなメモ機能（MemoDB）を土台に、seedId で紐づけたメモだけを
+// このタネのダッシュボード上で素早く追加・一覧できるようにする。
+// メモ自体はMemoDBに独立保存されるため、グローバルの「メモ」ページ側からも
+// 同じメモを参照・整理できる（＝タネとメモ機能の「集約」）。
+function renderPlanLabMemoPanel(s) {
+  const memos = MemoDB.getBySeed(s.id);
+  const cards = memos.length === 0
+    ? `<div class="hub-empty-mini" style="margin-top:4px">まだこのタネに関連した雑案がありません。下の欄から思いついたことを書き留めてみましょう。</div>`
+    : `<div class="memo-card-grid" style="margin-top:12px">${memos.map(m => `
+      <div class="memo-card hub-clickable-card ${m.pinned?'pinned':''}" onclick="openMemoHub('${m.id}')">
+        <div class="insp-scratch-top">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            ${m.pinned?`<i class="fas fa-thumbtack" style="font-size:9px;color:var(--kogane)"></i>`:''}
+          </div>
+          <div style="display:flex;gap:4px;align-items:center">
+            <span style="font-size:10px;color:var(--text-light)">${fmtDate(m.updatedAt||m.createdAt)}</span>
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();toggleMemoPinned('${m.id}')" title="${m.pinned?'ピン解除':'ピン留め'}">
+              <i class="fas fa-thumbtack" style="font-size:10px;color:${m.pinned?'var(--kogane)':'var(--text-muted)'}"></i>
+            </button>
+            <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();confirmDeleteMemo('${m.id}')"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+          </div>
+        </div>
+        ${m.title ? `<div style="font-size:13px;font-weight:700;color:var(--text-primary);margin:6px 0 4px;font-family:'Noto Serif JP',serif">${esc(m.title)}</div>` : ''}
+        <div class="insp-scratch-body">${esc((m.body||'').slice(0,160))}${(m.body||'').length>160?'…':''}</div>
+        ${(m.tags||[]).length ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px" onclick="event.stopPropagation()">${(m.tags||[]).map(t=>`<span class="insp-tag">${esc(t)}</span>`).join('')}</div>` : ''}
+      </div>`).join('')}</div>`;
+  return `
+  <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:10px;line-height:1.6">このタネ・着想に関連した雑多なアイデアをここに書き留めて集約できます。育成度の判定には影響しません。書いたメモは「メモ」ページ側でも一覧・整理できます。</div>
+  <div class="card" style="padding:12px;background:var(--bg-subtle);border-top:3px solid var(--fuji)">
+    <input class="form-input" id="pl-memo-new-title-${s.id}" placeholder="タイトル（任意）" style="font-size:13px;margin-bottom:8px">
+    <textarea class="form-textarea" id="pl-memo-new-body-${s.id}" rows="3" placeholder="このタネにまつわる雑案・思いつきを何でも書き留めましょう…" style="font-size:13px;resize:vertical"></textarea>
+    <input class="form-input" id="pl-memo-new-tags-${s.id}" placeholder="タグ（カンマ区切り、任意）" style="font-size:12px;margin-top:8px">
+    <div style="display:flex;align-items:center;justify-content:flex-end;margin-top:8px;gap:6px">
+      <button class="btn btn-ghost btn-sm" onclick="planlabAddSeedMemo('${s.id}', true)"><i class="fas fa-thumbtack"></i> ピンして追加</button>
+      <button class="btn btn-primary btn-sm" onclick="planlabAddSeedMemo('${s.id}', false)"><i class="fas fa-plus"></i> 追加</button>
+    </div>
+  </div>
+  ${cards}
+  ${memos.length > 0 ? `<button class="btn btn-secondary btn-sm" style="margin-top:12px" onclick="memoSetFilter('seed','__seed__');navigate('memo')"><i class="fas fa-note-sticky"></i> メモページで一覧を見る</button>` : ''}
+  `;
+}
+function planlabAddSeedMemo(seedId, pinned = false) {
+  const title = $('#pl-memo-new-title-'+seedId)?.value?.trim() || '';
+  const body = $('#pl-memo-new-body-'+seedId)?.value?.trim() || '';
+  if (!body && !title) { toast('雑案の内容を入力してください', 'error'); return; }
+  const tags = ($('#pl-memo-new-tags-'+seedId)?.value || '').split(',').map(t=>t.trim()).filter(Boolean);
+  MemoDB.add({ title, body, bodyHtml: plainTextToRichHtml(body), tags, pinned, seedId });
+  toast(pinned ? 'ピン留めして雑案を追加しました' : '雑案を追加しました', 'success');
+  navigateToPlanSeed(seedId, 'memo');
+}
+
 // ── 企画書 ──────────────────────────────────────────────────────
 // 作品ダッシュボードの generatePitch() 相当。主人公・作者コメント欄を含め、
 // コンセプト・キャラクター・あらすじタブで育てた内容を自動的に組み込む。
@@ -43235,6 +43418,7 @@ function renderPlanLabSeedDash(s) {
     logline:   renderPlanLabLoglinePanel(s),
     character: renderPlanLabCharacterPanel(s),
     synopsis:  renderPlanLabSynopsisPanel(s, statusId, autoSaveCall),
+    memo:      renderPlanLabMemoPanel(s),
     brief:     renderPlanLabBriefPanel(s),
     send:      renderPlanLabSendPanel(s),
   };
@@ -43329,6 +43513,7 @@ function renderPlanLabSeedDash(s) {
               { key: 'logline',   label: 'ログライン工房', icon: 'fa-quote-left', badge: readiness.flags.logline ? '✓' : '' },
               { key: 'character', label: 'キャラクター',   icon: 'fa-user', badge: chars.length || '' },
               { key: 'synopsis',  label: 'あらすじ',       icon: 'fa-align-left', badge: readiness.flags.synopsis ? '✓' : '' },
+              { key: 'memo',      label: 'メモ',           icon: 'fa-note-sticky', badge: MemoDB.getBySeed(s.id).length || '' },
               { key: 'brief',     label: '企画書',         icon: 'fa-file-lines', badge: readiness.flags.brief ? '✓' : '' },
               { key: 'send',      label: '送る',           icon: 'fa-share' },
             ], panels, activeKey)}
@@ -43652,6 +43837,564 @@ function planlabSendToProject(id) {
   closeModal();
   toast(`「${title}」を作品として送り出しました`, 'success');
   navigate('ideas', proj.id);
+}
+
+// ================================================================
+//  メモページ ── 執筆サポート枠の高機能メモ機能
+//  グループ ＞ フォルダ ＞ メモ の3階層 ＋ タグ・検索・複数選択一括操作。
+//  企画ラボの各タネに紐づくメモ（seedId付き）もここに集約表示される。
+// ================================================================
+const MEMO_TYPE_COLORS = { 'メモ':'var(--fuji)', '着想':'var(--kogane)', 'タスク的雑案':'var(--matcha)', '参考':'var(--asagi)', 'その他':'var(--text-muted)' };
+const MemoPageState = { selecting: false, selectedIds: [] };
+
+function renderMemoPage() {
+  const groups = MemoGroupDB.getGroups();
+  const allMemos = MemoDB.getAll();
+  const activeGroup = MemoDB.getActiveGroup();
+  const activeFolder = MemoDB.getActiveFolder();
+  const searchQ = State.currentTab['memo-search'] || '';
+  const filterTag = State.currentTab['memo-tag'] || '';
+  const sortMode = State.currentTab['memo-sort'] || 'newest';
+  const filterSeed = State.currentTab['memo-seed'] || ''; // ''=すべて / '__seed__'=タネ紐づきのみ / '__free__'=タネ紐づきなし
+
+  // ── グループでの絞り込み ──
+  let scoped = allMemos.slice();
+  if (activeGroup === '__none__') scoped = scoped.filter(m => !m.groupId);
+  else if (activeGroup) scoped = scoped.filter(m => m.groupId === activeGroup);
+
+  // ── フォルダでの絞り込み（グループ内） ──
+  const foldersInGroup = activeGroup && activeGroup !== '__none__' ? MemoFolderDB.getFolders(activeGroup) : MemoFolderDB.getFolders();
+  if (activeFolder === '__none__') scoped = scoped.filter(m => !m.folderId);
+  else if (activeFolder) scoped = scoped.filter(m => m.folderId === activeFolder);
+
+  // ── タネ紐づきフィルタ ──
+  if (filterSeed === '__seed__') scoped = scoped.filter(m => m.seedId);
+  else if (filterSeed === '__free__') scoped = scoped.filter(m => !m.seedId);
+
+  // ── タグ絞り込み ──
+  const allTags = [...new Set(allMemos.flatMap(m => m.tags||[]))].filter(Boolean);
+  if (filterTag) scoped = scoped.filter(m => (m.tags||[]).includes(filterTag));
+
+  // ── 検索 ──
+  if (searchQ) {
+    const q = searchQ.toLowerCase();
+    scoped = scoped.filter(m =>
+      (m.title||'').toLowerCase().includes(q) ||
+      (m.body||'').toLowerCase().includes(q) ||
+      (m.tags||[]).some(t => t.toLowerCase().includes(q))
+    );
+  }
+
+  // ── ソート ──
+  if (sortMode === 'newest') scoped.sort((a,b) => new Date(b.updatedAt||b.createdAt)-new Date(a.updatedAt||a.createdAt));
+  else if (sortMode === 'oldest') scoped.sort((a,b) => new Date(a.updatedAt||a.createdAt)-new Date(b.updatedAt||b.createdAt));
+  else if (sortMode === 'alpha') scoped.sort((a,b) => (a.title||a.body||'').localeCompare(b.title||b.body||''));
+  const pinnedFirst = [...scoped.filter(m=>m.pinned), ...scoped.filter(m=>!m.pinned)];
+  const displayList = sortMode === 'pinned' ? [...scoped.filter(m=>m.pinned), ...scoped.filter(m=>!m.pinned)] : pinnedFirst;
+
+  const isSelecting = MemoPageState.selecting;
+  const seedTitleOf = (seedId) => { const s = PlanLabDB.getSeed(seedId); return s ? (s.title || (s.seedText||'').slice(0,20) || '無題のタネ') : null; };
+
+  // ── ① グループサイドナビ ──
+  const groupNav = `
+  <div class="memo-group-nav">
+    <button class="memo-group-item ${!activeGroup?'active':''}" onclick="memoSetActiveGroup('')">
+      <i class="fas fa-inbox"></i><span>すべてのメモ</span><span class="memo-group-count">${allMemos.length}</span>
+    </button>
+    <button class="memo-group-item ${activeGroup==='__none__'?'active':''}" onclick="memoSetActiveGroup('__none__')">
+      <i class="fas fa-folder-open"></i><span>未分類</span><span class="memo-group-count">${allMemos.filter(m=>!m.groupId).length}</span>
+    </button>
+    <div class="memo-group-divider"></div>
+    ${groups.map(g => `
+    <button class="memo-group-item ${activeGroup===g.id?'active':''}" style="${activeGroup===g.id?`--gc:${g.color}`:''}" onclick="memoSetActiveGroup('${g.id}')">
+      <i class="fas ${g.icon||'fa-layer-group'}" style="color:${g.color}"></i><span>${esc(g.name)}</span>
+      <span class="memo-group-count">${allMemos.filter(m=>m.groupId===g.id).length}</span>
+    </button>`).join('')}
+    <button class="memo-group-item memo-group-add" onclick="openManageMemoGroupsModal()"><i class="fas fa-gear"></i><span>グループを管理</span></button>
+  </div>`;
+
+  // ── ② フォルダバー（アクティブグループ内、または全体） ──
+  const folderBar = `
+  <div class="folder-bar">
+    <button class="folder-chip ${!activeFolder?'active':''}" onclick="memoSetActiveFolder('')">すべて</button>
+    <button class="folder-chip ${activeFolder==='__none__'?'active':''}" onclick="memoSetActiveFolder('__none__')">未分類</button>
+    ${foldersInGroup.map(f => `<button class="folder-chip ${activeFolder===f.id?'active':''}" style="${activeFolder===f.id?`background:${f.color};border-color:${f.color};color:#fff`:''}" onclick="memoSetActiveFolder('${f.id}')">${esc(f.name)}</button>`).join('')}
+    <button class="folder-chip folder-chip-manage" onclick="openManageMemoFoldersModal('${activeGroup&&activeGroup!=='__none__'?activeGroup:''}')" title="フォルダを管理"><i class="fas fa-folder-gear"></i> 管理</button>
+  </div>`;
+
+  const memoCards = displayList.length === 0
+    ? `<div class="insp-empty">
+        <i class="fas fa-note-sticky" style="font-size:32px;display:block;margin-bottom:10px;opacity:0.25"></i>
+        <div style="font-size:14px;font-weight:600;margin-bottom:6px">${searchQ||filterTag||activeFolder||activeGroup ? '条件に一致するメモがありません' : 'まだメモがありません'}</div>
+        <div style="font-size:12px;color:var(--text-muted)">${searchQ||filterTag ? 'フィルターをリセットしてみてください' : '下の入力欄からメモを書いてみましょう'}</div>
+       </div>`
+    : `<div class="memo-card-grid">${displayList.map(m => {
+        const isSel = MemoPageState.selectedIds.includes(m.id);
+        const seedTitle = m.seedId ? seedTitleOf(m.seedId) : null;
+        const folder = m.folderId ? MemoFolderDB.getFolder(m.folderId) : null;
+        const group = m.groupId ? MemoGroupDB.getGroup(m.groupId) : null;
+        return `
+        <div class="memo-card hub-clickable-card ${m.pinned?'pinned':''} ${isSelecting?'selecting':''} ${isSel?'selected':''}" id="memo-${m.id}"
+             onclick="${isSelecting ? `event.stopPropagation();toggleMemoSelected('${m.id}')` : `openMemoHub('${m.id}')`}">
+          ${isSelecting ? `<div class="sc-select-check ${isSel?'checked':''}">${isSel?'<i class="fas fa-check" style="font-size:9px;color:white"></i>':''}</div>` : ''}
+          <div class="insp-scratch-top">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              ${m.pinned?`<i class="fas fa-thumbtack" style="font-size:9px;color:var(--kogane)"></i>`:''}
+              ${group ? `<span class="tag" style="font-size:10px;background:${group.color}22;color:${group.color};border:1px solid ${group.color}55"><i class="fas ${group.icon||'fa-layer-group'}" style="font-size:9px"></i> ${esc(group.name)}</span>` : ''}
+              ${folder ? `<span class="tag" style="font-size:10px;background:${folder.color}22;color:${folder.color};border:1px solid ${folder.color}55"><i class="fas fa-folder" style="font-size:9px"></i> ${esc(folder.name)}</span>` : ''}
+              ${seedTitle ? `<span class="tag memo-seed-chip" style="font-size:10px" onclick="event.stopPropagation();navigateToPlanSeed('${m.seedId}')"><i class="fas fa-seedling" style="font-size:9px"></i> ${esc(seedTitle)}</span>` : ''}
+            </div>
+            <div style="display:flex;gap:4px;align-items:center">
+              <span style="font-size:10px;color:var(--text-light)">${fmtDate(m.updatedAt||m.createdAt)}</span>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();toggleMemoPinned('${m.id}')" title="${m.pinned?'ピン解除':'ピン留め'}">
+                <i class="fas fa-thumbtack" style="font-size:10px;color:${m.pinned?'var(--kogane)':'var(--text-muted)'}"></i>
+              </button>
+              <button class="btn btn-ghost btn-icon btn-sm" onclick="event.stopPropagation();confirmDeleteMemo('${m.id}')"><i class="fas fa-trash" style="font-size:10px;color:var(--accent)"></i></button>
+            </div>
+          </div>
+          ${m.title ? `<div style="font-size:13px;font-weight:700;color:var(--text-primary);margin:6px 0 4px;font-family:'Noto Serif JP',serif">${esc(m.title)}</div>` : ''}
+          <div class="insp-scratch-body">${esc((m.body||'').slice(0,180))}${(m.body||'').length>180?'…':''}</div>
+          ${(m.tags||[]).length ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px" onclick="event.stopPropagation()">${(m.tags||[]).map(t=>`<span class="insp-tag" onclick="memoFilterByTag('${esc(t)}')">${esc(t)}</span>`).join('')}</div>` : ''}
+        </div>`;
+      }).join('')}</div>`;
+
+  return `
+  <!-- ヒーローバナー -->
+  <div style="background:linear-gradient(135deg,var(--fuji-bg) 0%,var(--kogane-bg) 60%,var(--bg-subtle) 100%);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:20px;position:relative;overflow:hidden">
+    <div style="position:absolute;right:20px;top:50%;transform:translateY(-50%);font-size:80px;font-weight:900;font-family:'Noto Serif JP',serif;color:var(--fuji);opacity:0.07;pointer-events:none">記</div>
+    <div style="width:28px;height:2.5px;background:linear-gradient(90deg,var(--fuji),var(--kogane));border-radius:2px;margin-bottom:8px"></div>
+    <div style="font-size:20px;font-weight:700;font-family:'Noto Serif JP',serif;color:var(--text-primary)">
+      <i class="fas fa-note-sticky" style="color:var(--fuji);margin-right:8px"></i>メモ
+    </div>
+    <div style="font-size:13px;color:var(--text-muted);margin-top:4px">グループ・フォルダ・タグで整理する、いつでも使える万能メモ帳</div>
+  </div>
+
+  <div class="memo-page-layout">
+    <!-- 左: グループナビ -->
+    <div class="memo-page-nav">${groupNav}</div>
+
+    <!-- 右: メイン -->
+    <div class="memo-page-main">
+      <!-- 素早く入力 -->
+      <div class="card" style="margin-bottom:14px;border-top:3px solid var(--fuji)">
+        <div style="font-size:13px;font-weight:600;color:var(--text-primary);margin-bottom:10px"><i class="fas fa-pen" style="color:var(--fuji);margin-right:6px"></i>新しいメモを書く</div>
+        <input class="form-input" id="memo-new-title" placeholder="タイトル（任意）" style="font-size:13px;margin-bottom:8px">
+        <div style="position:relative">
+          <textarea class="form-textarea" id="memo-new-body" rows="3" placeholder="何でも書き留めましょう…" style="font-size:13px;resize:vertical;padding-right:38px"></textarea>
+          <button class="qm-mic-btn qm-mic-btn-inline" id="memo-new-mic-btn" onclick="voiceInputToggle('memo-new-body','memo-new-mic-btn')" title="音声入力"><i class="fas fa-microphone"></i></button>
+        </div>
+        <div class="grid-2" style="gap:8px;margin-top:8px">
+          <input class="form-input" id="memo-new-tags" placeholder="タグ（カンマ区切り）" style="font-size:12px">
+          <select class="form-select" id="memo-new-folder" style="font-size:12px">
+            <option value="">${activeFolder && activeFolder!=='__none__' ? 'このフォルダに追加' : '未分類'}</option>
+            ${foldersInGroup.map(f=>`<option value="${f.id}" ${activeFolder===f.id?'selected':''}>${esc(f.name)}</option>`).join('')}
+          </select>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:flex-end;margin-top:8px;gap:6px">
+          <button class="btn btn-ghost btn-sm" onclick="addMemoQuick(true)"><i class="fas fa-thumbtack"></i> ピン</button>
+          <button class="btn btn-primary" onclick="addMemoQuick(false)"><i class="fas fa-plus"></i> 追加</button>
+        </div>
+      </div>
+
+      <!-- 検索・フィルターバー -->
+      <div class="card" style="margin-bottom:14px;padding:12px 14px;background:var(--bg-subtle)">
+        <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+          <div style="flex:1;position:relative">
+            <i class="fas fa-search" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:12px;pointer-events:none"></i>
+            <input class="form-input" id="memo-search" value="${esc(searchQ)}" placeholder="タイトル・本文・タグを全文検索…" style="padding-left:30px;font-size:12.5px;height:34px" oninput="memoSetSearch(this.value)">
+          </div>
+          ${searchQ ? `<button class="btn btn-ghost btn-sm" onclick="memoSetSearch('')"><i class="fas fa-xmark"></i></button>` : ''}
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+          <select class="form-select" style="font-size:11.5px;height:28px;padding:0 8px;width:auto" onchange="memoSetFilter('seed',this.value)">
+            <option value="" ${!filterSeed?'selected':''}>すべてのメモ</option>
+            <option value="__seed__" ${filterSeed==='__seed__'?'selected':''}>企画ラボのタネに紐づくメモ</option>
+            <option value="__free__" ${filterSeed==='__free__'?'selected':''}>タネに紐づかないメモ</option>
+          </select>
+          <select class="form-select" style="font-size:11.5px;height:28px;padding:0 8px;width:auto" onchange="memoSetFilter('sort',this.value)">
+            <option value="newest" ${sortMode==='newest'?'selected':''}>新しい順</option>
+            <option value="oldest" ${sortMode==='oldest'?'selected':''}>古い順</option>
+            <option value="alpha" ${sortMode==='alpha'?'selected':''}>あいうえお順</option>
+            <option value="pinned" ${sortMode==='pinned'?'selected':''}>ピン優先</option>
+          </select>
+          <button class="btn ${isSelecting?'btn-primary':'btn-ghost'} btn-sm" onclick="toggleMemoSelectMode()" style="white-space:nowrap;font-size:11px"><i class="fas fa-check-square"></i> 複数選択</button>
+          <span style="font-size:11px;color:var(--text-muted);margin-left:auto">${displayList.length} / ${allMemos.length}件</span>
+        </div>
+        ${allTags.length > 0 ? `
+        <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+          <span style="font-size:10.5px;color:var(--text-muted)"><i class="fas fa-tag" style="margin-right:3px"></i></span>
+          <span class="insp-tag ${!filterTag?'active':''}" onclick="memoFilterByTag('')">すべて</span>
+          ${allTags.slice(0,15).map(t=>`<span class="insp-tag ${filterTag===t?'active':''}" onclick="memoFilterByTag('${esc(t)}')">${esc(t)}</span>`).join('')}
+          ${allTags.length>15?`<span style="font-size:10px;color:var(--text-muted)">他${allTags.length-15}件…</span>`:''}
+        </div>` : ''}
+      </div>
+
+      <!-- 一括操作バー -->
+      ${isSelecting ? `
+      <div class="sc-bulk-bar">
+        <span style="font-size:12px;font-weight:700;color:var(--fuji)"><i class="fas fa-check-square"></i> ${MemoPageState.selectedIds.length}件選択中</span>
+        <button class="btn btn-ghost btn-sm" onclick="selectAllMemos(${JSON.stringify(displayList.map(m=>m.id))})">全選択</button>
+        <button class="btn btn-primary btn-sm" ${MemoPageState.selectedIds.length===0?'disabled':''} onclick="bulkPinSelectedMemos()"><i class="fas fa-thumbtack"></i> ピン留め</button>
+        <select class="form-select" style="width:auto;font-size:11px" ${MemoPageState.selectedIds.length===0?'disabled':''} onchange="bulkSetFolderSelectedMemos(this.value)">
+          <option value="">フォルダへ移動…</option>
+          ${foldersInGroup.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('')}
+          <option value="__none__">未分類にする</option>
+        </select>
+        <button class="btn btn-danger btn-sm" ${MemoPageState.selectedIds.length===0?'disabled':''} onclick="bulkDeleteSelectedMemosConfirm()"><i class="fas fa-trash"></i> 削除</button>
+        <button class="btn btn-ghost btn-sm" onclick="toggleMemoSelectMode()" style="margin-left:auto">キャンセル</button>
+      </div>` : ''}
+
+      ${folderBar}
+      ${memoCards}
+    </div>
+  </div>`;
+}
+
+function bindMemoPage() {}
+
+// ── 素早く追加 ──
+function addMemoQuick(pinned = false) {
+  const title = $('#memo-new-title')?.value?.trim() || '';
+  const body = $('#memo-new-body')?.value?.trim() || '';
+  if (!body && !title) { toast('本文を入力してください', 'error'); return; }
+  const tags = ($('#memo-new-tags')?.value || '').split(',').map(t=>t.trim()).filter(Boolean);
+  const folderId = $('#memo-new-folder')?.value || '';
+  const activeGroup = MemoDB.getActiveGroup();
+  const groupId = folderId ? (MemoFolderDB.getFolder(folderId)?.groupId || '') : (activeGroup && activeGroup !== '__none__' ? activeGroup : '');
+  MemoDB.add({ title, body, bodyHtml: plainTextToRichHtml(body), tags, pinned, folderId, groupId });
+  toast(pinned ? 'ピン留めしてメモを追加しました' : 'メモを追加しました', 'success');
+  navigate('memo');
+}
+
+function memoSetActiveGroup(groupId) { MemoDB.setActiveGroup(groupId); navigate('memo'); }
+function memoSetActiveFolder(folderId) { MemoDB.setActiveFolder(folderId); navigate('memo'); }
+function memoFilterByTag(tag) { State.currentTab['memo-tag'] = tag; navigate('memo'); }
+function memoSetSearch(q) { State.currentTab['memo-search'] = q; navigate('memo'); }
+function memoSetFilter(key, val) { State.currentTab['memo-' + key] = val; navigate('memo'); }
+
+function toggleMemoPinned(id) {
+  const m = MemoDB.get(id);
+  if (!m) return;
+  MemoDB.update(id, { pinned: !m.pinned });
+  navigate('memo');
+}
+
+// ── 複数選択モード・一括操作 ──
+function toggleMemoSelectMode() {
+  MemoPageState.selecting = !MemoPageState.selecting;
+  if (!MemoPageState.selecting) MemoPageState.selectedIds = [];
+  navigate('memo');
+}
+function toggleMemoSelected(id) {
+  const idx = MemoPageState.selectedIds.indexOf(id);
+  if (idx >= 0) MemoPageState.selectedIds.splice(idx, 1); else MemoPageState.selectedIds.push(id);
+  navigate('memo');
+}
+function selectAllMemos(ids) {
+  const allSelected = ids.length > 0 && ids.every(id => MemoPageState.selectedIds.includes(id));
+  MemoPageState.selectedIds = allSelected ? [] : [...ids];
+  navigate('memo');
+}
+function bulkPinSelectedMemos() {
+  const ids = MemoPageState.selectedIds;
+  if (ids.length === 0) return;
+  ids.forEach(id => MemoDB.update(id, { pinned: true }));
+  toast(`${ids.length}件をピン留めしました`, 'success');
+  MemoPageState.selecting = false;
+  MemoPageState.selectedIds = [];
+  navigate('memo');
+}
+function bulkSetFolderSelectedMemos(folderId) {
+  const ids = MemoPageState.selectedIds;
+  if (ids.length === 0 || !folderId) return;
+  const groupId = folderId === '__none__' ? undefined : (MemoFolderDB.getFolder(folderId)?.groupId || '');
+  ids.forEach(id => {
+    if (folderId === '__none__') MemoDB.update(id, { folderId: '' });
+    else MemoDB.update(id, { folderId, groupId });
+  });
+  toast(`${ids.length}件を移動しました`, 'success');
+  MemoPageState.selecting = false;
+  MemoPageState.selectedIds = [];
+  navigate('memo');
+}
+function bulkDeleteSelectedMemosConfirm() {
+  const ids = MemoPageState.selectedIds;
+  if (ids.length === 0) return;
+  confirmDeleteGeneric('メモを一括削除', `選択中の <strong style="color:var(--text-primary)">${ids.length}件</strong> のメモを削除しますか？`, `bulkDeleteSelectedMemos()`);
+}
+function bulkDeleteSelectedMemos() {
+  const ids = MemoPageState.selectedIds;
+  ids.forEach(id => MemoDB.delete(id));
+  toast(`${ids.length}件を削除しました`, 'info');
+  MemoPageState.selecting = false;
+  MemoPageState.selectedIds = [];
+  closeModal();
+  navigate('memo');
+}
+
+// ── メモ詳細ハブ（編集/補足/タグ） ──
+function openMemoHub(id) {
+  const m = MemoDB.get(id);
+  if (!m) return;
+  const statusId = 'memo-autosave-' + id;
+  const autoSaveCall = `hubAutoSave('memo-${id}', ()=>persistMemoEdit('${id}'), '${statusId}')`;
+  const groups = MemoGroupDB.getGroups();
+  const folders = m.groupId ? MemoFolderDB.getFolders(m.groupId) : MemoFolderDB.getFolders();
+  const seed = m.seedId ? PlanLabDB.getSeed(m.seedId) : null;
+  const panels = {
+    edit: `
+     <div class="form-group">
+       <label class="form-label">タイトル</label>
+       <input class="form-input" id="mh-title" value="${esc(m.title||'')}" placeholder="タイトル（任意）" oninput="${autoSaveCall}">
+     </div>
+     <div class="grid-2" style="gap:8px">
+       <div class="form-group">
+         <label class="form-label">グループ</label>
+         <select class="form-select" id="mh-group" onchange="memoHubGroupChanged('${id}');${autoSaveCall}">
+           <option value="">未分類</option>
+           ${groups.map(g=>`<option value="${g.id}" ${g.id===m.groupId?'selected':''}>${esc(g.name)}</option>`).join('')}
+         </select>
+       </div>
+       <div class="form-group">
+         <label class="form-label">フォルダ</label>
+         <select class="form-select" id="mh-folder" onchange="${autoSaveCall}">
+           <option value="">未分類</option>
+           ${folders.map(f=>`<option value="${f.id}" ${f.id===m.folderId?'selected':''}>${esc(f.name)}</option>`).join('')}
+         </select>
+       </div>
+     </div>
+     <div class="form-group">
+       <label class="form-label">本文</label>
+       ${renderHubRichEditor('mh-body', m.bodyHtml || plainTextToRichHtml(m.body||''), '何でも書き留めましょう…', autoSaveCall)}
+     </div>
+     <div class="form-group">
+       <label class="form-label"><i class="fas fa-tags" style="color:var(--fuji);margin-right:4px"></i>タグ</label>
+       ${renderHubTagEditor('memo-'+id, m.tags||[], autoSaveCall)}
+     </div>
+     <label class="hub-tab-panel-checkbox" style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);cursor:pointer">
+       <input type="checkbox" id="mh-pinned" ${m.pinned?'checked':''} style="width:14px;height:14px;cursor:pointer" onchange="${autoSaveCall}"> ピン留めする
+     </label>`,
+    link: `
+     ${seed ? `
+     <div style="padding:12px;background:var(--matcha-bg);border:1px solid var(--matcha-border);border-radius:var(--radius-sm);margin-bottom:12px">
+       <div style="font-size:12px;font-weight:700;color:var(--matcha);margin-bottom:4px"><i class="fas fa-seedling" style="margin-right:4px"></i>企画ラボのタネに紐づいています</div>
+       <div style="font-size:13px;color:var(--text-primary);margin-bottom:8px">${esc(seed.title || (seed.seedText||'').slice(0,30) || '無題のタネ')}</div>
+       <div style="display:flex;gap:6px">
+         <button class="btn btn-secondary btn-sm" onclick="navigateToPlanSeed('${seed.id}')"><i class="fas fa-arrow-right"></i> タネのダッシュボードへ</button>
+         <button class="btn btn-ghost btn-sm" onclick="memoUnlinkSeed('${id}')"><i class="fas fa-link-slash"></i> 紐づけを解除</button>
+       </div>
+     </div>` : `
+     <div class="hub-empty-mini">このメモはどのタネにも紐づいていません</div>
+     <div class="form-group" style="margin-top:10px">
+       <label class="form-label">企画ラボのタネに紐づける</label>
+       <select class="form-select" id="mh-link-seed">
+         <option value="">選択してください…</option>
+         ${PlanLabDB.getSeeds().map(s=>`<option value="${s.id}">${esc(s.title || (s.seedText||'').slice(0,30) || '無題のタネ')}</option>`).join('')}
+       </select>
+       <button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="memoLinkSeed('${id}')"><i class="fas fa-link"></i> 紐づける</button>
+     </div>`}`,
+  };
+  openModal(
+    `<i class="fas fa-note-sticky" style="color:var(--fuji)"></i> メモ詳細`,
+    renderHubTabs('memo-hub', [
+      { key:'edit', label:'編集', icon:'fa-pen' },
+      { key:'link', label:'タネと紐づけ', icon:'fa-seedling' },
+    ], panels),
+    `${renderHubAutoSaveIndicator(statusId)}
+     <button class="btn btn-secondary" onclick="closeMemoHub('${id}')">閉じる</button>
+     <button class="btn btn-danger" onclick="confirmDeleteMemo('${id}')"><i class="fas fa-trash"></i> 削除</button>`,
+    { size: 'modal-lg' }
+  );
+}
+// グループを変更したら、フォルダの選択肢もそのグループのものに切り替える（自動保存はそのまま維持）
+function memoHubGroupChanged(id) {
+  const groupSel = $('#mh-group');
+  const folderSel = $('#mh-folder');
+  if (!groupSel || !folderSel) return;
+  const groupId = groupSel.value;
+  const folders = groupId ? MemoFolderDB.getFolders(groupId) : MemoFolderDB.getFolders();
+  folderSel.innerHTML = `<option value="">未分類</option>` + folders.map(f=>`<option value="${f.id}">${esc(f.name)}</option>`).join('');
+}
+function persistMemoEdit(id) {
+  const m = MemoDB.get(id);
+  if (!m) return;
+  const bodyHtml = getHubRichValue('mh-body');
+  MemoDB.update(id, {
+    title: $('#mh-title')?.value?.trim() || '',
+    bodyHtml,
+    body: richHtmlToPlainText(bodyHtml),
+    groupId: $('#mh-group')?.value || '',
+    folderId: $('#mh-folder')?.value || '',
+    tags: getHubTags('memo-'+id),
+    pinned: !!document.getElementById('mh-pinned')?.checked,
+  });
+}
+function closeMemoHub(id) {
+  hubFlushAutoSave('memo-'+id, () => persistMemoEdit(id));
+  closeModal();
+  // タネダッシュボードから開いた場合はそのページに留まり、メモページ経由なら
+  // メモページに戻る（企画ラボのタネとの連携で「集約」しつつ導線を崩さない）
+  if (State.currentPage === 'planlab-seed') { State.currentTab['planlab-seed'] = 'memo'; navigate('planlab-seed'); }
+  else navigate('memo');
+}
+function memoLinkSeed(id) {
+  const seedId = $('#mh-link-seed')?.value;
+  if (!seedId) { toast('タネを選択してください', 'error'); return; }
+  MemoDB.update(id, { seedId });
+  toast('タネに紐づけました', 'success');
+  openMemoHub(id);
+}
+function memoUnlinkSeed(id) {
+  MemoDB.update(id, { seedId: null });
+  toast('紐づけを解除しました', 'info');
+  openMemoHub(id);
+}
+function confirmDeleteMemo(id) {
+  const m = MemoDB.get(id);
+  const label = m ? (m.title || (m.body||'').slice(0,30) || '無題') : 'このメモ';
+  confirmDeleteGeneric('メモを削除', `「<strong style="color:var(--text-primary)">${esc(label)}</strong>」を削除しますか？`, `deleteMemoConfirmed('${id}')`);
+}
+function deleteMemoConfirmed(id) {
+  MemoDB.delete(id);
+  closeModal();
+  toast('削除しました', 'info');
+  if (State.currentPage === 'planlab-seed') { State.currentTab['planlab-seed'] = 'memo'; navigate('planlab-seed'); }
+  else navigate('memo');
+}
+
+// ── グループ管理モーダル ──
+function openManageMemoGroupsModal() {
+  const render = () => {
+    const groups = MemoGroupDB.getGroups();
+    const rows = groups.length === 0
+      ? `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12.5px">グループがまだありません</div>`
+      : groups.map(g => `
+      <div class="folder-manage-row">
+        <div class="folder-manage-color" style="background:${g.color}" onclick="cycleMemoGroupColor('${g.id}')" title="色を変更"></div>
+        <input class="form-input" style="flex:1;font-size:12.5px;height:32px" value="${esc(g.name)}" onchange="MemoGroupDB.renameGroup('${g.id}',this.value);refreshMemoGroupManageModal()">
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDeleteMemoGroup('${g.id}')" title="削除"><i class="fas fa-trash" style="font-size:11px;color:var(--accent)"></i></button>
+      </div>`).join('');
+    return `
+    <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:10px">グループは大分類です。各グループの中に複数のフォルダを作れます。</div>
+    <div id="memo-group-manage-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;max-height:320px;overflow-y:auto">${rows}</div>
+    <div style="display:flex;gap:8px">
+      <input class="form-input" id="new-memo-group-name" placeholder="新しいグループ名…" style="flex:1" onkeydown="if(event.key==='Enter')addMemoGroupFromModal()">
+      <button class="btn btn-primary btn-sm" onclick="addMemoGroupFromModal()"><i class="fas fa-plus"></i> 作成</button>
+    </div>`;
+  };
+  openModal(
+    `<i class="fas fa-layer-group" style="color:var(--fuji)"></i> グループを管理`,
+    render(),
+    `<button class="btn btn-secondary" onclick="closeModal();navigate('memo')">閉じる</button>`
+  );
+  window._memoGroupManageRender = render;
+}
+function refreshMemoGroupManageModal() {
+  const body = document.querySelector('#modal-overlay .modal-body');
+  if (body && window._memoGroupManageRender) body.innerHTML = window._memoGroupManageRender();
+}
+function addMemoGroupFromModal() {
+  const input = document.getElementById('new-memo-group-name');
+  const name = input?.value?.trim();
+  if (!name) return;
+  MemoGroupDB.addGroup(name);
+  if (input) input.value = '';
+  refreshMemoGroupManageModal();
+  toast('グループを作成しました', 'success');
+}
+function cycleMemoGroupColor(id) {
+  const g = MemoGroupDB.getGroup(id);
+  if (!g) return;
+  const idx = MEMO_COLORS.indexOf(g.color);
+  MemoGroupDB.recolorGroup(id, MEMO_COLORS[(idx + 1 + MEMO_COLORS.length) % MEMO_COLORS.length]);
+  refreshMemoGroupManageModal();
+}
+function confirmDeleteMemoGroup(id) {
+  const g = MemoGroupDB.getGroup(id);
+  if (!g) return;
+  openModal(
+    `<i class="fas fa-trash" style="color:var(--red)"></i> グループを削除`,
+    `<p style="color:var(--text-secondary);font-size:14px">「<strong style="color:var(--text-primary)">${esc(g.name)}</strong>」を削除しますか？<br><small style="color:var(--text-muted)">グループ内のフォルダも削除されますが、メモ自体は削除されず「未分類」に戻ります。</small></p>`,
+    `<button class="btn btn-secondary" onclick="openManageMemoGroupsModal()">キャンセル</button>
+     <button class="btn btn-danger" onclick="doDeleteMemoGroup('${id}')"><i class="fas fa-trash"></i> 削除する</button>`
+  );
+}
+function doDeleteMemoGroup(id) {
+  MemoGroupDB.deleteGroup(id);
+  if (MemoDB.getActiveGroup() === id) MemoDB.setActiveGroup('');
+  toast('グループを削除しました', 'info');
+  openManageMemoGroupsModal();
+}
+
+// ── フォルダ管理モーダル（groupIdスコープ） ──
+function openManageMemoFoldersModal(groupId) {
+  const render = () => {
+    const folders = groupId ? MemoFolderDB.getFolders(groupId) : MemoFolderDB.getFolders();
+    const rows = folders.length === 0
+      ? `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12.5px">フォルダがまだありません</div>`
+      : folders.map(f => `
+      <div class="folder-manage-row">
+        <div class="folder-manage-color" style="background:${f.color}" onclick="cycleMemoFolderColor('${f.id}','${groupId}')" title="色を変更"></div>
+        <input class="form-input" style="flex:1;font-size:12.5px;height:32px" value="${esc(f.name)}" onchange="MemoFolderDB.renameFolder('${f.id}',this.value);refreshMemoFolderManageModal('${groupId}')">
+        <button class="btn btn-ghost btn-icon btn-sm" onclick="confirmDeleteMemoFolder('${f.id}','${groupId}')" title="削除"><i class="fas fa-trash" style="font-size:11px;color:var(--accent)"></i></button>
+      </div>`).join('');
+    return `
+    <div style="font-size:11.5px;color:var(--text-muted);margin-bottom:10px">${groupId ? `「${esc(MemoGroupDB.getGroup(groupId)?.name||'')}」グループ内のフォルダです。` : 'どのグループにも属さないフォルダです。'}</div>
+    <div id="memo-folder-manage-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px;max-height:320px;overflow-y:auto">${rows}</div>
+    <div style="display:flex;gap:8px">
+      <input class="form-input" id="new-memo-folder-name" placeholder="新しいフォルダ名…" style="flex:1" onkeydown="if(event.key==='Enter')addMemoFolderFromModal('${groupId}')">
+      <button class="btn btn-primary btn-sm" onclick="addMemoFolderFromModal('${groupId}')"><i class="fas fa-plus"></i> 作成</button>
+    </div>`;
+  };
+  openModal(
+    `<i class="fas fa-folder-gear" style="color:var(--fuji)"></i> フォルダを管理`,
+    render(),
+    `<button class="btn btn-secondary" onclick="closeModal();navigate('memo')">閉じる</button>`
+  );
+  window._memoFolderManageRender = render;
+}
+function refreshMemoFolderManageModal(groupId) {
+  const body = document.querySelector('#modal-overlay .modal-body');
+  if (body && window._memoFolderManageRender) body.innerHTML = window._memoFolderManageRender();
+}
+function addMemoFolderFromModal(groupId) {
+  const input = document.getElementById('new-memo-folder-name');
+  const name = input?.value?.trim();
+  if (!name) return;
+  MemoFolderDB.addFolder(groupId, name);
+  if (input) input.value = '';
+  refreshMemoFolderManageModal(groupId);
+  toast('フォルダを作成しました', 'success');
+}
+function cycleMemoFolderColor(id, groupId) {
+  const f = MemoFolderDB.getFolder(id);
+  if (!f) return;
+  const idx = MEMO_COLORS.indexOf(f.color);
+  MemoFolderDB.recolorFolder(id, MEMO_COLORS[(idx + 1 + MEMO_COLORS.length) % MEMO_COLORS.length]);
+  refreshMemoFolderManageModal(groupId);
+}
+function confirmDeleteMemoFolder(id, groupId) {
+  const f = MemoFolderDB.getFolder(id);
+  if (!f) return;
+  openModal(
+    `<i class="fas fa-trash" style="color:var(--red)"></i> フォルダを削除`,
+    `<p style="color:var(--text-secondary);font-size:14px">「<strong style="color:var(--text-primary)">${esc(f.name)}</strong>」を削除しますか？<br><small style="color:var(--text-muted)">フォルダ内のメモは削除されず「未分類」に戻ります。</small></p>`,
+    `<button class="btn btn-secondary" onclick="openManageMemoFoldersModal('${groupId}')">キャンセル</button>
+     <button class="btn btn-danger" onclick="doDeleteMemoFolder('${id}','${groupId}')"><i class="fas fa-trash"></i> 削除する</button>`
+  );
+}
+function doDeleteMemoFolder(id, groupId) {
+  MemoFolderDB.deleteFolder(id);
+  if (MemoDB.getActiveFolder() === id) MemoDB.setActiveFolder('');
+  toast('フォルダを削除しました', 'info');
+  openManageMemoFoldersModal(groupId);
+}
+
+// ── モバイルナビ「メモ」：新設のメモページへ直接遷移 ──
+function goToMemoPage() {
+  haptic('light');
+  if (window.innerWidth <= 900) closeSidebar();
+  navigate('memo');
 }
 
 // Start
