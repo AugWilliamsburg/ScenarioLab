@@ -11921,6 +11921,65 @@ body.modal-open-lock {
 }
 
 /* ================================================================
+   モバイル専用「戻るボタン中心」ヘッダー（階層ページのみ）
+   ボトムナビの5大タブ（ルート画面）ではハンバーガー+ロゴのままだが、
+   その配下の階層ページ（学習センター・ツール・書斎・企画ラボ・
+   名前辞典・世界観設計・設定・企画ラボのタネダッシュボード等）では
+   「戻る矢印＋現在地タイトルのみ」というネイティブアプリの標準的な
+   階層ナビゲーションヘッダーに切り替える。
+   PC版・ルート画面ではrenderLayout側でtopbar-mobile-back-modeクラスが
+   付与されないため、.topbar-mobile-backは常にdisplay:noneのまま無害。
+   ================================================================ */
+.topbar-mobile-back { display: none; }
+@media (max-width: 900px) {
+  .topbar.topbar-mobile-back-mode .topbar-mobile-back {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+  }
+  /* 戻るヘッダー表示中は、ハンバーガー+ロゴ+アイコン付きタイトルという
+     従来のトップバー構成を隠し、情報の重複・過多を避ける */
+  .topbar.topbar-mobile-back-mode .sidebar-toggle-btn,
+  .topbar.topbar-mobile-back-mode .topbar-logo-link,
+  .topbar.topbar-mobile-back-mode .topbar-page-info,
+  .topbar.topbar-mobile-back-mode .topbar-divider {
+    display: none !important;
+  }
+  .topbar-mobile-back-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 17px;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    -webkit-tap-highlight-color: transparent;
+  }
+  .topbar-mobile-back-btn:active {
+    background: var(--bg-hover);
+    transform: scale(0.92);
+    transition: transform .08s;
+  }
+  .topbar-mobile-back-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-primary);
+    font-family: 'Noto Serif JP', serif;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+}
+
+/* ================================================================
    ページ遷移アニメーション（モバイル専用）
    render()によるinnerHTML差し替え時、新しいページ本体がふわっと
    フェードインすることで、PCサイトのような「ページが切り替わった」

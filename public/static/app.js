@@ -1586,6 +1586,21 @@ function renderLayout(content, proj = null) {
   const cpKey = TOPBAR_PAGES[cp] ? cp : (cp && cp.startsWith('article-') ? 'learn' : (cp && cp.startsWith('study-') ? 'study' : null));
   const tbData = cpKey ? TOPBAR_PAGES[cpKey] : null;
 
+  // ── モバイル専用「戻るボタン中心」トップバー ──────────────────
+  // ボトムナビの5大タブ（ホーム/創作/タスク/メモ/学ぶ）は階層の「根」なので
+  // 戻るボタンを出さずロゴ的表示のまま。それ以外のページ（学習センター配下・
+  // ツール・テンプレート・書斎・企画ラボ・名前辞典・世界観設計・設定等）は
+  // 「今どこの下にいるか」が一目で分かるよう、ハンバーガー+ロゴ+アイコン付き
+  // タイトルという情報過多な構成から、戻る矢印＋現在ページ名だけのシンプルな
+  // 階層型ヘッダーに切り替える（作品ワークスペース(proj)は保存ボタン等
+  // 専用UIが別にあるため対象外＝今回のスコープ外）。
+  const MOBILE_ROOT_PAGES = new Set(['top', 'creative-hub', 'learn-hub', 'tasks', 'memo']);
+  const isMobileRootPage = MOBILE_ROOT_PAGES.has(cp);
+  const showMobileBackHeader = !proj && !isMobileRootPage && (cp === 'planlab-seed' || (tbData && cp !== 'top'));
+  const mobileBackTitle = cp === 'planlab-seed'
+    ? esc((PlanLabDB.getSeed(State.currentSeedId) || {}).title || 'タネのダッシュボード')
+    : (tbData ? esc(tbData.title) : '');
+
   // ── サイドバー折り畳み状態 ── デフォルトは閉じた状態
   const sidebarCollapsed = DB.get('sidebar_collapsed', true);
 
@@ -1796,7 +1811,15 @@ function renderLayout(content, proj = null) {
     </nav>
 
     <div class="main-content">
-      <div class="topbar">
+      <div class="topbar ${showMobileBackHeader ? 'topbar-mobile-back-mode' : ''}">
+        <!-- モバイル専用「戻る」ヘッダー（900px以下・階層ページのみ表示。
+             PC・ルートページではCSS側で常時display:noneのまま無害） -->
+        <div class="topbar-mobile-back">
+          <button class="topbar-mobile-back-btn" onclick="mobileGoBack()" title="戻る" aria-label="前の画面へ戻る">
+            <i class="fas fa-chevron-left"></i>
+          </button>
+          <div class="topbar-mobile-back-title">${mobileBackTitle}</div>
+        </div>
         ${topbarContent}
         <!-- オフライン状態インジケーター（オンライン時は非表示）。
              データはlocalStorageのため保存自体は継続できるが、通信を
