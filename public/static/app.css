@@ -11692,6 +11692,99 @@ body.modal-open-lock {
 }
 
 /* ================================================================
+   モバイル版 大幅構造改革 第4弾：ホーム(top)ページの独自レイアウト
+   PC版は「本文＋固定px幅の補足カラム」を縦積みにしただけの構成
+   （＝優先度もメリハリもない単純な1カラム化）だったが、モバイルでは
+   「一目で今日やることが分かる」情報設計に組み替える：
+   ①クイックアクションは横スクロールのピル型カルーセルにして
+     画面の縦スペースを圧迫しないようにする（PCの折り返しグリッドは廃止）
+   ②今日の執筆進捗の数字をより大きく強調し、アプリのダッシュボード
+     ウィジェットらしいヒーロー感を出す
+   ③7日間スケジュールは横並びの窮屈な1行表示をやめ、日付ごとの
+     縦長カードを横スクロールで並べるストリップに変える
+   ④プロジェクト行・タスク行はタップ領域とカード感（影）を強化
+   ================================================================ */
+@media (max-width: 900px) {
+  /* ① クイックアクション：横スクロールピルカルーセル化 */
+  .top-quick-actions {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+    padding-bottom: 2px;
+    margin: 0 -2px 14px;
+    padding-left: 2px;
+    padding-right: 2px;
+    /* スクロールバーは視覚ノイズになるため隠す（操作性は維持） */
+    scrollbar-width: none;
+  }
+  .top-quick-actions::-webkit-scrollbar { display: none; }
+  .top-qa-btn {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+
+  /* ② 今日の執筆進捗ウィジェットをヒーロー的に強調 */
+  .top-wp-count { font-size: 34px; }
+  .top-wp-goal, .top-wp-sep { font-size: 13px; }
+  .top-progress-bar { height: 10px; }
+
+  /* ③ 7日間スケジュール：横スクロールの日別カードストリップ化 */
+  .top-week-schedule {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 8px;
+    margin: 0 -2px;
+    padding: 2px 2px 4px;
+    scrollbar-width: none;
+  }
+  .top-week-schedule::-webkit-scrollbar { display: none; }
+  .top-week-row {
+    flex-direction: column;
+    align-items: stretch;
+    flex-shrink: 0;
+    width: 108px;
+    min-height: 92px;
+    padding: 10px 8px;
+    border: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--bg-hover);
+    gap: 6px;
+  }
+  .top-week-row.today {
+    border: 1px solid var(--accent-border);
+    border-bottom: 1px solid var(--accent-border);
+  }
+  .top-week-date {
+    width: auto;
+    text-align: left;
+    font-size: 12px;
+  }
+  .top-week-tasks { flex-direction: column; align-items: stretch; }
+  .top-week-task-chip {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+  }
+
+  /* ④ プロジェクト行・タスク行：タップ領域とカード感を強化 */
+  .top-project-row, .top-task-item {
+    min-height: 52px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  }
+  .top-project-row:active, .top-task-item:active {
+    transform: scale(0.98);
+    transition: transform .08s;
+  }
+}
+
+/* ================================================================
    モバイル専用「メニューハブ」ページ
    ================================================================ */
 .menu-hub-page { display: flex; flex-direction: column; gap: 18px; padding-bottom: 8px; }
