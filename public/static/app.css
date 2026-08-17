@@ -11934,6 +11934,24 @@ body.modal-open-lock {
     from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
   }
+  /* ネイティブアプリのスタックナビゲーション風スライド遷移。
+     navigate()が記録した進行方向(data-nav-dir)に応じて、
+     「進む」時は右から、「戻る」時は左から新しい画面がスライドインする。
+     mobilePageInより詳細度・ソース順ともに後にあるため優先適用される。 */
+  #page-content[data-nav-dir="forward"] {
+    animation: mobilePageSlideInFromRight .26s cubic-bezier(0.22,0.61,0.36,1) both;
+  }
+  #page-content[data-nav-dir="back"] {
+    animation: mobilePageSlideInFromLeft .26s cubic-bezier(0.22,0.61,0.36,1) both;
+  }
+  @keyframes mobilePageSlideInFromRight {
+    from { opacity: 0; transform: translateX(28px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  @keyframes mobilePageSlideInFromLeft {
+    from { opacity: 0; transform: translateX(-28px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
   /* メニューハブのカード自体もわずかに遅延させて連続的に浮き上がらせる
      （nth-childで各カードの開始タイミングをずらし、段階的に現れる演出） */
   .menu-hub-card {

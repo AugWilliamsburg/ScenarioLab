@@ -1079,7 +1079,13 @@ const FORMATS = ['テレビドラマ（連続）','テレビドラマ（単発�
 // popstate経由（ブラウザ/Androidの「戻る」）で呼ばれた場合はtrueにし、
 // history.pushStateの再発行を抑止するためのフラグ
 let _isPopStateNav = false;
+// モバイル専用：直近のページ遷移が「進む(forward)」か「戻る(back)」かを
+// 記録し、renderLayout側で#page-contentに適用するアニメーション方向を
+// 切り替えるために使う（ネイティブアプリのスタックナビゲーションのように、
+// 進む時は右から・戻る時は左から新しい画面がスライドインする）
+let _navDirection = 'forward';
 function navigate(page, projectId = null) {
+  _navDirection = _isPopStateNav ? 'back' : 'forward';
   State.currentPage = page;
   if (projectId) State.currentProjectId = projectId;
   // 企画ラボの「タネ」専用ダッシュボードページ以外へ移動する場合は、
@@ -1102,6 +1108,12 @@ function navigate(page, projectId = null) {
     try { history.pushState({ slPage: page, slProjectId: State.currentProjectId, slSeedId: State.currentSeedId }, '', location.href); } catch (e) {}
   }
   _isPopStateNav = false;
+}
+// モバイル専用トップバーの「戻る」ボタン用：履歴を1つ戻る。
+// popstateハンドラが実際のページ遷移・アニメーション方向(back)を処理する。
+function mobileGoBack() {
+  haptic('light');
+  history.back();
 }
 
 // ── 企画ラボ：タネ専用ダッシュボードページへの遷移 ──────────────
@@ -1859,7 +1871,7 @@ function renderLayout(content, proj = null) {
           </div>
         </div>
       </div>
-      <div class="page-content" id="page-content">${content}</div>
+      <div class="page-content" id="page-content" data-nav-dir="${_navDirection}">${content}</div>
     </div>
   </div>
 
