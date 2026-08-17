@@ -1457,6 +1457,12 @@ function render() {
     return;
   }
 
+  // モバイル専用「創作ハブ」（ボトムナビ「創作」— 書斎/企画ラボ/ボード/学習/ツール/テンプレート集約）
+  if (p === 'creative-hub') {
+    app.innerHTML = renderLayout(renderCreativeHubPage());
+    return;
+  }
+
   if (p === 'dashboard' || p === 'top' || !State.currentProjectId) {
     if (p === 'top') {
       app.innerHTML = renderLayout(renderTopPage());
@@ -1513,7 +1519,10 @@ function renderLayout(content, proj = null) {
   const isBoardPage = cp === 'board' || cp === 'storymap';
   const isTasksPage = cp === 'tasks';
   const isStorymapPage = cp === 'storymap';
-  const isSpecialPage = isLearnPage || isToolsPage || isTemplatesPage || isStudyPage || isSettingsPage || isJournalPage || isNameDictPage || isWorldPage || isInspirationPage || isMemoPage || isBoardPage || isTasksPage || isStorymapPage;
+  const isCreativeHubPage = cp === 'creative-hub';
+  // モバイルボトムナビ「創作」がactiveになる範囲：書斎・企画ラボ・ボード・学習・ツール・テンプレート・創作ハブ自体
+  const isCreativeNavActive = isCreativeHubPage || isStudyPage || isPlanLabPage || isBoardPage || isLearnPage || isToolsPage || isTemplatesPage;
+  const isSpecialPage = isLearnPage || isToolsPage || isTemplatesPage || isStudyPage || isSettingsPage || isJournalPage || isNameDictPage || isWorldPage || isInspirationPage || isMemoPage || isBoardPage || isTasksPage || isStorymapPage || isCreativeHubPage;
 
   const projectFooter = proj ? `
     <div class="sidebar-footer">
@@ -1554,6 +1563,7 @@ function renderLayout(content, proj = null) {
     tasks:            { icon:'fa-calendar-check',   color:'var(--matcha)', title:'タスク管理',        sub:'執筆タスク・スケジュール・習慣管理' },
     storymap:         { icon:'fa-film',              color:'var(--fuji)',   title:'ストーリーボード',  sub:'カンバンボード＆シーンマップで物語を視覚設計' },
     'menu-hub':       { icon:'fa-grip',         color:'var(--kogane)', title:'メニュー',           sub:'全機能をここから' },
+    'creative-hub':   { icon:'fa-feather-pointed', color:'var(--fuji)', title:'創作',           sub:'書斎・企画ラボ・ツールを一箇所から' },
   };
   const cpKey = TOPBAR_PAGES[cp] ? cp : (cp && cp.startsWith('article-') ? 'learn' : (cp && cp.startsWith('study-') ? 'study' : null));
   const tbData = cpKey ? TOPBAR_PAGES[cpKey] : null;
@@ -1851,8 +1861,8 @@ function renderLayout(content, proj = null) {
     <button class="mbn-item ${cp==='top'?'active':''}" onclick="mobileNavGo('top')">
       <i class="fas fa-house"></i><span>ホーム</span>
     </button>
-    <button class="mbn-item ${isStudyPage?'active':''}" onclick="mobileNavGo('study')">
-      <i class="fas fa-feather-pointed"></i><span>書斎</span>
+    <button class="mbn-item ${isCreativeNavActive?'active':''}" onclick="mobileNavGo('creative-hub')">
+      <i class="fas fa-feather-pointed"></i><span>創作</span>
     </button>
     <button class="mbn-item ${isTasksPage?'active':''}" onclick="mobileNavGo('tasks')">
       <i class="fas fa-calendar-check"></i><span>タスク</span>${dueBadge ? '<span class="mbn-dot"></span>' : ''}
@@ -1987,30 +1997,18 @@ const WRITING_QUOTES = [
 // ================================================================
 function renderMenuHubPage() {
   const proj = State.currentProjectId ? DB.getProject(State.currentProjectId) : null;
-  const tasks = TASK_DB.getTasks();
-  const dueCount = tasks.filter(t => !t.done && t.dueDate && t.dueDate <= new Date().toISOString().slice(0,10)).length;
 
+  // ── メニューハブの再編方針 ──────────────────────────────────
+  // モバイルボトムナビは「ホーム/創作/タスク/メモ/メニュー」の5つに集約。
+  // 「創作」系（書斎・企画ラボ・ボード・学習・ツール・テンプレート）は
+  // 専用の創作ハブ（creative-hub）に移設したため、ここでは重複させず、
+  // 残りのページを「概要・記録」「設計・資料」「アプリ設定」の3カテゴリに整理する。
   const groups = [
     {
-      label: 'メインメニュー', icon: 'fa-house', color: '#f7d07a',
+      label: '概要・記録', icon: 'fa-gauge-high', color: '#f5d9c8',
       items: [
-        { page: 'top', icon: 'fa-sun', color: '#f7d07a', label: 'ホーム', desc: '今日の執筆・進捗' },
         { page: 'dashboard', icon: 'fa-gauge-high', color: '#f5d9c8', label: 'ダッシュボード', desc: '作品一覧・管理' },
         { page: 'journal', icon: 'fa-book', color: '#7de08a', label: '執筆日誌', desc: '毎日の記録' },
-        { page: 'inspiration', icon: 'fa-bolt', color: '#f7d07a', label: 'インスピレーション', desc: 'メモ・アイデア' },
-        { page: 'board', icon: 'fa-film', color: '#bbb4ff', label: 'ストーリーボード', desc: 'カンバン・シーンマップ' },
-        { page: 'tasks', icon: 'fa-calendar-check', color: '#7de08a', label: 'タスク管理', desc: 'やること・締切', badge: dueCount>0?dueCount:null },
-      ]
-    },
-    {
-      label: '執筆サポート', icon: 'fa-pen-nib', color: '#c0b8ff',
-      items: [
-        { page: 'learn', icon: 'fa-graduation-cap', color: '#c0b8ff', label: '学習センター', desc: '理論・記事・練習' },
-        { page: 'study', icon: 'fa-feather-pointed', color: '#e0a8ff', label: '書斎', desc: '自由執筆スペース' },
-        { page: 'planlab', icon: 'fa-seedling', color: '#8ed6a0', label: '企画ラボ', desc: '着想から企画書まで育てる' },
-        { page: 'memo', icon: 'fa-note-sticky', color: '#b8a8f0', label: 'メモ', desc: 'グループ・フォルダで整理' },
-        { page: 'tools', icon: 'fa-toolbox', color: '#6ddede', label: 'ツール', desc: '執筆支援ツール集' },
-        { page: 'templates', icon: 'fa-copy', color: '#f7d07a', label: 'テンプレート', desc: 'すぐ使える書式' },
       ]
     },
     {
@@ -2018,6 +2016,11 @@ function renderMenuHubPage() {
       items: [
         { page: 'namedict', icon: 'fa-spell-check', color: '#90c8f8', label: '名前辞典', desc: '登場人物の名前管理' },
         { page: 'worldbuilding', icon: 'fa-globe', color: '#6ddede', label: '世界観設計', desc: '舞台・設定を構築' },
+      ]
+    },
+    {
+      label: 'アプリ設定', icon: 'fa-gear', color: '#d8cec4',
+      items: [
         { page: 'settings', icon: 'fa-gear', color: '#d8cec4', label: '設定', desc: 'アプリの設定' },
       ]
     }
@@ -2052,6 +2055,62 @@ function renderMenuHubPage() {
     <button class="btn btn-primary menu-hub-new-btn" onclick="openNewProjectModal()">
       <i class="fas fa-plus"></i> 新規作品を作成
     </button>
+  </div>`;
+}
+
+// ================================================================
+//  モバイル専用「創作ハブ」— ボトムナビ「創作」から遷移する集約ページ。
+//  書斎・企画ラボ・ストーリーボード・学習センター・ツール・テンプレートなど
+//  「実際に書く・組み立てる」系のページをひとつのカテゴリにまとめ、
+//  以前は「メニュー」に埋もれていたこれらのページへワンタップで到達できるようにする。
+//  既存の .menu-hub-* CSSクラスをそのまま再利用（PC版はこのページに来ない設計）。
+// ================================================================
+function renderCreativeHubPage() {
+  const proj = State.currentProjectId ? DB.getProject(State.currentProjectId) : null;
+
+  const groups = [
+    {
+      label: '書く', icon: 'fa-feather-pointed', color: '#e0a8ff',
+      items: [
+        { page: 'study', icon: 'fa-feather-pointed', color: '#e0a8ff', label: '書斎', desc: '自由執筆スペース' },
+        { page: 'planlab', icon: 'fa-seedling', color: '#8ed6a0', label: '企画ラボ', desc: '着想から企画書まで育てる' },
+        { page: 'board', icon: 'fa-film', color: '#bbb4ff', label: 'ストーリーボード', desc: 'カンバン・シーンマップ' },
+      ]
+    },
+    {
+      label: '学ぶ・支援ツール', icon: 'fa-toolbox', color: '#6ddede',
+      items: [
+        { page: 'learn', icon: 'fa-graduation-cap', color: '#c0b8ff', label: '学習センター', desc: '理論・記事・練習' },
+        { page: 'tools', icon: 'fa-toolbox', color: '#6ddede', label: 'ツール', desc: '執筆支援ツール集' },
+        { page: 'templates', icon: 'fa-copy', color: '#f7d07a', label: 'テンプレート', desc: 'すぐ使える書式' },
+      ]
+    }
+  ];
+
+  return `
+  <div class="menu-hub-page">
+    ${proj ? `
+    <div class="menu-hub-proj-card hub-clickable-card" onclick="navigate('proj-dash','${proj.id}')">
+      <div class="menu-hub-proj-icon"><i class="fas fa-film"></i></div>
+      <div class="menu-hub-proj-body">
+        <div class="menu-hub-proj-title">${esc(proj.title)}</div>
+        <div class="menu-hub-proj-phase">現在の作品 — ${esc(proj.phase)}</div>
+      </div>
+      <i class="fas fa-chevron-right" style="color:var(--text-muted)"></i>
+    </div>` : ''}
+
+    ${groups.map(g => `
+    <div class="menu-hub-group">
+      <div class="menu-hub-group-label"><i class="fas ${g.icon}" style="color:${g.color}"></i> ${g.label}</div>
+      <div class="menu-hub-grid">
+        ${g.items.map(it => `
+        <button class="menu-hub-card hub-clickable-card" onclick="navigate('${it.page}')">
+          <div class="menu-hub-card-icon" style="color:${it.color}"><i class="fas ${it.icon}"></i></div>
+          <div class="menu-hub-card-label">${it.label}</div>
+          <div class="menu-hub-card-desc">${it.desc}</div>
+        </button>`).join('')}
+      </div>
+    </div>`).join('')}
   </div>`;
 }
 
@@ -43967,6 +44026,17 @@ function renderMemoPage() {
       <i class="fas fa-note-sticky" style="color:var(--fuji);margin-right:8px"></i>メモ
     </div>
     <div style="font-size:13px;color:var(--text-muted);margin-top:4px">グループ・フォルダ・タグで整理する、いつでも使える万能メモ帳</div>
+  </div>
+
+  <!-- 関連ページへの導線：モバイルではメモ内で完結せず「インスピレーション・ライブラリ」の
+       ランダム生成・マインドマップ等もすぐ辿れるように（メニュー階層に埋もれさせない） -->
+  <div class="memo-related-links">
+    <button class="memo-related-link-btn" onclick="navigate('inspiration')">
+      <i class="fas fa-bolt" style="color:var(--kogane)"></i><span>インスピレーション・ライブラリ</span><i class="fas fa-chevron-right" style="font-size:9px;color:var(--text-muted);margin-left:auto"></i>
+    </button>
+    <button class="memo-related-link-btn" onclick="navigate('planlab')">
+      <i class="fas fa-seedling" style="color:var(--matcha)"></i><span>企画ラボ（タネを育てる）</span><i class="fas fa-chevron-right" style="font-size:9px;color:var(--text-muted);margin-left:auto"></i>
+    </button>
   </div>
 
   <div class="memo-page-layout">
