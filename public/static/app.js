@@ -1451,13 +1451,13 @@ function render() {
     return;
   }
 
-  // モバイル専用メニューハブ（ハンバーガー/サイドバーの代替）
-  if (p === 'menu-hub') {
-    app.innerHTML = renderLayout(renderMenuHubPage());
+  // モバイル専用「学ぶホーム」（ハンバーガー/サイドバーの代替。旧メニューハブ）
+  if (p === 'learn-hub') {
+    app.innerHTML = renderLayout(renderLearnHubPage());
     return;
   }
 
-  // モバイル専用「創作ハブ」（ボトムナビ「創作」— 書斎/企画ラボ/ボード/学習/ツール/テンプレート集約）
+  // モバイル専用「創作ホーム」（ボトムナビ「創作」— ダッシュボード/日誌/書斎/企画ラボ/ボード/ツール/テンプレート集約）
   if (p === 'creative-hub') {
     app.innerHTML = renderLayout(renderCreativeHubPage());
     return;
@@ -1520,9 +1520,15 @@ function renderLayout(content, proj = null) {
   const isTasksPage = cp === 'tasks';
   const isStorymapPage = cp === 'storymap';
   const isCreativeHubPage = cp === 'creative-hub';
-  // モバイルボトムナビ「創作」がactiveになる範囲：書斎・企画ラボ・ボード・学習・ツール・テンプレート・創作ハブ自体
-  const isCreativeNavActive = isCreativeHubPage || isStudyPage || isPlanLabPage || isBoardPage || isLearnPage || isToolsPage || isTemplatesPage;
-  const isSpecialPage = isLearnPage || isToolsPage || isTemplatesPage || isStudyPage || isSettingsPage || isJournalPage || isNameDictPage || isWorldPage || isInspirationPage || isMemoPage || isBoardPage || isTasksPage || isStorymapPage || isCreativeHubPage;
+  const isLearnHubPage = cp === 'learn-hub';
+  const isDashboardMainPage = !proj && cp === 'dashboard';
+  // モバイル「創作」カテゴリ（ホーム＋ダッシュボード・日誌・書斎・企画ラボ・ボード・ツール・テンプレート）
+  const isCreativeNavActive = isCreativeHubPage || isDashboardMainPage || isJournalPage || isStudyPage || isPlanLabPage || isBoardPage || isToolsPage || isTemplatesPage;
+  // モバイル「学ぶ」カテゴリ（ホーム＋学習センター・名前辞典・世界観設計・設定）
+  const isLearnNavActive = isLearnHubPage || isLearnPage || isNameDictPage || isWorldPage || isSettingsPage;
+  // 現在ページが属するカテゴリキー（画面上部スイッチバー表示の判定に使用。モバイルのみ）
+  const activeCatKey = isCreativeNavActive ? 'creative' : (isLearnNavActive ? 'learn' : null);
+  const isSpecialPage = isLearnPage || isToolsPage || isTemplatesPage || isStudyPage || isSettingsPage || isJournalPage || isNameDictPage || isWorldPage || isInspirationPage || isMemoPage || isBoardPage || isTasksPage || isStorymapPage || isCreativeHubPage || isLearnHubPage;
 
   const projectFooter = proj ? `
     <div class="sidebar-footer">
@@ -1562,8 +1568,8 @@ function renderLayout(content, proj = null) {
     board:            { icon:'fa-film',              color:'var(--fuji)',   title:'ストーリーボード',  sub:'カンバンボード＆シーンマップで物語を視覚設計' },
     tasks:            { icon:'fa-calendar-check',   color:'var(--matcha)', title:'タスク管理',        sub:'執筆タスク・スケジュール・習慣管理' },
     storymap:         { icon:'fa-film',              color:'var(--fuji)',   title:'ストーリーボード',  sub:'カンバンボード＆シーンマップで物語を視覚設計' },
-    'menu-hub':       { icon:'fa-grip',         color:'var(--kogane)', title:'メニュー',           sub:'全機能をここから' },
-    'creative-hub':   { icon:'fa-feather-pointed', color:'var(--fuji)', title:'創作',           sub:'書斎・企画ラボ・ツールを一箇所から' },
+    'learn-hub':      { icon:'fa-book-open',    color:'var(--fuji)', title:'学ぶホーム',        sub:'学習センター・名前辞典・世界観設計・設定' },
+    'creative-hub':   { icon:'fa-feather-pointed', color:'var(--fuji)', title:'創作ホーム',      sub:'ダッシュボード・書斎・企画ラボ・ツールを一箇所から' },
   };
   const cpKey = TOPBAR_PAGES[cp] ? cp : (cp && cp.startsWith('article-') ? 'learn' : (cp && cp.startsWith('study-') ? 'study' : null));
   const tbData = cpKey ? TOPBAR_PAGES[cpKey] : null;
@@ -1798,6 +1804,7 @@ function renderLayout(content, proj = null) {
       </div>
 
       ${phaseBar}
+      ${activeCatKey ? renderCategorySwitchBarHtml(activeCatKey, cp) : ''}
 
       <!-- タイマーポップアップ（fixed, topbar直下の右端） -->
       <div class="timer-popup" id="timer-popup" style="display:none">
@@ -1870,8 +1877,8 @@ function renderLayout(content, proj = null) {
     <button class="mbn-item ${isMemoPage?'active':''}" onclick="goToMemoPage()">
       <i class="fas fa-note-sticky"></i><span>メモ</span>
     </button>
-    <button class="mbn-item ${cp==='menu-hub'?'active':''}" id="mbn-menu-btn" onclick="mobileNavGo('menu-hub')">
-      <i class="fas fa-grip"></i><span>メニュー</span>
+    <button class="mbn-item ${isLearnNavActive?'active':''}" id="mbn-menu-btn" onclick="mobileNavGo('learn-hub')">
+      <i class="fas fa-book-open"></i><span>学ぶ</span>
     </button>
   </nav>
   <div id="toast-container" class="toast-container"></div>
@@ -1891,12 +1898,12 @@ function mobileNavGo(page, arg) {
 
 // ── サイドバートグル ────────────────────────────────────────────
 // モバイル（900px以下）ではオフキャンバスサイドバー自体を解体し、
-// 同じボタンから新設「メニューハブ」ページへ直接遷移する
-// （PC版はハンバーガーでサイドバー開閉、モバイル版はメニューハブへの
+// 同じボタンから「学ぶホーム」ページへ直接遷移する
+// （PC版はハンバーガーでサイドバー開閉、モバイル版は学ぶホームへの
 //  ワンタップ遷移——という、それぞれに適した独立ナビゲーションにする）
 function toggleSidebar() {
   if (window.innerWidth <= 900) {
-    navigate('menu-hub');
+    navigate('learn-hub');
     return;
   }
   const app = document.querySelector('.app-layout');
@@ -1991,126 +1998,204 @@ const WRITING_QUOTES = [
 ];
 
 // ================================================================
-//  モバイル専用「メニューハブ」— ハンバーガー/サイドバーに代わる
-//  PC版とは独立したモバイルUX。ボトムナビ「メニュー」から遷移し、
-//  全機能をアプリのホーム画面のようにカード一覧で提示する。
+//  モバイル専用「カテゴリホーム」共通基盤
+//  ── ボトムナビの「創作」「学ぶ」から遷移する、それぞれ独自の
+//     ホーム画面。単なるメニュー一覧ではなく、①簡易サマリー
+//     （進捗・最近の活動）＋②画面上部の「カテゴリ切替スイッチ」
+//     （カチッと押すとカテゴリ内の各ページへ即座に切り替わる
+//     セグメントコントロール）を備える。スイッチバーは
+//     renderLayout側でカテゴリに属するどのページを開いていても
+//     常時表示され、ホームに戻らずとも他ページへワンタップ移動できる。
 // ================================================================
-function renderMenuHubPage() {
-  const proj = State.currentProjectId ? DB.getProject(State.currentProjectId) : null;
+const CATEGORY_HUBS = {
+  creative: {
+    homeKey: 'creative-hub',
+    label: '創作',
+    items: [
+      { key: 'creative-hub',  icon: 'fa-house',            label: 'ホーム' },
+      { key: 'dashboard',     icon: 'fa-gauge-high',       label: 'ダッシュボード' },
+      { key: 'journal',       icon: 'fa-book',             label: '執筆日誌' },
+      { key: 'study',         icon: 'fa-feather-pointed',  label: '書斎' },
+      { key: 'planlab',       icon: 'fa-seedling',         label: '企画ラボ' },
+      { key: 'board',         icon: 'fa-film',             label: 'ボード' },
+      { key: 'tools',         icon: 'fa-toolbox',          label: 'ツール' },
+      { key: 'templates',     icon: 'fa-copy',             label: 'テンプレ' },
+    ]
+  },
+  learn: {
+    homeKey: 'learn-hub',
+    label: '学ぶ',
+    items: [
+      { key: 'learn-hub',     icon: 'fa-house',            label: 'ホーム' },
+      { key: 'learn',         icon: 'fa-graduation-cap',   label: '学習センター' },
+      { key: 'namedict',      icon: 'fa-spell-check',      label: '名前辞典' },
+      { key: 'worldbuilding', icon: 'fa-globe',            label: '世界観設計' },
+      { key: 'settings',      icon: 'fa-gear',             label: '設定' },
+    ]
+  }
+};
 
-  // ── メニューハブの再編方針 ──────────────────────────────────
-  // モバイルボトムナビは「ホーム/創作/タスク/メモ/メニュー」の5つに集約。
-  // 「創作」系（書斎・企画ラボ・ボード・学習・ツール・テンプレート）は
-  // 専用の創作ハブ（creative-hub）に移設したため、ここでは重複させず、
-  // 残りのページを「概要・記録」「設計・資料」「アプリ設定」の3カテゴリに整理する。
-  const groups = [
-    {
-      label: '概要・記録', icon: 'fa-gauge-high', color: '#f5d9c8',
-      items: [
-        { page: 'dashboard', icon: 'fa-gauge-high', color: '#f5d9c8', label: 'ダッシュボード', desc: '作品一覧・管理' },
-        { page: 'journal', icon: 'fa-book', color: '#7de08a', label: '執筆日誌', desc: '毎日の記録' },
-      ]
-    },
-    {
-      label: '設計・資料', icon: 'fa-folder', color: '#d8cec4',
-      items: [
-        { page: 'namedict', icon: 'fa-spell-check', color: '#90c8f8', label: '名前辞典', desc: '登場人物の名前管理' },
-        { page: 'worldbuilding', icon: 'fa-globe', color: '#6ddede', label: '世界観設計', desc: '舞台・設定を構築' },
-      ]
-    },
-    {
-      label: 'アプリ設定', icon: 'fa-gear', color: '#d8cec4',
-      items: [
-        { page: 'settings', icon: 'fa-gear', color: '#d8cec4', label: '設定', desc: 'アプリの設定' },
-      ]
-    }
+// カテゴリ切替スイッチバー（画面上部・モバイル専用）のHTMLを生成
+function renderCategorySwitchBarHtml(catKey, cp) {
+  const cat = CATEGORY_HUBS[catKey];
+  if (!cat) return '';
+  // learnページはサブページ（learn-articles等）でも同じ「学習センター」ピルをactiveにする
+  const normalizedCp = (catKey === 'learn' && cp !== 'learn-hub' && cp !== 'namedict' && cp !== 'worldbuilding' && cp !== 'settings') ? 'learn'
+    : (catKey === 'creative' && (cp && cp.startsWith('study-'))) ? 'study'
+    : cp;
+  return `
+  <nav class="cat-switch-bar" id="cat-switch-bar-${catKey}">
+    <div class="cat-switch-inner">
+      ${cat.items.map(it => `
+      <button class="cat-switch-pill ${normalizedCp === it.key ? 'active' : ''}" onclick="mobileNavGo('${it.key}')">
+        <i class="fas ${it.icon}"></i><span>${it.label}</span>
+      </button>`).join('')}
+    </div>
+  </nav>`;
+}
+
+// ================================================================
+//  モバイル専用「学ぶホーム」— ボトムナビ「学ぶ」から遷移する
+//  学習センター・名前辞典・世界観設計・設定のホーム画面。
+//  既存の .menu-hub-* / .cat-home-* CSSクラスを再利用（PC版は非表示）。
+// ================================================================
+function renderLearnHubPage() {
+  const proj = State.currentProjectId ? DB.getProject(State.currentProjectId) : null;
+  const readArticles = DB.get('read_articles', []);
+  const readCount = ARTICLES.filter(a => readArticles.includes(a.id)).length;
+  const articlePct = ARTICLES.length ? Math.round(readCount / ARTICLES.length * 100) : 0;
+  const names = DB.get('namedict', []);
+
+  const items = [
+    { page: 'learn', icon: 'fa-graduation-cap', color: '#c0b8ff', label: '学習センター', desc: '理論・記事・練習' },
+    { page: 'namedict', icon: 'fa-spell-check', color: '#90c8f8', label: '名前辞典', desc: '登場人物の名前管理' },
+    { page: 'worldbuilding', icon: 'fa-globe', color: '#6ddede', label: '世界観設計', desc: '舞台・設定を構築' },
+    { page: 'settings', icon: 'fa-gear', color: '#d8cec4', label: '設定', desc: 'アプリの設定' },
   ];
 
   return `
-  <div class="menu-hub-page">
+  <div class="cat-home-page">
+    <div class="cat-home-hero" style="background:linear-gradient(135deg,var(--fuji-bg),var(--bg-subtle));border-color:var(--fuji-border)">
+      <div class="cat-home-hero-icon" style="background:linear-gradient(135deg,var(--fuji),#a89ee0)"><i class="fas fa-book-open"></i></div>
+      <div>
+        <div class="cat-home-hero-title">学ぶホーム</div>
+        <div class="cat-home-hero-sub">理論を学び、名前・世界観を整理する — 執筆の土台を作るページ</div>
+      </div>
+    </div>
+
+    <div class="cat-home-stats-row">
+      <div class="cat-home-stat"><div class="cat-home-stat-num">${readCount}<span style="font-size:11px">/${ARTICLES.length}</span></div><div class="cat-home-stat-label">既読の記事</div></div>
+      <div class="cat-home-stat"><div class="cat-home-stat-num">${names.length}</div><div class="cat-home-stat-label">登録した名前</div></div>
+      <div class="cat-home-stat"><div class="cat-home-stat-num">${articlePct}%</div><div class="cat-home-stat-label">学習進捗</div></div>
+    </div>
+
     ${proj ? `
-    <div class="menu-hub-proj-card hub-clickable-card" onclick="navigate('proj-dash','${proj.id}')">
-      <div class="menu-hub-proj-icon"><i class="fas fa-film"></i></div>
-      <div class="menu-hub-proj-body">
-        <div class="menu-hub-proj-title">${esc(proj.title)}</div>
-        <div class="menu-hub-proj-phase">現在の作品 — ${esc(proj.phase)}</div>
+    <button class="cat-home-continue-card" onclick="navigate('worldbuilding','${proj.id}')">
+      <div class="cat-home-continue-icon" style="background:linear-gradient(135deg,var(--asagi),#7fd8d8)"><i class="fas fa-globe"></i></div>
+      <div class="cat-home-continue-body">
+        <div class="cat-home-continue-label">世界観設計を続ける</div>
+        <div class="cat-home-continue-title">${esc(proj.title)}</div>
       </div>
       <i class="fas fa-chevron-right" style="color:var(--text-muted)"></i>
-    </div>` : ''}
+    </button>` : ''}
 
-    ${groups.map(g => `
-    <div class="menu-hub-group">
-      <div class="menu-hub-group-label"><i class="fas ${g.icon}" style="color:${g.color}"></i> ${g.label}</div>
+    <div class="cat-home-section">
+      <div class="cat-home-section-label">各ページへ</div>
       <div class="menu-hub-grid">
-        ${g.items.map(it => `
+        ${items.map(it => `
         <button class="menu-hub-card hub-clickable-card" onclick="navigate('${it.page}')">
-          ${it.badge ? `<span class="menu-hub-card-badge">${it.badge}</span>` : ''}
           <div class="menu-hub-card-icon" style="color:${it.color}"><i class="fas ${it.icon}"></i></div>
           <div class="menu-hub-card-label">${it.label}</div>
           <div class="menu-hub-card-desc">${it.desc}</div>
         </button>`).join('')}
       </div>
-    </div>`).join('')}
-
-    <button class="btn btn-primary menu-hub-new-btn" onclick="openNewProjectModal()">
-      <i class="fas fa-plus"></i> 新規作品を作成
-    </button>
+    </div>
   </div>`;
 }
 
 // ================================================================
-//  モバイル専用「創作ハブ」— ボトムナビ「創作」から遷移する集約ページ。
-//  書斎・企画ラボ・ストーリーボード・学習センター・ツール・テンプレートなど
-//  「実際に書く・組み立てる」系のページをひとつのカテゴリにまとめ、
-//  以前は「メニュー」に埋もれていたこれらのページへワンタップで到達できるようにする。
-//  既存の .menu-hub-* CSSクラスをそのまま再利用（PC版はこのページに来ない設計）。
+//  モバイル専用「創作ホーム」— ボトムナビ「創作」から遷移する
+//  ダッシュボード・執筆日誌・書斎・企画ラボ・ボード・ツール・テンプレートの
+//  ホーム画面。既存の .menu-hub-* / .cat-home-* CSSクラスを再利用
+//  （PC版はこのページに来ない設計）。
 // ================================================================
 function renderCreativeHubPage() {
   const proj = State.currentProjectId ? DB.getProject(State.currentProjectId) : null;
+  const projects = DB.getProjects();
+  const activeProjects = [...projects]
+    .filter(p => p.phase !== '共有・出力')
+    .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''))
+    .slice(0, 3);
+  const today = new Date().toISOString().slice(0, 10);
+  const journals = DB.get('journal_entries', []);
+  const todayJournal = journals.find(j => j.date === today);
+  const todayWords = todayJournal ? (todayJournal.wordCount || 0) : 0;
+  const seeds = PlanLabDB.getSeeds();
+  const growingSeeds = seeds.filter(s => s.stage !== 'brief').length;
 
-  const groups = [
-    {
-      label: '書く', icon: 'fa-feather-pointed', color: '#e0a8ff',
-      items: [
-        { page: 'study', icon: 'fa-feather-pointed', color: '#e0a8ff', label: '書斎', desc: '自由執筆スペース' },
-        { page: 'planlab', icon: 'fa-seedling', color: '#8ed6a0', label: '企画ラボ', desc: '着想から企画書まで育てる' },
-        { page: 'board', icon: 'fa-film', color: '#bbb4ff', label: 'ストーリーボード', desc: 'カンバン・シーンマップ' },
-      ]
-    },
-    {
-      label: '学ぶ・支援ツール', icon: 'fa-toolbox', color: '#6ddede',
-      items: [
-        { page: 'learn', icon: 'fa-graduation-cap', color: '#c0b8ff', label: '学習センター', desc: '理論・記事・練習' },
-        { page: 'tools', icon: 'fa-toolbox', color: '#6ddede', label: 'ツール', desc: '執筆支援ツール集' },
-        { page: 'templates', icon: 'fa-copy', color: '#f7d07a', label: 'テンプレート', desc: 'すぐ使える書式' },
-      ]
-    }
+  const items = [
+    { page: 'dashboard', icon: 'fa-gauge-high', color: '#f5d9c8', label: 'ダッシュボード', desc: '作品一覧・管理' },
+    { page: 'journal', icon: 'fa-book', color: '#7de08a', label: '執筆日誌', desc: '毎日の記録' },
+    { page: 'study', icon: 'fa-feather-pointed', color: '#e0a8ff', label: '書斎', desc: '自由執筆スペース' },
+    { page: 'planlab', icon: 'fa-seedling', color: '#8ed6a0', label: '企画ラボ', desc: '着想から企画書まで育てる' },
+    { page: 'board', icon: 'fa-film', color: '#bbb4ff', label: 'ストーリーボード', desc: 'カンバン・シーンマップ' },
+    { page: 'tools', icon: 'fa-toolbox', color: '#6ddede', label: 'ツール', desc: '執筆支援ツール集' },
+    { page: 'templates', icon: 'fa-copy', color: '#f7d07a', label: 'テンプレート', desc: 'すぐ使える書式' },
   ];
 
   return `
-  <div class="menu-hub-page">
+  <div class="cat-home-page">
+    <div class="cat-home-hero">
+      <div class="cat-home-hero-icon"><i class="fas fa-feather-pointed"></i></div>
+      <div>
+        <div class="cat-home-hero-title">創作ホーム</div>
+        <div class="cat-home-hero-sub">書く・組み立てる・育てる — 執筆にまつわる全ページがここに</div>
+      </div>
+    </div>
+
+    <div class="cat-home-stats-row">
+      <div class="cat-home-stat"><div class="cat-home-stat-num">${activeProjects.length}</div><div class="cat-home-stat-label">進行中の作品</div></div>
+      <div class="cat-home-stat"><div class="cat-home-stat-num">${todayWords.toLocaleString()}<span style="font-size:11px">字</span></div><div class="cat-home-stat-label">今日の執筆</div></div>
+      <div class="cat-home-stat"><div class="cat-home-stat-num">${growingSeeds}</div><div class="cat-home-stat-label">育成中のタネ</div></div>
+    </div>
+
     ${proj ? `
-    <div class="menu-hub-proj-card hub-clickable-card" onclick="navigate('proj-dash','${proj.id}')">
-      <div class="menu-hub-proj-icon"><i class="fas fa-film"></i></div>
-      <div class="menu-hub-proj-body">
-        <div class="menu-hub-proj-title">${esc(proj.title)}</div>
-        <div class="menu-hub-proj-phase">現在の作品 — ${esc(proj.phase)}</div>
+    <button class="cat-home-continue-card" onclick="navigate('${(PHASES.find(ph=>ph.id===proj.phase)||{}).nav||'ideas'}','${proj.id}')">
+      <div class="cat-home-continue-icon"><i class="fas fa-play"></i></div>
+      <div class="cat-home-continue-body">
+        <div class="cat-home-continue-label">続きを書く</div>
+        <div class="cat-home-continue-title">${esc(proj.title)} — ${esc(proj.phase)}</div>
       </div>
       <i class="fas fa-chevron-right" style="color:var(--text-muted)"></i>
+    </button>` : ''}
+
+    ${activeProjects.length > 0 ? `
+    <div class="cat-home-section">
+      <div class="cat-home-section-label">最近の作品</div>
+      <div class="cat-home-recent-list">
+        ${activeProjects.map(p => `
+        <div class="cat-home-recent-row" onclick="navigate('proj-dash','${p.id}')">
+          <div class="cat-home-recent-dot" style="background:${(PHASE_COLORS_WA[p.phase]||{color:'#999'}).color}"></div>
+          <div class="cat-home-recent-info">
+            <div class="cat-home-recent-title">${esc(p.title)}</div>
+            <div class="cat-home-recent-phase">${esc(p.phase)}</div>
+          </div>
+          <i class="fas fa-chevron-right" style="font-size:10px;color:var(--text-muted)"></i>
+        </div>`).join('')}
+      </div>
     </div>` : ''}
 
-    ${groups.map(g => `
-    <div class="menu-hub-group">
-      <div class="menu-hub-group-label"><i class="fas ${g.icon}" style="color:${g.color}"></i> ${g.label}</div>
+    <div class="cat-home-section">
+      <div class="cat-home-section-label">各ページへ</div>
       <div class="menu-hub-grid">
-        ${g.items.map(it => `
+        ${items.map(it => `
         <button class="menu-hub-card hub-clickable-card" onclick="navigate('${it.page}')">
           <div class="menu-hub-card-icon" style="color:${it.color}"><i class="fas ${it.icon}"></i></div>
           <div class="menu-hub-card-label">${it.label}</div>
           <div class="menu-hub-card-desc">${it.desc}</div>
         </button>`).join('')}
       </div>
-    </div>`).join('')}
+    </div>
   </div>`;
 }
 

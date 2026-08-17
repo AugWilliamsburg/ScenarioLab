@@ -11749,6 +11749,143 @@ body.modal-open-lock {
 }
 
 /* ================================================================
+   カテゴリ切替スイッチバー（モバイル専用・画面上部固定）
+   「創作」「学ぶ」カテゴリに属するどのページを開いていても常時表示され、
+   セグメントコントロールのようにタップ一つで同カテゴリ内の他ページへ
+   即座に切り替えられる。phase-topbar（作品フェーズバー）と同じ
+   「横スクロール可能なピル列」パターンを踏襲しつつ、独自の配色にする。
+   ================================================================ */
+.cat-switch-bar {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+.cat-switch-bar::-webkit-scrollbar { display: none; }
+.cat-switch-inner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  min-width: max-content;
+}
+.cat-switch-pill {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  background: transparent;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all .14s;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.cat-switch-pill:active { transform: scale(0.95); }
+.cat-switch-pill.active {
+  border-color: var(--fuji);
+  color: var(--fuji);
+  background: var(--fuji-bg, rgba(150,130,220,0.1));
+  font-weight: 700;
+}
+@media (min-width: 901px) {
+  .cat-switch-bar { display: none; } /* PC版はサイドバーで導線を提供済みのため非表示 */
+}
+
+/* ================================================================
+   カテゴリホーム（創作ホーム／学ぶホーム）共通スタイル
+   ================================================================ */
+.cat-home-page { display: flex; flex-direction: column; gap: 16px; padding-bottom: 8px; }
+.cat-home-hero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: linear-gradient(135deg, var(--accent-bg, rgba(192,55,28,.08)), var(--bg-subtle));
+  border: 1.5px solid var(--accent-border, var(--border));
+  border-radius: var(--radius-lg);
+  padding: 16px 18px;
+}
+.cat-home-hero-icon {
+  width: 46px; height: 46px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--accent), var(--momo));
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-size: 19px;
+}
+.cat-home-hero-title {
+  font-size: 17px; font-weight: 800; color: var(--text-primary);
+  font-family: 'Noto Serif JP', serif;
+}
+.cat-home-hero-sub { font-size: 11.5px; color: var(--text-muted); margin-top: 3px; line-height: 1.5; }
+.cat-home-stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.cat-home-stat {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 8px;
+  text-align: center;
+}
+.cat-home-stat-num { font-size: 19px; font-weight: 800; color: var(--text-primary); line-height: 1.2; }
+.cat-home-stat-label { font-size: 10px; color: var(--text-muted); margin-top: 3px; }
+.cat-home-continue-card {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%;
+  background: var(--bg-card); border: 1.5px solid var(--fuji-border);
+  border-radius: var(--radius-md); padding: 14px 16px;
+  cursor: pointer; text-align: left; font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+.cat-home-continue-card:active { background: var(--bg-hover); transform: scale(0.98); }
+.cat-home-continue-icon {
+  width: 38px; height: 38px; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--accent), var(--momo));
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-size: 15px;
+}
+.cat-home-continue-body { flex: 1; min-width: 0; }
+.cat-home-continue-label { font-size: 10.5px; color: var(--text-muted); }
+.cat-home-continue-title {
+  font-size: 13.5px; font-weight: 700; color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  margin-top: 2px;
+}
+.cat-home-section-label {
+  font-size: 12px; font-weight: 700; color: var(--text-secondary);
+  margin-bottom: 10px; display: flex; align-items: center; gap: 7px;
+  letter-spacing: .02em;
+}
+.cat-home-recent-list { display: flex; flex-direction: column; gap: 6px; }
+.cat-home-recent-row {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: 10px 12px;
+  cursor: pointer;
+}
+.cat-home-recent-row:active { background: var(--bg-hover); }
+.cat-home-recent-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.cat-home-recent-info { flex: 1; min-width: 0; }
+.cat-home-recent-title {
+  font-size: 12.5px; font-weight: 700; color: var(--text-primary);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cat-home-recent-phase { font-size: 10.5px; color: var(--text-muted); margin-top: 1px; }
+@media (min-width: 901px) {
+  .cat-home-page { display: none; } /* PC版はこのページに来ない設計だが保険で非表示 */
+}
+
+/* ================================================================
    トップバー簡易化（モバイル専用）
    PC版の「ロゴ＋作品/ページ情報＋一覧/ダッシュボードボタン」という
    Webサイト的な情報量を、モバイルではアプリのタイトルバーのように
