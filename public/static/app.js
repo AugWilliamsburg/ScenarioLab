@@ -1360,7 +1360,7 @@ function render() {
   const p = State.currentPage;
 
   // 学習センター
-  if (p === 'learn' || p === 'learn-guide' || p === 'learn-articles' || p === 'learn-exercises' || p === 'learn-glossary' || p === 'learn-notes' || p === 'learn-staffroom' || (p && (p.startsWith('article-') || p.startsWith('exercise-') || p.startsWith('glossary-cat-') || p.startsWith('glossary-term-') || p.startsWith('articles-cat-')))) {
+  if (p === 'learn' || p === 'learn-guide' || p === 'learn-articles' || p === 'learn-exercises' || p === 'learn-glossary' || p === 'learn-notes' || p === 'learn-staffroom' || p === 'dojo-library' || (p && (p.startsWith('article-') || p.startsWith('exercise-') || p.startsWith('glossary-cat-') || p.startsWith('glossary-term-') || p.startsWith('articles-cat-')))) {
     app.innerHTML = renderLayout(renderLearnPage());
     return;
   }
@@ -1517,7 +1517,7 @@ function render() {
 // ── Layout Shell ───────────────────────────────────────────────
 function renderLayout(content, proj = null) {
   const cp = State.currentPage;
-  const isLearnPage = cp === 'learn' || cp === 'learn-guide' || cp === 'learn-articles' || cp === 'learn-exercises' || cp === 'learn-glossary' || cp === 'learn-notes' || cp === 'learn-staffroom' || (cp && (cp.startsWith('article-') || cp.startsWith('exercise-')));
+  const isLearnPage = cp === 'learn' || cp === 'learn-guide' || cp === 'learn-articles' || cp === 'learn-exercises' || cp === 'learn-glossary' || cp === 'learn-notes' || cp === 'learn-staffroom' || cp === 'dojo-library' || (cp && (cp.startsWith('article-') || cp.startsWith('exercise-')));
   const isToolsPage = cp === 'tools' || cp === 'tool-logline' || cp === 'tool-char-diag' || cp === 'tool-scene' || cp === 'tool-timer' || cp === 'tool-pitch' || cp === 'tool-tension' || cp === 'tool-name-gen' || cp === 'tool-structure' || cp === 'tool-emotion-arc' || cp === 'tool-world-notes' || cp === 'tool-dialogue-check' || cp === 'tool-plot-holes' || cp === 'tool-beat-counter';
   const isTemplatesPage = cp === 'templates' || (cp && cp.startsWith('template-'));
   const isStudyPage = cp === 'study' || (cp && cp.startsWith('study-'));
@@ -1559,6 +1559,7 @@ function renderLayout(content, proj = null) {
     learn:            { icon:'fa-book-open', color:'var(--fuji)',   title:'学習センター',       sub:'脚本執筆の理論・テクニックを学ぶ' },
     'learn-guide':    { icon:'fa-book-open', color:'var(--fuji)',   title:'学習センター',       sub:'ステップバイステップガイド' },
     'learn-articles': { icon:'fa-book-open', color:'var(--fuji)',   title:'学習センター',       sub:'構成理論・詳細記事' },
+    'dojo-library':   { icon:'fa-scroll',    color:'var(--fuji)',   title:'稽古ライブラリ',     sub:'道場の全提出履歴を横断検索・閲覧' },
     tools:            { icon:'fa-toolbox',   color:'var(--asagi)',  title:'ライターズツール',   sub:'執筆を助けるツール集' },
     'tool-logline':   { icon:'fa-quote-left',color:'var(--accent)', title:'ログラインメーカー', sub:'一文でプロの物語を設計' },
     'tool-char-diag': { icon:'fa-user-check',color:'var(--fuji)',   title:'キャラクター診断',   sub:'Want/Need・アーク設計' },
@@ -10407,6 +10408,11 @@ function renderLearnPage() {
     return renderExercisePage(exId);
   }
 
+  // 稽古ライブラリ（道場の全提出履歴を横断閲覧）
+  if (page === 'dojo-library') {
+    return renderDojoLibraryPage();
+  }
+
   // 用語辞典詳細ページ
   if (page && page.startsWith('glossary-term-')) {
     const termId = page.replace('glossary-term-', '');
@@ -12342,6 +12348,7 @@ function renderDojoGrowthDashboard() {
         ${overall.strongest ? `<div class="dojo-growth-stat-chip" style="color:${overall.strongest.color.color};border-color:${overall.strongest.color.border}"><i class="fas fa-medal"></i> 得意: ${esc(overall.strongest.category)}(${overall.strongest.avg}点)</div>` : ''}
         ${overall.weakest && overall.weakest.category !== overall.strongest?.category ? `<div class="dojo-growth-stat-chip"><i class="fas fa-seedling"></i> 伸びしろ: ${esc(overall.weakest.category)}(${overall.weakest.avg}点)</div>` : ''}
         ${growthBadge}
+        ${overall.totalSubmissions > 0 ? `<div class="dojo-growth-stat-chip" style="cursor:pointer;color:var(--fuji);border-color:var(--fuji-border);margin-left:auto" onclick="event.stopPropagation();navigate('dojo-library')"><i class="fas fa-book-open-reader"></i> 稽古ライブラリを見る <i class="fas fa-arrow-right" style="font-size:9px"></i></div>` : ''}
       </div>
       <div class="dojo-growth-section-title"><i class="fas fa-chart-line" style="font-size:11px"></i> 成長トレンド（直近の稽古スコア）</div>
       <div class="dojo-growth-chart-box">${renderDojoTrendChart(trend)}</div>
@@ -12507,6 +12514,9 @@ function renderLearnExercises(hero, subnav) {
     <button class="dojo-btn dojo-btn-custom" onclick="openAddCustomExercise()" title="自分だけの演習を作る">
       <i class="fas fa-user-pen" style="font-size:15px"></i> 自作演習
     </button>
+    <button class="dojo-btn dojo-btn-library" onclick="navigate('dojo-library')" title="これまでの全ての稽古を横断閲覧">
+      <i class="fas fa-scroll" style="font-size:15px"></i> 稽古ライブラリ
+    </button>
     ${pct>=100?`<span class="dojo-banner-trophy">🏆</span>`:''}
   </div>
   <div class="dojo-tip">
@@ -12553,7 +12563,10 @@ function renderExercisePage(exId) {
       <div style="font-size:13px;font-weight:700;color:var(--text-primary)">
         <i class="fas fa-scroll" style="color:var(--fuji);margin-right:7px"></i>稽古履歴ライブラリ（全${historyList.length}回分）
       </div>
-      ${historyList.length ? `<button class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--accent)" onclick="clearHistoryForExercise('${ex.id}')"><i class="fas fa-trash"></i> 全削除</button>` : ''}
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--fuji)" onclick="navigate('dojo-library')" title="道場全体の稽古ライブラリを見る"><i class="fas fa-book-open-reader"></i> 全体ライブラリへ</button>
+        ${historyList.length ? `<button class="btn btn-ghost btn-sm" style="font-size:11px;color:var(--accent)" onclick="clearHistoryForExercise('${ex.id}')"><i class="fas fa-trash"></i> 全削除</button>` : ''}
+      </div>
     </div>
     ${historyList.length === 0 ? `
     <div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12.5px">まだ提出履歴がありません。提出するたびにここに記録が積み重なります。</div>` : `
@@ -12813,6 +12826,196 @@ function renderExercisePage(exId) {
       </div>
     </div>
   </div>`;
+}
+
+// ================================================================
+// ── 道場 稽古ライブラリ（全提出履歴の横断集積・閲覧ページ） ────────────
+// ================================================================
+// 演習ごとにバラバラだった「稽古履歴（提出＋添削）」を、道場全体で横断的に
+// 検索・絞込・全文閲覧できる専用ページ。書いた文章そのものを資産として
+// ちゃんと集積・振り返れるようにするための機能。
+function renderDojoLibraryPage() {
+  const filter = DB.get('dojo_lib_filter', { category: '', difficulty: '', keyword: '', sort: 'newest' });
+  const allEntries = DojoLibraryDB.allEntries(); // 新しい順（提出日時降順）
+  const exercises = getAllExercises();
+  const allCategories = [...new Set(exercises.map(e => e.category))];
+  const allDifficulties = [...new Set(exercises.map(e => e.difficulty))];
+
+  let filtered = allEntries.filter(e => {
+    if (filter.category && e.category !== filter.category) return false;
+    if (filter.difficulty && e.difficulty !== filter.difficulty) return false;
+    if (filter.keyword) {
+      const kw = filter.keyword.toLowerCase();
+      const hay = `${e.exTitle} ${e.answer} ${e.feedback?.overallComment||''}`.toLowerCase();
+      if (!hay.includes(kw)) return false;
+    }
+    return true;
+  });
+
+  if (filter.sort === 'oldest') filtered = [...filtered].reverse();
+  else if (filter.sort === 'score-desc') filtered = [...filtered].sort((a,b) => (b.feedback?.score||0) - (a.feedback?.score||0));
+  else if (filter.sort === 'score-asc') filtered = [...filtered].sort((a,b) => (a.feedback?.score||0) - (b.feedback?.score||0));
+  // 'newest' はallEntries()が既に新しい順なのでそのまま
+
+  const overall = dojoOverallStats();
+  const totalChars = allEntries.reduce((s, e) => s + (e.answer?.length||0), 0);
+
+  const filterBar = `
+  <div class="dojo-lib-filter-bar">
+    <div class="dojo-lib-search-box">
+      <i class="fas fa-magnifying-glass" style="font-size:12px;color:var(--text-muted)"></i>
+      <input type="text" class="dojo-lib-search-input" placeholder="演習名・本文・添削コメントで検索…" value="${esc(filter.keyword)}" oninput="setDojoLibFilter('keyword', this.value)">
+    </div>
+    <select class="form-select" style="height:34px;font-size:12px;width:auto" onchange="setDojoLibFilter('category', this.value)">
+      <option value="">全カテゴリ</option>
+      ${allCategories.map(c => `<option value="${esc(c)}" ${filter.category===c?'selected':''}>${esc(c)}</option>`).join('')}
+    </select>
+    <select class="form-select" style="height:34px;font-size:12px;width:auto" onchange="setDojoLibFilter('difficulty', this.value)">
+      <option value="">全難易度</option>
+      ${allDifficulties.map(d => `<option value="${esc(d)}" ${filter.difficulty===d?'selected':''}>${esc(d)}</option>`).join('')}
+    </select>
+    <select class="form-select" style="height:34px;font-size:12px;width:auto" onchange="setDojoLibFilter('sort', this.value)">
+      <option value="newest" ${filter.sort==='newest'?'selected':''}>新しい順</option>
+      <option value="oldest" ${filter.sort==='oldest'?'selected':''}>古い順</option>
+      <option value="score-desc" ${filter.sort==='score-desc'?'selected':''}>高得点順</option>
+      <option value="score-asc" ${filter.sort==='score-asc'?'selected':''}>低得点順</option>
+    </select>
+    ${(filter.category||filter.difficulty||filter.keyword||filter.sort!=='newest') ? `<button class="btn btn-ghost btn-sm" onclick="clearDojoLibFilter()"><i class="fas fa-rotate-left"></i></button>` : ''}
+  </div>`;
+
+  const cardsHtml = filtered.map(e => {
+    const c = COLOR_MAP[e.color] || COLOR_MAP['beni'];
+    const dt = new Date(e.submittedAt);
+    const dtStr = `${dt.getFullYear()}/${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+    const preview = esc(e.answer.slice(0, 90)).replace(/\n/g, ' ') + (e.answer.length > 90 ? '…' : '');
+    const isBest = e.feedback?.score === DojoLibraryDB.bestScore(e.exId);
+    return `
+    <div class="dojo-lib-card" onclick="openDojoLibEntry('${e.exId}','${e.id}')">
+      <div class="dojo-lib-card-score" style="border-color:${e.feedback?.scoreColor||'var(--text-muted)'};color:${e.feedback?.scoreColor||'var(--text-muted)'}">${e.feedback?.score ?? '?'}</div>
+      <div class="dojo-lib-card-body">
+        <div class="dojo-lib-card-head">
+          <span class="dojo-pill" style="background:${c.bg};color:${c.color};border:1px solid ${c.border};font-weight:600">${esc(e.category)}</span>
+          <span class="dojo-pill" style="background:var(--bg-subtle);color:var(--text-muted);border:1px solid var(--border)">${esc(e.difficulty)}</span>
+          ${isBest ? `<span class="dojo-history-crown"><i class="fas fa-crown" style="font-size:8px"></i> 自己ベスト</span>` : ''}
+          <span style="margin-left:auto;font-size:10.5px;color:var(--text-muted)">${dtStr}</span>
+        </div>
+        <div class="dojo-lib-card-title"><i class="fas ${e.icon||'fa-fist-raised'}" style="color:${c.color};margin-right:6px;font-size:12px"></i>${esc(e.exTitle)} <span style="font-weight:500;color:var(--text-muted);font-size:11px">第${e.submissionNo||'?'}稽古</span></div>
+        <div class="dojo-lib-card-preview">${preview}</div>
+        <div class="dojo-lib-card-meta"><i class="fas fa-file-lines" style="font-size:10px;margin-right:3px"></i>${e.answer.length}字</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="article-page">
+    <div class="article-back-btn" onclick="navigate('learn-exercises')"><i class="fas fa-arrow-left"></i> 道場に戻る</div>
+
+    <div class="dojo-page-header" style="background:linear-gradient(135deg,var(--fuji-bg),var(--bg-subtle));border-color:var(--fuji-border)">
+      <div class="dojo-page-header-icon-bg" style="color:var(--fuji)"><i class="fas fa-scroll"></i></div>
+      <div class="dojo-page-header-bar" style="background:var(--fuji)"></div>
+      <div class="dojo-page-header-title"><i class="fas fa-scroll" style="color:var(--fuji);margin-right:8px"></i>稽古ライブラリ</div>
+      <div class="dojo-page-header-overview">これまでの全ての稽古（解答＋添削結果）を横断的に検索・閲覧できます。書いた文章はすべてここに集積され、いつでも読み返せます。</div>
+      <div class="dojo-page-header-meta">
+        <span><i class="fas fa-scroll" style="margin-right:4px"></i>総稽古数 ${overall.totalSubmissions}回</span>
+        <span><i class="fas fa-star" style="margin-right:4px"></i>平均${overall.avgScore}点</span>
+        <span><i class="fas fa-pen-nib" style="margin-right:4px"></i>累計執筆 ${totalChars.toLocaleString()}字</span>
+      </div>
+    </div>
+
+    ${overall.totalSubmissions === 0 ? `
+    <div style="text-align:center;padding:60px 20px;color:var(--text-muted)">
+      <i class="fas fa-scroll" style="font-size:36px;opacity:.3;margin-bottom:14px;display:block"></i>
+      まだ稽古の記録がありません。<br>道場で演習に取り組むと、ここに提出した文章と添削結果が積み重なっていきます。
+      <div style="margin-top:16px"><button class="btn btn-primary btn-sm" onclick="navigate('learn-exercises')"><i class="fas fa-fist-raised"></i> 道場へ行く</button></div>
+    </div>` : `
+    ${filterBar}
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">${filtered.length}件（全${allEntries.length}件）</div>
+    <div class="dojo-lib-list">${cardsHtml || '<div style="text-align:center;padding:40px;color:var(--text-muted)">条件に合う稽古記録が見つかりません</div>'}</div>
+    `}
+  </div>`;
+}
+
+function setDojoLibFilter(key, val) {
+  const f = DB.get('dojo_lib_filter', { category:'', difficulty:'', keyword:'', sort:'newest' });
+  f[key] = val;
+  DB.set('dojo_lib_filter', f);
+  render();
+  // 検索入力の場合はフォーカスを再度当てる（renderで一度DOMが作り直されるため）
+  if (key === 'keyword') {
+    setTimeout(() => {
+      const el = document.querySelector('.dojo-lib-search-input');
+      if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+    }, 0);
+  }
+}
+function clearDojoLibFilter() {
+  DB.set('dojo_lib_filter', { category:'', difficulty:'', keyword:'', sort:'newest' });
+  render();
+}
+
+// 稽古ライブラリの1件をモーダルで全文表示（解答全文＋添削全項目）
+function openDojoLibEntry(exId, subId) {
+  const entry = DojoLibraryDB.get(exId, subId);
+  if (!entry) { toast('この提出が見つかりません（削除された可能性があります）', 'error'); return; }
+  const exercises = getAllExercises();
+  const ex = exercises.find(e => e.id === exId);
+  const c = COLOR_MAP[entry.color] || COLOR_MAP['beni'];
+  const dt = new Date(entry.submittedAt);
+  const dtStr = `${dt.getFullYear()}年${dt.getMonth()+1}月${dt.getDate()}日 ${String(dt.getHours()).padStart(2,'0')}:${String(dt.getMinutes()).padStart(2,'0')}`;
+  const fb = entry.feedback;
+
+  const rubricHtml = fb?.rubricFeedback?.map((rf, i) => `
+    <div style="display:flex;align-items:flex-start;gap:8px;padding:7px 0;border-bottom:1px solid var(--border-subtle,var(--border))">
+      <i class="fas ${rf.pass?'fa-circle-check':'fa-circle-exclamation'}" style="color:${rf.pass?'var(--matcha)':'var(--accent)'};font-size:12px;margin-top:2px;flex-shrink:0"></i>
+      <div style="flex:1;font-size:12px;color:var(--text-secondary)">${rf.comment}</div>
+      <div style="font-size:10.5px;color:var(--text-muted);flex-shrink:0">${ex?.rubric?.[i]?.weight||0}点中${rf.earnedPoints}点</div>
+    </div>`).join('') || '';
+
+  openModal(
+    `<i class="fas fa-scroll" style="color:${c.color}"></i> ${esc(entry.exTitle)} — 第${entry.submissionNo||'?'}稽古`,
+    `<div style="max-height:64vh;overflow-y:auto">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+        <span class="dojo-pill" style="background:${c.bg};color:${c.color};border:1px solid ${c.border};font-weight:600">${esc(entry.category)}</span>
+        <span class="dojo-pill" style="background:var(--bg-subtle);color:var(--text-muted);border:1px solid var(--border)">${esc(entry.difficulty)}</span>
+        <span style="font-size:11.5px;color:var(--text-muted)"><i class="fas fa-clock" style="margin-right:3px"></i>${dtStr}</span>
+      </div>
+      ${fb ? `
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;padding:12px 14px;background:var(--bg-subtle);border-radius:var(--radius-md)">
+        <div style="width:52px;height:52px;border-radius:50%;border:3px solid ${fb.scoreColor};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
+          <div style="font-size:18px;font-weight:800;color:${fb.scoreColor};line-height:1">${fb.score}</div>
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:${fb.scoreColor}">${esc(fb.grade)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${entry.answer.length}字の解答</div>
+        </div>
+      </div>` : ''}
+      <div style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:6px"><i class="fas fa-pencil" style="color:var(--matcha);margin-right:5px"></i>提出した解答</div>
+        <div style="white-space:pre-line;font-size:13px;line-height:1.9;color:var(--text-secondary);background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);padding:14px">${esc(entry.answer)}</div>
+      </div>
+      ${fb ? `
+      <div style="margin-bottom:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:6px"><i class="fas fa-list-check" style="color:${c.color};margin-right:5px"></i>採点基準別評価</div>
+        ${rubricHtml}
+      </div>
+      <div style="margin-bottom:4px">
+        <div style="font-size:12px;font-weight:700;color:var(--text-primary);margin-bottom:6px"><i class="fas fa-comment-dots" style="color:var(--kogane);margin-right:5px"></i>総合コメント</div>
+        <div style="font-size:12.5px;color:var(--text-secondary);line-height:1.8;background:var(--kogane-bg,var(--bg-subtle));border-radius:var(--radius-md);padding:12px 14px">${esc(fb.overallComment)}</div>
+      </div>` : ''}
+    </div>`,
+    `<button class="btn btn-ghost btn-sm" onclick="closeModal();navigate('exercise-${exId}')"><i class="fas fa-arrow-up-right-from-square"></i> この演習を開く</button>
+     <button class="btn btn-ghost btn-sm" style="color:var(--accent)" onclick="doDeleteHistorySubmissionFromLib('${exId}','${subId}')"><i class="fas fa-trash"></i> この記録を削除</button>
+     <button class="btn btn-primary btn-sm" onclick="closeModal()">閉じる</button>`
+  );
+}
+
+// 稽古ライブラリのモーダルから直接削除（ライブラリ一覧の再描画付き）
+function doDeleteHistorySubmissionFromLib(exId, subId) {
+  if (!confirm('この提出（解答＋添削結果）を削除します。元に戻せません。よろしいですか？')) return;
+  DojoLibraryDB.delete(exId, subId);
+  closeModal();
+  toast('提出履歴を削除しました', 'info');
+  render();
 }
 
 // ── 道場 自動保存 ─────────────────────────────────────────────
@@ -41014,6 +41217,7 @@ function init() {
   if (typeof window.__loaderDone === 'function') {
     setTimeout(window.__loaderDone, 100);
   }
+
 }
 
 // ── Global event bindings ──────────────────────────────────────

@@ -10705,6 +10705,8 @@ body.modal-open-lock {
 .dojo-btn-dice:hover { box-shadow: 0 4px 14px rgba(192,57,43,0.55); }
 .dojo-btn-custom { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.22); color: #e9dcca; }
 .dojo-btn-custom:hover { background: rgba(255,255,255,0.15); }
+.dojo-btn-library { background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.22); color: #e9dcca; }
+.dojo-btn-library:hover { background: rgba(255,255,255,0.15); }
 .dojo-banner-trophy { position: relative; z-index: 1; font-size: 20px; filter: drop-shadow(0 1px 3px rgba(0,0,0,.3)); }
 
 /* ── 道場 案内バナー ── */
@@ -10881,6 +10883,43 @@ body.modal-open-lock {
 }
 .dojo-history-meta { font-size: 10.5px; color: var(--text-muted); margin-top: 2px; }
 .dojo-history-actions { display: flex; gap: 5px; flex-shrink: 0; }
+
+/* ── 稽古ライブラリページ（全提出履歴の横断集積・閲覧） ── */
+.dojo-lib-filter-bar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.dojo-lib-search-box {
+  display: flex; align-items: center; gap: 8px; flex: 1; min-width: 200px;
+  height: 34px; padding: 0 12px; background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.dojo-lib-search-input {
+  flex: 1; border: none; background: transparent; outline: none;
+  font-size: 12.5px; color: var(--text-primary); font-family: inherit;
+}
+.dojo-lib-search-input::placeholder { color: var(--text-muted); }
+.dojo-lib-list { display: flex; flex-direction: column; gap: 10px; }
+.dojo-lib-card {
+  display: flex; gap: 12px; padding: 14px 16px; background: var(--bg-card);
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  cursor: pointer; transition: transform .12s, box-shadow .12s, border-color .12s;
+}
+.dojo-lib-card:hover { transform: translateY(-1px); box-shadow: 0 3px 12px rgba(0,0,0,.06); border-color: var(--fuji-border); }
+.dojo-lib-card-score {
+  width: 44px; height: 44px; border-radius: 50%; border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 800; flex-shrink: 0;
+}
+.dojo-lib-card-body { flex: 1; min-width: 0; }
+.dojo-lib-card-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.dojo-lib-card-title { font-size: 13.5px; font-weight: 700; color: var(--text-primary); margin-bottom: 5px; }
+.dojo-lib-card-preview {
+  font-size: 12px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 6px;
+  overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.dojo-lib-card-meta { font-size: 10.5px; color: var(--text-muted); }
+@media (max-width: 900px) {
+  .dojo-lib-filter-bar { flex-direction: column; align-items: stretch; }
+  .dojo-lib-filter-bar select { width: 100% !important; }
+}
 
 /* ── 添削結果パネル ── */
 .dojo-feedback-panel { margin-top: 20px; border-radius: var(--radius-md); }
